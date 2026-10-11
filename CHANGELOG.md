@@ -15,6 +15,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 
 ### Added
 
+- `fmi` extra (`fmpy`, `pythonfmu`) and a test that builds an FMI 2.0 Co-Simulation FMU and simulates it through
+  `simulate_fmu` / `fmu_to_upd` (matches the exact damped-oscillator solution to 1e-5).
+
 - Physics audit (`pinneapple_physics.physics_audit`, `pp.physics_audit`): which model to use, when to trust it and
   when its physical formulation must be revisited. Assumption auditor (catalogue of common assumptions with soft
   validity ranges on dimensionless numbers, training envelopes with nearest-neighbour distance, `UNKNOWN` instead of a
@@ -347,6 +350,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `to_physics_case` and `from_problem_design`/`to_problem_design` cover the other two (#27).
 
 ### Fixed
+
+- `simulate_fmu` failed on every FMU when no parameters were given (`start_values=None` passed to fmpy).
 - `sample_uniform_box` only accepted 3-D boxes, so `CollocationSampler(strategy="uniform")` failed in 1-D and 2-D;
   it now samples boxes of any dimension.
 - Registry: two model or problem versions saved within the same second got the same version name and the second
