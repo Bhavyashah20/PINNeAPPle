@@ -47,6 +47,15 @@ far more. The pictures still show the explicit slab. A run of tens of picosecond
 contacts. It is a visualisation demonstration, not an equilibrated adsorption study. The OpenMM bridge with verified
 equilibration is issue #460; explicit slabs, restraints and orientation sampling are issue #461.
 
+Result of the run in the picture: 12 ps of dynamics on 4 CPU cores (about 20 minutes).
+
+- Temperature settles at 300 K within 4 ps. The early dip comes from the constrained degrees of freedom absorbing
+  the initial velocities.
+- The backbone RMSD rises to 1.9 Å.
+- The number of atoms within 3.5 Å of the gold grows from 1 to 48 while the centre of mass barely moves: side
+  chains reach down to the surface.
+- [MP4 of the trajectory](../assets/molecular/trajectory.mp4), with a slow orbit and a time label.
+
 ![MD dashboard](../assets/molecular/md_dashboard.png)
 
 Tests: `tests/test_molecular_viz.py`. They check PDB reading, slab geometry (nearest-neighbour distance a/√2 and layer

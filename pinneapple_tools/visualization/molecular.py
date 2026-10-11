@@ -409,6 +409,7 @@ def md_dashboard(path: str, t_ps: Sequence[float], *, potential: Sequence[float]
     fig, axs = plt.subplots(len(panels), 1, figsize=(8, 1.9 * len(panels) + 0.6), sharex=True, squeeze=False)
     for ax, (y, lab, col) in zip(axs[:, 0], panels, strict=True):
         ax.plot(t_ps, y, color=col, lw=1.6)
+        ax.ticklabel_format(axis="y", useOffset=False, style="plain")
         ax.set_ylabel(lab, fontsize=8)
         ax.grid(alpha=0.25)
         if lab.startswith("temperature") and target_temperature:

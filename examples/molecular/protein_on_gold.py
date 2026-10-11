@@ -137,6 +137,8 @@ def main():
     render(mol, os.path.join(args.out, "still_spheres.png"), xyz=frames[-1], slab=slab,
            title=f"Carbonic anhydrase II on Au(111) - {args.ps:.0f} ps")
     render(mol, os.path.join(args.out, "still_backbone.png"), xyz=frames[-1], slab=slab, style="cartoon")
+    np.savez(os.path.join(args.out, "md_series.npz"), t_ps=t, potential=epot, temperature=temp, rmsd_A=r,
+             height_A=h, contacts=c)
     md_dashboard(os.path.join(args.out, "md_dashboard.png"), t, potential=epot, temperature=temp, rmsd_A=r,
                  height_A=h, contacts_n=c, target_temperature=300, title="Protein on Au(111), GBn2 implicit solvent")
     pngs = render_frames(mol, frames, os.path.join(args.out, "frames"), slab=slab, orbit_deg=60.0,
