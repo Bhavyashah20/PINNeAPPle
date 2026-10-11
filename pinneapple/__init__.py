@@ -565,6 +565,34 @@ _SUBMODULES = {
     "decision":   "pinneapple_decision",
     # one error-metric convention for the whole library
     "metrics":    "pinneapple_physics.metrics",
+    # 3D studio: any geometry and its fields -> glTF/USD/STL, Blender renders, browser viewer
+    "viz":        "pinneapple_tools.visualization.studio",
+    # external flow around any body in OpenFOAM (STL -> mesh -> forces, skin fields, streamlines, slices)
+    "cfd":        "pinneapple_simulation.numerical_solvers.external_flow",
+    # CalculiX studies: gmsh or hexahedral meshes, sets by geometry, static / modal / buckling / heat, results
+    "fea":        "pinneapple_simulation.external_solvers.calculix.study",
+    # CAE files: OpenFOAM, CalculiX/Abaqus, Gmsh, VTK readers, mesh quality, comparison, neutral dataset
+    "cae":        "pinneapple_data.cae",
+    # closed bodies for flow studies (Ahmed body, sphere, cylinder, box)
+    "bodies":     "pinneapple_design.geometry.bodies",
+    # data and process security: manifests, signatures, provenance, audit trail, privacy/DP, model scanning
+    "security":   "pinneapple_security",
+    # verification layer of Veriphysics: Decision Record, evidence report, applicability map, robustness, recommendation
+    "veriphysics": "pinneapple_veriphysics",
+    # Earth-system blocks: shallow water on the sphere (Williamson cases), Richards equation, two-layer climate EBM
+    "geophysics": "pinneapple_simulation.geophysics",
+    # adaptive ensembles of physics models (FNO, PINN, GNN, solvers): online selection / combination
+    "ensemble":   "pinneapple_physics.ensemble",
+    # physics audit: assumptions, validity monitor, physics-aware routing, failure attribution, knowledge graph
+    "physics_audit": "pinneapple_physics.physics_audit",
+    # PT-symmetric dimers and chains, exceptional points, EP-tuning no-go check
+    "non_hermitian": "pinneapple_physics.non_hermitian",
+    # molecular visualisation: proteins on metal surfaces, stills, MP4 trajectories, MD dashboards, glTF
+    "molecular":  "pinneapple_tools.visualization.molecular",
+    # qualitative preview: physical impact of geometry / part changes before the quantitative analysis
+    "qualitative": "pinneapple_design.qualitative",
+    # data assimilation: 4D-Var through autograd, Lorenz-96/63
+    "assimilation": "pinneapple_analysis.data_assimilation",
     # Field, Mesh, Domain, Geometry primitives
     "core":       "pinneapple_core",
     "loss":       "pinneapple_core.loss",

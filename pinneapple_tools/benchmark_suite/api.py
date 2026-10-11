@@ -190,11 +190,10 @@ def _build_model(
 
         # DeepONet
         if "deeponet" in name_lc or "onet" in name_lc:
-            try:
-                from pinneapple_neural.architectures.neural_operators.deeponet import DeepONet
-                return DeepONet(branch_in=in_dim, trunk_in=in_dim, out_dim=out_dim)
-            except Exception:
-                pass
+            # a DeepONet takes (input function, query points); this pointwise benchmark calls model(x), so it
+            # cannot host one: say so instead of returning an MLP under the DeepONet name
+            raise ValueError("DeepONet needs (u, coords) inputs; use pinneapple_neural.architectures."
+                             "neural_operators.DeepONet with an operator dataset, not the pointwise benchmark API")
 
     # Generic MLP fallback
     act_map = {"tanh": nn.Tanh, "relu": nn.ReLU, "silu": nn.SiLU, "gelu": nn.GELU}
@@ -352,19 +351,9 @@ def _compute_metrics(
         if not isinstance(pred, torch.Tensor):
             return metrics
 
-        diff = pred - y_data
-        mse  = float(diff.pow(2).mean().item())
-        rmse = float(mse**0.5)
-        ss_res = float(diff.pow(2).sum().item())
-        ss_tot = float((y_data - y_data.mean()).pow(2).sum().item())
-        r2 = 1.0 - ss_res / (ss_tot + 1e-10)
-        rel_l2 = float((diff.pow(2).sum() / (y_data.pow(2).sum() + 1e-10)).sqrt().item())
-        max_err = float(diff.abs().max().item())
-
-    metrics = {
-        "mse": mse, "rmse": rmse, "rel_l2": rel_l2, "r2": r2, "max_error": max_err
-    }
-    return metrics
+        from pinneapple_physics import metrics as pm      # one definition of every error metric (pp.metrics)
+        m = pm.pooled(pred, y_data)
+    return {"mse": m["mse"], "rmse": m["rmse"], "rel_l2": m["relative_l2"], "r2": m["r2"], "max_error": m["max_abs"]}
 
 
 # ══════════════════════════════════════════════════════════════════════════════

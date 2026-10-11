@@ -61,7 +61,7 @@ def simulate_fmu(
         stop_time=config.stop_time,
         step_size=config.step_size,
         output_interval=config.output_interval,
-        start_values=config.parameters or None,
+        start_values=dict(config.parameters),
         output=config.output_variables,
         validate=False,
     )

@@ -1,5 +1,5 @@
 // PINNeAPPle Twin3D viewer: loads scene.json + geometry.glb + fields.bin written by
-// pinneapple_twin3d.Scene.export(). Static files only; three.js from jsdelivr.
+// pinneapple_twin3d.Scene.export(). Static files only; three.js is copied next to it (vendor/, the library's copy).
 //
 // URL parameters:
 //   ?scene=path/to/scene.json   (default: ./scene.json)
@@ -7,6 +7,11 @@
 //                               or a list of them; alarm when outside the sensor envelope.
 //   &step=N | &step=last        open at a given time step
 //   &field=name                 open showing a given field
+//   &cmap=turbo|viridis|coolwarm|inferno   colormap
+//   &view=x,y,z                 camera direction from the scene centre (default 0.6,0.45,0.66)
+//   &zoom=1.0                   camera distance factor (< 1 closer)
+//   &theme=dark|light           colour theme
+//   &range=min,max              fixed colour range
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -28,6 +33,7 @@ const VIRIDIS = [[0.267, 0.005, 0.329], [0.283, 0.141, 0.458], [0.254, 0.265, 0.
   [0.164, 0.471, 0.558], [0.128, 0.567, 0.551], [0.135, 0.659, 0.518], [0.267, 0.749, 0.441],
   [0.478, 0.821, 0.318], [0.741, 0.873, 0.150], [0.993, 0.906, 0.144]];
 const COOLWARM = [[0.230, 0.299, 0.754], [0.552, 0.690, 0.996], [0.865, 0.865, 0.865], [0.958, 0.604, 0.482], [0.706, 0.016, 0.150]];
+const INFERNO = [[0.001, 0.000, 0.014], [0.087, 0.045, 0.225], [0.258, 0.039, 0.406], [0.416, 0.090, 0.433], [0.578, 0.148, 0.404], [0.736, 0.216, 0.330], [0.865, 0.317, 0.226], [0.955, 0.469, 0.100], [0.988, 0.645, 0.040], [0.964, 0.844, 0.273], [0.988, 0.998, 0.645]];
 function lut(table) {
   return (t) => {
     t = clamp01(t) * (table.length - 1);
@@ -35,7 +41,7 @@ function lut(table) {
     return [0, 1, 2].map((k) => table[i][k] * (1 - f) + table[i + 1][k] * f);
   };
 }
-const CMAPS = { turbo, viridis: lut(VIRIDIS), coolwarm: lut(COOLWARM) };
+const CMAPS = { turbo, viridis: lut(VIRIDIS), coolwarm: lut(COOLWARM), inferno: lut(INFERNO) };
 
 // ── state ──────────────────────────────────────────────────────────────
 const state = { manifest: null, fields: null, parts: new Map(), sensors: [], step: 0, playing: null,
@@ -77,13 +83,13 @@ function showError(msg) {
 // ── loading ────────────────────────────────────────────────────────────
 async function load() {
   const res = await fetch(sceneUrl);
-  if (!res.ok) throw new Error(`Não foi possível abrir ${sceneUrl} (HTTP ${res.status}).`);
+  if (!res.ok) throw new Error(`Could not open ${sceneUrl} (HTTP ${res.status}).`);
   const m = await res.json();
-  if (m.format !== "pinneapple-twin3d/1") throw new Error(`Formato desconhecido: ${m.format}`);
+  if (m.format !== "pinneapple-twin3d/1") throw new Error(`Unknown format: ${m.format}`);
   state.manifest = m;
   $("title").textContent = m.title;
   const nTri = m.parts.reduce((a, p) => a + p.triangles, 0);
-  $("meta").textContent = `${m.parts.length} peças · ${nTri.toLocaleString("pt-BR")} triângulos · unidade ${m.length_unit}` +
+  $("meta").textContent = `${m.parts.length} parts · ${nTri.toLocaleString()} triangles · unit ${m.length_unit}` +
     (m.source ? ` · fonte: ${m.source}` : "");
 
   const base = new URL(".", sceneUrl);
@@ -128,7 +134,7 @@ const fmt = (v) => (Math.abs(v) >= 1e4 || (Math.abs(v) < 1e-3 && v !== 0)) ? v.t
 function buildUi() {
   const m = state.manifest;
   const sel = $("field");
-  sel.innerHTML = `<option value="">(sem campo — cor da peça)</option>` +
+  sel.innerHTML = `<option value="">(no field: part colour)</option>` +
     fieldNames().map((n) => `<option value="${n}">${n}${fieldUnit(n) ? ` [${fieldUnit(n)}]` : ""}</option>`).join("");
   state.field = fieldNames()[0] || "";
   sel.value = state.field;
@@ -141,7 +147,7 @@ function buildUi() {
   // parts, grouped
   const groups = new Map();
   for (const [name, p] of state.parts) {
-    const g = p.meta.group || "Peças";
+    const g = p.meta.group || "Parts";
     if (!groups.has(g)) groups.set(g, []);
     groups.get(g).push(name);
   }
@@ -152,7 +158,7 @@ function buildUi() {
     for (const name of names) {
       const row = document.createElement("label");
       row.className = "row part-actions";
-      row.innerHTML = `<input type="checkbox" checked><span></span><button title="Mostrar só esta">isolar</button>`;
+      row.innerHTML = `<input type="checkbox" checked><span></span><button title="Show only this part">isolate</button>`;
       row.querySelector("span").textContent = name;
       const cb = row.querySelector("input");
       cb.onchange = () => { state.parts.get(name).mesh.visible = cb.checked; };
@@ -179,6 +185,13 @@ function buildUi() {
     state.step = s0 === "last" ? nt - 1 : Math.min(Math.max(parseInt(s0, 10) || 0, 0), nt - 1);
     $("time").value = state.step;
   }
+  const r0 = params.get("range");             // fixed colour range "min,max"
+  if (r0) {
+    const [lo0, hi0] = r0.split(",").map(Number);
+    $("autorange").checked = false; $("vmin").value = lo0; $("vmax").value = hi0;
+  }
+  const c0 = params.get("cmap");
+  if (c0 && CMAPS[c0]) { state.cmap = c0; $("cmap").value = c0; }
   const f0 = params.get("field");
   if (f0 && fieldNames().includes(f0)) { state.field = f0; sel.value = f0; syncRangeInputs(); }
   $("play").onclick = () => {
@@ -203,7 +216,7 @@ function buildUi() {
   // sensors
   const diag = new THREE.Vector3(...hi).sub(new THREE.Vector3(...lo)).length();
   const geo = new THREE.SphereGeometry(diag * 0.008, 16, 12);
-  $("sensors").innerHTML = m.sensors.length ? "" : `<span class="meta">nenhum sensor</span>`;
+  $("sensors").innerHTML = m.sensors.length ? "" : `<span class="meta">no sensors</span>`;
   for (const s of m.sensors) {
     const mat = new THREE.MeshBasicMaterial({ color: 0x1f9d55 });
     const ball = new THREE.Mesh(geo, mat);
@@ -240,7 +253,9 @@ function fitCamera() {
   const c = new THREE.Vector3(...lo).add(new THREE.Vector3(...hi)).multiplyScalar(0.5);
   const r = Math.max(new THREE.Vector3(...hi).sub(new THREE.Vector3(...lo)).length() / 2, 1e-6);
   const dist = r / Math.sin((camera.fov * Math.PI) / 360);
-  camera.position.copy(c).add(new THREE.Vector3(0.6, 0.45, 0.66).normalize().multiplyScalar(dist));
+  const view = (params.get("view") || "0.6,0.45,0.66").split(",").map(Number);
+  const zoom = +(params.get("zoom") || 1);
+  camera.position.copy(c).add(new THREE.Vector3(...view).normalize().multiplyScalar(dist * zoom));
   camera.near = dist / 1000; camera.far = dist * 100; camera.updateProjectionMatrix();
   controls.target.copy(c); controls.update();
   sun.position.copy(camera.position);
@@ -278,7 +293,7 @@ function update() {
     if (!mat.vertexColors) { mat.vertexColors = true; mat.color.set(0xffffff); mat.needsUpdate = true; }
   }
   const t = m.times.length ? m.times[state.step] : null;
-  $("timeLabel").textContent = t === null ? "regime permanente" : `t = ${fmt(t)} ${m.time_unit} (${state.step + 1}/${m.times.length})`;
+  $("timeLabel").textContent = t === null ? "steady state" : `t = ${fmt(t)} ${m.time_unit} (${state.step + 1}/${m.times.length})`;
   updateSensors();
   updateLegend();
 }
@@ -310,7 +325,7 @@ function updateSensors() {
     const txt = v === null ? "—" : `${fmt(v)} ${s.meta.unit}`;
     s.row.classList.toggle("alarm", !!alarm);
     s.row.children[2].textContent = txt;
-    s.row.title = env ? `Envelope válido: ${env[0]} … ${env[1]} ${s.meta.unit}` : "";
+    s.row.title = env ? `Valid envelope: ${env[0]} … ${env[1]} ${s.meta.unit}` : "";
     s.tag.textContent = `${s.meta.label}: ${txt}`;
     s.tag.classList.toggle("alarm", !!alarm);
     s.ball.material.color.set(alarm ? 0xd6453d : 0x1f9d55);
@@ -321,10 +336,10 @@ function connectLive() {
   const url = params.get("live");
   if (!url) return;
   const ws = new WebSocket(url);
-  $("live").textContent = "ao vivo: conectando…";
-  ws.onopen = () => { $("live").textContent = "ao vivo: conectado"; };
-  ws.onclose = () => { $("live").textContent = "ao vivo: desconectado"; };
-  ws.onerror = () => { $("live").textContent = "ao vivo: erro de conexão"; };
+  $("live").textContent = "live: connecting…";
+  ws.onopen = () => { $("live").textContent = "live: connected"; };
+  ws.onclose = () => { $("live").textContent = "live: disconnected"; };
+  ws.onerror = () => { $("live").textContent = "live: connection error"; };
   ws.onmessage = (ev) => {
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
@@ -389,7 +404,8 @@ function frame() {
   requestAnimationFrame(frame);
 }
 
+if (params.get("theme")) document.documentElement.setAttribute("data-theme", params.get("theme"));
 applyTheme();
 resize();
 frame();
-load().catch((e) => { console.error(e); showError(e.message); $("status").textContent = "erro ao carregar"; });
+load().catch((e) => { console.error(e); showError(e.message); $("status").textContent = "failed to load"; });

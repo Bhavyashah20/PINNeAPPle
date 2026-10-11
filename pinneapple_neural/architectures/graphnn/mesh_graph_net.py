@@ -1,4 +1,3 @@
-from __future__ import annotations
 """MeshGraphNet — Encoder-Process-Decoder GNN for mesh-based simulation.
 
 Reference: Pfaff et al., ICLR 2021
@@ -33,15 +32,15 @@ All tensors carry an explicit batch dimension:
   positions     : (B, N, pos_dim)        — optional, used when use_pos=True
   edge_index    : (2, E)                 — shared topology across the batch
 """
+from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
 
-from .base import GraphModelBase, GraphBatch, GraphOutput
+from .base import GraphBatch, GraphModelBase, GraphOutput
 from .utils import scatter_add
-
 
 # ---------------------------------------------------------------------------
 # Building blocks
@@ -149,6 +148,12 @@ class MeshGraphNet(GraphModelBase):
         Dropout probability inside MLP hidden layers (0 = disabled).
     activation:
         ``"gelu"`` (default) or ``"relu"`` (the choice in the original paper).
+    absolute_pos:
+        With ``use_pos``, also feed the absolute coordinates to the node encoder (the default, kept for existing
+        checkpoints). ``False`` follows Pfaff et al.: positions enter only as relative edge displacements, so the
+        model is invariant to translations of the mesh.
+    decoder_layers:
+        ``0`` (default): a linear decoder. The paper decodes with an MLP; ``2`` reproduces it.
 
     Examples
     --------
@@ -176,6 +181,8 @@ class MeshGraphNet(GraphModelBase):
         use_pos: bool = False,
         dropout: float = 0.0,
         activation: str = "gelu",
+        absolute_pos: bool = True,
+        decoder_layers: int = 0,
     ) -> None:
         super().__init__()
 
@@ -191,10 +198,11 @@ class MeshGraphNet(GraphModelBase):
         self.hidden_dim        = hidden_dim
         self.n_message_passing = n_message_passing
         self.use_pos           = use_pos
+        self.absolute_pos      = absolute_pos
 
         # ── Node encoder ─────────────────────────────────────────────────
         # Input: raw node features [+ positions when use_pos]
-        node_enc_in = node_in_dim + (pos_dim if use_pos else 0)
+        node_enc_in = node_in_dim + (pos_dim if (use_pos and absolute_pos) else 0)
         self.node_encoder = _mlp(
             node_enc_in, hidden_dim, hidden_dim, n_layers, dropout, layernorm=True,
             activation=activation,
@@ -207,7 +215,7 @@ class MeshGraphNet(GraphModelBase):
         edge_enc_in  = edge_in_dim + pos_edge_dim
 
         if edge_enc_in > 0:
-            self.edge_encoder: Optional[nn.Module] = _mlp(
+            self.edge_encoder: nn.Module | None = _mlp(
                 edge_enc_in, hidden_dim, hidden_dim, n_layers, dropout, layernorm=True,
                 activation=activation,
             )
@@ -224,7 +232,9 @@ class MeshGraphNet(GraphModelBase):
 
         # ── Decoder ──────────────────────────────────────────────────────
         # No activation / LayerNorm — raw linear projection to output field
-        self.decoder = nn.Linear(hidden_dim, out_dim)
+        self.decoder = (nn.Linear(hidden_dim, out_dim) if decoder_layers <= 0 else
+                        _mlp(hidden_dim, hidden_dim, out_dim, decoder_layers, 0.0, layernorm=False,
+                             activation=activation))
 
     # ------------------------------------------------------------------
     # Positional edge features
@@ -249,7 +259,7 @@ class MeshGraphNet(GraphModelBase):
         self,
         g: GraphBatch,
         *,
-        y_true: Optional[torch.Tensor] = None,
+        y_true: torch.Tensor | None = None,
         return_loss: bool = False,
     ) -> GraphOutput:
         """Forward pass over a batched graph.
@@ -278,14 +288,15 @@ class MeshGraphNet(GraphModelBase):
             * ``extras`` — ``{"h": node_embeddings, "e": edge_embeddings}``
         """
         src, dst = g.edge_index[0], g.edge_index[1]  # (E,)
-        B, N = g.x.size(0), g.x.size(1)
+        B = g.x.size(0)
 
         # ── Node encoding ─────────────────────────────────────────────
         x_input = g.x                                      # (B, N, node_in_dim)
         if self.use_pos:
             if g.pos is None:
                 raise ValueError("MeshGraphNet: use_pos=True but g.pos is None.")
-            x_input = torch.cat([x_input, g.pos], dim=-1)  # (B, N, node_in_dim+pos_dim)
+            if self.absolute_pos:
+                x_input = torch.cat([x_input, g.pos], dim=-1)  # (B, N, node_in_dim+pos_dim)
 
         h = self.node_encoder(x_input)                     # (B, N, hidden_dim)
 
@@ -318,20 +329,20 @@ class MeshGraphNet(GraphModelBase):
         y = self.decoder(h)                                # (B, N, out_dim)
 
         # ── Loss ─────────────────────────────────────────────────────
-        losses: Dict[str, torch.Tensor] = {
+        losses: dict[str, torch.Tensor] = {
             "total": torch.zeros((), device=y.device, dtype=y.dtype)
         }
         if return_loss and y_true is not None:
             if g.mask is not None:
                 mask = g.mask[..., None].to(y.dtype)       # (B, N, 1)
-                losses["mse"] = torch.mean(((y - y_true) ** 2) * mask)
+                losses["mse"] = (((y - y_true) ** 2) * mask).sum() / (mask.sum() * y.shape[-1]).clamp_min(1.0)  # mean over valid nodes
             else:
                 losses["mse"] = self.mse(y, y_true)
             losses["total"] = losses["mse"]
 
         return GraphOutput(y=y, losses=losses, extras={"h": h, "e": e})
 
-    def forward_batch(self, batch: Dict[str, Any]) -> GraphOutput:
+    def forward_batch(self, batch: dict[str, Any]) -> GraphOutput:
         """Dict-based interface used by the Arena / GNNAdapter.
 
         Accepted keys
