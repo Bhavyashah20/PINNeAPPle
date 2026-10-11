@@ -6,8 +6,9 @@
 2. Re = 20: sphere of diameter 8 cells in a 96 x 48 x 48 tunnel (inlet, outlet, open sides), drag coefficient against
    Schiller & Naumann (1933), with FP32 and with FP16 storage of the shifted distributions (half the memory).
 
-The solver is pinneapple_simulation.numerical_solvers.lbm_tunnel (PyTorch, CPU or GPU). About 35 minutes on 4 CPU
-cores. Writes docs/assets/lbm/sphere_tunnel.png and examples/lbm/_out/sphere_tunnel.json.
+The solver is pinneapple_simulation.numerical_solvers.lbm_tunnel (PyTorch, CPU or GPU). About 60 minutes on 4 CPU
+cores. Result: Cd = 3.19 in FP32 and FP16 alike, 22 % above the correlation because the sphere is coarse and the
+tunnel narrow (see the docs). Writes docs/assets/lbm/sphere_tunnel.png and examples/lbm/_out/sphere_tunnel.json.
 """
 import json
 import os

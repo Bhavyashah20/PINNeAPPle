@@ -46,10 +46,16 @@ other four sides. `voxelize_stl(trimesh_mesh, shape, center, size)` turns an STL
 |---|---|
 | Force-driven Poiseuille channel, SRT and TRT | < 1 % from the parabola |
 | Stokes drag on a sphere (Re ≈ 0.1), Stokes far field on the sides | R = 5 cells: +2.6 %; R = 8 cells: +1.1 % against 6πρνRU |
-| Sphere at Re = 20, D = 8 cells, FP32 and FP16 storage | Cd against Schiller & Naumann (1933); run the example |
+| Sphere at Re = 20, D = 8 cells, 96 × 48 × 48 tunnel, FP32 | Cd = 3.19; Schiller & Naumann (1933) gives 2.61 (+22 %) |
+| Same, FP16 storage, half the memory (38 instead of 76 B/cell) | Cd = 3.19, 0.05 % from FP32; velocity differs by at most 0.002 U |
 
-At D = 8 cells the sphere is coarse, so its drag sits some percent above the correlation. Use finer bodies for
-numbers you report. FP16 storage works when the flow moves at u ≳ 0.02 in lattice units. Far below that (u ≈ 0.005),
+![Sphere at Re = 20](../assets/lbm/sphere_tunnel.png)
+
+The Re = 20 drag is 22 % above the correlation for two reasons. The sphere is only 8 cells across, so its surface is a
+staircase. The tunnel is only 6 diameters wide, and the open sides hold the free-stream velocity, which confines the
+flow; at low Re the disturbance reaches far, so this matters. The Stokes case shows the method converges with resolution
+(+2.6 % at R = 5, +1.1 % at R = 8). For numbers you report, use bodies of 20+ cells and a tunnel 15+ diameters wide.
+The example is sized to run in about an hour on 4 CPU cores. FP16 storage works when the flow moves at u ≳ 0.02 in lattice units. Far below that (u ≈ 0.005),
 the 16-bit rounding is a few percent of the velocity.
 
 ## FluidX3D bridge
