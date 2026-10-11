@@ -29,6 +29,19 @@ def _coord_index(coords: Sequence[str], name: str) -> int:
     return list(coords).index(name)
 
 
+def _model_device(model: torch.nn.Module, batch: dict[str, Any]) -> torch.device:
+    """Device to evaluate ``model`` on: its first parameter or buffer, else a batch tensor, else CPU.
+
+    A model without parameters (an analytic or closed-form model wrapped as a module) is valid input.
+    """
+    for t in list(model.parameters()) + list(model.buffers()):
+        return t.device
+    for v in batch.values():
+        if isinstance(v, torch.Tensor):
+            return v.device
+    return torch.device("cpu")
+
+
 def _split_fields(y: torch.Tensor, field_names: Sequence[str]) -> Dict[str, torch.Tensor]:
     if y.ndim == 1:
         y = y[:, None]
@@ -220,7 +233,7 @@ def compile_problem(
     spatial_indices = [list(coords).index(c) for c in spatial_coord_names]
 
     def _loss_fn(model: torch.nn.Module, y_hat: Any, batch: Dict[str, Any]) -> Dict[str, torch.Tensor]:
-        device = next(model.parameters()).device
+        device = _model_device(model, batch)
         ctx = batch.get("ctx", {})
 
         xcol = batch.get("x_col")

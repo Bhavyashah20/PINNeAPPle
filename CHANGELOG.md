@@ -332,6 +332,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `to_physics_case` and `from_problem_design`/`to_problem_design` cover the other two (#27).
 
 ### Fixed
+- `PhysicsGuardrail.check()` crashed with `StopIteration` for a model with no parameters (an analytic or closed-form
+  model wrapped as a `torch.nn.Module`); the compiled loss now takes its device from the first parameter or buffer,
+  else the batch tensors, else CPU.
 - `sample_uniform_box` only accepted 3-D boxes, so `CollocationSampler(strategy="uniform")` failed in 1-D and 2-D;
   it now samples boxes of any dimension.
 - Registry: two model or problem versions saved within the same second got the same version name and the second
