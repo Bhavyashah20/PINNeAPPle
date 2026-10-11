@@ -585,6 +585,10 @@ _SUBMODULES = {
     "ensemble":   "pinneapple_physics.ensemble",
     # physics audit: assumptions, validity monitor, physics-aware routing, failure attribution, knowledge graph
     "physics_audit": "pinneapple_physics.physics_audit",
+    # PT-symmetric dimers and chains, exceptional points, EP-tuning no-go check
+    "non_hermitian": "pinneapple_physics.non_hermitian",
+    # molecular visualisation: proteins on metal surfaces, stills, MP4 trajectories, MD dashboards, glTF
+    "molecular":  "pinneapple_tools.visualization.molecular",
     # qualitative preview: physical impact of geometry / part changes before the quantitative analysis
     "qualitative": "pinneapple_design.qualitative",
     # data assimilation: 4D-Var through autograd, Lorenz-96/63

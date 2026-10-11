@@ -15,6 +15,17 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 
 ### Added
 
+- Molecular visualisation (`pinneapple_tools.visualization.molecular`, `pp.molecular`): PDB / mdtraj molecules, fcc
+  metal slabs (8 metals, (111)/(100)/(110)) sized to a footprint, orientation on a surface (principal axes, active site
+  up), off-screen stills (space-filling or backbone, coloured by residue class, element, chain or height), trajectory
+  frames and MP4, MD dashboard (energy, temperature, RMSD, height, contacts), glTF scene and a step-by-step console
+  log. Example `examples/molecular/protein_on_gold.py`: a protein on Au(111) with OpenMM (Amber14 + GBn2, INTERFACE
+  gold Lennard-Jones as a Steele wall). Docs: `docs/core_concepts/molecular_visualization.md`.
+- Non-Hermitian physics (`pinneapple_physics.non_hermitian`, `pp.non_hermitian`): PT-symmetric dimers and chains,
+  exceptional points in closed form and from the matrix alone, eigenvector coalescence, Petermann factor; a symbolic
+  check of exceptional-point tuning laws against the no-go theorem for PT-symmetric dimers (Zenodo 23287622) with
+  coupling classification, the three routes around it (square-root coupling, feedback, non-reciprocal hopping) and
+  the theorem's hypotheses as a physics-audit profile; figure and docs (`docs/core_concepts/non_hermitian.md`).
 - `fmi` extra (`fmpy`, `pythonfmu`) and a test that builds an FMI 2.0 Co-Simulation FMU and simulates it through
   `simulate_fmu` / `fmu_to_upd` (matches the exact damped-oscillator solution to 1e-5).
 
