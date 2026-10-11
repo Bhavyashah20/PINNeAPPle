@@ -15,6 +15,47 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 
 ### Added
 
+- Proof graphs (`pinneapple_analysis.proof`): mathematical arguments as graphs of assumptions, lemmas, theorems and
+  conjectures with exact (symbolic, exhaustive, integer/degree) and numerical checks (random tests, counterexample
+  search); statuses PROVED / ARGUED / SUPPORTED / REFUTED / OPEN propagate along dependencies; report, Mermaid and
+  figure. Experiment `examples/proof_graph/pt_chain_no_go.py`: the no-go theorem for linear exceptional-point tuning
+  extended to PT tetramers with independently modulated bonds (ARGUED: every algebraic step machine-checked for all
+  degrees, one continuity step written), N >= 5 supported numerically. Docs: `docs/core_concepts/proof_graphs.md`.
+- Viewer bridges (`pinneapple_tools.visualization.integrations`): Rerun (scenes, molecules, time series, ensemble
+  runs, proof and knowledge graphs, reports; live or `.rrd`), Plotly standalone HTML (scenes, molecules, 3-D
+  fields), Trame web app around PyVista. Extra `viz3d`.
+- Digital-twin standards (`pinneapple_systems.digital_twin.standards`): Asset Administration Shell v3 (Eclipse
+  BaSyx), DTDL v3, NGSI-LD, Eclipse Ditto and a live OPC UA server, each carrying the physical validity of the
+  twin's models. Extra `twin`. Docs: `docs/core_concepts/viewers_and_twin_standards.md`.
+- Molecular visualisation (`pinneapple_tools.visualization.molecular`, `pp.molecular`): PDB / mdtraj molecules, fcc
+  metal slabs (8 metals, (111)/(100)/(110)) sized to a footprint, orientation on a surface (principal axes, active site
+  up), off-screen stills (space-filling or backbone, coloured by residue class, element, chain or height), trajectory
+  frames and MP4, MD dashboard (energy, temperature, RMSD, height, contacts), glTF scene and a step-by-step console
+  log. Example `examples/molecular/protein_on_gold.py`: a protein on Au(111) with OpenMM (Amber14 + GBn2, INTERFACE
+  gold Lennard-Jones as a Steele wall). Docs: `docs/core_concepts/molecular_visualization.md`.
+- Non-Hermitian physics (`pinneapple_physics.non_hermitian`, `pp.non_hermitian`): PT-symmetric dimers and chains,
+  exceptional points in closed form and from the matrix alone, eigenvector coalescence, Petermann factor; a symbolic
+  check of exceptional-point tuning laws against the no-go theorem for PT-symmetric dimers (Zenodo 23287622) with
+  coupling classification, the three routes around it (square-root coupling, feedback, non-reciprocal hopping) and
+  the theorem's hypotheses as a physics-audit profile; figure and docs (`docs/core_concepts/non_hermitian.md`).
+- `fmi` extra (`fmpy`, `pythonfmu`) and a test that builds an FMI 2.0 Co-Simulation FMU and simulates it through
+  `simulate_fmu` / `fmu_to_upd` (matches the exact damped-oscillator solution to 1e-5).
+
+- Physics audit (`pinneapple_physics.physics_audit`, `pp.physics_audit`): which model to use, when to trust it and
+  when its physical formulation must be revisited. Assumption auditor (catalogue of common assumptions with soft
+  validity ranges on dimensionless numbers, training envelopes with nearest-neighbour distance, `UNKNOWN` instead of a
+  silent pass), physics validity monitor without ground truth (residual, conservation, bounds, boundary, constitutive,
+  invariant and envelope checks; alarms on critical failures, persistence and residual drift), physics-aware routing
+  (compatibility prior on the ensemble weights, sleeping experts, escalation to the solver), failure attribution
+  (regime change, extrapolation, PDE / conservation / boundary violation, numerical resolution, measurement, missing
+  physics, with evidence and confidence), a knowledge graph of phenomena, equations, assumptions, mechanisms and
+  models, and ranked improvement recommendations; `diagnose()` writes a report. Example
+  `examples/physics_audit/pipe_regimes.py`: across laminar, transitional and rough turbulent pipe flow the routed
+  ensemble has 0.38 % mean error against 1.49 % for history-only weights, and a low-residual, in-domain Blasius
+  prediction with 14.5 % error is attributed to missing physics. Docs: `docs/core_concepts/physics_audit.md`.
+- `PhysicsEnsemble(router=...)`: physics-aware prior on the weights per case; experts the router puts to sleep are
+  not used and not penalised by that case. Predictions also return `prior`, `awake` and `escalate`.
+
 - Module reference at `docs/org/reference/` (published under `/PINNeAPPle/org/reference/`): every package and
   module with its docstring and public API read from the source, plus curated explanations and 38 examples that are
   executed to record their output and plots (`scripts/reference/run_examples.py`, `scripts/reference/build.py`).
@@ -332,6 +373,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `to_physics_case` and `from_problem_design`/`to_problem_design` cover the other two (#27).
 
 ### Fixed
+
+- `simulate_fmu` failed on every FMU when no parameters were given (`start_values=None` passed to fmpy).
 - `sample_uniform_box` only accepted 3-D boxes, so `CollocationSampler(strategy="uniform")` failed in 1-D and 2-D;
   it now samples boxes of any dimension.
 - Registry: two model or problem versions saved within the same second got the same version name and the second
