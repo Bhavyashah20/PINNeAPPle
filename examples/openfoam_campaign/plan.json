@@ -1,0 +1,21 @@
+{
+ "name": "trough jet",
+ "base": "_out/base",
+ "solver": "interFoam",
+ "procs": 2,
+ "end_time": 10.0,
+ "pre": ["setFields"],
+ "derived": {"Ux": "U*cos(radians(angle))", "Uz": "-U*sin(radians(angle))"},
+ "edits": [{"file": "0/U", "key": "boundaryField/inlet/value", "value": "uniform ({Ux:.6f} 0 {Uz:.6f})"}],
+ "sample": {"fields": ["k", "alpha.metal"], "keep_every": 5.0, "average_from": 2.0,
+            "lines": [{"name": "mid_depth", "start": [0.0, 0.02, 0.15], "end": [6.0, 0.02, 0.15], "n": 61}]},
+ "results": "_out/results",
+ "runs": [
+  {"id": "A1", "params": {"U": 2.0, "angle": 50}, "worker": "1"},
+  {"id": "A2", "params": {"U": 2.0, "angle": 70}, "worker": "2"},
+  {"id": "A3", "params": {"U": 3.0, "angle": 50}, "worker": "1"},
+  {"id": "A4", "params": {"U": 3.0, "angle": 70}, "worker": "2"},
+  {"id": "A5", "params": {"U": 2.5, "angle": 60}, "worker": "1", "group": "test"},
+  {"id": "A6", "params": {"U": 2.7, "angle": 65}, "worker": "2", "group": "test"}
+ ]
+}

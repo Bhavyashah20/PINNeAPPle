@@ -61,3 +61,4 @@ lab/**/metrics_log.jsonl
 examples/modelica/_out/
 examples/free_surface/_out/
 examples/geomechanics/_out/
+examples/openfoam_campaign/_out/

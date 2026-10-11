@@ -14,6 +14,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- OpenFOAM parameter campaigns (`pinneapple_simulation.external_solvers.openfoam.campaign`): one base case run
+  with many inputs, from a JSON plan or from Python. Per run: dictionary edits with values computed from the
+  parameters (arithmetic only), a mesh swap, a patch rebuilt to a given area, an optional hook, decomposition
+  (scotch or simple) and MPI. Lines are sampled while the solver runs, and solver health is read from the log.
+  Machines split the runs by worker tag or shard, claim runs with lock files, skip finished runs, and can push
+  each result to git. CLI: `python -m pinneapple_simulation.external_solvers.openfoam.campaign`. Example:
+  `examples/openfoam_campaign/`. Docs: `docs/core_concepts/openfoam_campaigns.md`.
 - Geomechanics MPM (`pinneapple_simulation.particle_dynamics.geo_mpm`): MLS-MPM in physical units (2-D or 3-D)
   with Drucker-Prager sand (plane strain in 2-D), a weakly compressible fluid and an elastic solid, Coulomb walls,
   several bodies, frames in GeoTaichi's layout. GeoTaichi bridge (`external_solvers.geotaichi`): runs GeoTaichi
