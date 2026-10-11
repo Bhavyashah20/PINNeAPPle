@@ -137,6 +137,21 @@ pre.out { background: var(--surface); border: 1px dashed var(--line); border-rad
 .mods small { color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
 .mods .kind { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); }
 
+.sm-tree { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.sm-row { display: grid; grid-template-columns: minmax(120px, 15rem) 2.4rem minmax(0, 1fr); gap: 10px; align-items: baseline;
+  padding: 7px 12px 7px calc(12px + var(--d) * 18px); border-top: 1px solid var(--line); text-decoration: none; color: var(--fg); }
+.sm-tree > .sm-row:first-child, .sm-tree > .sm-group:first-child > summary > .sm-row { border-top: 0; }
+.sm-row:hover { background: var(--sunk); }
+.sm-row code { font-size: 0.8rem; overflow-wrap: anywhere; color: var(--accent-ink); }
+.sm-kind { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); }
+.sm-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.45; }
+.sm-desc i { font-style: normal; font-size: 0.7rem; color: var(--faint); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; white-space: nowrap; }
+.sm-group > summary { list-style: none; cursor: pointer; }
+.sm-group > summary::-webkit-details-marker { display: none; }
+.sm-group > summary .sm-row code::before { content: "▸ "; color: var(--faint); }
+.sm-group[open] > summary .sm-row code::before { content: "▾ "; }
+.note-sm { font-size: 0.85rem; color: var(--muted); margin: -4px 0 10px; }
+@media (max-width: 640px) { .sm-row { grid-template-columns: minmax(0, 1fr) auto; } .sm-desc { grid-column: 1 / -1; } }
 .sym { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); margin: 12px 0; overflow: hidden; }
 .sym > header { padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--sunk); }
 .sym > header .tag { font: 600 0.66rem Inter, sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin-right: 6px; }
@@ -281,8 +296,8 @@ function docHTML(doc) {
 const CHEV = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4l4 4-4 4"/></svg>`;
 function navNode(o, depth) {
   const href = `#${o.name}`;
-  if (!o.children || !o.children.length) return `<a class="item${depth ? "" : " leaf"}" href="${href}" data-name="${o.name}" title="${esc(o.name)}">${esc(depth ? short(o.name).split(".").pop() : o.name)}</a>`;
-  return `<details data-name="${o.name}"><summary>${CHEV}<a class="item" href="${href}" data-name="${o.name}" title="${esc(o.name)}">${esc(depth ? short(o.name).split(".").pop() : o.name)}</a></summary><div class="kids">${o.children.map(c => navNode(c, depth + 1)).join("")}</div></details>`;
+  if (!o.children || !o.children.length) return `<a class="item${depth ? "" : " leaf"}" href="${href}" data-name="${o.name}" title="${esc(o.name + (o.summary ? " — " + o.summary : ""))}">${esc(depth ? short(o.name).split(".").pop() : o.name)}</a>`;
+  return `<details data-name="${o.name}"><summary>${CHEV}<a class="item" href="${href}" data-name="${o.name}" title="${esc(o.name + (o.summary ? " — " + o.summary : ""))}">${esc(depth ? short(o.name).split(".").pop() : o.name)}</a></summary><div class="kids">${o.children.map(c => navNode(c, depth + 1)).join("")}</div></details>`;
 }
 function buildNav() {
   const parts = [`<a class="item leaf" href="#" data-name="">Overview</a>`];
@@ -335,9 +350,17 @@ function examplesHTML(p) {
     ${e.figures.length ? `<div class="figs">${e.figures.map(f => `<img src="${f}" alt="${esc(e.title)}" loading="lazy">`).join("")}</div>` : ""}</section>`).join("");
 }
 
-function modsHTML(node, title = "Contents") {
+function modsHTML(node, title = "Submodules") {
   if (!node || !node.children.length) return "";
-  return `<h2 id="contents">${title}</h2><div class="mods">${node.children.map(c => `<a href="#${c.name}"><span class="kind">${c.kind}</span><code>${esc(c.name.split(".").pop())}</code><small>${esc(c.summary || "")}</small></a>`).join("")}</div>`;
+  const count = n => n.children.reduce((a, c) => a + 1 + count(c), 0);
+  const row = (c, depth) => {
+    const leaf = `<a class="sm-row" href="#${c.name}" style="--d:${depth}"><code>${esc(c.name.split(".").pop())}</code><span class="sm-kind">${c.kind === "package" ? "pkg" : "mod"}</span><span class="sm-desc">${esc(c.summary || "")}${c.src === "auto" ? ` <i title="Built from what the module defines: it has no docstring yet">from contents</i>` : ""}</span></a>`;
+    if (!c.children.length) return leaf;
+    return `<details class="sm-group"${depth === 0 ? " open" : ""}><summary>${leaf}</summary>${c.children.map(k => row(k, depth + 1)).join("")}</details>`;
+  };
+  return `<h2 id="contents">${title} <small style="font:500 .8rem Inter,sans-serif;color:var(--faint)">${count(node)}</small></h2>
+    <p class="note-sm">Every subpackage and module with a one-line description. Subpackages fold; click a name for its page and API.</p>
+    <div class="sm-tree">${node.children.map(c => row(c, 0)).join("")}</div>`;
 }
 
 function symHTML(m) {
@@ -381,6 +404,7 @@ function modPage(p, node) {
   <h1 class="mono" style="font-family:'JetBrains Mono',monospace;font-size:clamp(1.3rem,3vw,1.8rem);overflow-wrap:anywhere">${esc(node.name)}</h1>
   <div class="stats"><span><b>${node.classes.length}</b> classes</span><span><b>${node.functions.length}</b> functions</span>${node.children.length ? `<span><b>${node.children.length}</b> children</span>` : ""}<span><a href="https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/${node.path}">source</a></span></div>`;
   if (node.doc) h += `<h2 id="about">About</h2>${docHTML(node.doc)}`;
+  else if (node.summary) h += `<h2 id="about">About</h2><p>${esc(node.summary)}${node.src === "auto" ? ` <span class="note-sm">(built from what the module defines; it has no docstring yet)</span>` : ""}</p>`;
   h += modsHTML(node);
   if (n > 12) h += `<p style="margin-top:28px"><input class="filter" id="symfilter" type="search" placeholder="Filter ${n} classes and functions"></p>`;
   h += symHTML(node);

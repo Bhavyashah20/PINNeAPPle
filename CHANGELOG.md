@@ -18,6 +18,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - Module reference at `docs/org/reference/` (published under `/PINNeAPPle/org/reference/`): every package and
   module with its docstring and public API read from the source, plus curated explanations and 38 examples that are
   executed to record their output and plots (`scripts/reference/run_examples.py`, `scripts/reference/build.py`).
+  Every package page lists all its subpackages and modules as a folding tree with a one-line description (from
+  the docstring, from a curated note for subpackages without one, or built from what the module defines).
 - Contribute page at `docs/org/contribute/`: the open issues grouped by theme (inferred from titles and labels), area,
   release, priority, effort and umbrella issue, with filters, search and where to start; a snapshot is embedded
   (`scripts/issues/build.py`, refreshed by the docs workflow) and the page refreshes from the GitHub API when it can.

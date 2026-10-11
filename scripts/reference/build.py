@@ -10,12 +10,13 @@ from __future__ import annotations
 import ast
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
-from content import GROUPS, PACKAGES  # noqa: E402
+from content import GROUPS, PACKAGES, SUBMODULE_NOTES  # noqa: E402
 
 OUT = os.path.join(ROOT, "docs", "org", "reference")
 SKIP_DIRS = {"__pycache__", "node_modules", "frontend", "static", "vendor", "viewer", "tests", "deploy",
@@ -133,9 +134,63 @@ def count(node: dict) -> tuple[int, int]:
     return n_mod, n_sym
 
 
+def _clean(text: str) -> str:
+    text = re.sub(r"\s+", " ", text).replace("``", "")
+    text = re.sub(r":(class|func|mod|meth|attr):", "", text)
+    return re.sub(r"`([^`]+)`", r"\1", text).strip()
+
+
+def first_sentence(doc: str, limit: int = 200, name: str = "") -> str:
+    """First sentence of the docstring on one line: reST markup and a leading "module.name --" removed; a heading
+    that only introduces what follows ("Physics:") is joined with the next paragraph."""
+    paras = [_clean(p) for p in doc.strip().split("\n\n") if p.strip()]
+    paras = [p for p in paras if not re.fullmatch(r"[-=~^]{3,}", p)]
+    if not paras:
+        return ""
+    text = paras[0]
+    for nm in filter(None, (name, name.split(".")[-1])):
+        text = re.sub(r"^" + re.escape(nm) + r"\s*(?:—|--|-|:)\s*", "", text)
+    text = re.sub(r"^pinneapple[\w.]*\s*(?:—|--|-|:)\s+", "", text, flags=re.I)        # old package names
+    if (len(text) < 20 or text.endswith(":")) and len(paras) > 1:
+        text = (text.rstrip(":") + ": " if text else "") + paras[1]
+    safe = re.sub(r"\b(e\.g|i\.e|etc|vs|cf)\.", lambda m: m.group(0).replace(".", "\u2024"), text)
+    m = re.compile(r"(?<=[a-z0-9)\]])\.(\s|$)").search(safe, 20)
+    if m:
+        text = text[:m.start() + 1]
+    text = text.rstrip(":")
+    text = text[0].upper() + text[1:] if text else text
+    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + " ..."
+
+
+def describe(node: dict) -> tuple[str, str]:
+    """(summary, source): the docstring, else a curated note, else one built from what the module defines."""
+    if node["doc"].strip():
+        return first_sentence(node["doc"], name=node["name"]), "doc"
+    if node["name"] in SUBMODULE_NOTES:
+        return SUBMODULE_NOTES[node["name"]], "note"
+    syms = node["classes"] + node["functions"]
+    documented = [x for x in syms if x["doc"].strip()]
+    if documented:
+        x = documented[0]
+        more = len(syms) - 1
+        return (f"{x['name']}: {first_sentence(x['doc'], 160, x['name'])}" + (f" (+{more} more)" if more else "")), "auto"
+    if syms:
+        names = [x["name"] for x in syms]
+        return "Defines " + ", ".join(names[:4]) + (f" and {len(names) - 4} more" if len(names) > 4 else "") + ".", "auto"
+    if node["children"]:
+        return "Contains " + ", ".join(c["name"].split(".")[-1] for c in node["children"][:5]) + ".", "auto"
+    return "No public classes or functions.", "auto"
+
+
+def annotate(node: dict) -> None:
+    node["summary"], node["src"] = describe(node)
+    for c in node["children"]:
+        annotate(c)
+
+
 def outline(node: dict) -> dict:
     """The navigation tree without the API bodies."""
-    return {"name": node["name"], "kind": node["kind"], "summary": node["doc"].strip().split("\n")[0].replace("``", "")[:160],
+    return {"name": node["name"], "kind": node["kind"], "summary": node["summary"], "src": node["src"],
             "children": [outline(c) for c in node["children"]]}
 
 
@@ -147,6 +202,8 @@ def main() -> None:
     for p in PACKAGES:
         pkg_dir = os.path.join(ROOT, p["name"])
         tree = walk_package(pkg_dir, p["name"]) if os.path.isdir(pkg_dir) else None
+        if tree:
+            annotate(tree)
         examples = []
         for k, ex in enumerate(p.get("examples", [])):
             r = runs.get(f"{p['name']}__{k}")
