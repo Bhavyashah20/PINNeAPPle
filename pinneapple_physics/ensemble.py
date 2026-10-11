@@ -147,7 +147,12 @@ class PhysicsEnsemble:
     with the learned weights only (no residual tilt) and teaches nothing: it does not update the weights, the
     interval calibration or the residual history.
     ``conserve``: optional
-    ``(weights, target_fn(query))`` to project the combined field onto the conserved total."""
+    ``(weights, target_fn(query))`` to project the combined field onto the conserved total.
+    ``router``: physics-aware routing (:class:`pinneapple_physics.physics_audit.PhysicsAwareRouter`, or any object
+    with ``prior(query, names) -> {name: log-weight}`` and ``awake(query, names) -> {name: bool}``). Before
+    predicting, the compatibility of each expert's assumptions and training envelope with the current case tilts the
+    learned weights; experts outside their physics are asleep for that case: not used, and not penalised by it (their
+    loss is set to the mixture's), so they keep their weight for when the case returns to their regime."""
 
     def __init__(self, experts: Sequence[Expert] | Mapping[str, Callable], mode: str = "combine",
                  etas: Sequence[float] = (0.5, 2.0, 8.0), alphas: Sequence[float] = (0.0, 0.01, 0.05),
@@ -157,7 +162,8 @@ class PhysicsEnsemble:
                  conserve: tuple | None = None, on_error: str = "skip", explore_every: int = 10,
                  min_weight: float = 0.05, residual_lookahead: float = 0.0, lookahead_reference: str = "self",
                  lookahead_window: int = 10, residual_baseline: Mapping[str, float] | None = None,
-                 lookahead_persistence: int = 1, measurement_check: Callable[[Any], bool] | None = None):
+                 lookahead_persistence: int = 1, measurement_check: Callable[[Any], bool] | None = None,
+                 router: Any = None):
         if isinstance(experts, Mapping):
             experts = [from_callable(n, f) for n, f in experts.items()]
         if len(experts) < 2:
@@ -195,6 +201,7 @@ class PhysicsEnsemble:
         self.residual_baseline = dict(residual_baseline or {})
         self.lookahead_persistence = max(1, int(lookahead_persistence))
         self.measurement_check = measurement_check
+        self.router = router
 
     # ------------------------------------------------------------------------------------------ prediction
     def weights(self) -> dict[str, float]:
@@ -230,14 +237,26 @@ class PhysicsEnsemble:
         """Predict one case. With ``select_only_leader`` only the leading expert is run (to save cost), except every
         ``explore_every``-th call, when all experts run so the others' errors stay up to date."""
         w = self.grid.expert_weights()
+        prior, awake = None, np.ones(len(self.experts), dtype=bool)
+        if self.router is not None:                                  # physics compatibility of the current case
+            lp = self.router.prior(query, self.names)
+            prior = np.array([float(lp.get(n, 0.0)) for n in self.names])
+            if hasattr(self.router, "awake"):
+                aw = self.router.awake(query, self.names)
+                awake = np.array([bool(aw.get(n, True)) for n in self.names])
+                if not awake.any():
+                    awake[:] = True
+            logw = np.log(np.maximum(w, 1e-300)) + prior
+            w = np.where(awake, np.exp(logw - logw[awake].max()), 0.0)
         explore = self._n_predict % self.explore_every == 0
         self._n_predict += 1
         lazy = self.mode == "select" and select_only_leader and not explore and self.residual_lookahead == 0
         which = [int(np.argmax(w))] if lazy else range(len(self.experts))
         preds, costs = self._evaluate(query, which)
-        ok = [i for i in range(len(preds)) if preds[i] is not None]
-        if not ok:
+        ok_all = [i for i in range(len(preds)) if preds[i] is not None]
+        if not ok_all:
             raise RuntimeError("every expert failed on this query")
+        ok = [i for i in ok_all if awake[i]] or ok_all                # asleep experts are run (scored) but not used
         stack = np.stack([preds[i] for i in ok])
         res_now = None
         suspect = bool(self.measurement_check(query)) if self.measurement_check is not None else False
@@ -263,7 +282,7 @@ class PhysicsEnsemble:
                         tilt[i] = np.clip(t_i, -self.clip, self.clip)
             logw = np.log(np.maximum(w, 1e-300)) - self.residual_lookahead * tilt
             w = np.exp(logw - logw[ok].max())
-            for i in ok:
+            for i in ok_all:
                 if np.isfinite(res_now[i]):
                     self._res_hist[i].append(float(res_now[i]))
         wk = w[ok] / w[ok].sum()
@@ -288,9 +307,13 @@ class PhysicsEnsemble:
                "suspect": suspect}
         if res_now is not None:
             out["residuals"] = dict(zip(self.names, res_now.tolist(), strict=True))
+        if prior is not None:
+            out["prior"] = dict(zip(self.names, prior.tolist(), strict=True))
+            out["awake"] = dict(zip(self.names, awake.tolist(), strict=True))
+            out["escalate"] = bool(self.router.escalate(query, self.names)) if hasattr(self.router, "escalate") else False
         self._last = {"query": query, "preds": preds, "y": y, "spread": spread, "scale": scale, "costs": costs, "w": w,
                       "evaluated": set(which), "res_now": res_now,
-                      "suspect": suspect}
+                      "suspect": suspect, "awake": awake}
         return out
 
     # ------------------------------------------------------------------------------------------ learning
@@ -347,13 +370,19 @@ class PhysicsEnsemble:
         known = loss[[i for i in evaluated if np.isfinite(loss[i])]]
         loss = np.where(np.isnan(loss), np.median(known) if known.size else 0.0, loss)
         loss = np.where(np.isfinite(loss), loss, worst)
+        asleep = ~last.get("awake", np.ones(n, dtype=bool))
+        if asleep.any() and not asleep.all():                       # sleeping experts: the mixture's loss, no change
+            wg = self.grid.expert_weights()
+            aw = ~asleep
+            loss[asleep] = float(wg[aw] @ loss[aw] / max(wg[aw].sum(), 1e-300))
         for i in evaluated:
-            self._last_loss[i] = loss[i]
+            if not asleep[i]:
+                self._last_loss[i] = loss[i]
         # loss of each aggregator's own combination (data part only when a reference exists)
         agg_losses = []
         for a in self.grid.aggs:
-            ok = [i for i in range(n) if preds[i] is not None]
-            if len(ok) < n and reference is None:
+            ok = [i for i in range(n) if preds[i] is not None and not asleep[i]]
+            if len(ok) < n - int(asleep.sum()) and reference is None:
                 agg_losses.append(float(a.w @ loss))
                 continue
             wa = a.w[ok] / a.w[ok].sum()

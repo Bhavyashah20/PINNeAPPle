@@ -35,6 +35,11 @@ With `mode="select"` and `predict(case, select_only_leader=True)` only the leadi
 `explore_every` cases, when all run so their errors stay current. Experts that raise or return non-finite values are
 left out of that case and scored with the worst loss.
 
+`router=` adds physics-aware routing (`pinneapple_physics.physics_audit.PhysicsAwareRouter`): each expert's
+assumptions and training envelope are checked against the current case, the compatibility tilts the weights before
+predicting, and experts outside their physics sleep for that case without losing weight. See
+[Physics audit](physics_audit.md).
+
 Other options: `conserve=(weights, target_fn)` projects the combined field onto a conserved total;
 `min_weight` keeps near-zero weights out of the "combine" average; `point_weights` gives quadrature weights for the norms.
 `fit_static_weights(predictions, references)` fits fixed convex weights on a validation set and reports their

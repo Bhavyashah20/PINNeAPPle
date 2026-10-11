@@ -15,6 +15,21 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 
 ### Added
 
+- Physics audit (`pinneapple_physics.physics_audit`, `pp.physics_audit`): which model to use, when to trust it and
+  when its physical formulation must be revisited. Assumption auditor (catalogue of common assumptions with soft
+  validity ranges on dimensionless numbers, training envelopes with nearest-neighbour distance, `UNKNOWN` instead of a
+  silent pass), physics validity monitor without ground truth (residual, conservation, bounds, boundary, constitutive,
+  invariant and envelope checks; alarms on critical failures, persistence and residual drift), physics-aware routing
+  (compatibility prior on the ensemble weights, sleeping experts, escalation to the solver), failure attribution
+  (regime change, extrapolation, PDE / conservation / boundary violation, numerical resolution, measurement, missing
+  physics, with evidence and confidence), a knowledge graph of phenomena, equations, assumptions, mechanisms and
+  models, and ranked improvement recommendations; `diagnose()` writes a report. Example
+  `examples/physics_audit/pipe_regimes.py`: across laminar, transitional and rough turbulent pipe flow the routed
+  ensemble has 0.38 % mean error against 1.49 % for history-only weights, and a low-residual, in-domain Blasius
+  prediction with 14.5 % error is attributed to missing physics. Docs: `docs/core_concepts/physics_audit.md`.
+- `PhysicsEnsemble(router=...)`: physics-aware prior on the weights per case; experts the router puts to sleep are
+  not used and not penalised by that case. Predictions also return `prior`, `awake` and `escalate`.
+
 - Module reference at `docs/org/reference/` (published under `/PINNeAPPle/org/reference/`): every package and
   module with its docstring and public API read from the source, plus curated explanations and 38 examples that are
   executed to record their output and plots (`scripts/reference/run_examples.py`, `scripts/reference/build.py`).

@@ -27,6 +27,7 @@
   * [Earth-system blocks & data assimilation](core_concepts/earth_system.md)
   * [Adaptive forecasting](core_concepts/adaptive_forecasting.md)
   * [Adaptive ensembles of physics models](core_concepts/physics_ensembles.md)
+  * [Physics audit: assumptions, routing, failure attribution](core_concepts/physics_audit.md)
   * [Qualitative preview of geometry changes](core_concepts/qualitative_preview.md)
   * [Black-hole weather forecasting](core_concepts/black_hole_weather.md)
   * [PINNeAPPle Lab: experiments and datasets](core_concepts/lab.md)
