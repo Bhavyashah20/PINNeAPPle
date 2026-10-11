@@ -30,6 +30,8 @@
   * [Physics audit: assumptions, routing, failure attribution](core_concepts/physics_audit.md)
   * [Non-Hermitian physics: PT dimers and exceptional points](core_concepts/non_hermitian.md)
   * [Molecular visualisation: proteins on metal surfaces](core_concepts/molecular_visualization.md)
+  * [Proof graphs: mathematics with evidence](core_concepts/proof_graphs.md)
+  * [Other 3-D viewers and digital-twin standards](core_concepts/viewers_and_twin_standards.md)
   * [Qualitative preview of geometry changes](core_concepts/qualitative_preview.md)
   * [Black-hole weather forecasting](core_concepts/black_hole_weather.md)
   * [PINNeAPPle Lab: experiments and datasets](core_concepts/lab.md)

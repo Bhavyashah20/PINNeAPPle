@@ -15,6 +15,18 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 
 ### Added
 
+- Proof graphs (`pinneapple_analysis.proof`): mathematical arguments as graphs of assumptions, lemmas, theorems and
+  conjectures with exact (symbolic, exhaustive, integer/degree) and numerical checks (random tests, counterexample
+  search); statuses PROVED / ARGUED / SUPPORTED / REFUTED / OPEN propagate along dependencies; report, Mermaid and
+  figure. Experiment `examples/proof_graph/pt_chain_no_go.py`: the no-go theorem for linear exceptional-point tuning
+  extended to PT tetramers with independently modulated bonds (ARGUED: every algebraic step machine-checked for all
+  degrees, one continuity step written), N >= 5 supported numerically. Docs: `docs/core_concepts/proof_graphs.md`.
+- Viewer bridges (`pinneapple_tools.visualization.integrations`): Rerun (scenes, molecules, time series, ensemble
+  runs, proof and knowledge graphs, reports; live or `.rrd`), Plotly standalone HTML (scenes, molecules, 3-D
+  fields), Trame web app around PyVista. Extra `viz3d`.
+- Digital-twin standards (`pinneapple_systems.digital_twin.standards`): Asset Administration Shell v3 (Eclipse
+  BaSyx), DTDL v3, NGSI-LD, Eclipse Ditto and a live OPC UA server, each carrying the physical validity of the
+  twin's models. Extra `twin`. Docs: `docs/core_concepts/viewers_and_twin_standards.md`.
 - Molecular visualisation (`pinneapple_tools.visualization.molecular`, `pp.molecular`): PDB / mdtraj molecules, fcc
   metal slabs (8 metals, (111)/(100)/(110)) sized to a footprint, orientation on a surface (principal axes, active site
   up), off-screen stills (space-filling or backbone, coloured by residue class, element, chain or height), trajectory
