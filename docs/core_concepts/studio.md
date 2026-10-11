@@ -230,7 +230,14 @@ Medium mesh (0.21 M cells), 800 iterations, 4 cores, about 20 minutes per case:
 
 | Case | CD | CL | L/D | Drag at 70 m/s | Downforce at 70 m/s |
 |---|---|---|---|---|---|
-| DRS closed | 0.596 | -0.865 | 1.45 | 3.0 kN | 4.4 kN |
+| DRS closed | 0.596 | -0.865 | 1.45 | 3.01 kN | 4.36 kN |
+| DRS open | 0.580 | -0.826 | 1.42 | 2.87 kN | 4.09 kN |
+
+The coefficients use each case's frontal area (1.68 m² closed, 1.65 m² open), so compare the forces in newtons.
+Opening the flap cuts the rear-wing drag from 489 N to 214 N (−56 %) and its downforce from 1.80 to 1.41 kN (−21 %).
+The car's total drag falls by only 4.5 %, because the wheel drag rises by 144 N in the changed flow behind the wing.
+
+![DRS closed and open, per component](../assets/studio/f1-drs-components.png)
 
 Per component, DRS closed (share of the net downforce):
 

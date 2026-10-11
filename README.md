@@ -35,6 +35,8 @@ Most Physics AI libraries stop at the prediction. PINNeAPPle adds a **trust laye
 | **Adaptive physics ensembles.** The model chosen on each case against the exact field, as the regime drifts. | **External aerodynamics from any STL.** The Ahmed body, meshed and solved automatically. |
 | <img src="examples/meshgraphnet/_out/cylinder_flow/rollout.png" width="100%"/> | <img src="docs/assets/qualitative/heat_sink_preview.png" width="100%"/> |
 | **Neural operators and graph networks.** A MeshGraphNet rollout of the flow past a cylinder against the solver. | **Qualitative preview before any solver.** Which design change should help, by which mechanism, and how sure it is. |
+| <img src="docs/assets/studio/f1-cp-top.jpg" width="100%"/> | <img src="docs/assets/studio/f1-drs-components.png" width="100%"/> |
+| **A Formula car in OpenFOAM.** A parametric open-wheel car with wings, floor and diffuser, solved at 70 m/s with a moving road; skin pressure coefficient. | **Forces by component.** Opening the DRS flap cuts the rear-wing drag by 56 %; the wheels give part of it back. A pipeline demonstration, not a validated F1 model. |
 
 </div>
 
