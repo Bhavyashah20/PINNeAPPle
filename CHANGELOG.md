@@ -383,6 +383,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   building the loss raised `KeyError` (the notes in `tag_geometry.py` said they were already resolvable). They now declare it,
   and a test evaluates each loss. Found by `PhysicalProblem.validate()`.
 
+- `pp.compare` now accepts precomputed `Solution` objects in `methods`, reusing their predictions and training time
+  instead of solving again. It validates coordinate and field compatibility and gives duplicate method names unique
+  row labels.
+
 ### Known issues
 - The classical reference path for `burgers_1d` (`fdm` solver) overflows and returns a grid over `x` only, without the time
   axis; `pp.solve(..., "reference")` refuses it. Use `"analytic"` for this preset.

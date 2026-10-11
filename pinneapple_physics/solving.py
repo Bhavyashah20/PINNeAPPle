@@ -428,16 +428,18 @@ def _timed_predict(sol: "Solution", points: np.ndarray):
     return pred, best
 
 
-def compare(problem: Union[PhysicalProblem, Any, str], methods: Sequence[Union[str, Callable[..., Solution]]], *,
+def compare(problem: Union[PhysicalProblem, Any, str],
+            methods: Sequence[Union[str, Callable[..., Solution], Solution]], *,
             reference: Union[str, Solution] = "reference", options: Optional[Mapping[str, Mapping[str, Any]]] = None,
             points: Optional[np.ndarray] = None, n_points: int = 4096, seed: int = 0,
             metric_names: Sequence[str] = ("relative_l2", "rmse", "max_abs"),
             preset_kwargs: Optional[Mapping[str, Any]] = None) -> Comparison:
-    """Solve ``problem`` with each of ``methods`` and score them against ``reference`` at the same points.
+    """Solve or reuse each method and score it against ``reference`` at the same points.
 
     Points: ``points`` if given; else up to ``n_points`` points of the reference grid (when the reference is a grid
     solution); else ``n_points`` uniform random points in ``domain_bounds``. A method that fails is reported with
-    its error and does not stop the others.
+    its error and does not stop the others. Entries can be registered method names, solver callables, or precomputed
+    ``Solution`` objects. Precomputed solutions must have the same coordinates and fields as ``problem``.
     """
     prob = as_problem(problem, **dict(preset_kwargs or {}))
     opts = {str(k): dict(v) for k, v in (options or {}).items()}
@@ -457,16 +459,24 @@ def compare(problem: Union[PhysicalProblem, Any, str], methods: Sequence[Union[s
     points = np.asarray(points, dtype=np.float64)
     truth = ref_sol.predict(points)
     rows: List[Dict[str, Any]] = []
+    method_names: dict[str, int] = {}
     for m in methods:
-        name = m if isinstance(m, str) else getattr(m, "__name__", "custom")
+        name = m.method if isinstance(m, Solution) else m if isinstance(m, str) else getattr(m, "__name__", "custom")
+        method_names[name] = method_names.get(name, 0) + 1
+        row_name = name if method_names[name] == 1 else f"{name} ({method_names[name]})"
+        if isinstance(m, Solution) and (m.problem.coords != prob.coords or m.problem.fields != prob.fields):
+            raise ValueError(
+                f"solution '{m.method}' has coordinates {m.problem.coords} and fields {m.problem.fields}, "
+                f"but problem '{prob.name}' has coordinates {prob.coords} and fields {prob.fields}"
+            )
         try:
-            sol = solve(prob, m, **opts.get(name, {}))
+            sol = m if isinstance(m, Solution) else solve(prob, m, **opts.get(name, {}))
             pred, infer_s = _timed_predict(sol, points)
-            rows.append({"method": name, "status": "ok", "kind": sol.kind, "wall_time_s": sol.wall_time_s,
+            rows.append({"method": row_name, "status": "ok", "kind": sol.kind, "wall_time_s": sol.wall_time_s,
                          "infer_us_per_point": infer_s / max(len(points), 1) * 1e6,
                          "n_reference_sims": int((sol.info or {}).get("n_reference_simulations", 0)),
                          "metrics": _metrics.summary(pred, truth, prob.fields, metric_names), "info": sol.info})
         except Exception as exc:  # noqa: BLE001 - one failing method must not hide the others
-            rows.append({"method": name, "status": "failed", "error": f"{type(exc).__name__}: {exc}"})
+            rows.append({"method": row_name, "status": "failed", "error": f"{type(exc).__name__}: {exc}"})
     ref_name = reference if isinstance(reference, str) else reference.method
     return Comparison(prob, ref_name, len(points), rows)
