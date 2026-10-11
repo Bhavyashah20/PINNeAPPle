@@ -14,6 +14,15 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Lattice Boltzmann wind tunnel (`pinneapple_simulation.numerical_solvers.lbm_tunnel`), in PyTorch on CPU or GPU:
+  D3Q19/D3Q27, SRT or TRT collision, Smagorinsky LES, DDF shifting with optional FP16 storage (half the memory),
+  Guo forcing split for TRT, halfway bounce-back with moving walls, momentum-exchange forces, inlet/outlet/open/wall/
+  moving/periodic faces, STL voxelization, SI unit conversion and legacy VTK I/O. Validated on Poiseuille flow, Stokes
+  drag and sphere drag at Re = 20 (`examples/lbm/01_sphere_wind_tunnel.py`).
+  FluidX3D bridge (`external_solvers.fluidx3d`): writes a wind-tunnel `main_setup()` and the needed defines into the
+  user's own FluidX3D checkout, runs it, and reads forces and `.vtk` fields into arrays or PhysicalSamples. FluidX3D
+  is not bundled, and its license forbids commercial and military use.
+  Docs: `docs/core_concepts/lbm_wind_tunnel.md`.
 - OpenFOAM parameter campaigns (`pinneapple_simulation.external_solvers.openfoam.campaign`): one base case run
   with many inputs, from a JSON plan or from Python. Per run: dictionary edits with values computed from the
   parameters (arithmetic only), a mesh swap, a patch rebuilt to a given area, an optional hook, decomposition
