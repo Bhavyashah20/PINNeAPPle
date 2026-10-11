@@ -643,7 +643,11 @@ class FormulaCar:
     # -------------------------------------------------------------- outputs
     def parts(self) -> list[Part]:
         V, F = self._body()
-        mats = np.where(V[F].mean(1)[:, 2] > 0.55, "f1_accent", "f1_livery")      # accent on the engine cover
+        n_ring = 72                                   # accent on the upper band of the rings behind the nose,
+        side = F.max(1) < len(V) - 2                  # so its edges follow mesh lines (caps stay livery)
+        th = 2 * math.pi * (F % n_ring) / n_ring
+        accent = side & (np.sin(th).min(1) > 0.45) & (V[F][:, :, 0].min(1) > 1.6)
+        mats = np.where(accent, "f1_accent", "f1_livery")
         parts = _split_by(V, F, mats, "body")
         parts.append(Part("floor", *self._floor(), "carbon", "floor", True))
         for k, (Vw, Fw) in enumerate(self._front_wing()):

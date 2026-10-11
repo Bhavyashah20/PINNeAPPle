@@ -1,6 +1,6 @@
 """A parametric Formula 1-style car in OpenFOAM, from geometry to pictures of the flow, with PINNeAPPle.
 
-    python examples/studio/05_formula_car_cfd.py [coarse|medium|fine] [processes] [drs]
+    python examples/studio/06_formula_car_cfd.py [coarse|medium|fine] [processes] [drs]
 
 ``pinneapple_design.geometry.vehicles3d.FormulaCar`` (monocoque, floor with diffuser, multi-element front and rear
 wings, helmet, halo, exposed wheels; not any team's car) at 70 m/s (252 km/h) over a road moving with the flow, half
@@ -57,14 +57,14 @@ render_scene(Scene.from_parts(car.parts(), axes="z_up"), os.path.join(out, "beau
              zoom=1.6)
 render_scene(scene, os.path.join(out, "cp_top.png"), field="cp", clim=(-2.0, 1.0), view="iso", zoom=1.6,
              hide=("halo",))
-render_scene(scene, os.path.join(out, "cp_bottom.png"), field="cp", clim=(-3.0, 1.0), view=(-0.4, -0.6, -1.0),
-             zoom=1.6)
+render_scene(scene, os.path.join(out, "cp_bottom.png"), field="cp", clim=(-2.0, 1.0), view=(-0.25, -0.35, -1.0),
+             zoom=1.35)
 render_scene(scene, os.path.join(out, "streamlines.png"), lines=True, view="iso", zoom=1.4)
 render_scene(scene, os.path.join(out, "streamlines_side.png"), lines=True, view="side", zoom=1.4)
 render_scene(scene, os.path.join(out, "midplane_cp.png"), slice_name="mid plane: Cp", view="side", zoom=1.3,
-             cmap="RdBu_r", clim=(-2.0, 1.0))
+             cmap="RdBu_r", clim=(-1.5, 1.5), slice_crop=(0.12, 0.62, 0.0, 0.45))     # the car and its near wake
 render_scene(scene, os.path.join(out, "wake_vorticity.png"), slice_name="wake: vorticity", view="back", zoom=1.5,
-             cmap="RdBu_r", clim=(-6.0, 6.0))
+             cmap="RdBu_r", clim=(-6.0, 6.0), slice_crop=(0.27, 0.73, 0.0, 0.55))     # |y| < 1.8 m, z < 1.6 m
 try:
     from pinneapple_tools.visualization.integrations.plotly_export import scene_html
 

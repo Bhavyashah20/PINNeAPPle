@@ -15,6 +15,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 
 ### Added
 
+- Formula car (`pinneapple_design.geometry.vehicles3d.FormulaCar`): parametric open-wheel car (tub, floor and
+  diffuser, NACA-section front and rear wings with a DRS flap, helmet, halo, wheels) with per-component CFD bodies and
+  a rasterised frontal area. Example `examples/studio/06_formula_car_cfd.py`: OpenFOAM half model with a moving road
+  at 70 m/s, DRS closed and open, per-component forces, skin Cp, streamlines, mid-plane and wake slices, viewer,
+  Plotly and Rerun. `render_scene` gains `slice_crop`, and long colour-bar titles move to the corner text.
 - Proof graphs (`pinneapple_analysis.proof`): mathematical arguments as graphs of assumptions, lemmas, theorems and
   conjectures with exact (symbolic, exhaustive, integer/degree) and numerical checks (random tests, counterexample
   search); statuses PROVED / ARGUED / SUPPORTED / REFUTED / OPEN propagate along dependencies; report, Mermaid and

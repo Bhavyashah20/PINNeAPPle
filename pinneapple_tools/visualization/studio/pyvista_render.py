@@ -5,7 +5,7 @@
     render_scene(scene, "beauty.png")                                   # materials (paint, carbon, tyre...)
     render_scene(scene, "cp.png", field="cp", cmap="jet", clim=(-2, 1))  # a surface field with a colour bar
     render_scene(scene, "lines.png", lines=True)                         # streamlines coloured by speed
-    render_scene(scene, "wake.png", slice_name="wake: vorticity", view="back")
+    render_scene(scene, "wake.png", slice_name="wake: vorticity", view="back", slice_crop=(0.25, 0.75, 0, 0.5))
 
 ``view``: "front", "back", "side", "top", "bottom", "iso" or a direction (x, y, z) from the target to the camera.
 """
@@ -35,11 +35,25 @@ def _poly(V, F):
     return pv.PolyData(np.asarray(V, float), np.hstack([np.full((len(F), 1), 3), np.asarray(F)]).ravel())
 
 
+_BAR_CHARS = 16                         # longer colour-bar titles are cut by the window edge: shown in the corner
+
+
+def _bar(title: str | None, corner: list) -> dict:
+    """Colour-bar options; a title too long for the bar goes to ``corner``."""
+    t = title or ""
+    if len(t) > _BAR_CHARS:
+        corner.append(t)
+        t = ""
+    return dict(title=t, color="#E8E8E8", vertical=True, position_x=0.9, position_y=0.15, height=0.7)
+
+
 def render_scene(scene: Scene, path: str, *, field: str | None = None, cmap: str = "jet",
                  clim: tuple[float, float] | None = None, lines: bool = False, slice_name: str | None = None,
                  view: str | Sequence[float] = "iso", size=(1600, 900), background: str = "#11151C",
                  zoom: float = 1.0, ground: bool = False, title: str = "", line_width: float = 2.0,
-                 max_lines: int | None = None, hide: Sequence[str] = ()) -> str:
+                 max_lines: int | None = None, hide: Sequence[str] = (),
+                 slice_crop: tuple[float, float, float, float] | None = None) -> str:
+    """``slice_crop``: (s0, s1, t0, t1), the part of the slice to show as fractions of its ``u`` and ``v`` edges."""
     import pyvista as pv
 
     pv.OFF_SCREEN = True
@@ -47,6 +61,7 @@ def render_scene(scene: Scene, path: str, *, field: str | None = None, cmap: str
     p.set_background(background, top="#2B3340")
     label = scene.labels.get(field, field) if field else None
     bar_done = False
+    corner: list[str] = []
     lo_all, hi_all = scene.bounds()
     for s in scene.surfaces:
         if s.name in hide:
@@ -56,8 +71,7 @@ def render_scene(scene: Scene, path: str, *, field: str | None = None, cmap: str
             v = np.asarray(s.fields[field], float)
             mesh[field] = np.linalg.norm(v, axis=1) if v.ndim > 1 else v
             p.add_mesh(mesh, scalars=field, cmap=cmap, clim=clim or scene.field_range(field), smooth_shading=True,
-                       show_scalar_bar=not bar_done, scalar_bar_args=dict(title=label, color="#E8E8E8", vertical=True,
-                                                                         position_x=0.9, position_y=0.15, height=0.7))
+                       show_scalar_bar=not bar_done, scalar_bar_args=_bar(label, corner))
             bar_done = True
         else:
             rgb, metal, rough = _rgb(s.material)
@@ -79,8 +93,7 @@ def render_scene(scene: Scene, path: str, *, field: str | None = None, cmap: str
                     poly["speed"] = np.asarray(val, float)
                     p.add_mesh(poly, scalars="speed", cmap=cmap, clim=clim or (0.0, 1.4), line_width=line_width,
                                show_scalar_bar=not bar_done, render_lines_as_tubes=False,
-                               scalar_bar_args=dict(title=ln.label or "speed", color="#E8E8E8", vertical=True,
-                                                    position_x=0.9, position_y=0.15, height=0.7))
+                               scalar_bar_args=_bar(ln.label or "speed", corner))
                     bar_done = True
                 else:
                     p.add_mesh(poly, color="#9CC9FF", line_width=line_width)
@@ -91,15 +104,19 @@ def render_scene(scene: Scene, path: str, *, field: str | None = None, cmap: str
             G = np.asarray(sl.grid, float)
             nv, nu = G.shape
             s_, t_ = np.meshgrid(np.linspace(0, 1, nu), np.linspace(0, 1, nv))
+            if slice_crop is not None:
+                s0, s1, t0, t1 = slice_crop
+                cols = np.flatnonzero((s_[0] >= s0) & (s_[0] <= s1))
+                rows = np.flatnonzero((t_[:, 0] >= t0) & (t_[:, 0] <= t1))
+                G, s_, t_ = (a[np.ix_(rows, cols)] for a in (G, s_, t_))
             X = sl.origin[None, None, :] + s_[..., None] * sl.u[None, None, :] + t_[..., None] * sl.v[None, None, :]
             grid = pv.StructuredGrid(X[..., 0], X[..., 1], X[..., 2])
-            grid["v"] = G.ravel(order="F") if False else G.T.ravel()
+            grid["v"] = G.T.ravel()
             fin = np.isfinite(G)
             rng = clim or (float(np.nanpercentile(G[fin], 2)), float(np.nanpercentile(G[fin], 98)))
             p.add_mesh(grid.threshold(value=(-1e30, 1e30), scalars="v"), scalars="v", cmap=cmap, clim=rng,
                        opacity=0.95, show_scalar_bar=not bar_done,
-                       scalar_bar_args=dict(title=sl.label or sl.name, color="#E8E8E8", vertical=True,
-                                            position_x=0.9, position_y=0.15, height=0.7))
+                       scalar_bar_args=_bar(sl.label or sl.name, corner))
             bar_done = True
     if ground:
         L = hi_all - lo_all
@@ -114,6 +131,7 @@ def render_scene(scene: Scene, path: str, *, field: str | None = None, cmap: str
     p.camera.focal_point = tuple(ctr)
     p.camera.up = (0, 0, 1) if abs(d[2]) < 0.95 else (1, 0, 0)
     p.camera.zoom(zoom)
+    title = title or (corner[0] if corner else "")
     if title:
         p.add_text(title, position="upper_left", font_size=12, color="#E8E8E8")
     p.screenshot(path)
