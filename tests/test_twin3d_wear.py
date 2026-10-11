@@ -15,7 +15,7 @@ from pinneapple_twin3d.wear import (OptimizerConfig, VesselSpec, WearDataset, Zo
 from pinneapple_twin3d.wear.geometry import cell_mesh, cell_to_vertex
 from pinneapple_twin3d.wear.optimize import predictive_policy, prepare, simulate
 
-USE_CASES = ["steel_ladle", "pig_iron_ladle", "bof_converter", "rh_degasser", "oxyred_reactor"]
+USE_CASES = ["steel_ladle", "pig_iron_ladle", "bof_converter", "rh_degasser", "smelting_reduction_reactor"]
 
 
 def toy_spec(e0=200, emin=100):

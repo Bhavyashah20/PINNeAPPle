@@ -22,7 +22,7 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   data); four presets (steel ladle, pig-iron ladle, BOF converter, RH degasser) and `export_wear_twin`
   (viewer scene + `wear_dataset.json` + `report.json`). Guide: `docs/guides/recreate_a_wear_twin.md`; example:
   `examples/use_cases/refractory_wear_twin/`; tests: `tests/test_twin3d_wear.py` (Python checked against the JavaScript core).
-  Also: a fifth preset (`oxyred_reactor`), a 90 % interval on the remaining life (`remaining_lo/hi`), `calibrate` (optimizer
+  Also: a fifth preset (`smelting_reduction_reactor`), a 90 % interval on the remaining life (`remaining_lo/hi`), `calibrate` (optimizer
   assumptions from a stop log and the repair history, each parameter tagged calibrated / default / business input),
   `pinneapple_twin3d.primitives` (revolve, sweep, loft, wing, box, cylinder) and `pinneapple_twin3d.gallery` (runner channel,
   mixing tank, oil pipeline, airliner, launch vehicle, drone, lunar rover, wind turbine, satellite; illustrative fields).
