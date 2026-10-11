@@ -114,7 +114,7 @@ class FreeSurfaceFlow:
 
     def __post_init__(self):
         if (self.regions is None) == (self.mesh is None):
-            raise ValueError("FreeSurfaceFlow: give either regions (surfaces) or mesh (a case with constant/polyMesh)")
+            raise ValueError("FreeSurfaceFlow: provide either regions (surfaces) or mesh (a case with constant/polyMesh)")
         for n, r in self.roles.items():
             if r not in ROLES:
                 raise ValueError(f"role of {n!r} must be one of {ROLES}, not {r!r}")

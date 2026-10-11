@@ -14,6 +14,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Geomechanics MPM (`pinneapple_simulation.particle_dynamics.geo_mpm`): MLS-MPM in physical units (2-D or 3-D)
+  with Drucker-Prager sand (plane strain in 2-D), a weakly compressible fluid and an elastic solid, Coulomb walls,
+  several bodies, frames in GeoTaichi's layout. GeoTaichi bridge (`external_solvers.geotaichi`): runs GeoTaichi
+  scripts as a separate process and reads its MPM/DEM frames into PhysicalSamples. Example: granular column
+  collapse against Lube et al. (2005). Docs: `docs/core_concepts/geomechanics_mpm.md`; remaining features: #471.
 - Modelica to Physics AI (`pinneapple_simulation.external_solvers.modelica`): `omc.build_fmu` compiles `.mo` files
   into FMI 2.0 FMUs with OpenModelica (local omc or the official Docker image, no OMPython), `omc.simulate_mo`
   simulates with parameter overrides, `sweep.fmu_sweep` runs Latin-hypercube sweeps into an `FMUDataset` (split by

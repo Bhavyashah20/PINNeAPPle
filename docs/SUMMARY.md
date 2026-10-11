@@ -24,6 +24,7 @@
   * [3D Studio & External Flow](core_concepts/studio.md)
   * [Free-surface flow: runners, channels, launders](core_concepts/free_surface.md)
   * [Modelica models as Physics AI data](core_concepts/modelica.md)
+  * [Geomechanics with the material point method](core_concepts/geomechanics_mpm.md)
   * [Security (pinneapple_security)](core_concepts/security.md)
   * [Verification and evidence (pinneapple_veriphysics)](core_concepts/veriphysics.md)
   * [Earth-system blocks & data assimilation](core_concepts/earth_system.md)
