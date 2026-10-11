@@ -14,6 +14,19 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Modelica to Physics AI (`pinneapple_simulation.external_solvers.modelica`): `omc.build_fmu` compiles `.mo` files
+  into FMI 2.0 FMUs with OpenModelica (local omc or the official Docker image, no OMPython), `omc.simulate_mo`
+  simulates with parameter overrides, `sweep.fmu_sweep` runs Latin-hypercube sweeps into an `FMUDataset` (split by
+  run, save/load). Examples `examples/modelica/`: FMU against omc, a ladle-cooling surrogate tested on unseen runs
+  (melt RMSE 0.8 K against 19 K for the nearest training run), and a PINN identifying a discharge coefficient from
+  noisy readings. Docs: `docs/core_concepts/modelica.md`.
+- Free-surface flow (`pp.cfd.FreeSurfaceFlow`, `pinneapple_simulation.numerical_solvers.free_surface`): interFoam
+  VOF cases with inlets given as velocity vectors, open boundaries, an initial liquid level (gravity may be tilted),
+  k-omega SST, and `LiveLineSampler`, which samples lines while the solver writes and can delete the sampled times
+  (long transients without function objects or a full disk). `pinneapple_design.geometry.trough.TroughSection`:
+  2-D melt-runner section with a weir and a slope. Example `examples/free_surface/01_runner_slope_study.py`.
+  Docs: `docs/core_concepts/free_surface.md`.
+
 - `pinneapple_twin3d.wear`: a generator of 3D wear (refractory / liner) digital twins from a spec. `ZoneSpec` /
   `VesselSpec` describe a part as surfaces of revolution cut into cells; `WearDataset` holds wear depth per cell and
   reading (validation, CSV and JSON contract shared with the web suite); `forecast` (repair-aware linear remaining-life
@@ -390,6 +403,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `to_physics_case` and `from_problem_design`/`to_problem_design` cover the other two (#27).
 
 ### Fixed
+
+- `om_runner._read_om_result` dropped `time` (dataset 0 of the OpenModelica result file).
 
 - `simulate_fmu` failed on every FMU when no parameters were given (`start_values=None` passed to fmpy).
 - `sample_uniform_box` only accepted 3-D boxes, so `CollocationSampler(strategy="uniform")` failed in 1-D and 2-D;

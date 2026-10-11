@@ -58,3 +58,5 @@ lab/**/*.npy
 lab/**/*.npz
 lab/**/samples.jsonl
 lab/**/metrics_log.jsonl
+examples/modelica/_out/
+examples/free_surface/_out/
