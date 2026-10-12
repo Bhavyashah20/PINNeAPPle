@@ -1,4 +1,4 @@
-# Refractory / liner wear twins (steel ladle, pig-iron ladle, BOF, RH, Oxy-Red)
+# Refractory / liner wear twins (steel ladle, pig-iron ladle, BOF, RH, smelting-reduction reactor)
 
 Five 3D digital twins of metallurgical vessels built with `pinneapple_twin3d.wear` from a *spec*, not from
 hand-written 3D code. Each shows the wear of the lining per cell over time, a remaining-life forecast and a

@@ -187,6 +187,78 @@ Needs OpenFOAM (v1912 and later tested). Set `FOAM_BASHRC` if its bashrc is not 
 (`pinneapple_design.aero.case3d`) is built on the same pieces: `write_flow_fields`, `snappy_dict`, `run_case` and
 `CaseFields`, which provides wall forces, streamline tracing and plane sampling for any case.
 
+## Example: Formula car at 70 m/s
+
+`pinneapple_design.geometry.vehicles3d.FormulaCar` is a parametric open-wheel car. It has:
+
+- a tub and engine cover lofted from superellipse rings;
+- a flat floor with a diffuser ramp;
+- three-element front and rear wings built from NACA 4-digit sections, with a rear flap that opens for DRS;
+- endplates, a helmet, a halo and four wheels.
+
+`cfd_bodies()` groups the closed surfaces into body, floor, front wing, rear wing, helmet and wheels, so the forces
+come out per component. `frontal_area()` rasterises the front view, giving 1.68 m² for the default car.
+
+`examples/studio/06_formula_car_cfd.py [coarse|medium|fine] [procs] [drs]` runs the half model through
+`pp.cfd.ExternalFlow` with a moving road at 70 m/s. It writes:
+
+- the coefficients;
+- the glTF scene and the browser viewer;
+- PyVista stills;
+- a Plotly page;
+- a Rerun recording.
+
+![Formula car](../assets/studio/f1-beauty.jpg)
+
+![Skin Cp](../assets/studio/f1-cp-top.jpg)
+
+The pressure side of both wings is red. Suction peaks sit over the airbox, on the shoulders of the tyres and under
+the wing flaps.
+
+![Underside Cp](../assets/studio/f1-cp-bottom.jpg)
+
+![Streamlines](../assets/studio/f1-streamlines.jpg)
+
+![Mid-plane Cp](../assets/studio/f1-midplane-cp.jpg)
+
+![Wake vorticity](../assets/studio/f1-wake-vorticity.jpg)
+
+The wake plane 0.25 L behind the car shows two vortex pairs: one from the rear-wing tips and upper tyres, one low,
+from the rear tyres, the floor edges and the diffuser.
+
+Medium mesh (0.21 M cells), 800 iterations, 4 cores, about 20 minutes per case:
+
+| Case | CD | CL | L/D | Drag at 70 m/s | Downforce at 70 m/s |
+|---|---|---|---|---|---|
+| DRS closed | 0.596 | -0.865 | 1.45 | 3.01 kN | 4.36 kN |
+| DRS open | 0.580 | -0.826 | 1.42 | 2.87 kN | 4.09 kN |
+
+The coefficients use each case's frontal area (1.68 m² closed, 1.65 m² open), so compare the forces in newtons.
+Opening the flap cuts the rear-wing drag from 489 N to 214 N (−56 %) and its downforce from 1.80 to 1.41 kN (−21 %).
+The car's total drag falls by only 4.5 %, because the wheel drag rises by 144 N in the changed flow behind the wing.
+
+![DRS closed and open, per component](../assets/studio/f1-drs-components.png)
+
+Per component, DRS closed (share of the net downforce):
+
+| Component | Downforce | Drag |
+|---|---|---|
+| front wing | 4.35 kN (100 %) | 0.76 kN |
+| rear wing | 1.80 kN (41 %) | 0.49 kN |
+| floor | 1.28 kN (29 %) | 0.15 kN |
+| body | -1.96 kN (-45 %) | 0.75 kN |
+| wheels | -1.06 kN (-24 %) | 0.87 kN |
+| helmet | -0.04 kN (-1 %) | 0.00 kN |
+
+The car is a simplified shape on a coarse mesh, so it shows the workflow; it is not a validated F1 aero model:
+
+- The floor has no Venturi tunnels or edge vortex generators, so it gives under a third of the downforce, much less
+  than on a modern car.
+- The front wing carries almost all of the net downforce, while the tub and the wheels lift.
+- Wall functions on 0.2 M cells resolve neither the wing boundary layers nor the tyre wakes.
+
+Treat the numbers as a demonstration of the pipeline, not as a design result.
+
 ## Bodies
 
 `pp.bodies.ahmed_body(slant_deg)`, `sphere`, `cylinder` and `box` return closed, outward-facing triangle meshes in
@@ -197,3 +269,4 @@ metres, with x along the flow and z up.
 - `examples/studio/01_any_result_in_3d.py`: a CalculiX result as glTF, USD, viewer and render.
 - `examples/studio/02_ahmed_body_cfd.py`: from geometry to pictures, through OpenFOAM.
 - `examples/studio/03_airliner_with_cfd.py`: the aero app's airliner with its OpenFOAM skin pressure.
+- `examples/studio/06_formula_car_cfd.py`: the Formula car above, with DRS closed or open.

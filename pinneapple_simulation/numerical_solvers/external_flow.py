@@ -646,3 +646,10 @@ def openfoam_available() -> bool:
 
 __all__ = ["ExternalFlow", "FlowResult", "CaseFields", "run_case", "write_flow_fields", "snappy_dict",
            "flow_directions", "openfoam_available", "latest_time"]
+
+
+def __getattr__(name):                                # pp.cfd.FreeSurfaceFlow and friends, without an import cycle
+    if name in ("FreeSurfaceFlow", "Phase", "SampleLine", "split_surface", "sample_lines", "time_average"):
+        from . import free_surface
+        return getattr(free_surface, name)
+    raise AttributeError(name)

@@ -3,7 +3,7 @@
 This guide shows how to rebuild, with PINNeAPPle, the kind of digital twin that monitors **wear of a lining
 over time**: a 3D vessel coloured cell by cell, a remaining-life forecast, and a maintenance schedule that
 comes out of an executable algorithm. It was written after reverse-engineering five published reference
-twins (steel ladle, pig-iron ladle, BOF converter, RH degasser and the Oxy-Red reactor); all five are presets.
+twins (steel ladle, pig-iron ladle, BOF converter, RH degasser and a smelting-reduction reactor); all five are presets.
 
 Everything lives in `pinneapple_twin3d.wear`; the 3D viewer is the one `pinneapple_twin3d` already ships.
 
@@ -79,7 +79,7 @@ Details that matter (all tested, and identical in the JavaScript core of the web
 * `confidence` ("low/medium/high") grades the fit (points and R²). It is not a probability.
 * `remaining_lo` / `remaining_hi` give a **90 % interval** from the standard error of the slope (Student-t, needs
   n >= 3), i.e. the ETA "in ~181 heats (150-230)". It measures the *fit*; it cannot cover a change of regime. With the
-  3 readings of the Oxy-Red demo the interval is wide and the confidence "low", which is the honest answer.
+  3 readings of the smelting-reduction demo the interval is wide and the confidence "low", which is the honest answer.
 * a >8 % dip between readings is read as a repair; at twice the default instrument noise ~1 % of cells are truncated
   by that heuristic (measured, see the tests). If your plant logs repairs, prefer passing them explicitly.
 * it is a **linear extrapolation**: it cannot foresee a change of regime (a new slag, a changed blow practice).
@@ -147,7 +147,7 @@ spec, hotspots = presets.get("bof_converter")   # steel_ladle | pig_iron_ladle |
 | `pig_iron_ladle` | rim/spout, slag line, metal wall, floor | slag-line height derived from the fill level (mass → level); torpedo-jet impact block; KR rotor vortex band |
 | `bof_converter` | floor (dished), lower barrel, slag line, upper barrel, cone, mouth | arc-length-defined wall (barrel → cone → neck); tap-hole side of the cone |
 | `rh_degasser` | lower/upper vessel, floor, up- and down-snorkel | **off-axis** legs; most wear at the immersed tip |
-| `oxyred_reactor` | upper/lower shaft, tuyere zone, crucible wall, hearth | sector 0 = tap hole; eight tuyere hot spots between tap holes |
+| `smelting_reduction_reactor` | upper/lower shaft, tuyere zone, crucible wall, hearth | sector 0 = tap hole; eight tuyere hot spots between tap holes |
 
 Geometry comes from the proportions published in the reference twins and is **indicative**. Replace the numbers
 with the plant's drawings; nothing else changes. Run all four: `python examples/use_cases/refractory_wear_twin/run_use_cases.py`.

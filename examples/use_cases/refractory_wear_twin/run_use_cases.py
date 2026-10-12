@@ -11,7 +11,7 @@ import sys
 from pinneapple_twin3d import serve
 from pinneapple_twin3d.wear import OptimizerConfig, export_wear_twin, presets, synthetic_campaign
 
-HEATS_PER_DAY = {"steel_ladle": 24, "pig_iron_ladle": 12, "bof_converter": 30, "rh_degasser": 20, "oxyred_reactor": 6}
+HEATS_PER_DAY = {"steel_ladle": 24, "pig_iron_ladle": 12, "bof_converter": 30, "rh_degasser": 20, "smelting_reduction_reactor": 6}
 
 
 def build(out_dir: str, key: str) -> str:

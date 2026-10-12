@@ -148,8 +148,8 @@ def rh_degasser():
 
 
 @_register
-def oxyred_reactor():
-    """Oxy-Red 2 pilot reactor (autoreduction / melting-reduction): shaft, tuyere zone, crucible, hearth.
+def smelting_reduction_reactor():
+    """Generic smelting-reduction shaft reactor: shaft, tuyere zone, crucible, hearth.
 
     Sector 0 is the tap hole; the tuyeres sit between tap holes, evenly spaced. Wear limit 300 mm of a 450 mm lining.
     """
@@ -161,8 +161,8 @@ def oxyred_reactor():
         ZoneSpec("cadinho_parede", "Crucible - wall", ((1.80, 0.9), (1.80, 2.6)), 10, 36, 450, 150, group="wall"),
         ZoneSpec("soleira", "Crucible - hearth", ((0.0, 0.9), (1.80, 0.9)), 5, 36, 450, 150, group="floor"),
     )
-    spec = VesselSpec("oxyred_reactor", "Oxy-Red reactor", zones, x_name="heat",
-                      notes="Indicative geometry from the Oxy-Red twin proportions (hot face 3.6 m).")
+    spec = VesselSpec("smelting_reduction_reactor", "Smelting-reduction reactor", zones, x_name="heat",
+                      notes="Indicative, generic proportions (hot face 3.6 m).")
     tuy = [(k + 0.5) / n_tuy * 360 for k in range(n_tuy)]
     hs = ((HotSpot("cadinho_parede", 0.6, None, 0.11, amp=0.45),            # slag line
            HotSpot("cadinho_parede", 0.17, 0, 0.18, 17, amp=0.55),          # tap hole

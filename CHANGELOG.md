@@ -14,6 +14,40 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Lattice Boltzmann wind tunnel (`pinneapple_simulation.numerical_solvers.lbm_tunnel`), in PyTorch on CPU or GPU:
+  D3Q19/D3Q27, SRT or TRT collision, Smagorinsky LES, DDF shifting with optional FP16 storage (half the memory),
+  Guo forcing split for TRT, halfway bounce-back with moving walls, momentum-exchange forces, inlet/outlet/open/wall/
+  moving/periodic faces, STL voxelization, SI unit conversion and legacy VTK I/O. Validated on Poiseuille flow, Stokes
+  drag and sphere drag at Re = 20 (`examples/lbm/01_sphere_wind_tunnel.py`).
+  FluidX3D bridge (`external_solvers.fluidx3d`): writes a wind-tunnel `main_setup()` and the needed defines into the
+  user's own FluidX3D checkout, runs it, and reads forces and `.vtk` fields into arrays or PhysicalSamples. FluidX3D
+  is not bundled, and its license forbids commercial and military use.
+  Docs: `docs/core_concepts/lbm_wind_tunnel.md`.
+- OpenFOAM parameter campaigns (`pinneapple_simulation.external_solvers.openfoam.campaign`): one base case run
+  with many inputs, from a JSON plan or from Python. Per run: dictionary edits with values computed from the
+  parameters (arithmetic only), a mesh swap, a patch rebuilt to a given area, an optional hook, decomposition
+  (scotch or simple) and MPI. Lines are sampled while the solver runs, and solver health is read from the log.
+  Machines split the runs by worker tag or shard, claim runs with lock files, skip finished runs, and can push
+  each result to git. CLI: `python -m pinneapple_simulation.external_solvers.openfoam.campaign`. Example:
+  `examples/openfoam_campaign/`. Docs: `docs/core_concepts/openfoam_campaigns.md`.
+- Geomechanics MPM (`pinneapple_simulation.particle_dynamics.geo_mpm`): MLS-MPM in physical units (2-D or 3-D)
+  with Drucker-Prager sand (plane strain in 2-D), a weakly compressible fluid and an elastic solid, Coulomb walls,
+  several bodies, frames in GeoTaichi's layout. GeoTaichi bridge (`external_solvers.geotaichi`): runs GeoTaichi
+  scripts as a separate process and reads its MPM/DEM frames into PhysicalSamples. Example: granular column
+  collapse against Lube et al. (2005). Docs: `docs/core_concepts/geomechanics_mpm.md`; remaining features: #471.
+- Modelica to Physics AI (`pinneapple_simulation.external_solvers.modelica`): `omc.build_fmu` compiles `.mo` files
+  into FMI 2.0 FMUs with OpenModelica (local omc or the official Docker image, no OMPython), `omc.simulate_mo`
+  simulates with parameter overrides, `sweep.fmu_sweep` runs Latin-hypercube sweeps into an `FMUDataset` (split by
+  run, save/load). Examples `examples/modelica/`: FMU against omc, a ladle-cooling surrogate tested on unseen runs
+  (melt RMSE 0.8 K against 19 K for the nearest training run), and a PINN identifying a discharge coefficient from
+  noisy readings. Docs: `docs/core_concepts/modelica.md`.
+- Free-surface flow (`pp.cfd.FreeSurfaceFlow`, `pinneapple_simulation.numerical_solvers.free_surface`): interFoam
+  VOF cases with inlets given as velocity vectors, open boundaries, an initial liquid level (gravity may be tilted),
+  k-omega SST, and `LiveLineSampler`, which samples lines while the solver writes and can delete the sampled times
+  (long transients without function objects or a full disk). `pinneapple_design.geometry.trough.TroughSection`:
+  2-D melt-runner section with a weir and a slope. Example `examples/free_surface/01_runner_slope_study.py`.
+  Docs: `docs/core_concepts/free_surface.md`.
+
 - `pinneapple_twin3d.wear`: a generator of 3D wear (refractory / liner) digital twins from a spec. `ZoneSpec` /
   `VesselSpec` describe a part as surfaces of revolution cut into cells; `WearDataset` holds wear depth per cell and
   reading (validation, CSV and JSON contract shared with the web suite); `forecast` (repair-aware linear remaining-life
@@ -22,11 +56,16 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   data); four presets (steel ladle, pig-iron ladle, BOF converter, RH degasser) and `export_wear_twin`
   (viewer scene + `wear_dataset.json` + `report.json`). Guide: `docs/guides/recreate_a_wear_twin.md`; example:
   `examples/use_cases/refractory_wear_twin/`; tests: `tests/test_twin3d_wear.py` (Python checked against the JavaScript core).
-  Also: a fifth preset (`oxyred_reactor`), a 90 % interval on the remaining life (`remaining_lo/hi`), `calibrate` (optimizer
+  Also: a fifth preset (`smelting_reduction_reactor`), a 90 % interval on the remaining life (`remaining_lo/hi`), `calibrate` (optimizer
   assumptions from a stop log and the repair history, each parameter tagged calibrated / default / business input),
   `pinneapple_twin3d.primitives` (revolve, sweep, loft, wing, box, cylinder) and `pinneapple_twin3d.gallery` (runner channel,
   mixing tank, oil pipeline, airliner, launch vehicle, drone, lunar rover, wind turbine, satellite; illustrative fields).
 
+- Formula car (`pinneapple_design.geometry.vehicles3d.FormulaCar`): parametric open-wheel car (tub, floor and
+  diffuser, NACA-section front and rear wings with a DRS flap, helmet, halo, wheels) with per-component CFD bodies and
+  a rasterised frontal area. Example `examples/studio/06_formula_car_cfd.py`: OpenFOAM half model with a moving road
+  at 70 m/s, DRS closed and open, per-component forces, skin Cp, streamlines, mid-plane and wake slices, viewer,
+  Plotly and Rerun. `render_scene` gains `slice_crop`, and long colour-bar titles move to the corner text.
 - Proof graphs (`pinneapple_analysis.proof`): mathematical arguments as graphs of assumptions, lemmas, theorems and
   conjectures with exact (symbolic, exhaustive, integer/degree) and numerical checks (random tests, counterexample
   search); statuses PROVED / ARGUED / SUPPORTED / REFUTED / OPEN propagate along dependencies; report, Mermaid and
@@ -385,6 +424,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `to_physics_case` and `from_problem_design`/`to_problem_design` cover the other two (#27).
 
 ### Fixed
+
+- `om_runner._read_om_result` dropped `time` (dataset 0 of the OpenModelica result file).
 
 - `simulate_fmu` failed on every FMU when no parameters were given (`start_values=None` passed to fmpy).
 - `sample_uniform_box` only accepted 3-D boxes, so `CollocationSampler(strategy="uniform")` failed in 1-D and 2-D;
