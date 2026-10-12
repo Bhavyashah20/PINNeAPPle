@@ -136,30 +136,30 @@ def ensemble_study(
 
 def extrapolation_study(
     spec, model, *, residual_threshold: float, ensemble: Optional[Dict[str, Any]] = None,
-    margins: Sequence[float] = DEFAULT_MARGINS, n_eval: int = 2048,
+    margins: Sequence[float] = DEFAULT_MARGINS, n_eval: int = 2048, spread_tol: float = SPREAD_REL_TOL,
 ) -> Dict[str, Any]:
     """Residual (and ensemble spread, if given) on shells outside the
     training box. ``supported_margin`` is the largest margin such that it
     and every smaller margin keep residual <= threshold and spread <=
-    ``SPREAD_REL_TOL``; ``0.0`` means even the smallest shell fails."""
+    ``spread_tol`` (default ``SPREAD_REL_TOL``); ``0.0`` means even the smallest shell fails."""
     coords, bounds = list(spec.coords), spec.domain_bounds
     shells, supported = [], 0.0
     still_ok = True
     for m in margins:
         res = _pde_residual(spec, model, _sample_shell(bounds, coords, m, n_eval))
         spread = ensemble["shell_rel_spread"][m] if ensemble else None
-        ok = res <= residual_threshold and (spread is None or spread <= SPREAD_REL_TOL)
+        ok = res <= residual_threshold and (spread is None or spread <= spread_tol)
         shells.append({"margin": m, "residual": res, "rel_spread": spread, "ok": ok})
         still_ok = still_ok and ok
         if still_ok:
             supported = m
     return {"shells": shells, "supported_margin": supported, "residual_threshold": residual_threshold,
-            "spread_tolerance": SPREAD_REL_TOL, "used_ensemble": ensemble is not None}
+            "spread_tolerance": spread_tol, "used_ensemble": ensemble is not None}
 
 
 def weight_sensitivity_study(
     spec, build_model: Callable[[], Any], best_model, *, epochs: int, n_collocation: int,
-    factors: Sequence[float] = DEFAULT_WEIGHT_FACTORS, n_eval: int = 2048,
+    factors: Sequence[float] = DEFAULT_WEIGHT_FACTORS, n_eval: int = 2048, spread_tol: float = SPREAD_REL_TOL,
 ) -> Dict[str, Any]:
     """Retrain with ``w_pde`` scaled by each factor (other weights at their
     defaults) and measure the RMS change of the prediction vs *best_model*
@@ -181,7 +181,7 @@ def weight_sensitivity_study(
         variants.append({"w_pde_factor": f, "rel_prediction_change": diff,
                          "residual": _pde_residual(spec, m, x_in)})
     return {"variants": variants, "max_rel_change": max(v["rel_prediction_change"] for v in variants),
-            "tolerance": SPREAD_REL_TOL}
+            "tolerance": spread_tol}
 
 
 def calibration_against_reference(members: Sequence[Any], reference_x, reference_y) -> Dict[str, Any]:
@@ -246,6 +246,7 @@ def parameter_shift_study(
     make_spec: Callable[..., Any], base_kwargs: Dict[str, Any], build_model: Callable[[], Any], base_model, *,
     residual_threshold: float, epochs: int, n_collocation: int,
     shifts: Sequence[float] = DEFAULT_PARAM_SHIFTS, max_params: int = 2, n_eval: int = 2048,
+    spread_tol: float = SPREAD_REL_TOL,
 ) -> Dict[str, Any]:
     """Parameter generalization: how far can a physical parameter move
     before the surrogate trained at the base value stops being usable?
@@ -259,7 +260,7 @@ def parameter_shift_study(
     between the base surrogate and the reference model on the same interior
     points, relative to the reference field's RMS magnitude. A shift is ``ok``
     when the reference is trusted and that difference is within
-    ``SPREAD_REL_TOL``; ``supported_shift`` is the largest shift for which it
+    ``spread_tol`` (default ``SPREAD_REL_TOL``); ``supported_shift`` is the largest shift for which it
     and every smaller shift are ok. Costs ``len(shifts) * n_params``
     trainings. Geometry changes are NOT covered (they need real geometry).
     """
@@ -276,11 +277,11 @@ def parameter_shift_study(
             diff = float(np.sqrt(np.mean((_predict(base_model, x) - ref_pred) ** 2))) / _field_scale(ref_pred)
             resid = _pde_residual(spec, ref, x)
             trusted = resid <= residual_threshold
-            ok = trusted and diff <= SPREAD_REL_TOL
+            ok = trusted and diff <= spread_tol
             rows.append({"shift": sh, "value": value * (1 + sh), "rel_prediction_error": diff,
                          "reference_residual": resid, "reference_trusted": trusted, "ok": ok})
             still_ok = still_ok and ok
             if still_ok:
                 supported = sh
         results.append({"parameter": name, "base_value": value, "supported_shift": supported, "shifts": rows})
-    return {"parameters": results, "tolerance": SPREAD_REL_TOL, "residual_threshold": residual_threshold}
+    return {"parameters": results, "tolerance": spread_tol, "residual_threshold": residual_threshold}

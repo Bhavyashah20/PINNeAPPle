@@ -45,6 +45,36 @@ ECE_TOL = 0.10
 COVERAGE_TOL = 0.05
 
 
+@dataclass(frozen=True)
+class Tolerances:
+    """Acceptance tolerances of the applicability map (#6). The defaults are the heuristics above; a request can
+    replace any of them with criteria agreed for the target application. The map records which were used and
+    whether they came from the request."""
+    plateau_rel: float = PLATEAU_REL_TOL     # loss change between the last two 10 % epoch windows, beyond noise
+    spread_rel: float = SPREAD_TOL           # ensemble spread / parameter-shift and weight-change tolerance
+    ece: float = ECE_TOL                     # expected calibration error
+    coverage: float = COVERAGE_TOL           # |empirical - target| interval coverage
+
+    @classmethod
+    def from_any(cls, value: "Optional[Tolerances | Dict[str, float]]") -> "Tolerances":
+        if value is None:
+            return cls()
+        if isinstance(value, Tolerances):
+            return value
+        unknown = set(value) - {"plateau_rel", "spread_rel", "ece", "coverage"}
+        if unknown:
+            raise ValueError(f"unknown tolerance(s) {sorted(unknown)}; use plateau_rel, spread_rel, ece, coverage")
+        for k, v in value.items():
+            if not (isinstance(v, (int, float)) and 0 < float(v) < 1):
+                raise ValueError(f"tolerance {k} must be a number in (0, 1), got {v!r}")
+        return cls(**{k: float(v) for k, v in value.items()})
+
+    def custom(self) -> Dict[str, float]:
+        """The tolerances that differ from the defaults."""
+        d = Tolerances()
+        return {k: v for k, v in asdict(self).items() if v != getattr(d, k)}
+
+
 @dataclass
 class ChecklistItem:
     key: str
@@ -72,6 +102,8 @@ class ApplicabilityMap:
     verified: List[str]
     inferred: List[str]
     unsupported: List[str]
+    # tolerances used for PASS/FAIL, and which of them came from the request (#6)
+    tolerances: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -97,21 +129,37 @@ class ApplicabilityMap:
             )
             lines.append(f"  - {v.name} ({v.kind}): {where}; extrapolation "
                          f"{'supported' if v.extrapolation_supported else 'NOT supported'}. {v.note}")
+        if self.tolerances:
+            used = self.tolerances.get("used", {})
+            custom = self.tolerances.get("from_request", {})
+            lines += ["", "Tolerances: " + ", ".join(
+                f"{k}={v:g}{' (request)' if k in custom else ' (default heuristic)'}" for k, v in used.items())]
         return "\n".join(lines)
 
 
 def _tail_plateau(history: Sequence[float]) -> Optional[float]:
-    """Relative change between the mean loss of the last 10% of epochs and
-    the mean of the preceding 10%, or None. Window means, not endpoints:
-    collocation points are resampled every step, so a single epoch's loss
-    is noisy."""
+    """Relative change between the mean loss of the last 10% of epochs and the mean of the preceding 10%, minus
+    what the epoch-to-epoch noise alone could produce, or None.
+
+    Collocation points are resampled every step, so single-epoch losses scatter and two window means differ even
+    when training has stopped improving. The change counts only beyond two standard errors of the difference of
+    the means, ``2 * sqrt(var_last / k + var_prev / k)``; the remaining relative change is compared with
+    ``PLATEAU_REL_TOL``. Without this, a flat loss with 15-30 % per-step scatter over 300 epochs was reported as
+    still decreasing in 22-50 % of runs (#5)."""
     n = len(history)
     if n < 20:
         return None
     k = max(n // 10, 1)
-    last = sum(history[-k:]) / k
-    prev = sum(history[-2 * k:-k]) / k
-    return abs(last - prev) / (abs(prev) or 1e-30)
+    last_w, prev_w = list(history[-k:]), list(history[-2 * k:-k])
+    last = sum(last_w) / k
+    prev = sum(prev_w) / k
+
+    def var(w, mu):
+        return sum((x - mu) ** 2 for x in w) / max(len(w) - 1, 1)
+
+    se = (var(last_w, last) / k + var(prev_w, prev) / k) ** 0.5
+    beyond_noise = max(abs(last - prev) - 2.0 * se, 0.0)
+    return beyond_noise / (abs(prev) or 1e-30)
 
 
 def _by_prefix(checks: Sequence[Dict[str, Any]], prefix: str) -> List[Dict[str, Any]]:
@@ -138,6 +186,9 @@ def build_applicability_map(
     n_parameters: Optional[int] = None,
     loss_weights: Optional[Dict[str, float]] = None,
     convergence: Optional[Dict[str, Any]] = None,
+    tolerances: "Optional[Tolerances | Dict[str, float]]" = None,
+    robustness_mode: Optional[str] = None,
+    study_epochs: Optional[int] = None,
     heldout_error: Optional[Dict[str, Any]] = None,
     extrapolation: Optional[Dict[str, Any]] = None,
     ensemble: Optional[Dict[str, Any]] = None,
@@ -155,6 +206,7 @@ def build_applicability_map(
     them the corresponding item is ``NOT_RUN`` -- the guardrail residual
     is evaluated on fresh points but *inside the training domain*, which
     is not generalization."""
+    tol = Tolerances.from_any(tolerances)
     comps = {c["name"]: c for c in confidence_components}
     checklist: List[ChecklistItem] = []
     verified: List[str] = []
@@ -219,9 +271,10 @@ def build_applicability_map(
     conv_status, conv_tier = NOT_RUN, UNSUPPORTED
     plateau = _tail_plateau(loss_history) if loss_history else None
     if plateau is not None:
-        plateaued = plateau < PLATEAU_REL_TOL
-        conv_ev.append(f"training loss (window means) moved {plateau:.2%} between the last two 10% epoch windows "
-                       f"({'plateaued' if plateaued else 'STILL DECREASING'}; tolerance {PLATEAU_REL_TOL:.0%}, heuristic)")
+        plateaued = plateau < tol.plateau_rel
+        conv_ev.append(f"training loss (window means) moved {plateau:.2%} beyond its epoch-to-epoch noise between the "
+                       f"last two 10% epoch windows ({'plateaued' if plateaued else 'STILL CHANGING'}; tolerance "
+                       f"{tol.plateau_rel:.0%})")
         conv_status, conv_tier = (PASS if plateaued else FAIL), VERIFIED
     if convergence:
         asym = convergence.get("is_asymptotic")
@@ -340,13 +393,13 @@ def build_applicability_map(
 
     # 6. Weights -------------------------------------------------------
     if weight_sensitivity:
-        mx, tol = weight_sensitivity["max_rel_change"], weight_sensitivity["tolerance"]
+        mx, wtol = weight_sensitivity["max_rel_change"], weight_sensitivity["tolerance"]
         ev = [f"w_pde x{v['w_pde_factor']:g}: prediction moved {v['rel_prediction_change']:.1%} of field scale, "
               f"residual={v['residual']:.3g}" for v in weight_sensitivity["variants"]]
-        ok = mx <= tol
+        ok = mx <= wtol
         checklist.append(ChecklistItem(
             "weights", "Which loss weights, and does the result depend on them?", PASS if ok else FAIL, VERIFIED,
-            f"Retrained with the PDE weight scaled; max prediction change {mx:.1%} (tolerance {tol:.0%}, heuristic; "
+            f"Retrained with the PDE weight scaled; max prediction change {mx:.1%} (tolerance {wtol:.0%}; "
             "includes seed noise). " + ("Result is insensitive to PDE weighting." if ok
                                          else "Result DEPENDS on loss weighting -- treat as a modelling choice."),
             ev))
@@ -371,13 +424,13 @@ def build_applicability_map(
     if uq is not None:
         if calibration:
             ece, cov, tgt = calibration["ece"], calibration["coverage"], calibration["target_coverage"]
-            ok = ece <= ECE_TOL and abs(cov - tgt) <= COVERAGE_TOL
+            ok = ece <= tol.ece and abs(cov - tgt) <= tol.coverage
             kind = ("well calibrated" if ok else
                     "OVER-conservative (intervals wider than needed)" if cov > tgt else "OVERCONFIDENT (intervals too narrow)")
             checklist.append(ChecklistItem(
                 "uq", "Uncertainty quantification?", PASS if ok else FAIL, VERIFIED,
-                f"Calibrated against reference data: ECE={ece:.3f} (tolerance {ECE_TOL}), empirical coverage "
-                f"{cov:.2f} vs target {tgt:.2f} (tolerance +/-{COVERAGE_TOL}) -> {kind}. Heuristic tolerances.",
+                f"Calibrated against reference data: ECE={ece:.3f} (tolerance {tol.ece:g}), empirical coverage "
+                f"{cov:.2f} vs target {tgt:.2f} (tolerance +/-{tol.coverage:g}) -> {kind}.",
                 [uq["source_summary"]]))
             (verified if ok else unsupported).append(f"UQ calibration: {kind}; {uq['source_summary']}")
         else:
@@ -387,11 +440,11 @@ def build_applicability_map(
             verified.append(f"UQ calibration: {uq['source_summary']}")
     elif ensemble:
         sp = ensemble["interior_rel_spread"]
-        ok = sp <= SPREAD_TOL
+        ok = sp <= tol.spread_rel
         checklist.append(ChecklistItem(
             "uq", "Uncertainty quantification?", PASS if ok else FAIL, VERIFIED,
             f"Epistemic spread from {ensemble['n_members']} independently trained members: {sp:.1%} of field "
-            f"scale inside the domain (tolerance {SPREAD_TOL:.0%}, heuristic). UNCALIBRATED: no reference data "
+            f"scale inside the domain (tolerance {tol.spread_rel:.0%}). UNCALIBRATED: no reference data "
             "was supplied, so these are disagreement bars, not calibrated confidence intervals.",
             [f"+{m:.0%} outside: spread {v:.1%}" for m, v in ensemble["shell_rel_spread"].items()]))
         (verified if ok else unsupported).append(
@@ -426,4 +479,9 @@ def build_applicability_map(
             [_check_line(dim)] if dim else []))
         inferred.append("Global conservation (mass/energy) follows from the PDE residual but was not measured directly.")
 
-    return ApplicabilityMap(checklist, envelope, verified, inferred, unsupported)
+    if robustness_mode == "fast":
+        inferred.append(f"Robustness studies ran in FAST mode: study trainings at {study_epochs} epochs (the main run "
+                        f"used {epochs}) and no parameter-shift retraining, so the spread and weight-sensitivity "
+                        "numbers describe shorter trainings and parameter generalization is not measured.")
+    return ApplicabilityMap(checklist, envelope, verified, inferred, unsupported,
+                            tolerances={"used": asdict(tol), "from_request": tol.custom()})
