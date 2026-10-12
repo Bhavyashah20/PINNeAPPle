@@ -73,6 +73,18 @@ def generate(tpl: Template, var: CadVariant, plan: MeshPlan, out_dir: str, level
     if not res.error and res.path:
         res.quality = quality(res.path, "fea" if plan.kind == "solid" else "cfd")
         res.cells = int(res.quality.get("summary", {}).get("cells", res.cells))
+        for name, st in (res.layers.get("patches") or {}).items():
+            pct = st["coverage_pct"]
+            ok = pct >= 80.0
+            res.quality["checks"].append({
+                "key": f"prism_layers_{name}", "status": "pass" if ok else "warn", "value": pct, "limit": 80.0,
+                "message": f"{st['layers']:.1f} of {res.layers['requested']['count']} layers on average, "
+                           f"{pct:.0f} % of the planned thickness",
+                "action": "" if ok else "layers collapsed near sharp edges or thin gaps (a known snappyHexMesh "
+                          "limit): check y+ in the solution, relax featureAngle / minThickness, or use a "
+                          "prism-layer mesher for this geometry"})
+            if not ok and res.quality["verdict"] == "pass":
+                res.quality["verdict"] = "warn"
     return res
 
 
@@ -272,8 +284,10 @@ def _snappy(tpl, var, plan, out, level, procs, res, log) -> None:
         loc = (lo[0] + 1.37 * h0, hi[1] - 1.61 * h0, hi[2] - 1.53 * h0)
     n = [max(4, int(math.ceil((b - a) / h0))) for a, b in zip(lo, hi, strict=True)]
     hi = lo + np.array(n) * h0
+    loc = tuple(float(x) for x in loc)
     ground = "\n    ground { type wall; faces ( (0 3 2 1) ); }" if dom.get("ground") else ""
     far_faces = "(0 4 7 3) (1 2 6 5) (0 1 5 4) (3 7 6 2) (4 5 6 7)" + ("" if dom.get("ground") else " (0 3 2 1)")
+    lo, hi = [float(x) for x in lo], [float(x) for x in hi]
     v = [(lo[0], lo[1], lo[2]), (hi[0], lo[1], lo[2]), (hi[0], hi[1], lo[2]), (lo[0], hi[1], lo[2]),
          (lo[0], lo[1], hi[2]), (hi[0], lo[1], hi[2]), (hi[0], hi[1], hi[2]), (lo[0], hi[1], hi[2])]
     _write(case, "system/blockMeshDict", "convertToMeters 1;\nvertices (" + " ".join(
@@ -297,7 +311,7 @@ def _snappy(tpl, var, plan, out, level, procs, res, log) -> None:
         surf_regions = " ".join(f"{r} {{ level ({levels} {levels}); patchInfo {{ type {rtypes.get(r, 'wall')}; }} }}"
                                 for r in regions)
         surfaces = f"        body {{ level ({levels} {levels}); regions {{ {surf_regions} }} }}"
-        layer_patch = '"body_wall"'
+        layer_patch = '"wall"'
     else:
         geom = "    body.stl { type triSurfaceMesh; name body; }"
         surfaces = f"        body {{ level ({max(levels - 1, 0)} {levels}); patchInfo {{ type wall; }} }}"

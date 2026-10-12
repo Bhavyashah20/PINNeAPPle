@@ -14,6 +14,15 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Fit-for-purpose geometry and mesh (`pinneapple_design.fitmesh`): reads a problem description (English or
+  Portuguese) and asks for what is missing; suggests reference geometries with their published sources (NACA wing,
+  Ahmed body, cylinder, sphere, 90-degree pipe bend, backward-facing step, plate with a hole, cantilever beam,
+  plate-fin heat sink), parameters and ranges; builds STEP/STL variants checked against exact volumes and the
+  reference objects; plans the mesh for screening, design or verification (y+ and prism layers from skin friction,
+  domain, cell and cost estimate, mesh family); generates Gmsh and snappyHexMesh meshes with quality from
+  `pinneapple_data.cae`; computes the grid-convergence index; writes one JSON + HTML report with a verdict per
+  stage. Optional language-model help at every step (local Ollama or hosted) with validated outputs and isolated
+  execution of model-written CadQuery. HTTP API in `fitmesh.api`. Docs: `docs/core_concepts/fitmesh.md`.
 - astroML bridge (`pinneapple_physics.pde_environment.presets.astroml_bridge`): Lomb-Scargle and multi-term
   periodograms for unevenly sampled time series with Scargle false-alarm levels and a bootstrap, `best_period`,
   extreme deconvolution (`XDGMM`) with per-point errors, Bayesian Blocks and Knuth histograms, line fits with errors

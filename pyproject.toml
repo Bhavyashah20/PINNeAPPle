@@ -73,6 +73,12 @@ twin = [
   "asyncua>=1.1",
 ]
 # FMI: simulate FMUs (FMI 1.0 / 2.0 / 3.0) through fmpy; pythonfmu builds the test FMU
+# Problem -> CAD -> fit-for-purpose meshes (pinneapple_design.fitmesh); OpenFOAM is a separate install
+fitmesh = [
+  "cadquery>=2.4",
+  "gmsh>=4.11",
+  "trimesh>=4.0",
+]
 # NVIDIA Newton rigid-body solvers (pinneapple_simulation.external_solvers.newton_physics)
 newton = [
   "newton>=1.6",
