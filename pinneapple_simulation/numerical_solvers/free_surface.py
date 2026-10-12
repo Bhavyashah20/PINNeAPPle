@@ -111,6 +111,10 @@ class FreeSurfaceFlow:
     refine_boxes: list[tuple[Sequence[float], Sequence[float], int]] = field(default_factory=list)
     location_in_mesh: Sequence[float] | None = None
     two_d: bool = False                                  # mesh is one cell thick with "empty" front/back
+    # p_rgh linear solver (fvSolution entries), e.g. accelerated_foam.case.warm_solver("PCG", 1e-7, 0.05) for the
+    # warm-started solve, with the library in ``libs``; default PCG/DIC, tolerance 1e-7, relTol 0.05
+    pressure_solver: dict | None = None
+    libs: Sequence[str] = ()                              # extra libraries loaded by controlDict
 
     def __post_init__(self):
         if (self.regions is None) == (self.mesh is None):
@@ -287,7 +291,7 @@ adjustTimeStep yes;
 maxCo {self.max_co!r};
 maxAlphaCo {self.max_alpha_co!r};
 maxDeltaT {self.max_delta_t!r};
-""")
+""" + ("libs (" + " ".join(f'"{x}"' for x in self.libs) + ");\n" if self.libs else ""))
         turb = "" if self.turbulence == "laminar" else "    div(phi,k) Gauss upwind;\n    div(phi,omega) Gauss upwind;\n"
         _w(case, "system/fvSchemes", "dictionary", f"""ddtSchemes {{ default Euler; }}
 gradSchemes {{ default Gauss linear; }}
@@ -303,6 +307,9 @@ interpolationSchemes {{ default linear; }}
 snGradSchemes {{ default corrected; }}
 wallDist {{ method meshWave; }}
 """)
+        p_rgh = " ".join(f"{k} {'true' if v is True else 'false' if v is False else v};" for k, v in
+                         (self.pressure_solver or {"solver": "PCG", "preconditioner": "DIC", "tolerance": 1e-7,
+                                                   "relTol": 0.05}).items())
         _w(case, "system/fvSolution", "dictionary", f"""solvers
 {{
     "{a}.*"
@@ -311,7 +318,7 @@ wallDist {{ method meshWave; }}
         solver smoothSolver; smoother symGaussSeidel; tolerance 1e-8; relTol 0;
     }}
     "pcorr.*" {{ solver PCG; preconditioner DIC; tolerance 1e-5; relTol 0; }}
-    p_rgh {{ solver PCG; preconditioner DIC; tolerance 1e-7; relTol 0.05; }}
+    p_rgh {{ {p_rgh} }}
     p_rghFinal {{ $p_rgh; relTol 0; }}
     "(U|k|omega).*" {{ solver smoothSolver; smoother symGaussSeidel; tolerance 1e-6; relTol 0; }}
 }}
