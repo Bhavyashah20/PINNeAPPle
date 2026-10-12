@@ -14,6 +14,98 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Lattice Boltzmann wind tunnel (`pinneapple_simulation.numerical_solvers.lbm_tunnel`), in PyTorch on CPU or GPU:
+  D3Q19/D3Q27, SRT or TRT collision, Smagorinsky LES, DDF shifting with optional FP16 storage (half the memory),
+  Guo forcing split for TRT, halfway bounce-back with moving walls, momentum-exchange forces, inlet/outlet/open/wall/
+  moving/periodic faces, STL voxelization, SI unit conversion and legacy VTK I/O. Validated on Poiseuille flow, Stokes
+  drag and sphere drag at Re = 20 (`examples/lbm/01_sphere_wind_tunnel.py`).
+  FluidX3D bridge (`external_solvers.fluidx3d`): writes a wind-tunnel `main_setup()` and the needed defines into the
+  user's own FluidX3D checkout, runs it, and reads forces and `.vtk` fields into arrays or PhysicalSamples. FluidX3D
+  is not bundled, and its license forbids commercial and military use.
+  Docs: `docs/core_concepts/lbm_wind_tunnel.md`.
+- OpenFOAM parameter campaigns (`pinneapple_simulation.external_solvers.openfoam.campaign`): one base case run
+  with many inputs, from a JSON plan or from Python. Per run: dictionary edits with values computed from the
+  parameters (arithmetic only), a mesh swap, a patch rebuilt to a given area, an optional hook, decomposition
+  (scotch or simple) and MPI. Lines are sampled while the solver runs, and solver health is read from the log.
+  Machines split the runs by worker tag or shard, claim runs with lock files, skip finished runs, and can push
+  each result to git. CLI: `python -m pinneapple_simulation.external_solvers.openfoam.campaign`. Example:
+  `examples/openfoam_campaign/`. Docs: `docs/core_concepts/openfoam_campaigns.md`.
+- Geomechanics MPM (`pinneapple_simulation.particle_dynamics.geo_mpm`): MLS-MPM in physical units (2-D or 3-D)
+  with Drucker-Prager sand (plane strain in 2-D), a weakly compressible fluid and an elastic solid, Coulomb walls,
+  several bodies, frames in GeoTaichi's layout. GeoTaichi bridge (`external_solvers.geotaichi`): runs GeoTaichi
+  scripts as a separate process and reads its MPM/DEM frames into PhysicalSamples. Example: granular column
+  collapse against Lube et al. (2005). Docs: `docs/core_concepts/geomechanics_mpm.md`; remaining features: #471.
+- Modelica to Physics AI (`pinneapple_simulation.external_solvers.modelica`): `omc.build_fmu` compiles `.mo` files
+  into FMI 2.0 FMUs with OpenModelica (local omc or the official Docker image, no OMPython), `omc.simulate_mo`
+  simulates with parameter overrides, `sweep.fmu_sweep` runs Latin-hypercube sweeps into an `FMUDataset` (split by
+  run, save/load). Examples `examples/modelica/`: FMU against omc, a ladle-cooling surrogate tested on unseen runs
+  (melt RMSE 0.8 K against 19 K for the nearest training run), and a PINN identifying a discharge coefficient from
+  noisy readings. Docs: `docs/core_concepts/modelica.md`.
+- Free-surface flow (`pp.cfd.FreeSurfaceFlow`, `pinneapple_simulation.numerical_solvers.free_surface`): interFoam
+  VOF cases with inlets given as velocity vectors, open boundaries, an initial liquid level (gravity may be tilted),
+  k-omega SST, and `LiveLineSampler`, which samples lines while the solver writes and can delete the sampled times
+  (long transients without function objects or a full disk). `pinneapple_design.geometry.trough.TroughSection`:
+  2-D melt-runner section with a weir and a slope. Example `examples/free_surface/01_runner_slope_study.py`.
+  Docs: `docs/core_concepts/free_surface.md`.
+
+- `pinneapple_twin3d.wear`: a generator of 3D wear (refractory / liner) digital twins from a spec. `ZoneSpec` /
+  `VesselSpec` describe a part as surfaces of revolution cut into cells; `WearDataset` holds wear depth per cell and
+  reading (validation, CSV and JSON contract shared with the web suite); `forecast` (repair-aware linear remaining-life
+  fit with a confidence grade), `backtest`; `optimize` (simulates run-to-limit, fixed-calendar and predictive grouped
+  maintenance policies and recommends the cheapest one without breach); `synthetic_campaign` (clearly labelled synthetic
+  data); four presets (steel ladle, pig-iron ladle, BOF converter, RH degasser) and `export_wear_twin`
+  (viewer scene + `wear_dataset.json` + `report.json`). Guide: `docs/guides/recreate_a_wear_twin.md`; example:
+  `examples/use_cases/refractory_wear_twin/`; tests: `tests/test_twin3d_wear.py` (Python checked against the JavaScript core).
+  Also: a fifth preset (`smelting_reduction_reactor`), a 90 % interval on the remaining life (`remaining_lo/hi`), `calibrate` (optimizer
+  assumptions from a stop log and the repair history, each parameter tagged calibrated / default / business input),
+  `pinneapple_twin3d.primitives` (revolve, sweep, loft, wing, box, cylinder) and `pinneapple_twin3d.gallery` (runner channel,
+  mixing tank, oil pipeline, airliner, launch vehicle, drone, lunar rover, wind turbine, satellite; illustrative fields).
+
+- Formula car (`pinneapple_design.geometry.vehicles3d.FormulaCar`): parametric open-wheel car (tub, floor and
+  diffuser, NACA-section front and rear wings with a DRS flap, helmet, halo, wheels) with per-component CFD bodies and
+  a rasterised frontal area. Example `examples/studio/06_formula_car_cfd.py`: OpenFOAM half model with a moving road
+  at 70 m/s, DRS closed and open, per-component forces, skin Cp, streamlines, mid-plane and wake slices, viewer,
+  Plotly and Rerun. `render_scene` gains `slice_crop`, and long colour-bar titles move to the corner text.
+- Proof graphs (`pinneapple_analysis.proof`): mathematical arguments as graphs of assumptions, lemmas, theorems and
+  conjectures with exact (symbolic, exhaustive, integer/degree) and numerical checks (random tests, counterexample
+  search); statuses PROVED / ARGUED / SUPPORTED / REFUTED / OPEN propagate along dependencies; report, Mermaid and
+  figure. Experiment `examples/proof_graph/pt_chain_no_go.py`: the no-go theorem for linear exceptional-point tuning
+  extended to PT tetramers with independently modulated bonds (ARGUED: every algebraic step machine-checked for all
+  degrees, one continuity step written), N >= 5 supported numerically. Docs: `docs/core_concepts/proof_graphs.md`.
+- Viewer bridges (`pinneapple_tools.visualization.integrations`): Rerun (scenes, molecules, time series, ensemble
+  runs, proof and knowledge graphs, reports; live or `.rrd`), Plotly standalone HTML (scenes, molecules, 3-D
+  fields), Trame web app around PyVista. Extra `viz3d`.
+- Digital-twin standards (`pinneapple_systems.digital_twin.standards`): Asset Administration Shell v3 (Eclipse
+  BaSyx), DTDL v3, NGSI-LD, Eclipse Ditto and a live OPC UA server, each carrying the physical validity of the
+  twin's models. Extra `twin`. Docs: `docs/core_concepts/viewers_and_twin_standards.md`.
+- Molecular visualisation (`pinneapple_tools.visualization.molecular`, `pp.molecular`): PDB / mdtraj molecules, fcc
+  metal slabs (8 metals, (111)/(100)/(110)) sized to a footprint, orientation on a surface (principal axes, active site
+  up), off-screen stills (space-filling or backbone, coloured by residue class, element, chain or height), trajectory
+  frames and MP4, MD dashboard (energy, temperature, RMSD, height, contacts), glTF scene and a step-by-step console
+  log. Example `examples/molecular/protein_on_gold.py`: a protein on Au(111) with OpenMM (Amber14 + GBn2, INTERFACE
+  gold Lennard-Jones as a Steele wall). Docs: `docs/core_concepts/molecular_visualization.md`.
+- Non-Hermitian physics (`pinneapple_physics.non_hermitian`, `pp.non_hermitian`): PT-symmetric dimers and chains,
+  exceptional points in closed form and from the matrix alone, eigenvector coalescence, Petermann factor; a symbolic
+  check of exceptional-point tuning laws against the no-go theorem for PT-symmetric dimers (Zenodo 23287622) with
+  coupling classification, the three routes around it (square-root coupling, feedback, non-reciprocal hopping) and
+  the theorem's hypotheses as a physics-audit profile; figure and docs (`docs/core_concepts/non_hermitian.md`).
+- `fmi` extra (`fmpy`, `pythonfmu`) and a test that builds an FMI 2.0 Co-Simulation FMU and simulates it through
+  `simulate_fmu` / `fmu_to_upd` (matches the exact damped-oscillator solution to 1e-5).
+
+- Physics audit (`pinneapple_physics.physics_audit`, `pp.physics_audit`): which model to use, when to trust it and
+  when its physical formulation must be revisited. Assumption auditor (catalogue of common assumptions with soft
+  validity ranges on dimensionless numbers, training envelopes with nearest-neighbour distance, `UNKNOWN` instead of a
+  silent pass), physics validity monitor without ground truth (residual, conservation, bounds, boundary, constitutive,
+  invariant and envelope checks; alarms on critical failures, persistence and residual drift), physics-aware routing
+  (compatibility prior on the ensemble weights, sleeping experts, escalation to the solver), failure attribution
+  (regime change, extrapolation, PDE / conservation / boundary violation, numerical resolution, measurement, missing
+  physics, with evidence and confidence), a knowledge graph of phenomena, equations, assumptions, mechanisms and
+  models, and ranked improvement recommendations; `diagnose()` writes a report. Example
+  `examples/physics_audit/pipe_regimes.py`: across laminar, transitional and rough turbulent pipe flow the routed
+  ensemble has 0.38 % mean error against 1.49 % for history-only weights, and a low-residual, in-domain Blasius
+  prediction with 14.5 % error is attributed to missing physics. Docs: `docs/core_concepts/physics_audit.md`.
+- `PhysicsEnsemble(router=...)`: physics-aware prior on the weights per case; experts the router puts to sleep are
+  not used and not penalised by that case. Predictions also return `prior`, `awake` and `escalate`.
 
 - Module reference at `docs/org/reference/` (published under `/PINNeAPPle/org/reference/`): every package and
   module with its docstring and public API read from the source, plus curated explanations and 38 examples that are
@@ -332,9 +424,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `to_physics_case` and `from_problem_design`/`to_problem_design` cover the other two (#27).
 
 ### Fixed
-- `PhysicsGuardrail.check()` crashed with `StopIteration` for a model with no parameters (an analytic or closed-form
-  model wrapped as a `torch.nn.Module`); the compiled loss now takes its device from the first parameter or buffer,
-  else the batch tensors, else CPU.
+
+- `om_runner._read_om_result` dropped `time` (dataset 0 of the OpenModelica result file).
+
+- `simulate_fmu` failed on every FMU when no parameters were given (`start_values=None` passed to fmpy).
 - `sample_uniform_box` only accepted 3-D boxes, so `CollocationSampler(strategy="uniform")` failed in 1-D and 2-D;
   it now samples boxes of any dimension.
 - Registry: two model or problem versions saved within the same second got the same version name and the second

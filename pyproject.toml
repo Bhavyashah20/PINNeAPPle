@@ -59,6 +59,24 @@ veriphysics = [
   "reportlab>=4.0",
 ]
 
+# Other 3-D viewers: Rerun (time-aware), Plotly (standalone HTML), Trame (web app around PyVista)
+viz3d = [
+  "rerun-sdk>=0.20",
+  "plotly>=5.18",
+  "trame>=3.0",
+  "trame-vtk>=2.5",
+  "trame-vuetify>=2.4",
+]
+# Digital-twin standards: Asset Administration Shell (Eclipse BaSyx) and an OPC UA server (asyncua)
+twin = [
+  "basyx-python-sdk>=1.0",
+  "asyncua>=1.1",
+]
+# FMI: simulate FMUs (FMI 1.0 / 2.0 / 3.0) through fmpy; pythonfmu builds the test FMU
+fmi = [
+  "fmpy>=0.3.20",
+  "pythonfmu>=0.6",
+]
 # Experiment trackers for pp.Experiment(tracker="mlflow" | "wandb")
 tracking = [
   "mlflow>=2.9",
@@ -262,6 +280,7 @@ all = [
   "statsmodels>=0.14",
   "requests>=2.31",
   "mujoco>=3.0",
+  "fmpy>=0.3.20",
   "genesis-world>=0.2.0",
   "emmiai-noether>=2026.4.0",
   "huggingface_hub>=0.24",

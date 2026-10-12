@@ -171,7 +171,9 @@ def _read_om_result(
         signed_idx = int(data_info[i][1])
         sign = -1.0 if signed_idx < 0 else 1.0
         row_idx = abs(signed_idx) - 1
-        if dataset == 2 and 0 <= row_idx < data_2.shape[0]:
+        if dataset == 0 and data_2.shape[0]:            # the abscissa (time), stored as row 0 of data_2
+            out[name] = data_2[0]
+        elif dataset == 2 and 0 <= row_idx < data_2.shape[0]:
             out[name] = sign * data_2[row_idx]
         elif dataset == 1 and 0 <= row_idx < data_1.shape[0]:
             value = sign * data_1[row_idx][-1]

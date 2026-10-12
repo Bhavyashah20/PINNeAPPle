@@ -1,0 +1,37 @@
+model LadleCooling "Hot-metal ladle cooling: melt, refractory lining and steel shell as three lumped masses"
+  parameter Real T0 = 1773.15 "initial melt temperature [K]";
+  parameter Real Tamb = 303.15 "ambient [K]";
+  parameter Real m_melt = 150e3 "melt mass [kg]";
+  parameter Real cp_melt = 840 "melt heat capacity [J/(kg K)]";
+  parameter Real m_lin = 30e3 "lining mass [kg]";
+  parameter Real cp_lin = 1000 "lining heat capacity [J/(kg K)]";
+  parameter Real m_sh = 25e3 "shell mass [kg]";
+  parameter Real cp_sh = 500 "shell heat capacity [J/(kg K)]";
+  parameter Real A_in = 30 "melt-lining contact area [m2]";
+  parameter Real A_out = 40 "shell outer area [m2]";
+  parameter Real A_top = 8 "free melt surface [m2]";
+  parameter Real k_lin = 2.5 "lining conductivity [W/(m K)]";
+  parameter Real d_lin = 0.25 "lining thickness [m]";
+  parameter Real h_in = 500 "melt-lining film coefficient [W/(m2 K)]";
+  parameter Real h_out = 10 "shell convection coefficient [W/(m2 K)]";
+  parameter Real eps_sh = 0.8 "shell emissivity [-]";
+  parameter Real eps_top = 0.4 "slag-covered melt surface emissivity [-]";
+  constant Real sigma = 5.670374419e-8;
+  Real Tm(start = T0, fixed = true) "melt [K]";
+  Real Tl(start = T0 - 300, fixed = true) "lining, mean [K]";
+  Real Ts(start = 473.15, fixed = true) "shell [K]";
+  output Real T_melt = Tm;
+  output Real T_shell = Ts;
+  Real Q_ml "melt to lining [W]";
+  Real Q_ls "lining to shell [W]";
+  Real Q_top "radiation from the melt surface [W]";
+  Real Q_out "shell to ambient (convection + radiation) [W]";
+equation
+  Q_ml = A_in * (Tm - Tl) / (1 / h_in + d_lin / (2 * k_lin));
+  Q_ls = A_out * (Tl - Ts) / (d_lin / (2 * k_lin));
+  Q_top = eps_top * sigma * A_top * (Tm^4 - Tamb^4);
+  Q_out = A_out * (h_out * (Ts - Tamb) + eps_sh * sigma * (Ts^4 - Tamb^4));
+  m_melt * cp_melt * der(Tm) = -Q_ml - Q_top;
+  m_lin * cp_lin * der(Tl) = Q_ml - Q_ls;
+  m_sh * cp_sh * der(Ts) = Q_ls - Q_out;
+end LadleCooling;

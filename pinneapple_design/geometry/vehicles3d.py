@@ -438,3 +438,249 @@ class LaunchVehicle:
         xcp = (cn_nose * x_nose + cn_tr * x_tr + cn_f * x_f) / cn
         return {"CN_alpha": cn, "x_cp": xcp, "CN_alpha_nose": cn_nose, "CN_alpha_transition": cn_tr,
                 "CN_alpha_fins": cn_f, "x_cp_fins": x_f}
+
+
+# ============================================================================ Formula 1 car
+VEHICLE_MATERIALS.update({
+    "f1_livery": {"color": [0.03, 0.07, 0.20], "metallic": 0.4, "roughness": 0.22, "clearcoat": 1.0},
+    "f1_accent": {"color": [1.0, 0.45, 0.02], "metallic": 0.2, "roughness": 0.25, "clearcoat": 1.0},
+    "carbon": {"color": [0.05, 0.05, 0.055], "metallic": 0.2, "roughness": 0.35, "clearcoat": 0.6},
+    "halo_ti": {"color": [0.55, 0.56, 0.58], "metallic": 1.0, "roughness": 0.3},
+    "helmet": {"color": [0.95, 0.95, 0.96], "metallic": 0.1, "roughness": 0.15, "clearcoat": 1.0},
+})
+_register_materials()
+
+
+def _signed_volume(V: np.ndarray, F: np.ndarray) -> float:
+    a, b, c = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+    return float(np.einsum("ij,ij->i", a, np.cross(b, c)).sum() / 6.0)
+
+
+def _outward(V: np.ndarray, F: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Flip every face when the closed surface encloses a negative volume."""
+    return (V, F[:, ::-1].copy()) if _signed_volume(V, F) < 0 else (V, F)
+
+
+def _loft_y(rings_yxz: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Closed surface through rings stacked along +y (each ring given as (y, x, z) points)."""
+    V, F = _loft_rings(rings_yxz)
+    return _outward(V[:, [1, 0, 2]], F)
+
+
+def naca4(m: float = 0.06, p: float = 0.4, t: float = 0.10, n: int = 40) -> np.ndarray:
+    """Closed NACA 4-digit profile (x, z) on a unit chord, trailing edge -> upper surface -> leading edge -> lower
+    surface, with a finite trailing edge (0.3 % thick) so the solid stays closed."""
+    beta = np.linspace(0, math.pi, n)
+    x = 0.5 * (1 - np.cos(beta))
+    yt = 5 * t * (0.2969 * np.sqrt(x) - 0.1260 * x - 0.3516 * x ** 2 + 0.2843 * x ** 3 - 0.1015 * x ** 4) + 0.0015 * x
+    yc = np.where(x < p, m / p ** 2 * (2 * p * x - x ** 2), m / (1 - p) ** 2 * ((1 - 2 * p) + 2 * p * x - x ** 2)) \
+        if m > 0 else 0 * x
+    dyc = np.where(x < p, 2 * m / p ** 2 * (p - x), 2 * m / (1 - p) ** 2 * (p - x)) if m > 0 else 0 * x
+    th = np.arctan(dyc)
+    xu, zu = x - yt * np.sin(th), yc + yt * np.cos(th)
+    xl, zl = x + yt * np.sin(th), yc - yt * np.cos(th)
+    upper = np.c_[xu, zu][::-1]                              # TE -> LE
+    lower = np.c_[xl, zl][1:-1]                              # LE -> TE (no duplicates)
+    return np.vstack([upper, lower])
+
+
+def _wing(x_le: float, z_le: float, chord: float, y0: float, y1: float, aoa_deg: float, m: float = 0.08,
+          t: float = 0.11, inverted: bool = True, n: int = 40) -> tuple[np.ndarray, np.ndarray]:
+    """A straight wing element from y0 to y1: an (inverted, for downforce) NACA section, trailing edge raised by
+    ``aoa_deg`` about the leading edge."""
+    P = naca4(m, 0.4, t, n)
+    xz = np.c_[P[:, 0] * chord, (-P[:, 1] if inverted else P[:, 1]) * chord]
+    a = math.radians(aoa_deg)
+    R = np.array([[math.cos(a), -math.sin(a)], [math.sin(a), math.cos(a)]])
+    xz = xz @ R.T                                            # positive aoa lifts the trailing edge
+    xz += [x_le, z_le]
+    rings = np.stack([np.c_[np.full(len(xz), y), xz[:, 0], xz[:, 1]] for y in (y0, y1)])
+    return _loft_y(rings)
+
+
+def _plate(x0: float, x1: float, z0: float, z1: float, yc: float, thick: float) -> tuple[np.ndarray, np.ndarray]:
+    """A rectangular plate in the x-z plane (endplate, pylon) centred at y = yc."""
+    y0, y1 = yc - thick / 2, yc + thick / 2
+    V = np.array([[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1],
+                  [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], float)
+    F = np.array([[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5],
+                  [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7]])
+    return _outward(V, F)
+
+
+def _superellipse_ring(x: float, hw: float, zb: float, zt: float, n: int = 48, e: float = 3.0) -> np.ndarray:
+    th = np.linspace(0, 2 * math.pi, n, endpoint=False)
+    c, s = np.cos(th), np.sin(th)
+    y = hw * np.sign(c) * np.abs(c) ** (2 / e)
+    z = 0.5 * (zb + zt) + 0.5 * (zt - zb) * np.sign(s) * np.abs(s) ** (2 / e)
+    return np.c_[np.full(n, x), y, z]
+
+
+def _tube(path: np.ndarray, r: float, n: int = 16) -> tuple[np.ndarray, np.ndarray]:
+    """An open tube of radius r along a polyline (drawn only)."""
+    P = np.asarray(path, float)
+    T = np.gradient(P, axis=0)
+    T /= np.linalg.norm(T, axis=1, keepdims=True)
+    ref = np.array([0.0, 0.0, 1.0])
+    rings = []
+    for p, tvec in zip(P, T, strict=True):
+        a = np.cross(tvec, ref if abs(tvec @ ref) < 0.9 else np.array([0.0, 1.0, 0.0]))
+        a /= np.linalg.norm(a)
+        b = np.cross(tvec, a)
+        th = np.linspace(0, 2 * math.pi, n, endpoint=False)
+        rings.append(p + r * (np.outer(np.cos(th), a) + np.outer(np.sin(th), b)))
+    V = np.vstack(rings)
+    F = []
+    for i in range(len(P) - 1):
+        for j in range(n):
+            a0, b0 = i * n + j, i * n + (j + 1) % n
+            F += [[a0, b0, a0 + n], [b0, b0 + n, a0 + n]]
+    return V, np.asarray(F)
+
+
+@dataclass
+class FormulaCar:
+    """A parametric open-wheel racing car in the spirit of current Formula 1 (not any team's car): monocoque with
+    sidepods and engine cover, floor with a diffuser, multi-element front and rear wings with endplates (DRS flap
+    open or closed), driver helmet, halo and four exposed wheels. Metres, x from the front-wing leading edge, z up
+    from the road, symmetric about y = 0.
+
+    ``cfd_bodies()`` returns the closed surfaces separately (body, floor, front_wing, rear_wing, helmet, wheels) so the
+    CFD reports drag and downforce per component; the halo and the rims are drawn only."""
+    wheelbase: float = 3.60
+    front_axle_x: float = 1.05
+    ride_height: float = 0.035
+    front_track: float = 1.60
+    rear_track: float = 1.56
+    wheel_radius: float = 0.36
+    front_tyre_width: float = 0.30
+    rear_tyre_width: float = 0.40
+    front_wing_span: float = 1.90
+    front_wing_aoa: float = 4.0          # main plane, degrees (trailing edge up)
+    front_flap_aoa: float = 22.0
+    rear_wing_span: float = 1.00
+    rear_wing_aoa: float = 6.0
+    rear_flap_aoa: float = 32.0
+    drs_open: bool = False               # DRS: the rear flap opens to ``drs_flap_aoa``
+    drs_flap_aoa: float = 6.0
+    diffuser_angle: float = 13.0         # degrees of the floor ramp
+
+    # -------------------------------------------------------------- components
+    def _body(self) -> tuple[np.ndarray, np.ndarray]:
+        st = [(0.20, 0.04, 0.13, 0.20), (0.55, 0.11, 0.11, 0.29), (1.10, 0.19, 0.09, 0.44), (1.70, 0.28, 0.08, 0.60),
+              (2.10, 0.42, 0.08, 0.64), (2.40, 0.70, 0.08, 0.66), (2.80, 0.72, 0.08, 0.95), (3.20, 0.62, 0.08, 0.86),
+              (3.70, 0.44, 0.09, 0.70), (4.20, 0.27, 0.12, 0.55), (4.65, 0.17, 0.16, 0.42), (4.95, 0.11, 0.19, 0.32)]
+        xs = np.linspace(st[0][0], st[-1][0], 96)
+        cols = np.array(st)
+        hw, zb, zt = (_smooth(cols[:, 0], cols[:, k])(xs) for k in (1, 2, 3))
+        rings = np.stack([_superellipse_ring(x, w, b, t, n=72) for x, w, b, t in zip(xs, hw, zb, zt, strict=True)])
+        return _outward(*_loft_rings(rings))
+
+    def _floor(self) -> tuple[np.ndarray, np.ndarray]:
+        h = self.ride_height
+        x0, x_ramp, x1 = 1.75, 4.15, 4.95
+        xs = np.linspace(x0, x1, 30)
+        rise = np.where(xs > x_ramp, (xs - x_ramp) * math.tan(math.radians(self.diffuser_angle)), 0.0)
+        hw = np.interp(xs, [x0, 2.2, 4.15, 4.95], [0.45, 0.75, 0.75, 0.55])
+        rings = np.stack([_superellipse_ring(x, w, h + r, h + r + 0.035, n=40, e=8.0)
+                          for x, w, r in zip(xs, hw, rise, strict=True)])
+        return _outward(*_loft_rings(rings))
+
+    def _front_wing(self) -> list[tuple[np.ndarray, np.ndarray]]:
+        s = self.front_wing_span / 2
+        out = [_wing(0.00, 0.075, 0.34, -s, s, self.front_wing_aoa, t=0.10),
+               _wing(0.30, 0.125, 0.22, -s + 0.02, s - 0.02, self.front_flap_aoa, t=0.10)]
+        for yc in (-s - 0.015, s + 0.015):
+            out.append(_plate(-0.02, 0.62, 0.035, 0.30, yc, 0.03))
+        return out
+
+    def _rear_wing(self) -> list[tuple[np.ndarray, np.ndarray]]:
+        s = self.rear_wing_span / 2
+        flap = self.drs_flap_aoa if self.drs_open else self.rear_flap_aoa
+        out = [_wing(4.95, 0.80, 0.36, -s, s, self.rear_wing_aoa, t=0.11),
+               _wing(5.27, 0.86 if not self.drs_open else 0.90, 0.21, -s + 0.01, s - 0.01, flap, t=0.10)]
+        for yc in (-s - 0.015, s + 0.015):
+            out.append(_plate(4.90, 5.55, 0.42, 1.02, yc, 0.03))
+        out.append(_plate(4.86, 5.05, 0.28, 0.82, 0.0, 0.04))                     # pylon to the gearbox
+        return out
+
+    def _helmet(self) -> tuple[np.ndarray, np.ndarray]:
+        x = np.linspace(2.22, 2.48, 14)
+        r = 0.13 * np.sqrt(np.clip(1 - ((x - 2.35) / 0.13) ** 2, 1e-4, None))
+        return _outward(*_revolve(x, r, n=28, axis_z=0.72))
+
+    def _halo(self) -> tuple[np.ndarray, np.ndarray]:
+        t = np.linspace(-0.5 * math.pi, 1.5 * math.pi, 40)
+        ring = np.c_[2.30 + 0.28 * np.sin(t), 0.26 * np.cos(t), 0.84 + 0.04 * np.sin(t)]
+        pillar = np.c_[np.linspace(1.86, 2.02, 6), np.zeros(6), np.linspace(0.60, 0.84, 6)]
+        V1, F1 = _tube(ring, 0.028)
+        V2, F2 = _tube(pillar, 0.03)
+        return _merge([(V1, F1), (V2, F2)])
+
+    def wheel_positions(self) -> list[tuple[float, float, float]]:
+        xf, xr = self.front_axle_x, self.front_axle_x + self.wheelbase
+        return [(xf, self.front_track / 2, self.front_tyre_width), (xf, -self.front_track / 2, self.front_tyre_width),
+                (xr, self.rear_track / 2, self.rear_tyre_width), (xr, -self.rear_track / 2, self.rear_tyre_width)]
+
+    def _wheel(self, xc: float, yc: float, Wd: float) -> list[Part]:
+        R = self.wheel_radius
+        zc = R - 0.010                                              # a contact patch on the road
+        n = 48
+        th = np.linspace(0, 2 * math.pi, n, endpoint=False)
+        prof = [(-Wd / 2, 0.62), (-Wd / 2, 0.92), (-Wd / 2 + 0.03, 0.99), (0.0, 1.0), (Wd / 2 - 0.03, 0.99),
+                (Wd / 2, 0.92), (Wd / 2, 0.62)]
+        rings = np.stack([np.c_[np.full(n, yc + dy), xc + R * f * np.cos(th), zc + R * f * np.sin(th)]
+                          for dy, f in prof])
+        Vt, Ft = _loft_y(rings)
+        side = math.copysign(1.0, yc)
+        rim_y = yc + side * (Wd / 2 + 0.004)
+        rim = np.stack([np.c_[np.full(n, rim_y - side * 0.012 * k), xc + R * r * np.cos(th), zc + R * r * np.sin(th)]
+                        for k, r in enumerate((0.10, 0.40, 0.60))])
+        Vr, Fr = _loft_y(rim)
+        name = f"wheel_{'f' if xc < 2.5 else 'r'}{'l' if yc > 0 else 'r'}"
+        return [Part(f"{name}_tyre", Vt, Ft, "tyre", "wheels", True), Part(f"{name}_rim", Vr, Fr, "rim", "wheels", False)]
+
+    # -------------------------------------------------------------- outputs
+    def parts(self) -> list[Part]:
+        V, F = self._body()
+        n_ring = 72                                   # accent on the upper band of the rings behind the nose,
+        side = F.max(1) < len(V) - 2                  # so its edges follow mesh lines (caps stay livery)
+        th = 2 * math.pi * (F % n_ring) / n_ring
+        accent = side & (np.sin(th).min(1) > 0.45) & (V[F][:, :, 0].min(1) > 1.6)
+        mats = np.where(accent, "f1_accent", "f1_livery")
+        parts = _split_by(V, F, mats, "body")
+        parts.append(Part("floor", *self._floor(), "carbon", "floor", True))
+        for k, (Vw, Fw) in enumerate(self._front_wing()):
+            parts.append(Part(f"front_wing_{k}", Vw, Fw, "f1_accent" if k == 1 else "carbon", "front_wing", True))
+        for k, (Vw, Fw) in enumerate(self._rear_wing()):
+            parts.append(Part(f"rear_wing_{k}", Vw, Fw, "f1_accent" if k == 1 else "carbon", "rear_wing", True))
+        parts.append(Part("helmet", *self._helmet(), "helmet", "driver", True))
+        parts.append(Part("halo", *self._halo(), "halo_ti", "halo", False))
+        for xc, yc, wd in self.wheel_positions():
+            parts += self._wheel(xc, yc, wd)
+        return parts
+
+    def cfd_bodies(self) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+        P = self.parts()
+
+        def grp(g):
+            return _merge([(p.vertices, p.faces) for p in P if p.group == g and p.aero])
+        return {"body": self._body(), "floor": grp("floor"), "front_wing": grp("front_wing"),
+                "rear_wing": grp("rear_wing"), "helmet": grp("driver"),
+                "wheels": _merge([(p.vertices, p.faces) for p in P if p.material == "tyre"])}
+
+    def frontal_area(self, px: float = 0.004) -> float:
+        """Projected frontal area (m^2) of the CFD shape: every aero triangle rasterised on the y-z plane at
+        ``px`` metres per pixel."""
+        from PIL import Image, ImageDraw
+
+        aero = [p for p in self.parts() if p.aero]
+        pts = np.vstack([p.vertices for p in aero])
+        y0, z0 = pts[:, 1].min(), pts[:, 2].min()
+        w, h = int(np.ptp(pts[:, 1]) / px) + 3, int(np.ptp(pts[:, 2]) / px) + 3
+        img = Image.new("1", (w, h), 0)
+        d = ImageDraw.Draw(img)
+        for p in aero:
+            for tri in p.vertices[p.faces]:
+                d.polygon([((y - y0) / px + 1, (z - z0) / px + 1) for _, y, z in tri], fill=1)
+        return float(np.asarray(img).sum() * px * px)

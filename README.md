@@ -20,6 +20,7 @@
 Most Physics AI libraries stop at the prediction. PINNeAPPle adds a **trust layer**, so a model can say how good it is right now:
 
 - **"This model just left its domain."** Every model's PDE residual on the current case, compared with its level in its own domain, switches the ensemble on the **first** case of a new regime instead of after errors pile up.
+- **"Why did it fail?"** Each model declares its physical assumptions (laminar, incompressible, smooth wall...); the physics audit checks them on every case, routes to a model whose physics fits, and attributes failures to a regime change, extrapolation, a numerical problem or missing physics, even when the residual looks fine. See [docs/core_concepts/physics_audit.md](docs/core_concepts/physics_audit.md).
 - **"That was the sensor, not the process."** A physics check of the reading itself keeps sensor noise from switching models or teaching them anything.
 - **"Trust this forecast for 3.8 days."** Skill by lead time and a useful horizon for every forecast, next to the operational models.
 - **"Here is the evidence."** Conservation and boundary-condition checks, uncertainty, provenance and a decision layer that only learns from verified results.
@@ -34,6 +35,8 @@ Most Physics AI libraries stop at the prediction. PINNeAPPle adds a **trust laye
 | **Adaptive physics ensembles.** The model chosen on each case against the exact field, as the regime drifts. | **External aerodynamics from any STL.** The Ahmed body, meshed and solved automatically. |
 | <img src="examples/meshgraphnet/_out/cylinder_flow/rollout.png" width="100%"/> | <img src="docs/assets/qualitative/heat_sink_preview.png" width="100%"/> |
 | **Neural operators and graph networks.** A MeshGraphNet rollout of the flow past a cylinder against the solver. | **Qualitative preview before any solver.** Which design change should help, by which mechanism, and how sure it is. |
+| <img src="docs/assets/studio/f1-cp-top.jpg" width="100%"/> | <img src="docs/assets/studio/f1-drs-components.png" width="100%"/> |
+| **A Formula car in OpenFOAM.** A parametric open-wheel car with wings, floor and diffuser, solved at 70 m/s with a moving road; skin pressure coefficient. | **Forces by component.** Opening the DRS flap cuts the rear-wing drag by 56 %; the wheels give part of it back. A pipeline demonstration, not a validated F1 model. |
 
 </div>
 
@@ -206,7 +209,8 @@ PINNeAPPle
 ├── Problems and physics
 │   ├── pinneapple_core           Field, Mesh, Domain, Geometry: shared primitives
 │   ├── pinneapple_physics        PDE specs and presets, PINN compiler, SymPy → autograd, closed forms,
-│   │                             adaptive physics ensembles, global weather forecasting (ERA5),
+│   │                             adaptive physics ensembles, physics audit (assumptions, routing,
+│   │                             failure attribution), global weather forecasting (ERA5),
 │   │                             black-hole accretion and its forecasting, GR ray tracing (blackhole)
 │   └── pinneapple_problemdesign  plain-language problem → PDE spec (elicitation, knowledge base, codegen)
 │
