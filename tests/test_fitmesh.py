@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import math
 import shutil
@@ -43,9 +44,10 @@ def test_first_cell_height_matches_hand_calculation():
 
 
 # ---------------------------------------------------------------- catalogue, suggestions, CAD
-cq = pytest.importorskip("cadquery")
+needs_cq = pytest.mark.skipif(importlib.util.find_spec("cadquery") is None, reason="cadquery not installed")
 
 
+@needs_cq
 @pytest.mark.parametrize("key", sorted(TEMPLATES))
 def test_every_template_builds_a_valid_solid_with_the_exact_volume(key):
     t = TEMPLATES[key]
@@ -56,6 +58,7 @@ def test_every_template_builds_a_valid_solid_with_the_exact_volume(key):
         assert solid.Volume() == pytest.approx(t.volume(v), rel=1e-6)
 
 
+@needs_cq
 def test_geometry_and_parameter_suggestions():
     c = parse("Erosion and pressure drop in a 3 inch pneumatic conveying pipe bend, air at 20 m/s")
     rows = suggest_geometries(c)
@@ -70,6 +73,7 @@ def test_geometry_and_parameter_suggestions():
     assert all(v["inlet_length"] >= 10 * v["diameter"] - 1e-12 for v in vs)  # development length follows D
 
 
+@needs_cq
 def test_mesh_plan_rules():
     t = TEMPLATES["ahmed_body"]
     v = t.complete({})
@@ -104,6 +108,7 @@ def _fake(answers):
     return LLMAssist(call=call)
 
 
+@needs_cq
 def test_llm_outputs_are_validated():
     llm = _fake({"extract engineering facts": {"physics": ["external_flow", "magic"], "speed": "12", "fluid": "lava",
                                                "accuracy": "design"},
@@ -125,6 +130,7 @@ def test_llm_outputs_are_validated():
     assert any("refused" in r for r in plan.rationale)
 
 
+@needs_cq
 def test_model_code_is_checked_before_it_runs(tmp_path):
     assert check_code("import os\ndef build(p):\n    return os.system('x')")
     assert check_code("def build(p):\n    return open('x')")
@@ -138,9 +144,11 @@ def test_model_code_is_checked_before_it_runs(tmp_path):
 
 
 # ---------------------------------------------------------------- end to end
-gmsh = pytest.importorskip("gmsh")
+needs_gmsh = pytest.mark.skipif(importlib.util.find_spec("gmsh") is None or importlib.util.find_spec("cadquery") is None,
+                                reason="gmsh or cadquery not installed")
 
 
+@needs_gmsh
 def test_session_end_to_end_with_gmsh(tmp_path):
     s = FitMeshSession.run("Steel plate with a bolt hole in tension, stress concentration, screening",
                            str(tmp_path), n=2, log=lambda m: None)
@@ -153,6 +161,7 @@ def test_session_end_to_end_with_gmsh(tmp_path):
     assert (tmp_path / "report.html").read_text().count("<section>") >= 5
 
 
+@needs_gmsh
 @pytest.mark.skipif(shutil.which("snappyHexMesh") is None and not __import__("os").path.exists(
     "/usr/share/openfoam/etc/bashrc"), reason="OpenFOAM not installed")
 def test_snappy_internal_flow_has_ports_and_layers(tmp_path):
@@ -169,6 +178,7 @@ def test_snappy_internal_flow_has_ports_and_layers(tmp_path):
     assert r.layers["patches"]["wall"]["layers"] > 0
 
 
+@needs_gmsh
 def test_http_api_walkthrough(tmp_path):
     from fastapi.testclient import TestClient
 
