@@ -967,9 +967,9 @@ good = lambda X: (X[:, :1] ** 2 - X[:, 1:2] ** 2)           # x^2 - y^2 is harmo
 bad = lambda X: (X[:, :1] ** 2 + X[:, 1:2] ** 2)            # laplacian = 4
 class Formula(torch.nn.Module):                            # any torch module works; this one has no weights
     def __init__(self, f):
-        super().__init__(); self.f = f; self.dummy = torch.nn.Parameter(torch.zeros(()))
+        super().__init__(); self.f = f
     def forward(self, X):
-        return self.f(X) + 0 * self.dummy
+        return self.f(X)
 
 for name, f in [("x^2 - y^2", good), ("x^2 + y^2", bad)]:
     model = Formula(f)

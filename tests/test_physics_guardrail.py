@@ -629,3 +629,24 @@ def test_check_reference_benchmark_incompatible_spec_raises_valueerror():
     model = _ExactFn(lambda x: (x[:, 0:1] ** 2 - x[:, 1:2] ** 2))
     with pytest.raises(ValueError, match="not built for this kind"):
         PhysicsGuardrail(spec).check(model, reference_benchmark="lane_emden_n1.5", reference_rmse_threshold=1.0)
+
+
+class _NoParams(nn.Module):
+    """A module with no parameters or buffers: an analytic / closed-form model."""
+
+    def __init__(self, fn):
+        super().__init__()
+        self.fn = fn
+
+    def forward(self, x):
+        return self.fn(x)
+
+
+def test_check_parameterless_model_passes_harmonic_and_fails_non_harmonic():
+    """A model without parameters is valid input: x^2 - y^2 is harmonic (passes), x^2 + y^2 has
+    laplacian 4, i.e. a squared residual of 16 everywhere (fails)."""
+    spec = get_preset("laplace_2d")
+    good = PhysicsGuardrail(spec).check(_NoParams(lambda x: x[:, 0:1] ** 2 - x[:, 1:2] ** 2))
+    bad = PhysicsGuardrail(spec).check(_NoParams(lambda x: x[:, 0:1] ** 2 + x[:, 1:2] ** 2))
+    assert good.trustworthy, good.summary()
+    assert not bad.trustworthy, bad.summary()
