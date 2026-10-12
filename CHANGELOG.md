@@ -14,6 +14,12 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- astroML bridge (`pinneapple_physics.pde_environment.presets.astroml_bridge`): Lomb-Scargle and multi-term
+  periodograms for unevenly sampled time series with Scargle false-alarm levels and a bootstrap, `best_period`,
+  extreme deconvolution (`XDGMM`) with per-point errors, Bayesian Blocks and Knuth histograms, line fits with errors
+  on y (WLS) or on both axes (`TLS_logL`), opt-in `astroML.datasets` loaders, and `validate()`, four synthetic
+  offline checks (period recovered to 5e-5, XD means, a step change point, line slopes). The module imports without
+  astroML. Optional dependency: `pip install "pinneapple[astroml]"`. Docs: `docs/core_concepts/astroml.md`.
 - NVIDIA Newton rigid-body backend (`pinneapple_simulation.external_solvers.newton_physics`): `RigidScene` (sphere,
   box, capsule, cylinder and mesh bodies, revolute and fixed joints, ground with friction and restitution),
   `simulate()` with the XPBD, semi-implicit, Featherstone or MuJoCo-Warp solvers on CPU or GPU, `RigidTrajectory`

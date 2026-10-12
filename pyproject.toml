@@ -77,6 +77,10 @@ twin = [
 newton = [
   "newton>=1.6",
 ]
+# astroML periodograms, extreme deconvolution, fits with errors (pde_environment.presets.astroml_bridge)
+astroml = [
+  "astroML>=1.0",
+]
 fmi = [
   "fmpy>=0.3.20",
   "pythonfmu>=0.6",
