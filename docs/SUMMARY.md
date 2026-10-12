@@ -25,6 +25,7 @@
   * [Free-surface flow: runners, channels, launders](core_concepts/free_surface.md)
   * [OpenFOAM parameter campaigns on several machines](core_concepts/openfoam_campaigns.md)
   * [Lattice Boltzmann wind tunnel and FluidX3D bridge](core_concepts/lbm_wind_tunnel.md)
+  * [Rigid bodies with NVIDIA Newton](core_concepts/newton_rigid_body.md)
   * [Modelica models as Physics AI data](core_concepts/modelica.md)
   * [Geomechanics with the material point method](core_concepts/geomechanics_mpm.md)
   * [Security (pinneapple_security)](core_concepts/security.md)
