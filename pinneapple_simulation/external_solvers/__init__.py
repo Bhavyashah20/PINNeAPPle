@@ -8,6 +8,7 @@ modelica  — FMU simulation (fmpy) and OpenModelica (OMPython)
 fenics    — workflow layer on top of pinneapple_solvers.fenics_bridge
 mujoco    — MuJoCo (google-deepmind/mujoco) trajectory collection + MJX parallel rollouts
 genesis   — Genesis AI (Genesis-Embodied-AI/Genesis) multi-physics robotics simulation
+newton_physics — NVIDIA Newton rigid-body solvers (XPBD, Featherstone, MuJoCo-Warp) with analytic checks
 
 All subpackages use lazy / optional imports so that the base package remains
 importable even when a specific external tool is not installed.
@@ -154,6 +155,11 @@ except Exception:
     genesis_traj_to_upd = None    # type: ignore
     genesis_trajs_to_upd = None   # type: ignore
 
+# NVIDIA Newton rigid bodies (optional: newton; the scene description imports without it)
+from .newton_physics import RigidScene, RigidTrajectory
+from .newton_physics import simulate as newton_simulate
+from .newton_physics import validate as newton_validate
+
 __all__ = [
     # OpenFOAM
     "OpenFOAMCaseTemplate",
@@ -206,6 +212,11 @@ __all__ = [
     "GenesisRunner",
     "genesis_traj_to_upd",
     "genesis_trajs_to_upd",
+    # NVIDIA Newton
+    "RigidScene",
+    "RigidTrajectory",
+    "newton_simulate",
+    "newton_validate",
     # TurboDesigner
     "TurboDesignerConfig",
     "TurboDesignerWorkflow",

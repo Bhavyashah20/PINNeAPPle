@@ -75,3 +75,43 @@ def test_noisy_but_plateaued_loss_counts_as_converged():
     random.seed(0)
     hist = [1.0 / (1 + i) for i in range(200)] + [1e-3 * (1 + 0.3 * random.random()) for i in range(800)]
     assert _item(_map(loss_history=hist), "convergence").status == PASS
+
+
+def test_plateau_ignores_resampling_noise_but_catches_real_decrease():
+    """#5: a flat loss with per-step scatter is converged; a clear downward trend is not."""
+    import random
+
+    from pinneapple_veriphysics.applicability import PLATEAU_REL_TOL, _tail_plateau
+    rnd = random.Random(1)
+    flat_fails = sum(_tail_plateau([1e-3 * (1 + 0.3 * rnd.gauss(0, 1)) for _ in range(300)]) >= PLATEAU_REL_TOL
+                     for _ in range(100))
+    assert flat_fails <= 3                                   # was about 50 of 100 with plain window means
+    falling = [1e-3 * (2.718 ** (-3 * i / 300)) * (1 + 0.05 * rnd.gauss(0, 1)) for i in range(300)]
+    assert _tail_plateau(falling) >= PLATEAU_REL_TOL         # e-fold 3 over the run: about 26 % between windows
+    assert _tail_plateau([1.0] * 10) is None
+
+
+def test_tolerances_from_the_request_change_the_verdict_and_are_recorded():
+    """#6: a stricter calibration tolerance turns PASS into FAIL; the map lists what was used and its source."""
+    import pytest
+
+    from pinneapple_veriphysics.applicability import Tolerances
+    cal = {"calibration": {"ece": 0.08, "coverage": 0.9, "target_coverage": 0.9},
+           "confidence_components": [{"name": "uq_calibration", "score": 0.9, "source_summary": "ECE=0.08"}]}
+    default = _map(**cal)
+    assert _item(default, "uq").status == PASS
+    strict = _map(**cal, tolerances={"ece": 0.05})
+    assert _item(strict, "uq").status == FAIL
+    assert strict.tolerances["from_request"] == {"ece": 0.05} and strict.tolerances["used"]["ece"] == 0.05
+    assert "ece=0.05 (request)" in strict.render() and "coverage=0.05 (default heuristic)" in strict.render()
+    with pytest.raises(ValueError, match="unknown tolerance"):
+        Tolerances.from_any({"plateau": 0.1})
+    with pytest.raises(ValueError, match=r"in \(0, 1\)"):
+        Tolerances.from_any({"ece": 2})
+
+
+def test_fast_robustness_mode_is_stated_in_the_map():
+    """#7: a map built from fast-mode studies says the studies were shorter and parameter shifts were skipped."""
+    m = _map(robustness_mode="fast", study_epochs=250)
+    assert any("FAST mode" in r and "250 epochs" in r for r in m.inferred)
+    assert not any("FAST mode" in r for r in _map().inferred)

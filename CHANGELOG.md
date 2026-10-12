@@ -14,6 +14,18 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- astroML bridge (`pinneapple_physics.pde_environment.presets.astroml_bridge`): Lomb-Scargle and multi-term
+  periodograms for unevenly sampled time series with Scargle false-alarm levels and a bootstrap, `best_period`,
+  extreme deconvolution (`XDGMM`) with per-point errors, Bayesian Blocks and Knuth histograms, line fits with errors
+  on y (WLS) or on both axes (`TLS_logL`), opt-in `astroML.datasets` loaders, and `validate()`, four synthetic
+  offline checks (period recovered to 5e-5, XD means, a step change point, line slopes). The module imports without
+  astroML. Optional dependency: `pip install "pinneapple[astroml]"`. Docs: `docs/core_concepts/astroml.md`.
+- NVIDIA Newton rigid-body backend (`pinneapple_simulation.external_solvers.newton_physics`): `RigidScene` (sphere,
+  box, capsule, cylinder and mesh bodies, revolute and fixed joints, ground with friction and restitution),
+  `simulate()` with the XPBD, semi-implicit, Featherstone or MuJoCo-Warp solvers on CPU or GPU, `RigidTrajectory`
+  (energy, UPD export, torch `RigidBodyState`) and `validate()`, six closed-form checks (free fall, Coulomb sliding,
+  pendulum period, restitution, torque-free spin, resting contact). XPBD passes all six on CPU at 1 ms. Optional
+  dependency: `pip install newton`. Docs: `docs/core_concepts/newton_rigid_body.md`.
 - Lattice Boltzmann wind tunnel (`pinneapple_simulation.numerical_solvers.lbm_tunnel`), in PyTorch on CPU or GPU:
   D3Q19/D3Q27, SRT or TRT collision, Smagorinsky LES, DDF shifting with optional FP16 storage (half the memory),
   Guo forcing split for TRT, halfway bounce-back with moving walls, momentum-exchange forces, inlet/outlet/open/wall/
