@@ -27,9 +27,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_TOKEN: ${{ secrets.HF_TOKEN != '' }}
-    timeout-minutes: 20
+      STAGING_REF: ${{ github.event.inputs.staging_ref || '' }}
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+      - name: Check out the staging files of Hub-only items
+        if: ${{ env.STAGING_REF != '' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.STAGING_REF }}
+          path: _zoo_staging
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -38,14 +45,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install numpy "huggingface_hub>=0.24"
       - name: Check the manifest (SHA-256 of every file) and list the uploads
-        run: python scripts/zoo/publish_to_hub.py --dry-run
+        run: python scripts/zoo/publish_to_hub.py --dry-run ${STAGING_REF:+--staging _zoo_staging}
       - name: Upload (skipped with a warning when HF_TOKEN is not set)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: python scripts/zoo/publish_to_hub.py
+        run: python scripts/zoo/publish_to_hub.py ${STAGING_REF:+--staging _zoo_staging}
       - name: Verify the published files (anonymous download, SHA-256 against the manifest)
         if: ${{ env.HAS_TOKEN == 'true' }}
-        run: python scripts/zoo/publish_to_hub.py --verify
+        run: python scripts/zoo/publish_to_hub.py --verify ${STAGING_REF:---allow-unpublished}
 
   geometries:
     runs-on: ubuntu-latest
