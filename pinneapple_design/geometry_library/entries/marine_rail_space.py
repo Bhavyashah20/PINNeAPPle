@@ -201,7 +201,7 @@ F9_Z = {"base": 1.35, "s1_top": 42.6, "inter_top": 47.3, "s2_top": 56.9, "fairin
         "tip": 70.0}
 
 
-def _grid_fin(res, span=1.5, width=1.3, depth=0.22, n_cells=7):
+def _grid_fin(res, span=1.5, width=1.3, depth=0.22, n_cells=8):
     """Lattice grid fin as one closed manifold: a frame plus two families of 45-deg slats (boolean union).
     Local frame: u (span) along +z, v (width) along +y, w (thickness) along +x; root edge at u = 0."""
     import manifold3d as m3d
@@ -289,17 +289,17 @@ def _falcon9(p, res):
     bodies.append(Body("raceway", *kit.box((0.22, 0.30, z["s1_top"] - 4.5), (0, r + 0.08, (z["s1_top"] + 4.5) / 2 - 0.5)),
                        "lv_white", "vehicle", aero=False))
     # landing legs: hinge at the base, stowed along the stage (0 deg) or deployed (~112 deg out and down)
-    leg_len, legw, legt = 9.6, 0.95, 0.34
+    leg_len, legw, legt = 9.6, 1.25, 0.40
     nl = _n(10, res, 6)
     u = np.linspace(0, 1, nl)
-    alpha = 112.0 if p["legs_deployed"] else 0.0
+    alpha = 115.0 if p["legs_deployed"] else 0.0
     hinge_r, hinge_z = r + 0.05, 1.7
     for k in range(4):
         az = math.radians(45 + 90 * k)
         rings = []
         for ui in u:
-            th = legt * (0.45 + 0.55 * math.sin(math.pi * min(ui, 0.94) / 0.94 * 0.5 + 0.0)) * (1 - 0.6 * ui ** 6)
-            ww = legw * (1 - 0.35 * ui)
+            th = legt * (0.55 + 0.45 * math.sin(0.5 * math.pi * min(ui / 0.3, 1.0))) * (1 - 0.7 * ui ** 8)
+            ww = legw * (1 - 0.55 * ui) * (1 - 0.5 * ui ** 10)
             sq = kit.superellipse(ww / 2, th / 2, 12, 5.0)
             # local: s along the leg (+z stowed), y' tangential, w radial
             rings.append(np.c_[th / 2 + sq[:, 1], sq[:, 0], np.full(12, ui * leg_len)])
@@ -341,7 +341,7 @@ register(GeometrySpec(
     params=[
         Param("grid_fin_angle", 0.0, "deg", (0.0, 90.0), "grid-fin deployment angle (0 = stowed against the "
               "interstage, 90 = deployed perpendicular to the flow)"),
-        Param("legs_deployed", False, "", None, "landing legs deployed (about 112 deg, feet below the engines)"),
+        Param("legs_deployed", False, "", None, "landing legs deployed (115 deg, feet below the engines)"),
         Param("fairing", True, "", None, "payload fairing on (off: second-stage dome, adapter and a payload)"),
     ],
     dimensions={"length_x": (5.2, 0.02), "width_y": (5.2, 0.02), "height_z": (70.0, 0.01)},
@@ -354,7 +354,7 @@ register(GeometrySpec(
                     "shape, bell contour (exit diameter 0.86 m), octaweb ring radius 1.2 m", "estimates from "
                     "published photographs and the overall dimensions", estimate=True),
              Source("grid fin 1.5 x 1.3 x 0.22 m with a 45-deg lattice, leg length 9.6 m, deployed leg angle "
-                    "112 deg, leg / fin azimuths", "estimates from photographs", estimate=True)],
+                    "115 deg, leg / fin azimuths", "estimates from photographs", estimate=True)],
     physics=["ascent aerodynamics (axial force, transonic buffet on the fairing / boattail)",
              "booster re-entry and landing burn: grid-fin control authority, base heating of the octaweb",
              "supersonic retro-propulsion plume-body interaction", "structural loads: wind / max-q bending"],

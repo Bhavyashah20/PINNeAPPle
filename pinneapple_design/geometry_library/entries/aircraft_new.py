@@ -213,25 +213,23 @@ ATR_MATERIALS = {
 
 def _atr_fuselage(res):
     """Fuselage outer mould line: nose 0-4.6 m, constant section 4.6-17.5 m, upswept tail cone to 27.17 m."""
-    L, HW, ZB, ZT = 27.17, 1.385, 1.00, 3.62
-    nn = _n(22, res, 16)
-    s_n = 1 - np.cos(np.linspace(0, math.pi / 2, nn)) ** 1.0
-    x_n = 4.6 * np.r_[0.0, 0.004, 0.012, s_n[1:]]
-    x_n = np.unique(np.r_[x_n, 2.25, 2.95, 3.65])
-    x_c = np.r_[np.linspace(4.6, 17.5, _n(10, res, 6))[1:]]
-    x_t = 17.5 + 9.67 * np.linspace(0, 1, _n(18, res, 12))[1:]
+    from scipy.interpolate import PchipInterpolator
+    HW, ZB, ZT = 1.385, 1.00, 3.62
+    xk = np.array([0.0, 0.08, 0.35, 0.8, 1.4, 2.0, 2.6, 3.2, 3.9, 4.6])
+    ztk = np.array([2.06, 2.30, 2.55, 2.80, 3.02, 3.22, 3.40, 3.53, 3.60, ZT])
+    zbk = np.array([1.94, 1.74, 1.52, 1.32, 1.17, 1.08, 1.03, 1.01, 1.0, ZB])
+    hwk = np.array([0.02, 0.36, 0.66, 0.92, 1.12, 1.25, 1.33, 1.37, 1.384, HW])
+    x_n = np.unique(np.r_[4.6 * np.linspace(0, 1, _n(16, res, 12)) ** 1.35, 1.75, 2.42, 2.50, 3.25, 3.32])
+    x_c = np.linspace(4.6, 17.5, _n(4, res, 3))[1:]
+    x_t = 17.5 + 9.67 * np.linspace(0, 1, _n(20, res, 14))[1:]
     xs = np.r_[x_n, x_c, x_t]
     hw, zb, zt, e = [], [], [], []
     for x in xs:
         if x <= 4.6:
-            s = x / 4.6
-            fw = (1 - (1 - s) ** 2.4) ** 0.5
-            ft = (1 - (1 - s) ** 2.0) ** 0.62
-            fb = (1 - (1 - s) ** 2.6) ** 0.45
-            hw.append(max(HW * fw, 0.015))
-            zt.append(2.05 + (ZT - 2.05) * ft)
-            zb.append(1.95 - (1.95 - ZB) * fb)
-            e.append(2.0 + 0.2 * s)
+            hw.append(float(PchipInterpolator(xk, hwk)(x)))
+            zt.append(float(PchipInterpolator(xk, ztk)(x)))
+            zb.append(float(PchipInterpolator(xk, zbk)(x)))
+            e.append(2.0 + 0.2 * x / 4.6)
         elif x <= 17.5:
             hw.append(HW); zt.append(ZT); zb.append(ZB); e.append(2.2)
         else:
@@ -241,23 +239,17 @@ def _atr_fuselage(res):
             zb.append(ZB + 2.02 * s ** 1.45)
             e.append(2.2 - 0.2 * s)
     hw, zb, zt, e = map(np.asarray, (hw, zb, zt, e))
-    th = _angles(_n(44, res, 36), extra_deg=(-24, -16, -13, -9, 4, 18, 30, 42, 56, 70, 84, 87, 80, 62, 50, 36))
+    th = _angles(_n(32, res, 28), extra_deg=(-24, -16, -13, -9.5, 38, 50, 64, 86))
     V, F, xm, tm = _skin(xs, hw, zb, zt, e, th)
-    a = np.abs(np.where(np.abs(tm) > 90, np.sign(tm) * 180 - tm, tm))   # angle mirrored to the starboard side
-    a = np.where(np.abs(tm) > 90, np.sign(tm) * (180 - np.abs(tm)), tm)
+    a = np.where(np.abs(tm) > 90, np.sign(tm) * (180 - np.abs(tm)), tm)   # angle mirrored to the starboard side
     mats = np.full(len(F), "atr_white", dtype=object)
-    up = np.clip((xm - 18.0) / 9.0, 0, 1) ** 1.3
-    # cheat-lines: navy belly band and a thin teal line, sweeping up the tail cone
-    lo = -24 + 70 * up
-    nav = (xm > 0.9) & (a > lo) & (a < lo + 8 + 4 * up)
-    teal = (xm > 1.6) & (a > lo + 11 + 4 * up) & (a < lo + 13.5 + 5 * up)
-    mats[nav] = "livery_navy"
-    mats[teal] = "livery_teal"
-    # cockpit glazing: two front panes (centre post at the top), then the side windows
-    front = (xm > 2.25) & (xm < 2.95) & (a > 62) & (a < 87)
-    side = (xm > 2.95) & (xm < 3.65) & (a > 42) & (a < 70)
-    side2 = (xm > 2.25) & (xm < 2.95) & (a > 50) & (a < 62)
-    mats[front | side | side2] = "glass"
+    # cheat-lines: navy band and a thin teal line, nose to tail cone
+    mats[(xm > 0.6) & (a > -24) & (a < -16)] = "livery_navy"
+    mats[(xm > 1.0) & (a > -13) & (a < -9.5)] = "livery_teal"
+    # cockpit glazing: two front panes either side of the centre post, then the side windows
+    front = (xm > 1.75) & (xm < 2.42) & (a > 50) & (a < 86)
+    side = (xm > 2.50) & (xm < 3.25) & (a > 38) & (a < 64)
+    mats[front | side] = "glass"
     mats[np.isnan(xm)] = "atr_white"
     sec = dict(xs=xs, hw=hw, zb=zb, zt=zt, e=e)
     return V, F, mats, sec
@@ -273,7 +265,7 @@ def _atr(p, res):
     zc_w = 2.42
     yo = [float(_se_half_width(1.385, 1.0, 3.62, 2.2, zc_w)) + 0.010 for _ in win_x]
     cen = [(x, zc_w) for x in win_x]
-    nw = _n(12, res, 10)
+    nw = _n(10, res, 8)
     for sd, nm in ((1, "windows_starboard"), (-1, "windows_port")):
         Vw, Fw = _window_inserts(cen, 0.125, 0.17, yo, 0.06, nw, sd)
         bodies.append(Body(nm, Vw, Fw, "glass", "fuselage", aero=False))
@@ -320,20 +312,20 @@ def _atr(p, res):
     wm = np.where(le_band, "deice", "wing_grey").astype(object)
     bodies.append(Body("wing", Vwg, Fwg, wm, "wing"))
     # wing-to-fuselage fairing on the fuselage top
-    xf = np.linspace(9.9, 15.4, _n(12, res, 8))
+    xf = np.linspace(10.2, 15.6, _n(12, res, 8))
     s = (xf - xf[0]) / (xf[-1] - xf[0])
-    hwf = 1.05 * np.sqrt(np.clip(np.sin(math.pi * s ** 0.8), 0, 1)) + 0.02
-    ztf = 3.35 + 0.80 * np.sin(math.pi * np.clip(s * 1.05, 0, 1)) ** 0.5
-    ztf[0] = ztf[-1] = 3.45
+    hwf = 0.95 * np.sqrt(np.clip(np.sin(math.pi * s ** 0.7), 0, 1)) + 0.02
+    ztf = 3.45 + 0.55 * np.sin(math.pi * np.clip(s ** 0.7, 0, 1)) ** 0.6
+    ztf[0] = ztf[-1] = 3.5
     zbf = np.full_like(xf, 3.10)
     bodies.append(Body("wing_fairing", *kit.body_of_sections(xf, hwf, zbf, ztf, _n(28, res, 20), 2.4), "atr_white",
                        "fuselage"))
     # ---------------------------------------------------------------- nacelles, spinners, intakes, propellers
     yn, zp, xp = 4.05, 3.40, 8.45
-    xs_n = np.array([8.75, 9.1, 9.6, 10.3, 11.2, 12.4, 13.6, 14.6, 15.3, 15.75])
-    hw_n = np.array([0.38, 0.42, 0.47, 0.50, 0.50, 0.49, 0.45, 0.36, 0.24, 0.06])
-    zb_n = np.array([3.02, 2.88, 2.78, 2.74, 2.76, 2.84, 2.98, 3.16, 3.34, 3.52])
-    zt_n = np.array([3.78, 3.86, 3.95, 4.02, 4.05, 4.05, 3.98, 3.86, 3.76, 3.62])
+    xs_n = np.array([8.75, 9.1, 9.6, 10.3, 11.2, 12.4, 13.6, 14.6, 15.4, 16.1, 16.6])
+    hw_n = np.array([0.38, 0.41, 0.45, 0.47, 0.47, 0.46, 0.43, 0.38, 0.30, 0.18, 0.05])
+    zb_n = np.array([3.02, 2.90, 2.80, 2.76, 2.78, 2.86, 2.98, 3.12, 3.27, 3.42, 3.56])
+    zt_n = np.array([3.78, 3.86, 3.95, 4.02, 4.05, 4.05, 3.98, 3.90, 3.84, 3.78, 3.70])
     nr = _n(26, res, 20)
     R = p["prop_diameter"] / 2
     nb = 6
@@ -342,7 +334,7 @@ def _atr(p, res):
     rs = R * (0.11 + 0.89 * (1 - np.cos(np.linspace(0, math.pi / 2, ns))) ** 0.8)
     rs = np.unique(np.r_[rs, 0.93 * R])
     b75 = p["blade_pitch_deg"]
-    chord = lambda r: 0.20 + 0.11 * math.sin(math.pi * min(r / R, 1.0) ** 0.9) - 0.10 * max(r / R - 0.88, 0) / 0.12
+    chord = lambda r: 0.24 + 0.13 * math.sin(math.pi * min(r / R, 1.0) ** 0.8) - 0.16 * max(r / R - 0.85, 0) / 0.15
     beta = lambda r: math.degrees(math.atan(math.tan(math.radians(b75)) * 0.75 * R / max(r, 0.2)))
     tc = lambda r: 0.22 - 0.16 * min(r / R, 1.0) ** 0.7
     cam = lambda r: 0.03
@@ -361,10 +353,10 @@ def _atr(p, res):
         mi = np.where(ci[:, 0] < 8.83, "anodized_black", "atr_white")
         bodies.append(Body(f"intake_{tag}", Vi + [0, yc, 0], Fi, mi, "nacelles"))
         # spinner
-        xsp = np.linspace(7.82, 8.85, _n(10, res, 8))
+        xsp = np.linspace(7.82, 8.85, _n(8, res, 7))
         rsp = 0.385 * np.clip(1 - ((8.85 - xsp) / 1.03) ** 2.0, 0, 1) ** 0.5
         rsp[0] = 0.0
-        Vs, Fs = kit.revolve(xsp, rsp, _n(24, res, 18), "x", center=(0, yc, zp))
+        Vs, Fs = kit.revolve(xsp, rsp, _n(20, res, 16), "x", center=(0, yc, zp))
         bodies.append(Body(f"spinner_{tag}", Vs, Fs, "wing_grey", "propellers"))
         # six blades
         for k in range(nb):
@@ -380,14 +372,13 @@ def _atr(p, res):
     lek = np.array([18.6, 19.7, 21.9, 24.45])
     chk = np.array([8.35, 7.25, 5.05, 2.15])
     tk = np.array([0.055, 0.075, 0.12, 0.12])
-    zf = np.unique(np.r_[zk, np.linspace(4.45, 7.48, _n(6, res, 5))])
+    zf = np.unique(np.r_[zk, 4.85, np.linspace(4.85, 7.48, _n(5, res, 4))])
     fst = [{"le": (np.interp(z, zk, lek), 0.0, z), "chord": np.interp(z, zk, chk), "t": np.interp(z, zk, tk)}
            for z in zf]
     Vf, Ff, i_f, _ = _lifting_surface(fst, nsec, frame=((1.0, 0, 0), (0, 1.0, 0)))
     cf = Vf[Ff].mean(1)
-    sw = cf[:, 2] - 0.62 * (cf[:, 0] - 21.0)
-    fm = np.where(sw > 4.6, "livery_navy", "atr_white").astype(object)
-    fm[(sw > 3.9) & (sw <= 4.4)] = "livery_teal"
+    fm = np.where(cf[:, 2] > 4.85, "livery_navy", "atr_white").astype(object)
+    fm[(cf[:, 2] > 4.45) & (cf[:, 2] <= 4.85)] = "livery_teal"
     bodies.append(Body("fin", Vf, Ff, fm, "empennage"))
     bh = p["htail_span"] / 2
     zh = 7.50
@@ -415,7 +406,7 @@ def _atr(p, res):
         bodies.append(Body(f"sponson_{tag}", Vsp + [0, side * 1.52, 0], Fsp, "atr_white", "landing_gear"))
         yg = side * track / 2
         for k, dy in enumerate((-0.15, 0.15)):
-            Vw_, Fw_, mw = _wheel((x_mg, yg + dy, rw), rw, ww, n=_n(22, res, 16), nm=_n(8, res, 6))
+            Vw_, Fw_, mw = _wheel((x_mg, yg + dy, rw), rw, ww, n=_n(18, res, 14), nm=_n(6, res, 5))
             bodies.append(Body(f"main_wheel_{tag}_{k + 1}", Vw_, Fw_, mw, "landing_gear", aero=False))
         bodies.append(Body(f"main_axle_{tag}", *kit.cylinder((x_mg, yg - 0.27, rw), (x_mg, yg + 0.27, rw), 0.05, 10),
                            "steel", "landing_gear", aero=False))
@@ -424,7 +415,7 @@ def _atr(p, res):
     xng = x_mg - wb
     rn = 0.225
     for k, dy in enumerate((-0.17, 0.17)):
-        Vw_, Fw_, mw = _wheel((xng, dy, rn), rn, 0.14, n=_n(18, res, 14), nm=_n(7, res, 6))
+        Vw_, Fw_, mw = _wheel((xng, dy, rn), rn, 0.14, n=_n(16, res, 12), nm=_n(6, res, 5))
         bodies.append(Body(f"nose_wheel_{k + 1}", Vw_, Fw_, mw, "landing_gear", aero=False))
     bodies.append(Body("nose_leg", *kit.cylinder((xng, 0, rn), (xng - 0.1, 0, 1.45), 0.06, 12), "steel",
                        "landing_gear", aero=False))

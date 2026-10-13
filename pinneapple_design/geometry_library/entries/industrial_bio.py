@@ -518,6 +518,9 @@ def _resample(C, m):
     return np.stack([np.interp(su, s, C[:, i]) for i in range(3)], 1), su
 
 
+_FLARE = (0.45, 5.0)       # ostium flare: relative radius increase at the aortic wall, decay length [mm]
+
+
 def _aorta_build(p, res):
     from scipy.interpolate import CubicSpline
     mm = 1e-3
@@ -576,9 +579,8 @@ def _aorta_build(p, res):
         t = np.linspace(0, 1, nb)[:, None]
         path = (1 - t) ** 2 * P0 + 2 * t * (1 - t) * P1 + t ** 2 * P2
         dist = np.r_[0, np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))]
-        flare = 1.0 + 0.45 * np.exp(-np.maximum(dist - rb[i], 0) / 5.0)
+        flare = 1.0 + _FLARE[0] * np.exp(-np.maximum(dist - rb[i], 0) / _FLARE[1])     # ostium funnel
         flare = np.minimum(flare, (rb[i] - 1.0) / rr)
-        flare[dist < rb[i]] = np.minimum(flare[dist < rb[i]], 1.0 + 0.45)
         rad = 0.5 * dmm / mm * flare
         tubes.append((name, _sweep(path, lambda q, th, rad=rad: np.full_like(th, rad[q]), nbt)))
     tubes = [(nm, (V * mm, F)) for nm, (V, F) in tubes]
