@@ -139,3 +139,158 @@ def lensed_sky(ra_deg: float, dec_deg: float, fov_deg: float = 30.0, width: int 
         cap = cap.reshape(height, supersample, width, supersample).mean((1, 3)) > 0.5
     alpha = math.degrees(math.asin(min(1.0, math.sqrt(27) * math.sqrt(1 - 2 / r_cam) / r_cam)))
     return {"image": img, "captured": cap, "shadow_radius_deg": alpha, "fov_deg": fov_deg}
+
+
+# ------------------------------------------------------------------------------------------- accretion disc view
+_DISC_CACHE: dict = {}
+B_CRIT = 3 * math.sqrt(3.0)                    # critical impact parameter of the Schwarzschild photon sphere (GM/c^2)
+
+
+def trace_thin_disc(width: int = 640, height: int = 360, inclination_deg: float = 80.0, r_cam: float = 60.0,
+                    fov_deg: float = 32.0, max_crossings: int = 3, dphi: float = 0.004) -> dict:
+    """Exact backward ray tracing for an infinitely thin equatorial disc around a Schwarzschild black hole
+    (G = M = c = 1).
+
+    Every pixel's photon moves in a plane through the hole; in that plane the orbit obeys the Binet equation of
+    a null geodesic, u'' + u = 3 u^2 (u = 1/r, ' = d/dphi), integrated with RK4 from the static camera at
+    ``r_cam``. The plane meets the equator at phi = phi0 + k pi, so the radii where the ray pierces the disc
+    are read off exactly (primary image, the secondary image wrapped around the hole, the photon ring).
+    Returns the crossing radii (from the camera side), each photon's angular momentum about the disc axis,
+    the capture mask and the asymptotic escape direction (hole frame: disc normal = +z)."""
+    i = math.radians(inclination_deg)
+    C = np.array([math.sin(i), 0.0, math.cos(i)])
+    fwd = -C
+    z = np.array([0.0, 0.0, 1.0])
+    up = z - fwd * (z @ fwd)
+    up = up / np.linalg.norm(up)
+    right = np.cross(fwd, up)
+    t = math.tan(math.radians(fov_deg) / 2)
+    X, Y = np.meshgrid(((np.arange(width) + 0.5) / width * 2 - 1) * t,
+                       (1 - (np.arange(height) + 0.5) / height * 2) * t * height / width)
+    d = fwd + X[..., None] * right + Y[..., None] * up
+    d = (d / np.linalg.norm(d, axis=-1, keepdims=True)).reshape(-1, 3)
+    n = len(d)
+    cosa = d @ C
+    sina = np.sqrt(np.clip(1 - cosa ** 2, 1e-18, None))
+    e2 = (d - cosa[:, None] * C) / sina[:, None]
+    u0 = 1.0 / r_cam
+    b = r_cam * sina / math.sqrt(1 - 2 * u0)                 # impact parameter measured by a static observer
+    w = np.sign(-cosa) * np.sqrt(np.clip(1 / b ** 2 - u0 ** 2 * (1 - 2 * u0), 0, None))
+    phi0 = np.mod(np.arctan2(-C[2], e2[:, 2]), math.pi)       # z(phi) = r (cos phi C_z + sin phi e2_z) = 0
+    lz = b * np.cross(np.broadcast_to(C, (n, 3)), e2)[:, 2]    # traced ray; the real photon has -lz
+    u = np.full(n, u0)
+    alive = np.ones(n, bool)
+    captured = np.zeros(n, bool)
+    phi_end = np.zeros(n)
+    hit_r = np.full((n, max_crossings), np.nan)
+    k = np.zeros(n, int)
+    nxt = phi0.copy()
+
+    def f(x):
+        return 3 * x * x - x
+
+    phi = 0.0
+    for _ in range(int(6 * math.pi / dphi)):
+        idx = np.nonzero(alive)[0]
+        if not len(idx):
+            break
+        ua, wa = u[idx], w[idx]
+        k1u, k1w = wa, f(ua)
+        k2u, k2w = wa + 0.5 * dphi * k1w, f(ua + 0.5 * dphi * k1u)
+        k3u, k3w = wa + 0.5 * dphi * k2w, f(ua + 0.5 * dphi * k2u)
+        k4u, k4w = wa + dphi * k3w, f(ua + dphi * k3u)
+        un = ua + dphi / 6 * (k1u + 2 * k2u + 2 * k3u + k4u)
+        wn = wa + dphi / 6 * (k1w + 2 * k2w + 2 * k3w + k4w)
+        cr = nxt[idx] <= phi + dphi
+        if cr.any():
+            jj = idx[cr]
+            fr = (nxt[jj] - phi) / dphi
+            uc = ua[cr] + fr * (un[cr] - ua[cr])
+            ok = k[jj] < max_crossings
+            hit_r[jj[ok], k[jj[ok]]] = 1 / np.maximum(uc[ok], 1e-9)
+            k[jj] += 1
+            nxt[jj] += math.pi
+        u[idx], w[idx] = un, wn
+        phi += dphi
+        cap = un > 0.5
+        esc = (un < 0.5 * u0) & (wn < 0)
+        captured[idx[cap]] = True
+        phi_end[idx[esc]] = phi + un[esc] / -wn[esc]           # remaining turn to u = 0 (u ~ linear there)
+        alive[idx[cap | esc]] = False
+    escaped = ~captured & ~alive
+    pe = phi_end[:, None]
+    esc_dir = np.cos(pe) * C + np.sin(pe) * e2
+    esc_dir[~escaped] = 0.0
+    return {"shape": (height, width), "hit_r": hit_r, "lz_photon": -lz, "b": b, "captured": captured,
+            "escape_dir": esc_dir, "basis": (fwd, right, up), "r_cam": r_cam, "fov_deg": fov_deg,
+            "inclination_deg": inclination_deg}
+
+
+def disc_image(tr: dict, r_in: float = 6.0, r_out: float = 20.0, doppler: bool = True, t_peak: float = 3900.0,
+               exposure: float = 2.4, gamma: float = 0.6, opacity: float = 0.92) -> tuple[np.ndarray, np.ndarray]:
+    """Colour and intensity of the disc for traced rays.
+
+    Emission: the Novikov-Thorne-like flux F ~ r^-3 (1 - sqrt(r_in / r)) of a thin disc with zero torque at the
+    ISCO, a local blackbody at T ~ F^1/4. Gas on Keplerian circular orbits (Omega = r^-3/2, exact in
+    Schwarzschild coordinates); the photon's frequency ratio is g = sqrt(1 - 3/r) / (1 - Omega L_z), times the
+    static camera's blueshift 1/sqrt(1 - 2/r_cam). Observed bolometric intensity ~ g^4 F, colour temperature g T.
+    Without Doppler, only the gravitational part sqrt(1 - 2/r) is kept. Crossings are composited front to back
+    (each one ``opacity`` opaque). Returns (rgb (H, W, 3) in [0, 1], coverage (H, W))."""
+    from ..blackhole.raytrace import blackbody_rgb
+    H, W = tr["shape"]
+    r = tr["hit_r"]
+    valid = np.isfinite(r) & (r >= r_in) & (r <= 2 * r_out)
+    rr = np.where(valid, r, r_in * 2)
+    flux = rr ** -3 * np.clip(1 - np.sqrt(r_in / rr), 0, None) * np.exp(-((rr / r_out) ** 4))
+    temp = (flux / (r_in * 1.36) ** -3 / 0.1) ** 0.25          # ~1 near the flux maximum (r ~ 1.36 r_in)
+    cam = 1 / math.sqrt(1 - 2 / tr["r_cam"])
+    if doppler:
+        g = np.sqrt(np.clip(1 - 3 / rr, 1e-6, None)) / (1 - rr ** -1.5 * tr["lz_photon"][:, None]) * cam
+    else:
+        g = np.sqrt(1 - 2 / rr) * cam
+    inten = np.where(valid, g ** 4 * flux, 0.0)
+    s = np.percentile(inten[valid], 99.5) if valid.any() else 1.0
+    lum = 1 - np.exp(-exposure * (inten / s) ** gamma)
+    col = blackbody_rgb(t_peak * np.where(valid, g * temp, 1.0).reshape(-1)).reshape(r.shape + (3,))
+    rgb = np.zeros((len(r), 3))
+    trans = np.ones(len(r))
+    for kk in range(r.shape[1]):
+        a = opacity * valid[:, kk] * np.clip(lum[:, kk] * 4, 0, 1)        # faint outer disc is translucent
+        rgb += trans[:, None] * lum[:, kk, None] * col[:, kk]
+        trans *= 1 - a
+    return np.clip(rgb.reshape(H, W, 3), 0, 1), (1 - trans).reshape(H, W)
+
+
+def accretion_view(ra_deg: float, dec_deg: float, width: int = 640, height: int = 360, inclination_deg: float = 86.0,
+                   r_cam: float = 60.0, fov_deg: float = 42.0, doppler: bool = True, sky: np.ndarray | None = None):
+    """A Schwarzschild black hole with a thin accretion disc placed in front of the real sky around (ra, dec):
+    exact null geodesics (``trace_thin_disc``), Doppler beaming and gravitational redshift (``disc_image``), the
+    lensed background from the bright-star catalogue and the Milky Way, then a light bloom.
+
+    The trace depends only on the camera, so it is cached; each new sky direction only re-samples the background
+    along the stored escape directions."""
+    from ..blackhole.raytrace import bloom
+    key = (width, height, round(inclination_deg, 2), round(r_cam, 2), round(fov_deg, 2))
+    if key not in _DISC_CACHE:
+        if len(_DISC_CACHE) > 4:
+            _DISC_CACHE.pop(next(iter(_DISC_CACHE)))
+        _DISC_CACHE[key] = trace_thin_disc(width, height, inclination_deg, r_cam, fov_deg)
+    tr = _DISC_CACHE[key]
+    disc, cover = disc_image(tr, doppler=doppler)
+    fwd, right, up = tr["basis"]
+    target = frames.from_radec(ra_deg, dec_deg)
+    north = np.array([0.0, 0.0, 1.0]) - target * target[2]
+    north = north / np.linalg.norm(north) if np.linalg.norm(north) > 1e-9 else np.array([1.0, 0.0, 0.0])
+    east = np.cross(north, target)
+    M = np.stack([target, -east, north]).T @ np.stack([fwd, right, up])          # hole frame -> ICRS
+    d = tr["escape_dir"] @ M.T
+    esc = np.linalg.norm(d, axis=1) > 0
+    d[~esc] = target
+    ra, dec, _ = frames.radec(d)
+    sky = catalog_sky(2048, 1024, milky_way=0.10) if sky is None else sky
+    layer = _sample(sky, ra, dec).reshape(height, width, 3) * 0.7
+    layer[~esc.reshape(height, width)] = 0.0
+    img = disc + layer * (1 - cover[..., None])
+    img = bloom(img, 0.7, max(1.5, width / 160))
+    alpha = math.degrees(math.asin(min(1.0, B_CRIT * math.sqrt(1 - 2 / r_cam) / r_cam)))
+    return {"image": img, "shadow_radius_deg": alpha, "fov_deg": fov_deg, "inclination_deg": inclination_deg}

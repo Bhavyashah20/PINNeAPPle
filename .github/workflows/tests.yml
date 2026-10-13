@@ -40,7 +40,7 @@ jobs:
       - name: Astronomy accuracy (USNO NOVAS, JPL Horizons, USNO almanac, NASA eclipses) and the Observatory app (must pass)
         run: |
           pip install ".[sky]" fastapi httpx "uvicorn[standard]"
-          pytest tests/test_astro_accuracy.py tests/test_observatory.py -q -p no:warnings
+          pytest tests/test_astro_accuracy.py tests/test_astro_ai.py tests/test_observatory.py -q -p no:warnings
 
       - name: Tier B — manufactured-solution physics-correctness tests (must pass)
         run: pytest tests/test_manufactured_solutions.py -q

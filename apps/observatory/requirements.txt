@@ -5,3 +5,4 @@ sgp4>=2.22          # MIT, Vallado et al. reference SGP4
 skyfield-data>=6.0  # MIT, bundles the public-domain JPL DE421 kernel and IERS finals
 skyfield>=1.48      # MIT, used only as an independent cross-check in the validation table
 pillow>=10
+pymsis>=0.10        # MIT, NRLMSIS 2.0 thermosphere (orbit decay)

@@ -1,0 +1,234 @@
+{
+"object": {
+"fullname": "1 Ceres",
+"des": "1",
+"kind": "an",
+"neo": false,
+"pha": false,
+"orbit_class": {
+"name": "Main-belt Asteroid",
+"code": "MBA"
+}
+},
+"orbit": {
+"epoch": "2458200.5",
+"elements": [
+{
+"value": ".07553461024389638",
+"sigma": "1.1644E-11",
+"name": "e",
+"title": "eccentricity",
+"label": "e",
+"units": null
+},
+{
+"value": "2.767046248500289",
+"sigma": "2.6002E-11",
+"name": "a",
+"title": "semi-major axis",
+"label": "a",
+"units": "au"
+},
+{
+"value": "2.558038488592984",
+"sigma": "5.622E-11",
+"name": "q",
+"title": "perihelion distance",
+"label": "q",
+"units": "au"
+},
+{
+"value": "10.5935097971363",
+"sigma": "1.9258E-9",
+"name": "i",
+"title": "inclination",
+"label": "i",
+"units": "deg"
+},
+{
+"value": "80.30991865594387",
+"sigma": "1.1728E-8",
+"name": "om",
+"title": "longitude of the ascending node",
+"label": "node",
+"units": "deg"
+},
+{
+"value": "73.11534200131032",
+"sigma": "1.1437E-8",
+"name": "w",
+"title": "argument of perihelion",
+"label": "peri",
+"units": "deg"
+},
+{
+"value": "352.2304611765882",
+"sigma": "2.6858E-9",
+"name": "ma",
+"title": "mean anomaly",
+"label": "M",
+"units": "deg"
+},
+{
+"value": "2458236.784053135587",
+"sigma": "1.302E-8",
+"name": "tp",
+"title": "time of perihelion passage",
+"label": "tp",
+"units": "JED"
+},
+{
+"value": "1681.214216917383",
+"sigma": "2.3698E-8",
+"name": "per",
+"title": "orbital period",
+"label": "period",
+"units": "d"
+},
+{
+"value": ".2141309515334005",
+"sigma": "3.0183E-12",
+"name": "n",
+"title": "mean motion",
+"label": "n",
+"units": "deg/d"
+},
+{
+"value": "2.976054008407594",
+"sigma": "2.7966E-11",
+"name": "ad",
+"title": "aphelion distance",
+"label": "Q",
+"units": "au"
+}
+],
+"moid": "1.59353",
+"soln_date": "2017-04-04 16:23:28",
+"orbit_id": "34",
+"equinox": "J2000",
+"source": "JPL"
+},
+"phys_par": [
+{
+"ref": "IRAS-A-FPA-3-RDR-IMPS-V6.0",
+"value": "3.34",
+"name": "H",
+"desc": "absolute magnitude (magnitude at 1AU from Sun and observer)",
+"notes": "IRAS observations used: 15",
+"sigma": null,
+"title": "absolute magnitude",
+"units": "mag"
+},
+{
+"ref": "PDS3 (MPC 17257)",
+"value": "0.12",
+"name": "G",
+"desc": "magnitude slope parameter used in the standard asteroid H/G mag. law",
+"notes": "Fit",
+"sigma": null,
+"title": "magnitude slope",
+"units": null
+},
+{
+"ref": "Nature vol. 537, pp515-517 (22 September 2016)",
+"value": "939.4",
+"name": "diameter",
+"desc": "effective body diameter",
+"notes": null,
+"sigma": "0.2",
+"title": "diameter",
+"units": "km"
+},
+{
+"ref": "Nature vol. 537, pp515-517 (22 September 2016)",
+"value": "964.4 x 964.2 x 891.8",
+"name": "extent",
+"desc": "tri(or bi)-axial body dimensions",
+"notes": "fit w.r.t. center of mass and in body-fixed frame",
+"sigma": "0.2 x 0.2 x 0.2",
+"title": "extent",
+"units": "km"
+},
+{
+"ref": "Nature vol. 537, pp515-517 (22 September 2016)",
+"value": "62.6284",
+"name": "GM",
+"desc": "mass expressed as a product of the mass (M) and gravitational constant (G)",
+"notes": null,
+"sigma": "0.0009",
+"title": "GM",
+"units": "km^3/s^2"
+},
+{
+"ref": "Nature vol. 537, pp515-517 (22 September 2016)",
+"value": "2.162",
+"name": "density",
+"desc": "bulk density",
+"notes": null,
+"sigma": "0.008",
+"title": "bulk density",
+"units": "g/cm^3"
+},
+{
+"ref": "Nature vol. 537, pp515-517 (22 September 2016)",
+"value": "291.421/66.758",
+"name": "pole",
+"desc": "spin-pole direction in R.A./Dec.",
+"notes": null,
+"sigma": "0.007/0.002",
+"title": "pole direction",
+"units": null
+},
+{
+"ref": "Li et al. (2006) Icarus v182:pp143-160",
+"value": "0.090",
+"name": "albedo",
+"desc": "geometric albedo",
+"notes": "V-band geometric albedo",
+"sigma": "0.003",
+"title": "geometric albedo",
+"units": null
+},
+{
+"ref": "EAR-A-5-DDR-UBV-MEAN-VALUES-V1.1",
+"value": ".713",
+"name": "BV",
+"desc": "color index B-V",
+"notes": "#obs=52; phase (min.=1.47, mean=11.85, max.=22.59) deg.",
+"sigma": ".014",
+"title": "B-V",
+"units": "mag"
+},
+{
+"ref": "EAR-A-5-DDR-UBV-MEAN-VALUES-V1.1",
+"value": ".426",
+"name": "UB",
+"desc": "color index U-B",
+"notes": "#obs=52; phase (min.=1.47, mean=12.16, max.=22.59) deg.",
+"sigma": ".026",
+"title": "U-B",
+"units": "mag"
+},
+{
+"ref": "EAR-A-5-DDR-TAXONOMY-V4.0",
+"value": "G",
+"name": "spec_T",
+"desc": "Tholen spectral taxonomic classification",
+"notes": "used 7 color indices; used ground-based radiometric albedo",
+"sigma": null,
+"title": "Tholen spectral type",
+"units": null
+},
+{
+"ref": "EAR-A-5-DDR-TAXONOMY-V4.0",
+"value": "C",
+"name": "spec_B",
+"desc": "SMASSII spectral taxonomic classification",
+"notes": "based on a high-resolution spectrum by Xu et al. (1995) or Bus and Binzel (2002)",
+"sigma": null,
+"title": "SMASSII spectral type",
+"units": null
+}
+],
+"ca_data": []
+}
