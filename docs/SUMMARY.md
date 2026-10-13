@@ -52,6 +52,7 @@
 * Guides
     * [Recreate a 3D wear twin](guides/recreate_a_wear_twin.md)
     * [Pre-trained models and datasets (pp.zoo)](guides/model_zoo.md)
+    * [Choose a model by the scale of the question](guides/scale_aware_ensembles.md)
 * [API Reference](api/index.md)
   * [pinneapple](api/pinneapple/index.md)
   * [pinneapple_physics](api/pinneapple_physics/index.md)
