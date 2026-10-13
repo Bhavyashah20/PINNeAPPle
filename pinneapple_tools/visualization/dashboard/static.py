@@ -158,8 +158,9 @@ class _Layout:
             ax.set_ylim(*c.ylim)
         n = len(c.series) + len(c.markers)
         if n >= 2:
-            leg = ax.legend(fontsize=6.5, frameon=False, ncol=min(4, n), loc="upper left", handlelength=1.4,
-                            columnspacing=0.8, borderaxespad=0.1)
+            leg = ax.legend(fontsize=6.5, frameon=True, ncol=min(4, n), loc="upper left", handlelength=1.4,
+                            columnspacing=0.8, borderaxespad=0.2, facecolor=THEME["panel"], edgecolor="none",
+                            framealpha=0.85)                 # the curves pass under the legend, not through it
             for t in leg.get_texts():
                 t.set_color(THEME["text2"])
         return ax

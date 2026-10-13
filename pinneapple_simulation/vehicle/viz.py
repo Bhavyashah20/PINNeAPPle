@@ -69,12 +69,20 @@ def terrain_at(run, terrain: DeformableTerrain, t_end: float, cache: dict | None
 def frame_view(run, terrain, k: int, *, field: str | None = None, clim=None, half_window=(3.2, 2.4),
                far_margin: float = 25.0, far_cell: float = 0.2, cache=None, earth: bool = False,
                preset="lunar_low_sun", sun_azimuth_deg: float | None = None, far_relief: float = 0.03,
-               colorbar: bool = True):
-    """The :class:`~pinneapple_tools.visualization.studio.planetary.SurfaceView` of sample ``k``."""
+               colorbar: bool = True, trail: float = 0.0):
+    """The :class:`~pinneapple_tools.visualization.studio.planetary.SurfaceView` of sample ``k``.
+
+    The detailed terrain (ruts, imprints, stress maps) covers ``half_window`` around the vehicle, shifted back by
+    ``trail`` metres along the direction of travel so more of the ruts behind it stay in view; the coarse far
+    field (with the vehicle's shadow) fills the rest."""
     from pinneapple_tools.visualization.studio.planetary import SurfaceView
     from pinneapple_tools.visualization.studio.shadows import relief_noise
     ter = terrain_at(run, terrain, float(run.t[k]), cache)
     cx, cy = run.q[k, 0], run.q[k, 1]
+    if trail:
+        d = run.q[k, :2] - run.q[max(k - 10, 0), :2]
+        if np.linalg.norm(d) > 1e-3:
+            cx, cy = np.array([cx, cy]) - trail * d / np.linalg.norm(d)
     hx, hy = half_window
     xr = (max(cx - hx, ter.x0), min(cx + hx, ter.x1))
     yr = (max(cy - hy, ter.y0), min(cy + hy, ter.y1))
@@ -107,7 +115,7 @@ def frame_view(run, terrain, k: int, *, field: str | None = None, clim=None, hal
         if field == "sinkage":
             g = flds["rut_depth"].reshape(X.shape)
             tfield = np.where(g > 0.3, g, np.nan)
-    rocks = [r.mesh() for r in ter.rocks if abs(r.x - cx) < hx + 1 and abs(r.y - cy) < hy + 1]
+    rocks = [r.mesh() for r in ter.rocks if abs(r.x - cx) < hx + 6 and abs(r.y - cy) < hy + 6]
     far = None
     if far_margin > 0:
         xs = np.arange(cx - far_margin, cx + far_margin + far_cell, far_cell)

@@ -64,7 +64,7 @@ def main(quick: bool = False):
     db.to_html(os.path.join(out, "rover-dashboard.html"), max_width=1024, quality=30)
     db.to_png(os.path.join(out, "rover-dashboard.png"), k=int(len(ks) * 0.62))
     db.to_video(gif=os.path.join(out, "rover-dashboard.gif"), mp4=os.path.join(out, "rover-dashboard.mp4"), fps=12,
-                gif_size=(960, 540), gif_every=1 if quick else 2)
+                gif_size=(800, 450), gif_every=1 if quick else 3)
     print(f"done in {time.time() - t0:.0f} s -> {os.path.abspath(out)}")
 
 

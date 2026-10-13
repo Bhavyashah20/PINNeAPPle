@@ -7,7 +7,15 @@ import shutil
 import numpy as np
 import pytest
 
-from pinneapple_tools.visualization.dashboard import Chart, ColorBar, Dashboard, Marker, Param, Series, Tile
+from pinneapple_tools.visualization.dashboard import (
+    Chart,
+    ColorBar,
+    Dashboard,
+    Marker,
+    Param,
+    Series,
+    Tile,
+)
 from pinneapple_tools.visualization.dashboard.html import payload, scene3d_payload
 
 

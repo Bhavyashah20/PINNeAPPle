@@ -32,8 +32,10 @@ from pinneapple_tools.visualization.dashboard import (
 
 
 def render_frames(run, terrain, n: int = 150, *, field="normal_stress", clim=None, size=(1280, 720), camera=None,
-                  preset="lunar_low_sun", sun_azimuth_deg=160.0, earth=False, progress=None):
-    """``n`` rendered frames spread over the run and their sample indices (``vehicle.viz.render_frame``)."""
+                  preset="lunar_low_sun", sun_azimuth_deg=160.0, earth=False, trail: float = 0.0,
+                  half_window=(3.2, 3.4), progress=None):
+    """``n`` rendered frames spread over the run and their sample indices (``vehicle.viz.render_frame``).
+    ``trail`` and ``half_window`` place the detailed terrain window (see ``vehicle.viz.frame_view``)."""
     from .viz import render_frame
     ks = np.unique(np.linspace(0, len(run.t) - 1, n).astype(int))
     if clim is None and field in ("normal_stress", "shear_stress"):
@@ -46,7 +48,8 @@ def render_frames(run, terrain, n: int = 150, *, field="normal_stress", clim=Non
     frames = []
     for j, k in enumerate(ks):
         img = render_frame(run, terrain, int(k), None, field=field, clim=clim, camera=camera, size=size, cache=cache,
-                           preset=preset, sun_azimuth_deg=sun_azimuth_deg, earth=earth, title="", colorbar=False)
+                           preset=preset, sun_azimuth_deg=sun_azimuth_deg, earth=earth, title="", colorbar=False,
+                           trail=trail, half_window=half_window)
         frames.append(np.asarray(img)[..., :3])
         if progress:
             progress(j + 1, len(ks))

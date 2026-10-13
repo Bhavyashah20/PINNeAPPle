@@ -26,6 +26,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
     PINN against Wong-Reece with its error.
   - Example: `examples/studio/07_lunar_rover_dashboard.py`, which writes `docs/assets/studio/rover-*`. Docs:
     `docs/core_concepts/dashboard.md`.
+  - Planetary renders: the vehicle's shadow now continues onto the far-field terrain beyond the detailed patch
+    (`studio.shadows.cast_shadow(..., supersample=n)` gives a smooth shadow fraction on coarse grids, and
+    `shade_terrain` accepts it); `vehicle.viz.frame_view(trail=...)` shifts the detailed window back along the path.
 - Realistic planetary rover simulation, as library features (`pp.terramechanics`, `pp.multibody`, `pp.vehicle`):
   - `pinneapple_simulation.terramechanics`: a soil database where every parameter records its source and how far
     it was checked (GRC-1, JSC-1A, the soils of three published single-wheel test series); the Wong-Reece wheel

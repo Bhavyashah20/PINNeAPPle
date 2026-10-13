@@ -75,15 +75,19 @@ def points_in_terrain_shadow(P, X, Y, Z, sun_dir, step: float | None = None) -> 
     return out
 
 
-def cast_shadow(meshes, X, Y, Z, sun_dir, iterations: int = 3) -> np.ndarray:
-    """Boolean (ny, nx): cells of the regular grid (X, Y, Z) in the shadow of the triangle ``meshes`` [(V, F), ...]."""
+def cast_shadow(meshes, X, Y, Z, sun_dir, iterations: int = 3, supersample: int = 1) -> np.ndarray:
+    """Boolean (ny, nx): cells of the regular grid (X, Y, Z) in the shadow of the triangle ``meshes`` [(V, F), ...].
+
+    With ``supersample`` > 1 the shadow is rasterised that many times finer and averaged: a float (ny, nx)
+    shadow fraction, which keeps the shadow edge smooth on a coarse grid."""
+    ss = max(int(supersample), 1)
     from PIL import Image, ImageDraw
     s = np.asarray(sun_dir, float)
     s = s / np.linalg.norm(s)
     x0, y0 = float(X[0, 0]), float(Y[0, 0])
     cx, cy = float(X[0, 1] - X[0, 0]), float(Y[1, 0] - Y[0, 0])
     ny, nx = Z.shape
-    img = Image.new("1", (nx, ny), 0)
+    img = Image.new("1", (nx * ss, ny * ss), 0)
     draw = ImageDraw.Draw(img)
     for V, F in meshes:
         V = np.asarray(V, float)
@@ -95,11 +99,13 @@ def cast_shadow(meshes, X, Y, Z, sun_dir, iterations: int = 3) -> np.ndarray:
         P = V - t[:, None] * s
         px = (P[:, 0] - x0) / cx
         py = (P[:, 1] - y0) / cy
-        T = np.stack([px[F], py[F]], -1)
-        keep = np.all((T[..., 0] > -nx) & (T[..., 0] < 2 * nx) & (T[..., 1] > -ny) & (T[..., 1] < 2 * ny), 1)
+        T = (np.stack([px[F], py[F]], -1) + 0.5) * ss - 0.5
+        keep = np.all((T[..., 0] > -nx * ss) & (T[..., 0] < 2 * nx * ss) & (T[..., 1] > -ny * ss)
+                      & (T[..., 1] < 2 * ny * ss), 1)
         for tri in T[keep]:
             draw.polygon([tuple(p) for p in tri], fill=1)
-    return np.asarray(img, bool)
+    a = np.asarray(img, bool)
+    return a if ss == 1 else a.reshape(ny, ss, nx, ss).mean(axis=(1, 3))
 
 
 def lunar_lambert(normals, sun_dir, view_dir, L: float = 1.0) -> np.ndarray:
@@ -140,7 +146,7 @@ def grid_normals(Z, cell: float) -> np.ndarray:
 
 def shade_terrain(X, Y, Z, sun_dir, camera_position, albedo=(0.45, 0.44, 0.42), shadow=None, exposure: float = 1.0,
                   fill: float = 0.04, L: float = 0.6, tint=None) -> np.ndarray:
-    """(ny, nx, 3) colours in [0, 1]: Lunar-Lambert photometry, hard shadows from ``shadow`` (bool grid), a weak
+    """(ny, nx, 3) colours in [0, 1]: Lunar-Lambert photometry, shadows from ``shadow`` (bool grid or 0-1 fraction), a weak
     fill light, a filmic shoulder. ``tint`` (ny, nx, 3) multiplies the albedo (e.g. a field colour map)."""
     cell = float(X[0, 1] - X[0, 0])
     n = grid_normals(Z, cell)
@@ -153,7 +159,8 @@ def shade_terrain(X, Y, Z, sun_dir, camera_position, albedo=(0.45, 0.44, 0.42), 
     mu = np.clip(np.sum(n * v, -1), 1e-3, None)
     refl = (1 - L) * mu0 + 2 * L * mu0 / (mu0 + mu + 1e-9)
     if shadow is not None:
-        refl = np.where(shadow, 0.0, refl)
+        shadow = np.asarray(shadow)
+        refl = np.where(shadow, 0.0, refl) if shadow.dtype == bool else refl * (1.0 - np.clip(shadow, 0, 1))
     a = np.asarray(albedo, float)
     base = a[None, None, :] * (tint if tint is not None else 1.0)
     rgb = base * (exposure * refl[..., None] + fill * (0.5 + 0.5 * n[..., 2:3]))

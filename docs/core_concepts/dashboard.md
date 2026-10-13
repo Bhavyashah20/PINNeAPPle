@@ -16,7 +16,7 @@ It uses the dark style of the studio renders (aircraft, Formula car).
 
 ![VIPER crossing a lunar crater, dashboard](../assets/studio/rover-dashboard.gif)
 
-Interactive page: [rover-dashboard.html](../assets/studio/rover-dashboard.html) (≈ ⟨HTML_MB⟩ MB, opens offline).
+Interactive page: [rover-dashboard.html](../assets/studio/rover-dashboard.html) (≈ 6.1 MB, opens offline).
 Static: [rover-dashboard.png](../assets/studio/rover-dashboard.png). Video: [rover-dashboard.mp4](../assets/studio/rover-dashboard.mp4).
 
 ```python
@@ -73,13 +73,14 @@ It uses the studio's vendored three.js, inlined through an import map, and a `st
 sky, low Sun). The view orbits freely and follows the scrubbed time. `html.scene3d_payload(bodies, poses, terrain,
 lighting)` builds the data for any rigid-body animation.
 
-Size depends on the frames. The rover page, with 150 frames at 1024 px plus the 3D data, is ⟨HTML_MB⟩ MB.
+Size depends on the frames. The rover page, with 150 frames at 1024 px plus the 3D data, is 6.1 MB.
 
 ## Static PNG and videos
 
 `to_png` and `to_video` draw the same layout with matplotlib (1920 × 1080 by default). The figure is drawn once;
 each frame only changes the image, the cursors, the moving markers and the tiles. The MP4 keeps every frame. The
-GIF is downscaled (`gif_size`) and can skip frames (`gif_every`) at the same playback speed.
+GIF is downscaled (`gif_size`) and can skip frames (`gif_every`) at the same playback speed; its 256-colour palette
+shifts the series colours a little, so the MP4 and the HTML page are the reference versions.
 
 ## The rover dashboard
 
@@ -115,6 +116,11 @@ Around it:
 - `docs/assets/studio/rover-dashboard.{html,png,gif,mp4}`;
 - `rover-frame.png`, one rendered frame.
 
-The run behind it: ⟨RUN_SUMMARY⟩
+The run behind it is the crater crossing of the [lunar rover page](lunar_rover_terramechanics.md): NASA VIPER
+(450 kg) on GRC-1 at lunar gravity, a 0.2 m/s command, 45 s, 2 ms steps. The rover covers 8.61 m with a mean slip of
+0.019 and a maximum sinkage of 22 mm, uses 761 J (88 J/m), and reaches 10.5° of pitch and 3.8° of roll; the
+front-left wheel leaves the soil for a moment near 1.3 m (its sinkage and load drop to zero). The
+PINN surrogate's held-out RMSE is about 0.05 % of each output's range; along the run it stays within about 2 N of
+the Wong-Reece drawbar pull.
 
 ![One rendered frame](../assets/studio/rover-frame.png)
