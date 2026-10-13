@@ -19,6 +19,7 @@ inference, so they are wide where the models disagree. :func:`fit_static_weights
 """
 from __future__ import annotations
 
+import heapq
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -401,12 +402,22 @@ class PhysicsEnsemble:
         return ok, w, awake, out, [i for i in failed if i not in ok], escalated
 
     # ------------------------------------------------------------------------------------------ learning
-    def update(self, query: Any = None, reference: np.ndarray | None = None) -> dict[str, Any]:
-        """Score the last prediction (call :meth:`predict` first for the same query). Uses ``reference`` if given,
-        the physics residual if ``residual_fn`` is set, and the cost if ``cost_weight`` > 0."""
+    def last_state(self) -> dict[str, Any]:
+        """Opaque record of the last :meth:`predict` call (expert fields, weights used, residuals, interval state).
+        Keep it and pass it to ``update(..., state=...)`` to score that prediction later, after other cases have been
+        predicted: the way to learn from a label that arrives with a delay (see :meth:`run_delayed`)."""
         if self._last is None:
+            raise RuntimeError("call predict(query) before last_state()")
+        return self._last
+
+    def update(self, query: Any = None, reference: np.ndarray | None = None,
+               state: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Score the last prediction (call :meth:`predict` first for the same query), or the prediction recorded in
+        ``state`` (from :meth:`last_state`) when its label arrives later. Uses ``reference`` if given, the physics
+        residual if ``residual_fn`` is set, and the cost if ``cost_weight`` > 0."""
+        if state is None and self._last is None:
             raise RuntimeError("call predict(query) before update()")
-        last = self._last
+        last = self._last if state is None else state
         query = last["query"] if query is None else query
         preds, n = last["preds"], len(self.experts)
         loss = np.zeros(n)
@@ -512,6 +523,65 @@ class PhysicsEnsemble:
                 cov.append(np.nan)
         return EnsembleRun(self.names, np.array(errs, dtype=float), np.array(ens, dtype=float), np.array(ws),
                            act, np.array(cov), np.array(costs), kept if keep_predictions else None, np.array(sus))
+
+    def run_delayed(self, queries: Sequence[Any], references: Sequence[np.ndarray | None],
+                    available_at: Sequence[float], issue_times: Sequence[float] | None = None,
+                    keep_predictions: bool = False, flush: bool = True) -> EnsembleRun:
+        """Prequential evaluation with delayed labels: the reference of case k exists only from time
+        ``available_at[k]`` on (a forecast verified at its lead time, a lab result that takes days).
+
+        Cases are predicted in the given order, case k at ``issue_times[k]`` (default: k; the order must be
+        chronological). Before predicting case k, every earlier case whose label has matured
+        (``available_at[j] <= issue_times[k]``) updates the weights against the prediction stored for it
+        (:meth:`last_state`), in order of availability (a heap; ties by case index). A label is never used before it
+        exists, even with several overlapping events in flight. With ``available_at[k] = issue_times[k]`` (label known
+        right after its own prediction) this is :meth:`run`. ``flush``: score the labels still pending after the last
+        case (their errors appear in the result and the weights learn from them); with ``flush=False`` those cases
+        keep NaN errors and the ensemble state is the one of the last prediction.
+
+        Returns an :class:`EnsembleRun` like :meth:`run`; ``weights[k]`` are the weights used for case k, which reflect
+        only the labels available at its issue time."""
+        n_q = len(queries)
+        if len(references) != n_q or len(available_at) != n_q:
+            raise ValueError("queries, references and available_at must have the same length")
+        times = list(range(n_q)) if issue_times is None else list(issue_times)
+        if len(times) != n_q:
+            raise ValueError("issue_times must have the same length as queries")
+        n = len(self.experts)
+        errs = np.full((n_q, n), np.nan)
+        ens, cov = np.full(n_q, np.nan), np.full(n_q, np.nan)
+        ws, act, costs, kept, sus, bounds = [], [], [], [], [], []
+        pending: list[tuple] = []
+
+        def learn(j: int, state: dict[str, Any]) -> None:
+            ref = references[j]
+            info = self.update(queries[j], ref, state=state)
+            e = np.asarray(info.get("errors", np.full(n, np.nan)), dtype=float)
+            errs[j] = np.where(np.isfinite(e), e, np.nan)
+            ens[j] = info.get("ensemble_error", np.nan)
+            lo, hi = bounds[j]
+            if ref is not None and np.all(np.isfinite(lo)):
+                r = np.asarray(ref)
+                cov[j] = float(np.mean((r >= lo) & (r <= hi)))
+
+        for k, q in enumerate(queries):
+            while pending and pending[0][0] <= times[k]:
+                _, j, state = heapq.heappop(pending)
+                learn(j, state)
+            p = self.predict(q)
+            heapq.heappush(pending, (available_at[k], k, self.last_state()))
+            bounds.append((p["lower"], p["upper"]))
+            if keep_predictions:
+                kept.append({key: p[key] for key in ("prediction", "lower", "upper", "expert_predictions", "active")})
+            ws.append([p["weights"][m] for m in self.names])
+            act.append(p["active"])
+            sus.append(bool(p.get("suspect", False)))
+            costs.append([p["costs"][m] for m in self.names])
+        while flush and pending:
+            _, j, state = heapq.heappop(pending)
+            learn(j, state)
+        return EnsembleRun(self.names, errs, ens, np.array(ws), act, cov, np.array(costs),
+                           kept if keep_predictions else None, np.array(sus))
 
 
 def residual_baseline(experts: Sequence[Expert], domain_queries: Mapping[str, Sequence[Any]],
