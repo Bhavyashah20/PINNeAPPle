@@ -64,6 +64,10 @@ except ImportError:
 OUT_DIR = Path(__file__).parent / "outputs"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+# Training box (slip, sinkage [m]); `train(slip_range=..., sinkage_range=...)` changes it for a run.
+SLIP_RANGE = (0.0, 0.75)
+SINK_RANGE = (0.002, 0.058)
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. SOIL & WHEEL PARAMETERS
 #    Uses pinneapple_simulation.particle_dynamics.terramechanics when available
@@ -300,7 +304,7 @@ if _LIB_AVAILABLE:
         R_factor = WHEEL.R * Fx_range / My_range
         _res = TerramechanicsResiduals(
             c_Pa=SOIL.c, phi_deg=SOIL.phi_deg, R_m=WHEEL.R, b_m=WHEEL.b,
-            n_phys=n_phys, R_factor=R_factor,
+            n_phys=n_phys, R_factor=R_factor, slip_range=SLIP_RANGE, sink_range=SINK_RANGE,
         )
         r = _res(model, norm_x, norm_y, device)
         return {"r5_fz_monotone": r["r5"], "r2_mohr_coulomb": r["r2"],
@@ -311,15 +315,16 @@ else:
         gen = torch.Generator(device=device).manual_seed(0)
         n1 = max(n_phys // 4, 32)
         # R5: dFz/dz >= 0 (replaces the former "Fx(s=0)=0", which Bekker-Wong itself violates)
-        s_r5 = torch.rand(n1, 1, device=device, generator=gen) * 0.75
-        z_r5 = (torch.rand(n1, 1, device=device, generator=gen) * 0.056 + 0.002).requires_grad_(True)
+        (s_lo, s_hi), (z_lo, z_hi) = SLIP_RANGE, SINK_RANGE
+        s_r5 = torch.rand(n1, 1, device=device, generator=gen) * (s_hi - s_lo) + s_lo
+        z_r5 = (torch.rand(n1, 1, device=device, generator=gen) * (z_hi - z_lo) + z_lo).requires_grad_(True)
         fz_r5 = model(norm_x.transform_torch(torch.cat([s_r5, z_r5], dim=-1)))[:, 1:2]
         dfz = torch.autograd.grad(fz_r5.sum(), z_r5, create_graph=True)[0]
         r5 = torch.relu(-dfz).pow(2).mean()
 
         n2 = max(n_phys // 2, 64)
-        s_r2 = torch.rand(n2, 1, device=device, generator=gen) * 0.75
-        z_r2 = torch.rand(n2, 1, device=device, generator=gen) * 0.056 + 0.002
+        s_r2 = torch.rand(n2, 1, device=device, generator=gen) * (s_hi - s_lo) + s_lo
+        z_r2 = torch.rand(n2, 1, device=device, generator=gen) * (z_hi - z_lo) + z_lo
         x_r2 = norm_x.transform_torch(torch.cat([s_r2, z_r2], dim=-1))
         pred_r2 = model(x_r2)
         phy_r2 = norm_y.inverse_torch(pred_r2)
@@ -339,8 +344,8 @@ else:
         r3 = torch.relu(-grad_s).pow(2).mean()
 
         n4 = max(n_phys // 4, 32)
-        s_r4 = torch.rand(n4, 1, device=device, generator=gen) * 0.75
-        z_r4 = torch.rand(n4, 1, device=device, generator=gen) * 0.056 + 0.002
+        s_r4 = torch.rand(n4, 1, device=device, generator=gen) * (s_hi - s_lo) + s_lo
+        z_r4 = torch.rand(n4, 1, device=device, generator=gen) * (z_hi - z_lo) + z_lo
         x_r4 = norm_x.transform_torch(torch.cat([s_r4, z_r4], dim=-1))
         pred_r4 = model(x_r4)
         Fx_range = max(float(norm_y.hi[0]) - float(norm_y.lo[0]), 1e-12)
@@ -365,14 +370,18 @@ def train(
     w_r3: float = 1.0,
     w_r4: float = 0.3,
     seed: int = 42,
+    slip_range: tuple = (0.0, 0.75),
+    sinkage_range: tuple = (0.002, 0.058),
 ) -> tuple:
+    global SLIP_RANGE, SINK_RANGE
+    SLIP_RANGE, SINK_RANGE = tuple(slip_range), tuple(sinkage_range)
     torch.manual_seed(seed)
     device = best_device()
     print(f"Device: {device}")
 
     # ── Dataset ───────────────────────────────────────────────────────────────
     print("\nStep 1/4 — Generating Bekker-Wong reference dataset ...")
-    raw = generate_dataset(n_slip=45, n_sinkage=45)
+    raw = generate_dataset(n_slip=45, n_sinkage=45, slip_range=SLIP_RANGE, sinkage_range=SINK_RANGE)
     X_raw = np.column_stack([raw["slip"], raw["sinkage"]]).astype(np.float32)
     Y_raw = np.column_stack([raw["Fx"], raw["Fz"], raw["My"]]).astype(np.float32)
 
@@ -621,14 +630,15 @@ def evaluate_and_plot(
 # 9. EXPORT FOR LUNCO SIM
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def export_surrogate(model: TerraMechanicsPINN, norm_x: Normalizer, norm_y: Normalizer):
+def export_surrogate(model: TerraMechanicsPINN, norm_x: Normalizer, norm_y: Normalizer,
+                     stem: str = "terramechanics_surrogate", meta_name: str = "surrogate_metadata.json"):
     """Export trained surrogate as TorchScript + JSON metadata for LunCoSim."""
     model.eval()
     device = next(model.parameters()).device
 
     dummy = torch.zeros(1, 2, device=device)
     traced = torch.jit.trace(model, dummy)
-    ts_path = OUT_DIR / "terramechanics_surrogate.pt"
+    ts_path = OUT_DIR / f"{stem}.pt"
     traced.save(str(ts_path))
     print(f"\n  TorchScript -> {ts_path}")
 
@@ -664,7 +674,7 @@ def export_surrogate(model: TerraMechanicsPINN, norm_x: Normalizer, norm_y: Norm
             "Fx, Fz, My = y[0,0].item(), y[0,1].item(), y[0,2].item()"
         ),
     }
-    meta_path = OUT_DIR / "surrogate_metadata.json"
+    meta_path = OUT_DIR / meta_name
     with open(meta_path, "w") as f:
         json.dump(meta, f, indent=2)
     print(f"  Metadata     -> {meta_path}")

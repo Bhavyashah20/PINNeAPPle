@@ -229,6 +229,8 @@ def catalog() -> List[Script]:
                "use_cases","uc_terramechanics",args=["--epochs","1000"],timeout=300,mode="slow"),
         Script("examples/use_cases/terramechanics/benchmark_vs_omnilrs.py",
                "use_cases","uc_terramech_bench",timeout=300,mode="slow"),
+        Script("examples/use_cases/terramechanics/lunar_rover_3d.py",
+               "use_cases","uc_lunar_rover_3d",args=["--quick"],timeout=900,mode="slow"),
         Script("examples/use_cases/crash_surrogate/crash_surrogate_pipeline.py",
                "use_cases","uc_crash",timeout=600,mode="slow"),
         Script("examples/use_cases/missile_aero/missile_aero_pipeline.py",
