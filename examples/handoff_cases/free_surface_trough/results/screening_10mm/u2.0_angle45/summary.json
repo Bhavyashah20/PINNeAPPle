@@ -1,0 +1,132 @@
+{
+ "parameters": {
+  "length": 1.2,
+  "wall_height": 0.25,
+  "sill_height": 0.08,
+  "width": 0.15,
+  "nozzle_x": 0.3,
+  "nozzle_z": 0.4,
+  "nozzle_bore": 0.02,
+  "speed": 2.0,
+  "angle": 45.0,
+  "cell": 0.01,
+  "turbulence": "kOmegaSST",
+  "intensity": 0.05,
+  "end_time": 12.0,
+  "write_every": 0.02,
+  "max_co": 0.5
+ },
+ "derived": {
+  "slot_width": 0.028284271247461905,
+  "q_in_m2_s": 0.04,
+  "inlet_velocity": [
+   1.4142135623730951,
+   0.0,
+   -1.414213562373095
+  ],
+  "span_cfd": 0.01
+ },
+ "mass_balance": {
+  "V0_m2": 0.09600000000000009,
+  "V_end_m2": 0.12405491655482932,
+  "inflow_total_m2": 0.47999538385000234,
+  "outflow_outlet_m2": 0.45143249617729686,
+  "outflow_atmosphere_m2": 7.260432311788474e-06,
+  "imbalance_end_m2": -0.0005007106855620912,
+  "imbalance_end_pct_of_inflow": -0.10431572936096452,
+  "imbalance_max_abs_pct_of_inflow_after_1s": 0.26322079123021175,
+  "q_in_m2_s": 0.04,
+  "q_in_nozzle_patch_mean_m2_s": 0.03999961499999999,
+  "note": "per metre of span; fluxes from the written phi and alpha boundary values at every write (0.02 s), trapezoidal in time"
+ },
+ "solver_checks": {
+  "alpha_min": -5.888998e-05,
+  "alpha_max": 1.000003,
+  "courant_max": 0.59296436,
+  "interface_courant_max": 0.56593402,
+  "courant_max_after_0p1s": 0.59296436,
+  "dt_min": 0.00014405971,
+  "dt_max": 0.0016349961,
+  "steps": 10176,
+  "t_end": 12.0,
+  "finished": true,
+  "liquid_volume_solver_vs_fields_max_rel_diff": 2.3594131631164362e-08
+ },
+ "impingement": {
+  "x_floor_pressure_peak_m": 0.5580017865500001,
+  "x_floor_shear_reversal_m": [
+   0.004928586207,
+   0.47837410115,
+   0.5082344831499999,
+   0.7570709999999999
+  ],
+  "x_ballistic_at_mean_free_surface_m": 0.4934075100915017,
+  "mean_depth_upstream_of_jet_m": 0.11485313459460278,
+  "jet_speed_at_free_surface_ballistic_m_s": 3.0975121467484024,
+  "floor_tau_mean_abs_max_Pa": 14.38790344286538,
+  "x_floor_tau_mean_abs_max_m": 0.6177225505499999,
+  "floor_tau_instantaneous_max_Pa": 19.9503383404706,
+  "averaging_window_s": [
+   6.0,
+   12.0
+  ],
+  "floor_y_plus_of_first_cell_max": 598.2543735063987,
+  "floor_first_cell_centre_height_m": 0.005,
+  "window_halves": {
+   "tau_mean_abs_max_Pa": [
+    12.54505238833228,
+    16.33670437208141,
+    23.209405626687282
+   ],
+   "mean_k_floor_z010mm": [
+    0.17129536208261326,
+    0.2093831959666283,
+    18.190492177837196
+   ],
+   "mean_k_floor_z030mm": [
+    0.21172779666301256,
+    0.2444079106274472,
+    13.371135934404837
+   ],
+   "mean_k_floor_z060mm": [
+    0.26532868766932044,
+    0.277886455438329,
+    4.519028374089109
+   ]
+  }
+ },
+ "splash": {
+  "max_liquid_height_away_from_jet_m": 0.26499999999999996,
+  "time_of_max_s": 1.3,
+  "mean_over_window_m": 0.2030398671096346,
+  "wall_height_m": 0.25,
+  "overtops_wall": true,
+  "liquid_out_through_open_top_m2": 7.260432311788474e-06
+ },
+ "k_lines_summary": {
+  "floor_z010mm": {
+   "mean_k_max": 1.058404089700997,
+   "mean_k_avg_in_liquid": 0.08345707878887261
+  },
+  "floor_z030mm": {
+   "mean_k_max": 1.1766104724252482,
+   "mean_k_avg_in_liquid": 0.10647390970610689
+  },
+  "floor_z060mm": {
+   "mean_k_max": 1.5467940568106315,
+   "mean_k_avg_in_liquid": 0.14912150152774664
+  },
+  "vertical_x0450mm": {
+   "mean_k_max": 2.630161983720931,
+   "mean_k_avg_in_liquid": 0.32495153679881883
+  },
+  "vertical_x0800mm": {
+   "mean_k_max": 0.4602381473421929,
+   "mean_k_avg_in_liquid": 0.2086875985862838
+  },
+  "vertical_x1100mm": {
+   "mean_k_max": 0.7199497526578073,
+   "mean_k_avg_in_liquid": 0.2662327016548172
+  }
+ }
+}

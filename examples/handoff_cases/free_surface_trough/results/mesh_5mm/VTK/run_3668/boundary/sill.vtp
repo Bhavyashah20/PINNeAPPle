@@ -1,0 +1,86 @@
+<?xml version='1.0'?>
+<!-- patch='sill' time='2' index='3668' -->
+<VTKFile type='PolyData' version='0.1' byte_order='LittleEndian' header_type='UInt64'>
+  <PolyData>
+    <FieldData>
+      <DataArray type='Float32' Name='TimeValue' NumberOfTuples='1' format='ascii'>
+2
+      </DataArray>
+    </FieldData>
+    <Piece NumberOfPoints='34' NumberOfPolys='16'>
+      <Points>
+        <DataArray type='Float32' Name='Points' NumberOfComponents='3' format='ascii'>
+1.2 0 0 1.2 0.005 0
+1.2 0.005 0.005 1.2 0 0.005
+1.2 0.005 0.01 1.2 0 0.01
+1.2 0.005 0.015 1.2 0 0.015
+1.2 0.005 0.02 1.2 0 0.02
+1.2 0.005 0.025 1.2 0 0.025
+1.2 0.005 0.03 1.2 0 0.03
+1.2 0.005 0.035 1.2 0 0.035
+1.2 0.005 0.04 1.2 0 0.04
+1.2 0.005 0.045 1.2 0 0.045
+1.2 0.005 0.05 1.2 0 0.05
+1.2 0.005 0.055 1.2 0 0.055
+1.2 0.005 0.06 1.2 0 0.06
+1.2 0.005 0.065 1.2 0 0.065
+1.2 0.005 0.07 1.2 0 0.07
+1.2 0.005 0.075 1.2 0 0.075
+1.2 0.005 0.08 1.2 0 0.08
+        </DataArray>
+      </Points>
+      <Polys>
+        <DataArray type='Int32' Name='connectivity' format='ascii'>
+0 1 2 3 3 2
+4 5 5 4 6 7
+7 6 8 9 9 8
+10 11 11 10 12 13
+13 12 14 15 15 14
+16 17 17 16 18 19
+19 18 20 21 21 20
+22 23 23 22 24 25
+25 24 26 27 27 26
+28 29 29 28 30 31
+31 30 32 33
+        </DataArray>
+        <DataArray type='Int32' Name='offsets' format='ascii'>
+4 8 12 16 20 24
+28 32 36 40 44 48
+52 56 60 64
+        </DataArray>
+      </Polys>
+      <CellData>
+        <DataArray type='Float32' Name='alpha.water' format='ascii'>
+0.999941 0.999743 0.999551 0.918418 0.867536 0.932608
+0.986647 0.936221 0.931998 0.931991 0.932114 0.96393
+0.986823 0.986823 0.986823 0.986822
+        </DataArray>
+        <DataArray type='Float32' Name='k' format='ascii'>
+0.00343483 0.00499226 0.0112866 0.0195927 0.0287783 0.0374995
+0.0455146 0.0530426 0.0603484 0.0677907 0.0761113 0.084732
+0.0939729 0.103972 0.113695 0.12957
+        </DataArray>
+        <DataArray type='Float32' Name='nut' format='ascii'>
+3.92663e-06 4.77792e-06 7.20085e-06 9.41093e-06 1.13051e-05 1.28094e-05
+1.4028e-05 1.50699e-05 1.60046e-05 1.68943e-05 1.78273e-05 1.87354e-05
+1.96539e-05 2.05939e-05 2.14612e-05 2.27934e-05
+        </DataArray>
+        <DataArray type='Float32' Name='p_rgh' format='ascii'>
+449.958 447.192 448.172 494.836 510.838 448.224
+389.888 384.789 370.781 371.837 394.658 438.004
+504.821 562.643 595.149 680.785
+        </DataArray>
+        <DataArray type='Float32' Name='U' NumberOfComponents='3' format='ascii'>
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+        </DataArray>
+      </CellData>
+    </Piece>
+  </PolyData>
+</VTKFile>
