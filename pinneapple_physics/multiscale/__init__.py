@@ -16,7 +16,13 @@ module                 contents
 :mod:`.scales`         scale profiles of models, scale queries, scale compatibility, :class:`ScaleAwareRouter`
                        with a fidelity ladder (surrogate -> LES with closure -> resolved solver)
 :mod:`.learned`        (PyTorch, imported on demand) scale-conditioned FNO with a filtering-consistency loss,
-                       differentiable LES and a closure trained a posteriori through the solver
+                       differentiable LES and a closure trained a posteriori through the solver; periodic CNN,
+                       torus graph and a Fourier-Galerkin PINN for the benchmark surrogates
+:mod:`.turbulence`     decaying 2-D turbulence benchmark: DNS data, filtered pairs, query streams that shift Re
+                       and scale, closure benchmark, scale-conditioning study
+:mod:`.comparison`     cached expert evaluation, scale-blind vs scale-aware ensembles on one stream, metrics,
+                       tables and the summary figure
+:mod:`.viz`            animation of a run (requested scale, chosen model, spectra, weights)
 =====================  ==========================================================================================
 
 Plain numpy except :mod:`.learned`. See ``docs/core_concepts/multiscale_ensembles.md``.
