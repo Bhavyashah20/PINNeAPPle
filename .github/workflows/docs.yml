@@ -31,6 +31,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/issues/build.py || echo "kept the committed snapshot"
 
+      # The Playground (apps/playground) is published under <docs site>/playground/ only when the repository
+      # variable PLAYGROUND_PAGES is "true" (Settings > Secrets and variables > Actions > Variables).
+      - name: Add the Playground to the site (opt-in)
+        if: ${{ vars.PLAYGROUND_PAGES == 'true' }}
+        run: python apps/playground/build.py --out docs/playground
+
       - name: Build docs
         run: |
           mkdocs build --clean

@@ -24,6 +24,63 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - `pinneapple_simulation.numerical_solvers.operator_benchmarks` (reference solvers and Gaussian random fields of
   the three standard problems) and `operator_datasets` (the dataset recipes: inputs, solves, convergence study,
   generation). `scripts/zoo/operator_data.py` is the command-line front end.
+- Zoo models as ONNX, with per-query trust checks:
+  - `pp.zoo.export_onnx` / `onnx_parity` (`pinneapple_hub.zoo.export`): one graph from the card's physical inputs
+    to its physical outputs, with pre- and post-processing included. The export is refused above 1e-5 difference
+    from PyTorch on the zoo's held-out inputs.
+  - `pp.zoo.query_checks` / `check_spec` (`pinneapple_hub.zoo.checks`): range (PC601), physical output (PC402/403),
+    ensemble spread (PC602) and the gate's physics checks at the query (PC302), plus a verdict (pass / warn / fail).
+    As in the gate, the rover's dFx/ds check follows the sign of the recorded Wong–Reece reference (v1.1.0).
+    Design constraints are reported apart.
+  - `pp.zoo.export_web` and `python -m pinneapple_hub.zoo.web DIR`: a browser bundle (graph with checks, card, spec,
+    reference data). The JS runtime `pinneapple_hub/zoo/web/{onnx,zoo}.js` ships with it.
+  - The airfoil predictor also returns `LD` and `LD_std` (L/D per ensemble member).
+- CST airfoil geometry:
+  - `pinneapple_design.aero.geometry`: `handles`, `shape_from_handles`, `out_of_bounds`.
+  - `pinneapple_design.aero.geometry_onnx`: the geometry and the handle solve as ONNX graphs.
+- `pp.geometries.export_web`: gallery index and thumbnails for the browser.
+- PINNeAPPle Playground (`apps/playground`): a static web page in which the zoo models answer live in the browser,
+  with the trust verdict next to every number. It has four modes:
+  - airfoil: drag the CST shape or pick a NACA preset; the polar against held-out OpenFOAM and XFOIL;
+  - heat sink: R with its conformal 95 % bound, and ΔP;
+  - VIPER rover wheel;
+  - the geometry library in 3-D.
+
+  The app is UI code only, built on the library features above. The state lives in the URL, the page works offline,
+  and the mobile layout is supported. `engine=ort` runs onnxruntime-web instead of the built-in interpreter. CI
+  (`.github/workflows/playground.yml`) runs the Python and JS tests of the export and the runtime, a Playwright
+  smoke test, and a Docker build. Deploy config: `apps/playground/Dockerfile`, a `playground` service in
+  `apps/deploy` (port 8095), and an opt-in GitHub Pages step (`PLAYGROUND_PAGES`) in the docs workflow.
+  Guide: `docs/guides/playground.md`.
+- Multiscale adaptive ensembles (`pinneapple_physics.multiscale`, #599-#604). Models declare the scales they resolve;
+  queries declare the scales they need.
+  - Filters: box, Gaussian and sharp spectral, with exact transfer functions. Restriction and prolongation, post-filter
+    realizability, variable-width filters and their commutation error.
+  - 2-D vorticity DNS and LES (pseudo-spectral, ETDRK4).
+  - Closures: Smagorinsky, dynamic Smagorinsky, gradient (Clark). A-priori tests (stress and tendency correlation,
+    energy transfer, backscatter), a-posteriori tests (spectrum, dissipation, long-run stability) and a label-free
+    closure health check (enstrophy growth, spectral pile-up, Germano-identity error).
+  - Multiscale residuals split into subfilter, commutation and model parts.
+  - Cross-scale consistency check, which names the integral that broke.
+  - `ScaleProfile`, `ScaleQuery` and `ScaleAwareRouter`: a fidelity ladder from surrogate to LES with closure to
+    resolved solver, with a "not covered" answer when no model resolves the requested scale.
+  - Scale-linking models (PyTorch): a scale-conditioned FNO with a filtering-consistency loss, a differentiable LES,
+    and a closure trained a posteriori through the solver.
+  - Decaying 2-D turbulence benchmark, ensemble comparison and animation.
+  - Results (180 held-out queries, 256² DNS reference):
+    - The scale-aware ensembles never answer below a model's resolved scale. The scale-blind ensemble, once cost
+      counts, does so on 25-29 queries, with 32-36 % error at the finest width against 3.3 %.
+    - In mean error per unit cost the scale-aware ensembles do not beat the scale-blind one on this small 2-D
+      case, where the 128² DNS costs about as much as the LES.
+    - The closure check flags static Smagorinsky on every query (Germano error 1.35, dissipation 1.5-7.9× too
+      high) and never the dynamic, gradient or learned closures.
+    - The closure trained a posteriori is the best LES: spectrum error 0.008-0.013 against 0.04-0.05.
+    - The scale-conditioned FNO beats the scale-blind network at the held-out width but not fixed-width FNOs
+      post-filtered exactly.
+  - Example `examples/physics_ensemble/multiscale_turbulence.py`; docs page "Multiscale ensembles" and the guide
+    "Choose a model by the scale of the question".
+- `PhysicsEnsemble(prediction_checks=..., error_tolerance=...)`: label-free checks of each prediction, and an error
+  tolerance per context, both escalate through the router's fidelity ladder. A model that fails is still scored.
 - `pinneapple_tools.reporting.paperkit`: the report figure style (`setup_mpl`, `savefig`, `CAT`/`SEQ`/`DIV`
   palettes), `fmt`, `sanitize` and `Paper`, an A4 PDF builder for numbered technical reports (reportlab, from the
   `veriphysics` extra, is imported only when a `Paper` is built). Moved from the benchmark and climate repos.

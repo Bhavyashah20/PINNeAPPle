@@ -198,6 +198,16 @@ services:
     expose: ["8092"]
     mem_limit: ${ADO_MEM_LIMIT:-2g}
 
+  # Static site; the models run in the visitor's browser, so this container only serves files.
+  playground:
+    build:
+      context: ../..
+      dockerfile: apps/playground/Dockerfile
+    image: pinneapple/playground:latest
+    restart: unless-stopped
+    expose: ["8095"]
+    mem_limit: ${PLG_MEM_LIMIT:-128m}
+
   # Optional local LLM for the Form Compiler: `docker compose --profile llm up -d ollama`, then
   # `docker compose exec ollama ollama pull <model>` and set UDR_OLLAMA_MODEL. Not published outside the network.
   ollama:
@@ -258,12 +268,13 @@ services:
       ADO_DOMAIN: ${ADO_DOMAIN:-aero.localhost}
       LAB_DOMAIN: ${LAB_DOMAIN:-lab.localhost}
       OBS_DOMAIN: ${OBS_DOMAIN:-observatory.localhost}
+      PLG_DOMAIN: ${PLG_DOMAIN:-playground.localhost}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data          # certificates: keep this volume
       - caddy_config:/config
-    depends_on: [heatsink, pcb, datahealth, standardizer, simmeta, udr, inverse, preflight, mesh, compare, lineage, interop, aero, lab, observatory]
+    depends_on: [heatsink, pcb, datahealth, standardizer, simmeta, udr, inverse, preflight, mesh, compare, lineage, interop, aero, lab, observatory, playground]
 
 volumes:
   lab_data:

@@ -82,7 +82,14 @@ def thumbnail(name: str):
     return out
 
 
-__all__ = ["list", "categories", "info", "build", "load", "export", "render", "thumbnail", "register", "Geometry",
+def export_web(directory: str, **kw: Any) -> dict[str, Any]:
+    """Gallery index and thumbnails for the browser (:mod:`pinneapple_design.geometry_library.web`)."""
+    from .web import export_web as _export_web
+    return _export_web(directory, **kw)
+
+
+__all__ = ["list", "categories", "info", "build", "load", "export", "render", "thumbnail", "register", "export_web",
+           "Geometry",
            "GeometrySpec", "Body", "Param", "Source", "LODS", "FRAME_VEHICLE", "HUB_REPO", "summary_table",
            "get_spec"]
 del _builtins
