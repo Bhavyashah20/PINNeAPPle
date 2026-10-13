@@ -1,0 +1,152 @@
+{
+ "parameters": {
+  "length": 1.2,
+  "wall_height": 0.25,
+  "sill_height": 0.08,
+  "width": 0.15,
+  "nozzle_x": 0.3,
+  "nozzle_z": 0.4,
+  "nozzle_bore": 0.02,
+  "speed": 2.0,
+  "angle": 45.0,
+  "cell": 0.01,
+  "turbulence": "kOmegaSST",
+  "intensity": 0.05,
+  "end_time": 12.0,
+  "write_every": 0.02,
+  "max_co": 0.5
+ },
+ "derived": {
+  "slot_width": 0.028284271247461905,
+  "q_in_m2_s": 0.04,
+  "inlet_velocity": [
+   1.4142135623730951,
+   0.0,
+   -1.414213562373095
+  ],
+  "span_cfd": 0.01
+ },
+ "case": {
+  "liquid": {
+   "name": "water",
+   "rho": 998.2,
+   "nu": 1.0034e-06
+  },
+  "gas": {
+   "name": "air",
+   "rho": 1.204,
+   "nu": 1.516e-05
+  },
+  "sigma": 0.0728,
+  "gravity": [
+   0.0,
+   0.0,
+   -9.81
+  ],
+  "level": 0.08,
+  "patches": {
+   "floor": "wall",
+   "upstreamWall": "wall",
+   "sill": "wall",
+   "outlet": "outlet",
+   "atmosphere": "atmosphere",
+   "nozzle": "inlet"
+  },
+  "inlet_velocity": {
+   "nozzle": [
+    1.4142135623730951,
+    0.0,
+    -1.414213562373095
+   ]
+  },
+  "lines": [
+   {
+    "name": "floor_z010mm",
+    "start": [
+     0.005,
+     0.0,
+     0.01
+    ],
+    "end": [
+     1.195,
+     0.0,
+     0.01
+    ],
+    "n": 241
+   },
+   {
+    "name": "floor_z030mm",
+    "start": [
+     0.005,
+     0.0,
+     0.03
+    ],
+    "end": [
+     1.195,
+     0.0,
+     0.03
+    ],
+    "n": 241
+   },
+   {
+    "name": "floor_z060mm",
+    "start": [
+     0.005,
+     0.0,
+     0.06
+    ],
+    "end": [
+     1.195,
+     0.0,
+     0.06
+    ],
+    "n": 241
+   },
+   {
+    "name": "vertical_x0450mm",
+    "start": [
+     0.45,
+     0.0,
+     0.005
+    ],
+    "end": [
+     0.45,
+     0.0,
+     0.25
+    ],
+    "n": 51
+   },
+   {
+    "name": "vertical_x0800mm",
+    "start": [
+     0.8,
+     0.0,
+     0.005
+    ],
+    "end": [
+     0.8,
+     0.0,
+     0.25
+    ],
+    "n": 51
+   },
+   {
+    "name": "vertical_x1100mm",
+    "start": [
+     1.1,
+     0.0,
+     0.005
+    ],
+    "end": [
+     1.1,
+     0.0,
+     0.25
+    ],
+    "n": 51
+   }
+  ],
+  "end_time": 12.0,
+  "sample_every": 0.02,
+  "turbulence": "kOmegaSST"
+ }
+}

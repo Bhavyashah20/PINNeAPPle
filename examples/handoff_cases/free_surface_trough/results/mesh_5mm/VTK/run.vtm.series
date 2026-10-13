@@ -1,0 +1,8 @@
+{
+  "file-series-version" : "1.0",
+  "files" : [
+    { "name" : "run_3668.vtm", "time" : 2 },
+    { "name" : "run_11020.vtm", "time" : 6 },
+    { "name" : "run_21892.vtm", "time" : 12 }
+  ]
+}

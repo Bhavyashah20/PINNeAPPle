@@ -1,0 +1,159 @@
+{
+ "parametrisation": {
+  "type": "CST (Kulfan), Bernstein order 2, class function sqrt(x)(1-x)",
+  "parameters": {
+   "T0": "thickness, leading edge",
+   "T1": "thickness, mid chord",
+   "T2": "thickness, aft",
+   "M0": "camber, front",
+   "M1": "camber, mid chord",
+   "M2": "camber, aft"
+  },
+  "upper_weights": "M_i + T_i",
+  "lower_weights": "M_i - T_i",
+  "trailing_edge_thickness_over_chord": 0.0025,
+  "bounds": {
+   "T0": [
+    0.1,
+    0.24
+   ],
+   "T1": [
+    0.08,
+    0.22
+   ],
+   "T2": [
+    0.08,
+    0.22
+   ],
+   "M0": [
+    -0.03,
+    0.08
+   ],
+   "M1": [
+    -0.02,
+    0.14
+   ],
+   "M2": [
+    -0.04,
+    0.12
+   ]
+  },
+  "chord": 1.0,
+  "cad_span": 1.0,
+  "units": "chords (scale to any chord length); the STEP files are written with 1 chord = 1 m; STL is ASCII"
+ },
+ "shapes": {
+  "baseline_naca2412": {
+   "note": "least-squares CST fit of the NACA 2412 (the baseline)",
+   "T0": 0.169591,
+   "T1": 0.144959,
+   "T2": 0.131433,
+   "M0": 0.024922,
+   "M1": 0.071088,
+   "M2": 0.05896,
+   "properties": {
+    "thickness": 0.12023,
+    "thickness_at": 0.2975,
+    "camber": 0.02017,
+    "camber_at": 0.4525,
+    "le_radius": 0.01438,
+    "area": 0.08184,
+    "min_thickness_aft": 0.0025,
+    "spar_depth": 0.11512
+   },
+   "valid": true,
+   "invalid_reason": "",
+   "inside_bounds": true,
+   "files": [
+    "baseline_naca2412.dat",
+    "baseline_naca2412.step",
+    "baseline_naca2412.stl"
+   ]
+  },
+  "variant_a_naca4412": {
+   "note": "CST fit of the NACA 4412: twice the camber",
+   "T0": 0.17178,
+   "T1": 0.142523,
+   "T2": 0.133501,
+   "M0": 0.049774,
+   "M1": 0.142259,
+   "M2": 0.11786,
+   "properties": {
+    "thickness": 0.12042,
+    "thickness_at": 0.295,
+    "camber": 0.04034,
+    "camber_at": 0.4525,
+    "le_radius": 0.01475,
+    "area": 0.08205,
+    "min_thickness_aft": 0.0025,
+    "spar_depth": 0.11562
+   },
+   "valid": true,
+   "invalid_reason": "",
+   "inside_bounds": false,
+   "files": [
+    "variant_a_naca4412.dat",
+    "variant_a_naca4412.step",
+    "variant_a_naca4412.stl"
+   ]
+  },
+  "variant_b_aft_camber": {
+   "note": "baseline with M2 + 0.04: aft-loaded camber",
+   "T0": 0.169591,
+   "T1": 0.144959,
+   "T2": 0.131433,
+   "M0": 0.024922,
+   "M1": 0.071088,
+   "M2": 0.09896,
+   "properties": {
+    "thickness": 0.12023,
+    "thickness_at": 0.2975,
+    "camber": 0.02354,
+    "camber_at": 0.515,
+    "le_radius": 0.01438,
+    "area": 0.08184,
+    "min_thickness_aft": 0.0025,
+    "spar_depth": 0.11512
+   },
+   "valid": true,
+   "invalid_reason": "",
+   "inside_bounds": true,
+   "files": [
+    "variant_b_aft_camber.dat",
+    "variant_b_aft_camber.step",
+    "variant_b_aft_camber.stl"
+   ]
+  },
+  "variant_c_thick": {
+   "note": "baseline with T0..T2 x 1.25: about 15 % thick",
+   "T0": 0.211989,
+   "T1": 0.181198,
+   "T2": 0.164292,
+   "M0": 0.024922,
+   "M1": 0.071088,
+   "M2": 0.05896,
+   "properties": {
+    "thickness": 0.1501,
+    "thickness_at": 0.2975,
+    "camber": 0.02017,
+    "camber_at": 0.4525,
+    "le_radius": 0.02247,
+    "area": 0.10199,
+    "min_thickness_aft": 0.0025,
+    "spar_depth": 0.14377
+   },
+   "valid": true,
+   "invalid_reason": "",
+   "inside_bounds": true,
+   "files": [
+    "variant_c_thick.dat",
+    "variant_c_thick.step",
+    "variant_c_thick.stl"
+   ]
+  }
+ },
+ "baseline_fit": {
+  "max_abs_deviation_from_exact_naca2412_over_chord": 0.002249,
+  "note": "the CFD and the campaign use the CST fit, not the exact NACA ordinates"
+ }
+}
