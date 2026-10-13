@@ -67,8 +67,8 @@ def remap(a: np.ndarray, faces_f: tuple[np.ndarray, np.ndarray], faces_c: tuple[
 
 def remap_r(a: np.ndarray, rf_f: np.ndarray, rf_c: np.ndarray) -> np.ndarray:
     """Remap of a radial profile (shell averages) by overlap length in log r."""
-    O = _overlap(np.log(rf_f), np.log(rf_c), lambda x: x)
-    return (a @ O) / O.sum(0)
+    ov = _overlap(np.log(rf_f), np.log(rf_c), lambda x: x)
+    return (a @ ov) / ov.sum(0)
 
 
 def volumes(grid) -> np.ndarray:

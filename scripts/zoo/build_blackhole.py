@@ -204,13 +204,13 @@ def verification_text(conv: dict) -> str:
         return ", ".join(f"{n}: " + fmt.format(bl[str(n)]["mean"]) + " +- " + fmt.format(bl[str(n)]["ci95"])
                          for n, _ in conv["levels"] if str(n) in bl)
 
-    lines = [f"Resolution study (scripts: examples/black_hole_weather/convergence.py): grids "
+    lines = ["Resolution study (scripts: examples/black_hole_weather/convergence.py): grids "
              + ", ".join(f"{a}x{b}" for a, b in conv["levels"]) + f" (ratio {conv['ratio']:.3f}), seeds "
              + ", ".join(map(str, conv["seeds"])) + ", same seeded perturbation on every grid, time averages over "
              f"t = {conv['window_M'][0]:.0f}-{conv['window_M'][1]:.0f} M with 95 % intervals (batch means and seeds).",
              "Mean accretion rate by grid (nr): " + row("mdot_mean") + ".",
              "Persistence MAE at 100 M (the forecaster's baseline): " + row("persistence_mae_100M") + "."]
-    for k, v in conv.get("profiles", {}).items():
+    for v in conv.get("profiles", {}).values():
         lines.append(f"{v['label']}: relative L1 change between consecutive grids "
                      + ", ".join(f"{d:.3g}" for d in v["rel_L1_diff_consecutive"])
                      + (f", observed order {v['observed_order']:.2f}" if v.get("observed_order") else "")
