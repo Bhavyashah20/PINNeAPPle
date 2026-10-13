@@ -93,7 +93,8 @@ def test_ledger_round_trip_and_regression_gate(tmp_path):
     bigger = torch.rand(96, 96)
     now = CostLedger()
     now.measure("matmul", lambda: bigger @ bigger, repeats=3)
-    regs = now.compare(loaded, time_factor=1e9)  # ignore noisy time; FLOPs are exact
+    # time and peak memory (process RSS, page-granular) are noisy on shared runners; FLOPs are exact
+    regs = now.compare(loaded, time_factor=1e9, mem_factor=1e9)
     assert [r.quantity for r in regs] == ["flops"] and regs[0].ratio == pytest.approx((96 / 64) ** 3)
     assert now.compare(now) == []
     assert str(regs[0]).startswith("matmul: flops")

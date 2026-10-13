@@ -46,6 +46,7 @@ import matplotlib.colors as mcolors
 from pinneapple_physics.pde_environment import ProblemBuilder, ProblemSpec
 from pinneapple_physics.pde_environment import get_preset
 from pinneapple_physics.pde_environment.presets.solid_mechanics import lame_analytical
+from pinneapple_physics.solid.axisymmetric import equilibrium_residual_rz, von_mises_rz
 
 OUTPUT_DIR = Path(__file__).parent / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
@@ -153,45 +154,11 @@ def axisymmetric_equilibrium_residual(
       R2 = ∂σ_rz/∂r + ∂σ_zz/∂z + σ_rz/r
 
     Retorna: (R1² + R2²).mean()  — residuo médio quadrático
+    (pinneapple_physics.solid.axisymmetric.equilibrium_residual_rz)
     """
-    lam_c = E * nu / ((1 + nu) * (1 - 2 * nu))
-    mu_c  = E / (2 * (1 + nu))
-
     x = x.requires_grad_(True)
-    u = model(x)   # (N, 2): u_r, u_z
-
-    r = x[:, 0:1].clamp(min=1e-3)   # evita divisão por zero no eixo
-
-    def _grad(scalar):
-        return torch.autograd.grad(scalar.sum(), x, create_graph=True)[0]
-
-    du_r = _grad(u[:, 0:1])   # [∂u_r/∂r, ∂u_r/∂z]
-    du_z = _grad(u[:, 1:2])   # [∂u_z/∂r, ∂u_z/∂z]
-
-    # Strain components
-    e_rr = du_r[:, 0:1]
-    e_zz = du_z[:, 1:2]
-    e_tt = u[:, 0:1] / r
-    e_rz = 0.5 * (du_r[:, 1:2] + du_z[:, 0:1])
-
-    tr = e_rr + e_zz + e_tt
-
-    # Stress components
-    s_rr = lam_c * tr + 2 * mu_c * e_rr
-    s_zz = lam_c * tr + 2 * mu_c * e_zz
-    s_tt = lam_c * tr + 2 * mu_c * e_tt
-    s_rz = 2 * mu_c * e_rz
-
-    # Divergence of stress (equilibrium residual)
-    ds_rr_dr = _grad(s_rr)[:, 0:1]
-    ds_rz_dz = _grad(s_rz)[:, 1:2]
-    ds_rz_dr = _grad(s_rz)[:, 0:1]
-    ds_zz_dz = _grad(s_zz)[:, 1:2]
-
-    R1 = ds_rr_dr + ds_rz_dz + (s_rr - s_tt) / r
-    R2 = ds_rz_dr + ds_zz_dz + s_rz / r
-
-    return (R1 ** 2).mean() + (R2 ** 2).mean()
+    R = equilibrium_residual_rz(model(x)[:, :2], x, E, nu, r_min=1e-3)
+    return (R ** 2).mean(dim=0).sum()
 
 
 def von_mises_from_displacements(
@@ -202,43 +169,16 @@ def von_mises_from_displacements(
 ) -> np.ndarray:
     """
     Computa Von Mises a partir dos deslocamentos preditos pelo PINN.
-    Retorna array numpy (N,).
+    Retorna array numpy (N,).  (pinneapple_physics.solid.axisymmetric.von_mises_rz)
     """
-    lam_c = E * nu / ((1 + nu) * (1 - 2 * nu))
-    mu_c  = E / (2 * (1 + nu))
-
     model.eval()
     device = next(model.parameters()).device
     results = []
     batch_size = 2048
 
     for i in range(0, len(x), batch_size):
-        xb = x[i:i + batch_size].to(device).requires_grad_(True)
-        u  = model(xb)
-
-        r = xb[:, 0:1].clamp(min=1e-3)
-
-        def _g(s):
-            return torch.autograd.grad(s.sum(), xb, create_graph=False, retain_graph=True)[0]
-
-        du_r = _g(u[:, 0:1])
-        du_z = _g(u[:, 1:2])
-
-        e_rr = du_r[:, 0:1]
-        e_zz = du_z[:, 1:2]
-        e_tt = u[:, 0:1] / r
-        e_rz = 0.5 * (du_r[:, 1:2] + du_z[:, 0:1])
-        tr   = e_rr + e_zz + e_tt
-
-        s_rr = lam_c * tr + 2 * mu_c * e_rr
-        s_zz = lam_c * tr + 2 * mu_c * e_zz
-        s_tt = lam_c * tr + 2 * mu_c * e_tt
-        s_rz = 2 * mu_c * e_rz
-
-        vm = torch.sqrt(
-            ((s_rr - s_zz)**2 + (s_zz - s_tt)**2 + (s_tt - s_rr)**2
-             + 6 * s_rz**2) / 2
-        )
+        xb = x[i:i + batch_size].to(device).detach().requires_grad_(True)
+        vm = von_mises_rz(model(xb)[:, :2], xb, E, nu, r_min=1e-3)
         results.append(vm.detach().cpu().numpy().ravel())
 
     return np.concatenate(results)

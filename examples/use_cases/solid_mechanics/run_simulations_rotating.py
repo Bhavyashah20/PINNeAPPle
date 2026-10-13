@@ -77,6 +77,7 @@ from dolfinx.fem.petsc import LinearProblem
 # ── PINNeAPPle ─────────────────────────────────────────────────────────────
 # O preset fornece os parâmetros físicos validados (E, nu, cargas)
 from pinneapple_physics.pde_environment import get_preset
+from pinneapple_physics.solid.axisymmetric import von_mises_from_components
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Parâmetros físicos padrão (AISI 4145H steel)
@@ -401,14 +402,7 @@ def compute_full_von_mises(
     t_th_z = G * u_th_m / max(z_max_val, 1e-10)              # τ_θz Pa
     t_rt   = G * u_th_m / np.maximum(r_vals, 1e-6)           # τ_rθ Pa
 
-    vm = np.sqrt(
-        0.5 * (
-            (s_rr - s_zz) ** 2
-            + (s_zz - s_tt) ** 2
-            + (s_tt - s_rr) ** 2
-            + 6 * (t_rz ** 2 + t_rt ** 2 + t_th_z ** 2)
-        )
-    )
+    vm = von_mises_from_components(s_rr, s_zz, s_tt, t_rz, t_rt, t_th_z)
     return vm.astype(np.float32)
 
 
