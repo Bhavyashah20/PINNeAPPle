@@ -1,799 +1,919 @@
 {
- "rover": {
-  "wheel_radius": 0.125,
-  "wheel_width": 0.06,
-  "track": 0.6,
-  "wheelbase": 0.7,
-  "pivot_height": 0.15,
-  "bogie_drop": 0.05,
-  "body_mass": 40.0,
-  "inertia_kg_m2": [
-   0.6083,
-   0.9083,
-   1.3667
-  ]
- },
- "soil": {
-  "c": 1400.0,
-  "phi_deg": 30.0,
-  "K": 0.018,
-  "k_c": 1370.0,
-  "k_phi": 814000.0,
-  "n": 1.0,
-  "g": 1.62
- },
- "A_level_traverse": {
-  "0.05": {
-   "energy_per_metre_J_m": 8.685514988810295,
-   "slip": 0.0563795026249708,
-   "sinkage_mm": [
-    7.588,
-    7.329,
-    8.291,
-    7.588,
-    7.329,
-    8.291
-   ],
-   "load_N": [
-    10.481,
-    9.95,
-    11.969,
-    10.481,
-    9.95,
-    11.969
-   ],
-   "torque_Nm": [
-    0.1644,
-    0.1544,
-    0.1933,
-    0.1644,
-    0.1544,
-    0.1933
-   ],
-   "power_W": 0.43420137439194517,
-   "max_residual": 2.2686948047860336e-13
+ "vehicle": {
+  "name": "NASA VIPER",
+  "mass_kg": 450.0,
+  "com_m": [
+   0.009888327930853204,
+   0.017297499999999983,
+   0.8587226143609052
+  ],
+  "inertia_about_com_kg_m2": [
+   169.1084480885065,
+   168.6874296798491,
+   172.60717515844706
+  ],
+  "track_m": 1.3,
+  "wheelbase_m": 1.0,
+  "envelope_m": [
+   1.6295000000000002,
+   1.6190000000000002,
+   2.4995
+  ],
+  "bodies": {
+   "chassis": {
+    "mass_kg": 330.0,
+    "com_m": [
+     0.013484083542072395,
+     0.02358749999999997,
+     1.008536898370932
+    ]
+   },
+   "arm_FL": {
+    "mass_kg": 10.0,
+    "com_m": [
+     0.5000000000000002,
+     0.3800000000000002,
+     0.6210000000000003
+    ]
+   },
+   "steer_FL": {
+    "mass_kg": 8.0,
+    "com_m": [
+     0.5,
+     0.5037500000000004,
+     0.4865000000000003
+    ]
+   },
+   "wheel_FL": {
+    "mass_kg": 12.0,
+    "com_m": [
+     0.5000000000000012,
+     0.6055270655651298,
+     0.2749999999999997
+    ]
+   },
+   "arm_FR": {
+    "mass_kg": 10.0,
+    "com_m": [
+     0.5000000000000002,
+     -0.38000000000000006,
+     0.6209999999999996
+    ]
+   },
+   "steer_FR": {
+    "mass_kg": 8.0,
+    "com_m": [
+     0.5,
+     -0.5037500000000001,
+     0.4864999999999999
+    ]
+   },
+   "wheel_FR": {
+    "mass_kg": 12.0,
+    "com_m": [
+     0.5000000000000011,
+     -0.6055270655651299,
+     0.27499999999999963
+    ]
+   },
+   "arm_RL": {
+    "mass_kg": 10.0,
+    "com_m": [
+     -0.5000000000000002,
+     0.38,
+     0.6209999999999998
+    ]
+   },
+   "steer_RL": {
+    "mass_kg": 8.0,
+    "com_m": [
+     -0.5000000000000002,
+     0.5037500000000004,
+     0.48650000000000004
+    ]
+   },
+   "wheel_RL": {
+    "mass_kg": 12.0,
+    "com_m": [
+     -0.49999999999999906,
+     0.6055270655651289,
+     0.27499999999999836
+    ]
+   },
+   "arm_RR": {
+    "mass_kg": 10.0,
+    "com_m": [
+     -0.5000000000000003,
+     -0.3800000000000002,
+     0.6210000000000003
+    ]
+   },
+   "steer_RR": {
+    "mass_kg": 8.0,
+    "com_m": [
+     -0.4999999999999999,
+     -0.5037500000000001,
+     0.48650000000000004
+    ]
+   },
+   "wheel_RR": {
+    "mass_kg": 12.0,
+    "com_m": [
+     -0.4999999999999989,
+     -0.6055270655651289,
+     0.2749999999999983
+    ]
+   }
   },
-  "0.10": {
-   "energy_per_metre_J_m": 8.685514988810295,
-   "slip": 0.0563795026249708,
-   "sinkage_mm": [
-    7.588,
-    7.329,
-    8.291,
-    7.588,
-    7.329,
-    8.291
-   ],
-   "load_N": [
-    10.481,
-    9.95,
-    11.969,
-    10.481,
-    9.95,
-    11.969
-   ],
-   "torque_Nm": [
-    0.1644,
-    0.1544,
-    0.1933,
-    0.1644,
-    0.1544,
-    0.1933
-   ],
-   "power_W": 0.8684027487838903,
-   "max_residual": 2.2686948047860336e-13
-  },
-  "0.20": {
-   "energy_per_metre_J_m": 8.685514988810295,
-   "slip": 0.0563795026249708,
-   "sinkage_mm": [
-    7.588,
-    7.329,
-    8.291,
-    7.588,
-    7.329,
-    8.291
-   ],
-   "load_N": [
-    10.481,
-    9.95,
-    11.969,
-    10.481,
-    9.95,
-    11.969
-   ],
-   "torque_Nm": [
-    0.1644,
-    0.1544,
-    0.1933,
-    0.1644,
-    0.1544,
-    0.1933
-   ],
-   "power_W": 1.7368054975677807,
-   "max_residual": 2.2686948047860336e-13
+  "sources": {
+   "envelope 1.7 x 1.7 x 2.5 m (L x W x H)": "Bluethmann, W. (2024). VIPER Rover Overview and Mobility and Hardware. LSIC Tech Infusion panel, 14 Nov 2024. https://ntrs.nasa.gov/api/citations/20240013903/downloads/LSIC_2024-Tech%20Infusion_Panel-VIPER_Mob-HW.pdf",
+   "mass 450 kg": "Francis, P.L., Sobey, A.R. (2025). Design and Test of the VIPER Mobility Actuators. NASA NTRS 20250000568. https://ntrs.nasa.gov/citations/20250000568 ('the four wheeled, 450-kilogram scientific platform'); Bluethmann, W. (2024). VIPER Rover Overview and Mobility and Hardware. LSIC Tech Infusion panel, 14 Nov 2024. https://ntrs.nasa.gov/api/citations/20240013903/downloads/LSIC_2024-Tech%20Infusion_Panel-VIPER_Mob-HW.pdf gives 447 kg roving",
+   "four wheels, one mobility module per corner (actuated suspension, steering and drive)": "Francis, P.L., Sobey, A.R. (2025). Design and Test of the VIPER Mobility Actuators. NASA NTRS 20250000568. https://ntrs.nasa.gov/citations/20250000568",
+   "wheel 50 cm diameter, 20 cm wide, rigid sheet metal with spokes and rim grousers": "Fong, T. (2025). VIPER, NASA NTRS 20250004148. https://ntrs.nasa.gov/api/citations/20250004148/downloads/viper-2025-04-24.pdf; Fong, T. et al. (2022). VIPER mobility, NASA NTRS 20220000441. https://ntrs.nasa.gov/api/citations/20220000441/downloads/viper-mobility-2022-01-27.pdf",
+   "24 grousers, 0.025 m tall": "Hu, W. et al. (2025), J. Field Robotics, doi:10.1002/rob.22597, arXiv:2405.11001 (VIPER-class wheel: radius 0.25 m, width 0.2 m, 24 grousers); grouser height 2.5 cm also in Bluethmann, W. (2024). VIPER Rover Overview and Mobility and Hardware. LSIC Tech Infusion panel, 14 Nov 2024. https://ntrs.nasa.gov/api/citations/20240013903/downloads/LSIC_2024-Tech%20Infusion_Panel-VIPER_Mob-HW.pdf",
+   "steering +/-50 deg (BLDC motor + Harmonic Drive)": "McBryan, Francis, Sobey (2025). Dust Mitigation for the VIPER Mobility System, ICES-2025-147. https://ntrs.nasa.gov/citations/20250005201",
+   "suspension +/-40 deg, 200 N m": "Fong, T. et al. (2022). VIPER mobility, NASA NTRS 20220000441. https://ntrs.nasa.gov/api/citations/20220000441/downloads/viper-mobility-2022-01-27.pdf; Fong, T. (2025). VIPER, NASA NTRS 20250004148. https://ntrs.nasa.gov/api/citations/20250004148/downloads/viper-2025-04-24.pdf",
+   "track about 1.3 m at nominal ride height, wheelbase about 1 m": "Investigating the geotechnical properties of the lunar south pole with NASA VIPER's mobility system. Planetary Science Journal (2025), doi:10.3847/PSJ/add13f",
+   "suspension changes ride height and track; steering changes track and wheelbase": "Investigating the geotechnical properties of the lunar south pole with NASA VIPER's mobility system. Planetary Science Journal (2025), doi:10.3847/PSJ/add13f",
+   "top speed 20 cm/s, prospecting speed 10 cm/s": "Fong, T. et al. (2022). VIPER mobility, NASA NTRS 20220000441. https://ntrs.nasa.gov/api/citations/20220000441/downloads/viper-mobility-2022-01-27.pdf",
+   "mast tip about 2.5 m above the wheel rims; mast head pans ~400 deg, tilts up to 75 deg": "NASA (2023). NASA VIPER robotic Moon rover team raises its mighty mast. https://www.nasa.gov/general/nasa-viper-robotic-moon-rover-team-raises-its-mighty-mast/",
+   "NavCam stereo pair and LED headlights on the mast head": "NASA (2023). NASA VIPER robotic Moon rover team raises its mighty mast. https://www.nasa.gov/general/nasa-viper-robotic-moon-rover-team-raises-its-mighty-mast/",
+   "4 hazard cameras (1 at each wheel), hazard lights on the sides and corners": "Fong, T. et al. (2022). VIPER mobility, NASA NTRS 20220000441. https://ntrs.nasa.gov/api/citations/20220000441/downloads/viper-mobility-2022-01-27.pdf",
+   "gimballed high-gain antenna (gimbal at about 2.3 m) and a fixed low-gain antenna": "Bluethmann, W. (2024). VIPER Rover Overview and Mobility and Hardware. LSIC Tech Infusion panel, 14 Nov 2024. https://ntrs.nasa.gov/api/citations/20240013903/downloads/LSIC_2024-Tech%20Infusion_Panel-VIPER_Mob-HW.pdf",
+   "solar arrays on three sides; radiator on top": "Bluethmann, W. (2024). VIPER Rover Overview and Mobility and Hardware. LSIC Tech Infusion panel, 14 Nov 2024. https://ntrs.nasa.gov/api/citations/20240013903/downloads/LSIC_2024-Tech%20Infusion_Panel-VIPER_Mob-HW.pdf; Fong, T. et al. (2022). VIPER mobility, NASA NTRS 20220000441. https://ntrs.nasa.gov/api/citations/20220000441/downloads/viper-mobility-2022-01-27.pdf",
+   "TRIDENT 1 m class drill, vertical, in the middle of the rover": "Zacny, K. et al. (2021). TRIDENT drill for VIPER and PRIME1 missions to the Moon. LPSC 52, abstract 2400. https://www.hou.usra.edu/meetings/lpsc2021/pdf/2400.pdf",
+   "NSS on the front; NIRVSS and MSolo under the rover": "Andrews, D. (2020). VIPER Mission Overview. NASA NTRS 20205000864. https://ntrs.nasa.gov/api/citations/20205000864/downloads/2020-04-14,%20VIPER%20Mission%20Overview%20(Andrews).pdf",
+   "design requirement: 15 deg slopes, 15 cm obstacles": "Bluethmann, W. (2024). VIPER Rover Overview and Mobility and Hardware. LSIC Tech Infusion panel, 14 Nov 2024. https://ntrs.nasa.gov/api/citations/20240013903/downloads/LSIC_2024-Tech%20Infusion_Panel-VIPER_Mob-HW.pdf",
+   "suspension arm geometry (pivot, length), steering offset": "estimate: not published; pivots under the chassis and a 0.15 m steering offset chosen so that the nominal track is 1.3 m, the wheelbase 1.0 m and +/-40 deg of arm travel changes ride height and track, as the PSJ paper describes",
+   "chassis box 1.50 x 1.56 x 0.66 m, belly 0.64 m above ground": "estimate: with the arrays flush on its sides it fills the 1.7 m envelope, and the 0.5 m wheels stay clear under the belly at +/-50 deg steering",
+   "solar array panels 1.40 x 0.58 m (sides), 1.46 x 0.58 m (aft), on the body faces": "estimate: panel area not found; each panel covers its body face",
+   "high-gain dish diameter 0.40 m": "estimate: not found",
+   "mass split (per corner: wheel+drive 12 kg, steering 8 kg, arm 10 kg; chassis 330 kg)": "estimate: only the total is published; the split sets the centre of mass and inertia computed from the CAD",
+   "drive actuator torque limit 80 N m, wheel speed limit 2.5 rad/s": "estimate: not published; 80 N m exceeds the soil torque of the wheel at 90 % slip under the static lunar load on GRC-1, so traction, not the motor, limits climbing",
+   "steering actuator torque limit 60 N m": "estimate: not published",
+   "grouser shape straight (across the tread)": "estimate: the shape (straight or chevron) was not found"
   }
  },
- "B_drawbar_pull": [
-  {
-   "slip": 0.05,
-   "drawbar_pull_N": -0.5677624457155129,
-   "dp_over_weight": -0.008761766137585074,
-   "sinkage_mean_mm": 7.734253640215155,
-   "power_W": 0.8016289413968432,
-   "single_wheel": {
-    "max_rel_sinkage": 6.931155175590869e-13,
-    "max_rel_Fx": 2.4882484771342325e-14,
-    "max_rel_My": 1.2690838916894944e-12
+ "testbed_viper": {
+  "GRC-1": {
+   "slip": [
+    0.0,
+    0.025,
+    0.05,
+    0.075,
+    0.1,
+    0.125,
+    0.15,
+    0.175,
+    0.2,
+    0.225,
+    0.25,
+    0.275,
+    0.3,
+    0.325,
+    0.35,
+    0.375,
+    0.4,
+    0.425,
+    0.45,
+    0.475,
+    0.5,
+    0.525,
+    0.55,
+    0.575,
+    0.6,
+    0.625,
+    0.65,
+    0.675,
+    0.7,
+    0.725,
+    0.75,
+    0.775,
+    0.8
+   ],
+   "drawbar_pull": [
+    -10.1315,
+    0.0024,
+    9.1225,
+    17.3428,
+    24.7633,
+    31.4717,
+    37.5449,
+    43.0506,
+    48.0487,
+    52.5918,
+    56.7265,
+    60.4942,
+    63.9315,
+    67.071,
+    69.9417,
+    72.5694,
+    74.9771,
+    77.1855,
+    79.2129,
+    81.0759,
+    82.7893,
+    84.3664,
+    85.8191,
+    87.1583,
+    88.3935,
+    89.5336,
+    90.5864,
+    91.5592,
+    92.4584,
+    93.2898,
+    94.0589,
+    94.7703,
+    95.4285
+   ],
+   "torque": [
+    2.9113,
+    5.7096,
+    8.2296,
+    10.5028,
+    12.5565,
+    14.415,
+    16.0993,
+    17.6282,
+    19.0179,
+    20.2831,
+    21.4365,
+    22.4894,
+    23.452,
+    24.3331,
+    25.1408,
+    25.8821,
+    26.5634,
+    27.1903,
+    27.7678,
+    28.3006,
+    28.7926,
+    29.2475,
+    29.6686,
+    30.0588,
+    30.4208,
+    30.757,
+    31.0696,
+    31.3605,
+    31.6315,
+    31.8842,
+    32.1201,
+    32.3404,
+    32.5465
+   ],
+   "sinkage": [
+    0.013,
+    0.013,
+    0.013,
+    0.013,
+    0.013,
+    0.013,
+    0.013,
+    0.013,
+    0.013,
+    0.0131,
+    0.0131,
+    0.0131,
+    0.0131,
+    0.0131,
+    0.0132,
+    0.0132,
+    0.0132,
+    0.0132,
+    0.0133,
+    0.0133,
+    0.0133,
+    0.0134,
+    0.0134,
+    0.0134,
+    0.0135,
+    0.0135,
+    0.0135,
+    0.0136,
+    0.0136,
+    0.0136,
+    0.0137,
+    0.0137,
+    0.0138
+   ]
+  },
+  "JSC-1A": {
+   "slip": [
+    0.0,
+    0.025,
+    0.05,
+    0.075,
+    0.1,
+    0.125,
+    0.15,
+    0.175,
+    0.2,
+    0.225,
+    0.25,
+    0.275,
+    0.3,
+    0.325,
+    0.35,
+    0.375,
+    0.4,
+    0.425,
+    0.45,
+    0.475,
+    0.5,
+    0.525,
+    0.55,
+    0.575,
+    0.6,
+    0.625,
+    0.65,
+    0.675,
+    0.7,
+    0.725,
+    0.75,
+    0.775,
+    0.8
+   ],
+   "drawbar_pull": [
+    -0.8067,
+    14.642,
+    28.2486,
+    40.2633,
+    50.8978,
+    60.3324,
+    68.7208,
+    76.1949,
+    82.8677,
+    88.8367,
+    94.1859,
+    98.9883,
+    103.3071,
+    107.1974,
+    110.707,
+    113.878,
+    116.7471,
+    119.3466,
+    121.7048,
+    123.8466,
+    125.7941,
+    127.5668,
+    129.1821,
+    130.655,
+    131.9994,
+    133.2273,
+    134.3494,
+    135.3755,
+    136.3142,
+    137.1731,
+    137.9593,
+    138.6788,
+    139.3374
+   ],
+   "torque": [
+    6.5669,
+    10.8212,
+    14.5702,
+    17.8828,
+    20.8172,
+    23.4229,
+    25.7422,
+    27.8112,
+    29.661,
+    31.3183,
+    32.8063,
+    34.1449,
+    35.3514,
+    36.441,
+    37.4268,
+    38.3203,
+    39.1316,
+    39.8694,
+    40.5417,
+    41.1551,
+    41.7157,
+    42.229,
+    42.6995,
+    43.1315,
+    43.5286,
+    43.8943,
+    44.2315,
+    44.5428,
+    44.8305,
+    45.0968,
+    45.3436,
+    45.5725,
+    45.7851
+   ],
+   "sinkage": [
+    0.0181,
+    0.0181,
+    0.018,
+    0.018,
+    0.018,
+    0.018,
+    0.018,
+    0.018,
+    0.018,
+    0.018,
+    0.018,
+    0.018,
+    0.0181,
+    0.0181,
+    0.0181,
+    0.0181,
+    0.0182,
+    0.0182,
+    0.0182,
+    0.0183,
+    0.0183,
+    0.0183,
+    0.0184,
+    0.0184,
+    0.0185,
+    0.0185,
+    0.0186,
+    0.0186,
+    0.0187,
+    0.0187,
+    0.0188,
+    0.0188,
+    0.0189
+   ]
+  }
+ },
+ "validation": {
+  "ding2011 smooth": {
+   "dataset": "ding2011 smooth",
+   "source": "Ding et al. (2011), J. Terramechanics 48(1):27-45, Figs 8/9 (80 N)",
+   "soil": "Ding2011-TYII",
+   "load_N": 80.0,
+   "drawbar_pull_N": {
+    "rmse": 7.66509694210515,
+    "max_abs": 14.401024309714472,
+    "rmse_rel_scale": 0.09581371177631437,
+    "bias": 4.537153030976596
    },
-   "balance": {
-    "force": 1.1459431619401102e-15,
-    "moment_roll_pitch": 4.879535015537745e-16,
-    "moment_yaw": 7.014193658637116e-19
+   "sinkage_m": {
+    "rmse": 0.004171354797436324,
+    "max_abs": 0.007542863267365755,
+    "rmse_rel_scale": 0.23836313128207562,
+    "bias": -3.990693340670219e-05
+   },
+   "torque_Nm": {
+    "rmse": 0.5799976257649598,
+    "max_abs": 1.034931909759667,
+    "rmse_rel_scale": 0.04607543897084206,
+    "bias": 0.2946810753775619
    }
   },
-  {
-   "slip": 0.1,
-   "drawbar_pull_N": 3.6868493261425397,
-   "dp_over_weight": 0.05689582293429844,
-   "sinkage_mean_mm": 7.744309297378297,
-   "power_W": 1.3303081502208758,
-   "single_wheel": {
-    "max_rel_sinkage": 1.1207721542574198e-12,
-    "max_rel_Fx": 6.218473333129039e-14,
-    "max_rel_My": 1.8503569981536485e-12
+  "ding2011 grousered": {
+   "dataset": "ding2011 grousered",
+   "source": "Ding et al. (2011), J. Terramechanics 48(1):27-45, Figs 8/9 (80 N)",
+   "soil": "Ding2011-TYII",
+   "load_N": 80.0,
+   "drawbar_pull_N": {
+    "rmse": 4.0016361452700435,
+    "max_abs": 6.361155672800944,
+    "rmse_rel_scale": 0.05002045181587554,
+    "bias": -0.17357920922163453
    },
-   "balance": {
-    "force": 8.045385373245379e-15,
-    "moment_roll_pitch": 8.2753110945681e-16,
-    "moment_yaw": 2.4954338009814252e-17
+   "sinkage_m": {
+    "rmse": 0.007728943709932137,
+    "max_abs": 0.017052906895534844,
+    "rmse_rel_scale": 0.286257174441931,
+    "bias": -0.0017976164485683582
+   },
+   "torque_Nm": {
+    "rmse": 0.5266564595985306,
+    "max_abs": 0.7837636712794067,
+    "rmse_rel_scale": 0.04183797740693761,
+    "bias": -0.23620587392390294
    }
   },
-  {
-   "slip": 0.2,
-   "drawbar_pull_N": 10.966077585408808,
-   "dp_over_weight": 0.16922959236741986,
-   "sinkage_mean_mm": 7.737715180757903,
-   "power_W": 2.4421728993965433,
-   "single_wheel": {
-    "max_rel_sinkage": 2.8643769599879654e-12,
-    "max_rel_Fx": 5.974483678495104e-13,
-    "max_rel_My": 4.277368256556073e-12
+  "wanghan2016 smooth": {
+   "dataset": "wanghan2016 smooth",
+   "source": "Wang & Han (2016), J. Korean Geotech. Soc. 32(11):97-108, Fig. 14 (58.86 N)",
+   "soil": "KLS-1",
+   "load_N": 58.86,
+   "drawbar_pull_N": {
+    "rmse": 14.379402885873631,
+    "max_abs": 20.937480696228825,
+    "rmse_rel_scale": 0.24429838406173346,
+    "bias": 13.44325320942284
    },
-   "balance": {
-    "force": 1.0922260315997811e-14,
-    "moment_roll_pitch": 1.58270143499221e-14,
-    "moment_yaw": 6.6870724727932945e-16
+   "sinkage_m": {
+    "rmse": 0.016113989134837164,
+    "max_abs": 0.01946785125544359,
+    "rmse_rel_scale": 2.0142486418546457,
+    "bias": 0.015975379292653535
+   },
+   "torque_Nm": {
+    "rmse": 0.8183643480535568,
+    "max_abs": 1.1300901243402266,
+    "rmse_rel_scale": 0.16357145530842016,
+    "bias": 0.7878265739659945
    }
   },
-  {
-   "slip": 0.3,
-   "drawbar_pull_N": 16.825693286617344,
-   "dp_over_weight": 0.25965576059594664,
-   "sinkage_mean_mm": 7.712587150418273,
-   "power_W": 3.6780391469501197,
-   "single_wheel": {
-    "max_rel_sinkage": 6.839301578292141e-12,
-    "max_rel_Fx": 2.2813824746926636e-12,
-    "max_rel_My": 9.577523766923291e-12
+  "wanghan2016 grousered": {
+   "dataset": "wanghan2016 grousered",
+   "source": "Wang & Han (2016), J. Korean Geotech. Soc. 32(11):97-108, Fig. 14 (58.86 N)",
+   "soil": "KLS-1",
+   "load_N": 58.86,
+   "drawbar_pull_N": {
+    "rmse": 9.181785791859145,
+    "max_abs": 16.79490657912976,
+    "rmse_rel_scale": 0.15599364240331542,
+    "bias": 7.222063606856883
    },
-   "balance": {
-    "force": 3.172958949851466e-14,
-    "moment_roll_pitch": 5.326261541270295e-15,
-    "moment_yaw": 5.385177683983991e-18
+   "sinkage_m": {
+    "rmse": 0.013645205423936909,
+    "max_abs": 0.01819462304240943,
+    "rmse_rel_scale": 1.01075595732866,
+    "bias": 0.0131024478958634
+   },
+   "torque_Nm": {
+    "rmse": 0.5428443321551226,
+    "max_abs": 0.8638589825230936,
+    "rmse_rel_scale": 0.10850159544185058,
+    "bias": 0.06710925836780932
    }
   },
-  {
-   "slip": 0.5,
-   "drawbar_pull_N": 25.21674155726291,
-   "dp_over_weight": 0.38914724625405717,
-   "sinkage_mean_mm": 7.659437598016958,
-   "power_W": 6.979716098962585,
-   "single_wheel": {
-    "max_rel_sinkage": 2.9686698277585364e-11,
-    "max_rel_Fx": 1.5871662603719853e-11,
-    "max_rel_My": 3.7779757138507516e-11
+  "hurrell2025 grousered": {
+   "dataset": "hurrell2025 grousered",
+   "source": "Hurrell et al. (2025), Space Sci. Rev. 221, art. 37, Figs 5/6 (24.5 N)",
+   "soil": "FJS-1/Hurrell2025",
+   "load_N": 24.5,
+   "drawbar_pull_N": {
+    "rmse": 3.000561416282936,
+    "max_abs": 4.172586579909478,
+    "rmse_rel_scale": 0.12247189454216065,
+    "bias": 0.67458744656801
    },
-   "balance": {
-    "force": 2.6175049781961152e-15,
-    "moment_roll_pitch": 1.9632519992507626e-16,
-    "moment_yaw": 7.80283146183134e-17
+   "sinkage_m": {
+    "rmse": 0.004745803227231645,
+    "max_abs": 0.007486507816245321,
+    "rmse_rel_scale": 0.24337452447341767,
+    "bias": -0.0005035199405786159
+   }
+  }
+ },
+ "calibration": {
+  "ding2011 smooth": {
+   "params": {
+    "a0": 0.05000000000000002,
+    "a1": 0.7999999999999999,
+    "n1": 0.25362890435821916,
+    "K": 0.019735567956443923
+   },
+   "errors": {
+    "drawbar_pull_N": {
+     "rmse": 4.717994296634899,
+     "max_abs": 7.635516090523323,
+     "rmse_rel_scale": 0.05897492870793623,
+     "bias": -0.29433299677894426
+    },
+    "sinkage_m": {
+     "rmse": 0.001947390892558452,
+     "max_abs": 0.003070714208466536,
+     "rmse_rel_scale": 0.11127947957476868,
+     "bias": 0.0012588611733006549
+    },
+    "torque_Nm": {
+     "rmse": 0.9178537943326263,
+     "max_abs": 1.3652020484545448,
+     "rmse_rel_scale": 0.07291498207281748,
+     "bias": -0.5808127808778288
+    }
    }
   },
-  {
-   "slip": 0.7,
-   "drawbar_pull_N": 30.507089821634867,
-   "dp_over_weight": 0.4707884231733775,
-   "sinkage_mean_mm": 7.646137717867615,
-   "power_W": 13.646058764700943,
-   "single_wheel": {
-    "max_rel_sinkage": 8.975694316889163e-11,
-    "max_rel_Fx": 6.285768086937331e-11,
-    "max_rel_My": 1.0576709530070564e-10
+  "ding2011 grousered": {
+   "params": {
+    "a0": 0.05000000013203026,
+    "a1": 0.7999999999999999,
+    "n1": 0.5120475946693915,
+    "K": 0.01298884926909348
    },
-   "balance": {
-    "force": 3.850191509605287e-15,
-    "moment_roll_pitch": 3.740796457843402e-16,
-    "moment_yaw": 1.7309241261759798e-17
+   "errors": {
+    "drawbar_pull_N": {
+     "rmse": 3.101356338506433,
+     "max_abs": 4.897989282334574,
+     "rmse_rel_scale": 0.03876695423133041,
+     "bias": 0.5873335524928033
+    },
+    "sinkage_m": {
+     "rmse": 0.0032454450526561295,
+     "max_abs": 0.004252608445355925,
+     "rmse_rel_scale": 0.12020166861689369,
+     "bias": 0.0021708096576391624
+    },
+    "torque_Nm": {
+     "rmse": 0.4343419441291072,
+     "max_abs": 0.7089657289819264,
+     "rmse_rel_scale": 0.03450444424285885,
+     "bias": -0.045496844174339524
+    }
    }
+  },
+  "wanghan2016 smooth": {
+   "params": {
+    "a0": 0.05000000000000001,
+    "a1": 6.203707078205656e-26,
+    "n1": 4.360066546493997e-32,
+    "K": 0.029405086215314617
+   },
+   "errors": {
+    "drawbar_pull_N": {
+     "rmse": 12.240324022053665,
+     "max_abs": 19.274913469591674,
+     "rmse_rel_scale": 0.2079565752982274,
+     "bias": 10.97741796622017
+    },
+    "sinkage_m": {
+     "rmse": 0.011883583925344304,
+     "max_abs": 0.015490846066360836,
+     "rmse_rel_scale": 1.485447990668038,
+     "bias": 0.011645736239803733
+    },
+    "torque_Nm": {
+     "rmse": 0.22969773086775394,
+     "max_abs": 0.4237218068314301,
+     "rmse_rel_scale": 0.045911081303142844,
+     "bias": 0.05078342279507249
+    }
+   }
+  },
+  "wanghan2016 grousered": {
+   "params": {
+    "a0": 0.05000000000000001,
+    "a1": 7.700572255447402e-22,
+    "n1": 3.6264071136671896e-26,
+    "K": 0.034945563034918456
+   },
+   "errors": {
+    "drawbar_pull_N": {
+     "rmse": 6.195765594641861,
+     "max_abs": 12.28905258905334,
+     "rmse_rel_scale": 0.10526275220254605,
+     "bias": 2.004296211974718
+    },
+    "sinkage_m": {
+     "rmse": 0.009769211405792145,
+     "max_abs": 0.014302656664116821,
+     "rmse_rel_scale": 0.7236452893179366,
+     "bias": 0.008883541130818287
+    },
+    "torque_Nm": {
+     "rmse": 1.14015521477833,
+     "max_abs": 1.7294221190597605,
+     "rmse_rel_scale": 0.2278897513098539,
+     "bias": -1.011531137415045
+    }
+   }
+  },
+  "hurrell2025 grousered": {
+   "params": {
+    "a0": 0.05000000000000001,
+    "a1": 0.7999999999999724,
+    "n1": 0.23601459383204773,
+    "K": 0.025633456671282844
+   },
+   "errors": {
+    "drawbar_pull_N": {
+     "rmse": 3.0938309388600698,
+     "max_abs": 5.407788623090667,
+     "rmse_rel_scale": 0.12627881383102327,
+     "bias": -0.6208820000412855
+    },
+    "sinkage_m": {
+     "rmse": 0.002857402641590253,
+     "max_abs": 0.004704308161284353,
+     "rmse_rel_scale": 0.14653346879950016,
+     "bias": 0.0011540364437888626
+    }
+   }
+  }
+ },
+ "surrogate": {
+  "n_train": 3600,
+  "n_test": 2000,
+  "epochs": 4000,
+  "box": {
+   "slip": [
+    -0.4,
+    0.9
+   ],
+   "sinkage_m": [
+    0.002,
+    0.06
+   ]
+  },
+  "physics_terms_used": [
+   "fz_monotone",
+   "fx_monotone",
+   "mohr_coulomb",
+   "torque_coupling"
+  ],
+  "physics_terms_dropped": {},
+  "test": {
+   "Fx": {
+    "rmse_N": 0.8524468150117868,
+    "max_abs_N": 5.713582030582895,
+    "rmse_over_range": 0.0005237891562150693,
+    "r2": 0.99999274393727
+   },
+   "Fz": {
+    "rmse_N": 0.5116204617851792,
+    "max_abs_N": 2.5647217843773547,
+    "rmse_over_range": 0.0003665253075686561,
+    "r2": 0.9999983173618225
+   },
+   "My": {
+    "rmse_Nm": 0.23334666011345037,
+    "max_abs_Nm": 1.5722075185466338,
+    "rmse_over_range": 0.000501836106095165,
+    "r2": 0.9999940499721177
+   }
+  },
+  "train": {
+   "Fx": {
+    "rmse_N": 0.9166573579582318,
+    "max_abs_N": 8.931253526147657,
+    "rmse_over_range": 0.0005497623058147983,
+    "r2": 0.9999912009018908
+   },
+   "Fz": {
+    "rmse_N": 0.5596558681901926,
+    "max_abs_N": 4.989539162349274,
+    "rmse_over_range": 0.00039989495493980657,
+    "r2": 0.9999980343368334
+   },
+   "My": {
+    "rmse_Nm": 0.2507817845494307,
+    "max_abs_Nm": 2.15263748742305,
+    "rmse_over_range": 0.0005294571311039615,
+    "r2": 0.9999930665619841
+   }
+  }
+ },
+ "grade_sweep": [
+  {
+   "grade_deg": 0.0,
+   "slip_mean": -0.007683723350267989,
+   "speed_m_s": 0.10143014217720048,
+   "speed_cmd_m_s": 0.1,
+   "sinkage_mm": 13.863250607711432,
+   "drive_torque_Nm": 4.6603704684460565,
+   "max_drive_torque_Nm": 10.497584414268712,
+   "power_W": 7.465157385847083,
+   "yaw_deg_end": -0.0010472757323458156,
+   "travel_reduction": -0.014301421772004774
+  },
+  {
+   "grade_deg": 5.0,
+   "slip_mean": 0.010188088280195823,
+   "speed_m_s": 0.09952483588474398,
+   "speed_cmd_m_s": 0.1,
+   "sinkage_mm": 13.2266329360622,
+   "drive_torque_Nm": 9.165034713230593,
+   "max_drive_torque_Nm": 18.221587471627693,
+   "power_W": 14.565836207564624,
+   "yaw_deg_end": 0.0339659466313162,
+   "travel_reduction": 0.004751641152560215
+  },
+  {
+   "grade_deg": 10.0,
+   "slip_mean": 0.04644416484122484,
+   "speed_m_s": 0.09489398792463268,
+   "speed_cmd_m_s": 0.1,
+   "sinkage_mm": 12.687127075411873,
+   "drive_torque_Nm": 13.74912531829002,
+   "max_drive_torque_Nm": 27.79162526022625,
+   "power_W": 21.74570231306854,
+   "yaw_deg_end": -0.004516599112581601,
+   "travel_reduction": 0.05106012075367328
+  },
+  {
+   "grade_deg": 12.5,
+   "slip_mean": 0.07675032212727627,
+   "speed_m_s": 0.09107640990007944,
+   "speed_cmd_m_s": 0.1,
+   "sinkage_mm": 12.468090081319758,
+   "drive_torque_Nm": 16.044644922461053,
+   "max_drive_torque_Nm": 32.388060134969635,
+   "power_W": 25.39352250961122,
+   "yaw_deg_end": -0.009559067434631687,
+   "travel_reduction": 0.08923590099920564
+  },
+  {
+   "grade_deg": 15.0,
+   "slip_mean": 0.12121799974030115,
+   "speed_m_s": 0.08583425046646119,
+   "speed_cmd_m_s": 0.1,
+   "sinkage_mm": 12.297254136425543,
+   "drive_torque_Nm": 18.341792479486212,
+   "max_drive_torque_Nm": 37.02365048683636,
+   "power_W": 29.099452023054994,
+   "yaw_deg_end": -0.005157754371730627,
+   "travel_reduction": 0.14165749533538818
+  },
+  {
+   "grade_deg": 17.5,
+   "slip_mean": 0.1777118738538324,
+   "speed_m_s": 0.07904456137418714,
+   "speed_cmd_m_s": 0.1,
+   "sinkage_mm": 12.05702503988537,
+   "drive_torque_Nm": 20.734358683782713,
+   "max_drive_torque_Nm": 48.115377630497235,
+   "power_W": 32.876578132512726,
+   "yaw_deg_end": -0.01639605536415797,
+   "travel_reduction": 0.2095543862581286
+  },
+  {
+   "grade_deg": 20.0,
+   "slip_mean": 0.2657294435058282,
+   "speed_m_s": 0.06953938476225871,
+   "speed_cmd_m_s": 0.1,
+   "sinkage_mm": 11.745407154459508,
+   "drive_torque_Nm": 23.14763121550774,
+   "max_drive_torque_Nm": 50.47929958196781,
+   "power_W": 36.867144342532505,
+   "yaw_deg_end": -0.038354537967395436,
+   "travel_reduction": 0.30460615237741295
   }
  ],
- "C_climbing": {
-  "steady": [
-   {
-    "grade_deg": 0,
-    "converged": true,
-    "slip": 0.056379567982736765,
-    "load_N": [
-     10.481,
-     9.95,
-     11.969,
-     10.481,
-     9.95,
-     11.969
-    ],
-    "sinkage_mm": [
-     7.588,
-     7.329,
-     8.291,
-     7.588,
-     7.329,
-     8.291
-    ],
-    "power_W": 0.8684028066017425,
-    "energy_per_metre_J_m": 8.684028066017424,
-    "balance": {
-     "force": 2.346208024497914e-15,
-     "moment_roll_pitch": 6.911638484652041e-16,
-     "moment_yaw": 1.130197724515994e-16
-    }
-   },
-   {
-    "grade_deg": 5,
-    "converged": true,
-    "slip": 0.12846758888436502,
-    "load_N": [
-     9.298,
-     9.096,
-     13.882,
-     9.298,
-     9.096,
-     13.882
-    ],
-    "sinkage_mm": [
-     7.041,
-     6.939,
-     9.195,
-     7.041,
-     6.939,
-     9.195
-    ],
-    "power_W": 1.6008997063871377,
-    "energy_per_metre_J_m": 16.008997063871377,
-    "balance": {
-     "force": 4.7857918993897566e-15,
-     "moment_roll_pitch": 1.2513371244129448e-15,
-     "moment_yaw": 1.4027245871186171e-15
-    }
-   },
-   {
-    "grade_deg": 10,
-    "converged": true,
-    "slip": 0.21868004356303952,
-    "load_N": [
-     8.111,
-     8.024,
-     15.774,
-     8.111,
-     8.024,
-     15.774
-    ],
-    "sinkage_mm": [
-     6.471,
-     6.425,
-     10.068,
-     6.471,
-     6.425,
-     10.068
-    ],
-    "power_W": 2.5168900866160735,
-    "energy_per_metre_J_m": 25.168900866160733,
-    "balance": {
-     "force": 1.3198293360031218e-15,
-     "moment_roll_pitch": 1.0931972715361488e-15,
-     "moment_yaw": 1.7455205605121858e-15
-    }
-   },
-   {
-    "grade_deg": 15,
-    "converged": true,
-    "slip": 0.33190453290714894,
-    "load_N": [
-     6.917,
-     6.756,
-     17.623,
-     6.917,
-     6.756,
-     17.623
-    ],
-    "sinkage_mm": [
-     5.875,
-     5.785,
-     10.922,
-     5.875,
-     5.785,
-     10.922
-    ],
-    "power_W": 3.787811060995598,
-    "energy_per_metre_J_m": 37.878110609955975,
-    "balance": {
-     "force": 5.746325884129548e-15,
-     "moment_roll_pitch": 2.5849034708085706e-15,
-     "moment_yaw": 1.9457464921705567e-15
-    }
-   },
-   {
-    "grade_deg": 20,
-    "converged": true,
-    "slip": 0.47891800497570663,
-    "load_N": [
-     5.714,
-     5.314,
-     19.418,
-     5.714,
-     5.314,
-     19.418
-    ],
-    "sinkage_mm": [
-     5.248,
-     5.002,
-     11.787,
-     5.248,
-     5.002,
-     11.787
-    ],
-    "power_W": 5.923776666159104,
-    "energy_per_metre_J_m": 59.23776666159104,
-    "balance": {
-     "force": 6.66633490894603e-14,
-     "moment_roll_pitch": 1.1252451019575708e-13,
-     "moment_yaw": 9.4172879617405e-16
-    }
-   },
-   {
-    "grade_deg": 22.5,
-    "converged": true,
-    "slip": 0.5725293686926582,
-    "load_N": [
-     5.109,
-     4.532,
-     20.293,
-     5.109,
-     4.532,
-     20.293
-    ],
-    "sinkage_mm": [
-     4.923,
-     4.547,
-     12.246,
-     4.923,
-     4.547,
-     12.246
-    ],
-    "power_W": 7.866669251376742,
-    "energy_per_metre_J_m": 78.66669251376742,
-    "balance": {
-     "force": 2.0063786059121943e-14,
-     "moment_roll_pitch": 2.6003114820670933e-14,
-     "moment_yaw": 1.0579862545032826e-18
-    }
-   },
-   {
-    "grade_deg": 25,
-    "converged": true,
-    "slip": 0.6885355201464041,
-    "load_N": [
-     4.5,
-     3.71,
-     21.155,
-     4.5,
-     3.71,
-     21.155
-    ],
-    "sinkage_mm": [
-     4.59,
-     4.039,
-     12.752,
-     4.59,
-     4.039,
-     12.752
-    ],
-    "power_W": 11.684466481644337,
-    "energy_per_metre_J_m": 116.84466481644337,
-    "balance": {
-     "force": 7.472396148240292e-15,
-     "moment_roll_pitch": 5.272453710005762e-15,
-     "moment_yaw": 1.3025901979641233e-15
-    }
-   },
-   {
-    "grade_deg": 27.5,
-    "converged": true,
-    "slip": 0.8431315250134783,
-    "load_N": [
-     3.883,
-     2.846,
-     22.01,
-     3.883,
-     2.846,
-     22.01
-    ],
-    "sinkage_mm": [
-     4.254,
-     3.463,
-     13.362,
-     4.254,
-     3.463,
-     13.362
-    ],
-    "power_W": 24.99262666510606,
-    "energy_per_metre_J_m": 249.9262666510606,
-    "balance": {
-     "force": 1.6100065948439262e-14,
-     "moment_roll_pitch": 6.579407682243671e-15,
-     "moment_yaw": 4.984385972379608e-16
-    }
-   }
+ "cross_slope_10deg": {
+  "duration_s": 20.0,
+  "distance_m": 1.876154494954687,
+  "mean_speed_m_s": 0.09380772474773434,
+  "mean_slip": 0.01726257444776282,
+  "max_slip": 0.10607774657372136,
+  "max_sinkage_mm": 21.653740545633624,
+  "mean_sinkage_mm": 13.514998011171723,
+  "energy_J": 155.7822632873268,
+  "energy_per_metre_J_m": 83.03274794599966,
+  "max_load_N": 258.1534473140021,
+  "min_load_N": 87.27390955505405,
+  "max_pitch_deg": 0.6320511012508621,
+  "max_roll_deg": 10.516917565296366,
+  "max_drive_torque_Nm": 11.782092893431457,
+  "max_rock_force_N": 0.0,
+  "slip_angle_deg_mean": [
+   -3.596674335568929,
+   -3.4434192085793636,
+   -5.417313733417914,
+   -5.3669839019503955
   ],
-  "s_limit": 0.95,
-  "max_grade_full_model_deg": 28.80615234375,
-  "max_grade_dp_estimate_deg": 31.490478515625,
-  "ramp": {
-   "failed_at_step": 112,
-   "x_at_failure_m": 5.549999999999988,
-   "grade_under_body_deg": 28.85306842739526,
-   "grade_under_wheels_deg": [
-    31.14,
-    29.57,
-    27.92,
-    31.14,
-    29.57,
-    27.92
-   ],
-   "slip_last_ok": 0.9385485490091967
-  }
- },
- "D_crater": {
-  "steps": 161,
-  "failed_at_step": null,
-  "distance_m": 7.99999999999998,
-  "energy_J": 77.689801863889,
-  "energy_per_metre_J_m": 9.71122523298615,
-  "max_pitch_deg": 14.172853208237045,
-  "max_roll_deg": 7.490938676534762,
-  "max_sinkage_mm": 11.42879594174205,
-  "max_slip": 0.27638721981562264,
-  "max_residual": 5.830182795625651e-13,
-  "min_pitch_deg": -13.982036204719748
- },
- "E_payload": {
-  "payload_kg": 20.0,
-  "energy_per_metre_J_m": 15.033310693197361,
-  "slip": 0.06016894060092643,
-  "sinkage_mm": [
-   9.919,
-   9.52,
-   10.982,
-   9.919,
-   9.52,
-   10.982
+  "lateral_N_mean": [
+   29.11960150410575,
+   41.889865427825455,
+   24.01819218695231,
+   33.70833322015605
   ],
-  "max_grade_full_model_deg": 25.68603515625,
-  "max_grade_dp_estimate_deg": 28.084716796875,
-  "crater": {
-   "steps": 161,
-   "failed_at_step": null,
-   "distance_m": 7.99999999999998,
-   "energy_J": 134.4713849739226,
-   "energy_per_metre_J_m": 16.808923121740367,
-   "max_pitch_deg": 14.318261118467078,
-   "max_roll_deg": 7.562059164604832,
-   "max_sinkage_mm": 15.483777950546271,
-   "max_slip": 0.2974036590893254,
-   "max_residual": 6.313906568248522e-13
-  }
+  "corners": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ]
  },
- "verification": {
-  "level_sinkage_vs_bekker": {
-   "rows": [
-    {
-     "wheel": 0,
-     "load_N": 12.370364983780004,
-     "z_model_mm": 8.229364119953148,
-     "z_integral_mm": 8.229364119953297,
-     "z_closed_form_mm": 8.17477292599851
-    },
-    {
-     "wheel": 1,
-     "load_N": 10.764287874471256,
-     "z_model_mm": 7.496203415619545,
-     "z_integral_mm": 7.496203415619948,
-     "z_closed_form_mm": 7.450937001828639
-    },
-    {
-     "wheel": 2,
-     "load_N": 9.27420076868058,
-     "z_model_mm": 6.783436642964339,
-     "z_integral_mm": 6.783436642965348,
-     "z_closed_form_mm": 6.746393741516364
-    },
-    {
-     "wheel": 3,
-     "load_N": 12.370364983780004,
-     "z_model_mm": 8.229364119953148,
-     "z_integral_mm": 8.229364119953297,
-     "z_closed_form_mm": 8.17477292599851
-    },
-    {
-     "wheel": 4,
-     "load_N": 10.764287874471256,
-     "z_model_mm": 7.496203415619545,
-     "z_integral_mm": 7.496203415619948,
-     "z_closed_form_mm": 7.450937001828639
-    },
-    {
-     "wheel": 5,
-     "load_N": 9.27420076868058,
-     "z_model_mm": 6.783436642964339,
-     "z_integral_mm": 6.783436642965348,
-     "z_closed_form_mm": 6.746393741516364
-    }
-   ],
-   "total_load_N": 64.81770725386367,
-   "weight_N": 64.80000000000001,
-   "max_rel_vs_integral": 1.4874034178909578e-13,
-   "max_rel_vs_closed_form": 0.0066780073830576105
-  },
-  "single_wheel_vs_standalone": {
-   "slip 0.05": {
-    "max_rel_sinkage": 6.931155175590869e-13,
-    "max_rel_Fx": 2.4882484771342325e-14,
-    "max_rel_My": 1.2690838916894944e-12
+ "crater": {
+  "duration_s": 45.0,
+  "distance_m": 8.613935398883374,
+  "mean_speed_m_s": 0.19142078664185275,
+  "mean_slip": 0.019481370032607786,
+  "max_slip": 0.8439694463751561,
+  "max_sinkage_mm": 22.00896778890837,
+  "mean_sinkage_mm": 14.09257096659899,
+  "energy_J": 761.0295946571684,
+  "energy_per_metre_J_m": 88.34865359633656,
+  "max_load_N": 299.6292856809323,
+  "min_load_N": 0.0,
+  "max_pitch_deg": 10.540468904891162,
+  "max_roll_deg": 3.795913743918822,
+  "max_drive_torque_Nm": 31.880435591119223,
+  "max_rock_force_N": 531.6975324769219
+ },
+ "surrogate_along_crater_run": {
+  "errors_inside_box": {
+   "Fx": {
+    "rmse_N": 0.8143165935511925,
+    "max_abs_N": 2.337753702961777,
+    "rmse_over_range": 0.0029919785330791097,
+    "r2": 0.9987687812652708
    },
-   "slip 0.1": {
-    "max_rel_sinkage": 1.1207721542574198e-12,
-    "max_rel_Fx": 6.218473333129039e-14,
-    "max_rel_My": 1.8503569981536485e-12
+   "Fz": {
+    "rmse_N": 0.3221952508204262,
+    "max_abs_N": 1.3452219109385055,
+    "rmse_over_range": 0.0009716225580189344,
+    "r2": 0.9999520665972411
    },
-   "slip 0.2": {
-    "max_rel_sinkage": 2.8643769599879654e-12,
-    "max_rel_Fx": 5.974483678495104e-13,
-    "max_rel_My": 4.277368256556073e-12
-   },
-   "slip 0.3": {
-    "max_rel_sinkage": 6.839301578292141e-12,
-    "max_rel_Fx": 2.2813824746926636e-12,
-    "max_rel_My": 9.577523766923291e-12
-   },
-   "slip 0.5": {
-    "max_rel_sinkage": 2.9686698277585364e-11,
-    "max_rel_Fx": 1.5871662603719853e-11,
-    "max_rel_My": 3.7779757138507516e-11
-   },
-   "slip 0.7": {
-    "max_rel_sinkage": 8.975694316889163e-11,
-    "max_rel_Fx": 6.285768086937331e-11,
-    "max_rel_My": 1.0576709530070564e-10
+   "My": {
+    "rmse_Nm": 0.23483150529207555,
+    "max_abs_Nm": 0.5913953032986186,
+    "rmse_over_range": 0.0033173757695327656,
+    "r2": 0.9986399788184409
    }
   },
-  "balance_all_converged_steps": {
-   "force": 4.660148895894083e-12,
-   "moment_roll_pitch": 7.29872825675708e-13,
-   "moment_yaw": 0.023679444186841783,
-   "n_states": 557
-  },
-  "max_grade": {
-   "full_model_deg": 28.80615234375,
-   "dp_estimate_deg": 31.490478515625,
-   "payload_full_model_deg": 25.68603515625,
-   "payload_dp_estimate_deg": 28.084716796875
-  },
-  "surrogate": {
-   "pinn_use_case_box": {
-    "training_box": {
-     "slip": [
-      0.0,
-      0.75
-     ],
-     "sinkage_m": [
-      0.0020000000949949026,
-      0.057999998331069946
-     ]
-    },
-    "A_level": {
-     "n": 738,
-     "n_outside": 0,
-     "fraction_outside": 0.0,
-     "slip_range_seen": [
-      0.0,
-      0.0584192056058489
-     ],
-     "sinkage_range_seen_mm": [
-      7.329269993330126,
-      8.291186096568898
-     ],
-     "Fx_rmse_inside": 1.888543875046206,
-     "Fx_max_abs_inside": 1.905112192388111,
-     "Fx_max_rel_load": 0.19047197740413743,
-     "Fz_rmse_inside": 0.37561299569251266,
-     "Fz_max_abs_inside": 0.5664337152222512,
-     "Fz_max_rel_load": 0.05132340090357508,
-     "My_rmse_inside": 2.1302628455573176,
-     "My_max_abs_inside": 2.151414866299964,
-     "My_max_rel_load": 0.21621385229603107
-    },
-    "C_ramp": {
-     "n": 672,
-     "n_outside": 48,
-     "fraction_outside": 0.07142857142857142,
-     "slip_range_seen": [
-      0.0,
-      0.9285844779895662
-     ],
-     "sinkage_range_seen_mm": [
-      3.0580028969332265,
-      13.863373307618776
-     ],
-     "Fx_rmse_inside": 1.8539998844758603,
-     "Fx_max_abs_inside": 2.042296398106709,
-     "Fx_rmse_outside": 6.860037264313815,
-     "Fx_max_abs_outside": 13.658175737700345,
-     "Fx_max_rel_load": 5.585399004067094,
-     "Fz_rmse_inside": 0.8392817864043367,
-     "Fz_max_abs_inside": 2.763269274726156,
-     "Fz_rmse_outside": 44.33988815132516,
-     "Fz_max_abs_outside": 85.64807780144226,
-     "Fz_max_rel_load": 36.52929895231969,
-     "My_rmse_inside": 2.083286567386046,
-     "My_max_abs_inside": 2.31927928895751,
-     "My_rmse_outside": 3.0394437697118857,
-     "My_max_abs_outside": 5.284619022703572,
-     "My_max_rel_load": 2.2180275284992828
-    },
-    "D_crater": {
-     "n": 966,
-     "n_outside": 194,
-     "fraction_outside": 0.20082815734989648,
-     "slip_range_seen": [
-      -0.114597757490144,
-      0.27638721981562264
-     ],
-     "sinkage_range_seen_mm": [
-      5.287507111345721,
-      11.42879594174205
-     ],
-     "Fx_rmse_inside": 1.8575482297977026,
-     "Fx_max_abs_inside": 2.051913091149881,
-     "Fx_rmse_outside": 2.498070199610342,
-     "Fx_max_abs_outside": 8.078259773575187,
-     "Fx_max_rel_load": 0.6061409131694804,
-     "Fz_rmse_inside": 0.6823291471080694,
-     "Fz_max_abs_inside": 2.8169954209443766,
-     "Fz_rmse_outside": 6.658192453024266,
-     "Fz_max_abs_outside": 23.895681316272928,
-     "Fz_max_rel_load": 1.51369459375778,
-     "My_rmse_inside": 2.092493461337875,
-     "My_max_abs_inside": 2.2308360482518363,
-     "My_rmse_outside": 1.528820368976613,
-     "My_max_abs_outside": 2.808095059703523,
-     "My_max_rel_load": 0.3444364631954555
-    },
-    "driving_10deg": {
-     "completed": false,
-     "failed_at_step": 1,
-     "wall_s": 1.7213871479034424,
-     "energy_per_metre_J_m": null,
-     "reference_energy_per_metre_J_m": 25.19698788280151
-    }
-   },
-   "pinn_rover_box": {
-    "training_box": {
-     "slip": [
-      0.0,
-      0.75
-     ],
-     "sinkage_m": [
-      0.0020000000949949026,
-      0.02500000037252903
-     ]
-    },
-    "A_level": {
-     "n": 738,
-     "n_outside": 0,
-     "fraction_outside": 0.0,
-     "slip_range_seen": [
-      0.0,
-      0.0584192056058489
-     ],
-     "sinkage_range_seen_mm": [
-      7.329269993330126,
-      8.291186096568898
-     ],
-     "Fx_rmse_inside": 1.0948692745898627,
-     "Fx_max_abs_inside": 1.1277734765766498,
-     "Fx_max_rel_load": 0.11334281038951924,
-     "Fz_rmse_inside": 0.3196098982605009,
-     "Fz_max_abs_inside": 0.5379305094800664,
-     "Fz_max_rel_load": 0.04627367215766356,
-     "My_rmse_inside": 0.33274901448323146,
-     "My_max_abs_inside": 0.335287002418304,
-     "My_max_rel_load": 0.03343395935996731
-    },
-    "C_ramp": {
-     "n": 672,
-     "n_outside": 48,
-     "fraction_outside": 0.07142857142857142,
-     "slip_range_seen": [
-      0.0,
-      0.9285844779895662
-     ],
-     "sinkage_range_seen_mm": [
-      3.0580028969332265,
-      13.863373307618776
-     ],
-     "Fx_rmse_inside": 1.248939539601106,
-     "Fx_max_abs_inside": 1.5656548728677042,
-     "Fx_rmse_outside": 3.049571135798535,
-     "Fx_max_abs_outside": 6.529461193326698,
-     "Fx_max_rel_load": 2.5168365293289843,
-     "Fz_rmse_inside": 0.3000105660564586,
-     "Fz_max_abs_inside": 0.8735994506102465,
-     "Fz_rmse_outside": 10.871673266786246,
-     "Fz_max_abs_outside": 23.994380993260744,
-     "Fz_max_rel_load": 10.40353038325464,
-     "My_rmse_inside": 0.34901578033076336,
-     "My_max_abs_inside": 0.4147070580309486,
-     "My_rmse_outside": 0.690029317402007,
-     "My_max_abs_outside": 1.5343217473990036,
-     "My_max_rel_load": 0.6244753487022199
-    },
-    "D_crater": {
-     "n": 966,
-     "n_outside": 194,
-     "fraction_outside": 0.20082815734989648,
-     "slip_range_seen": [
-      -0.114597757490144,
-      0.27638721981562264
-     ],
-     "sinkage_range_seen_mm": [
-      5.287507111345721,
-      11.42879594174205
-     ],
-     "Fx_rmse_inside": 1.160813236982928,
-     "Fx_max_abs_inside": 1.4389422332554087,
-     "Fx_rmse_outside": 1.8460953929284267,
-     "Fx_max_abs_outside": 5.259839132399069,
-     "Fx_max_rel_load": 0.34873818072744417,
-     "Fz_rmse_inside": 0.25903033092991395,
-     "Fz_max_abs_inside": 0.5392296060076855,
-     "Fz_rmse_outside": 6.438361259450952,
-     "Fz_max_abs_outside": 13.375700043575801,
-     "Fz_max_rel_load": 1.2332640916838307,
-     "My_rmse_inside": 0.3399202382356715,
-     "My_max_abs_inside": 0.3951913613984812,
-     "My_rmse_outside": 0.6526610710542551,
-     "My_max_abs_outside": 1.3361745870111261,
-     "My_max_rel_load": 0.10719281060573448
-    },
-    "driving_10deg": {
-     "completed": false,
-     "failed_at_step": 1,
-     "wall_s": 1.5479793548583984,
-     "energy_per_metre_J_m": null,
-     "reference_energy_per_metre_J_m": 25.19698788280151
-    }
-   }
-  }
+  "fraction_outside_box": 0.00027917364600782424
  },
- "wall_time_s": 411.5822985172272
+ "wall_time_s": 1155.6268737316132
 }
