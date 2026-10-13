@@ -159,11 +159,12 @@ def prolong(u: np.ndarray, n: int | Sequence[int], axes: Sequence[int] | None = 
     return _resample(u, n, axes, finer=True)
 
 
-def post_filter_transfer(source: Filter, target: Filter, k: np.ndarray, max_gain: float = 1.0 + 1e-9) -> np.ndarray:
+def post_filter_transfer(source: Filter, target: Filter, k: np.ndarray, max_gain: float = 2.0) -> np.ndarray:
     """1-D transfer of the post-filter that brings a field filtered by ``source`` to ``target``:
-    ``G_target / G_source`` where that ratio is at most ``max_gain`` in magnitude, 0 elsewhere. The default keeps the
-    post-filter a filter (no amplification): scales the source filter removed or damped are not recovered by
-    deconvolution, which would only amplify the source's errors."""
+    ``G_target / G_source`` where that ratio is at most ``max_gain`` in magnitude, 0 elsewhere. A mild deconvolution
+    (gain up to 2 by default, e.g. a sharp cut-off at k = 4 from a slightly damped Gaussian output) is allowed;
+    beyond that the scales the source filter removed or damped are treated as lost: recovering them would only
+    amplify the source's errors."""
     gs, gt = source.transfer(k), target.transfer(k)
     with np.errstate(divide="ignore", invalid="ignore"):
         r = np.where(np.abs(gs) > 1e-12, gt / np.where(np.abs(gs) > 1e-12, gs, 1.0), np.inf)
@@ -171,7 +172,7 @@ def post_filter_transfer(source: Filter, target: Filter, k: np.ndarray, max_gain
 
 
 def realizability_mismatch(source: Filter, target: Filter, kmax: float, *, slope: float = -2.0, n: int = 4096,
-                           max_gain: float = 1.0 + 1e-9, kmin: float = 1.0) -> float:
+                           max_gain: float = 2.0, kmin: float = 1.0) -> float:
     """Fraction (0 to 1, as an L2 ratio) of the ``target`` filter that cannot be obtained by post-filtering a field
     already filtered by ``source``. The transfer functions are compared on ``kmin <= k <= kmax`` (``kmin``: the
     fundamental wavenumber, 1 on a ``2 pi`` domain) weighted by a model
@@ -187,7 +188,7 @@ def realizability_mismatch(source: Filter, target: Filter, kmax: float, *, slope
 
 
 def refilter(u: np.ndarray, source: Filter, target: Filter, length: float = 2 * np.pi,
-             axes: Sequence[int] | None = None, max_gain: float = 1.0 + 1e-9) -> np.ndarray:
+             axes: Sequence[int] | None = None, max_gain: float = 2.0) -> np.ndarray:
     """Turn a field filtered by ``source`` into the ``target`` filter (as far as it can be, see
     :func:`post_filter_transfer`)."""
     u = np.asarray(u, dtype=float)

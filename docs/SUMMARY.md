@@ -37,6 +37,7 @@
   * [Earth-system blocks & data assimilation](core_concepts/earth_system.md)
   * [Adaptive forecasting](core_concepts/adaptive_forecasting.md)
   * [Adaptive ensembles of physics models](core_concepts/physics_ensembles.md)
+  * [Multiscale ensembles: scales, filters and closures](core_concepts/multiscale_ensembles.md)
   * [Physics audit: assumptions, routing, failure attribution](core_concepts/physics_audit.md)
   * [Non-Hermitian physics: PT dimers and exceptional points](core_concepts/non_hermitian.md)
   * [Molecular visualisation: proteins on metal surfaces](core_concepts/molecular_visualization.md)

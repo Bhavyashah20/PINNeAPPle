@@ -268,3 +268,51 @@ def test_ensemble_with_scale_router_and_failing_check_escalates_to_solver():
     ens.update(q, truth(q))
     out = ens.predict(ScaleQuery(Filter("gaussian", 8 * H), re=3e3))
     assert out["active"] in ("surrogate_coarse", "surrogate_fine")
+
+
+# ------------------------------------------------------------------------------------------ learned (torch)
+def test_differentiable_les_matches_numpy_solver_and_closure_conserves_circulation():
+    torch = pytest.importorskip("torch")
+    from pinneapple_physics.multiscale.learned import LearnedClosure, TorchVorticityLES2D, as_numpy_closure
+
+    rng = np.random.default_rng(10)
+    w0 = apply_filter(random_vorticity(rng, 32, k0=3), Filter("sharp", L / 20))
+    ref = VorticityNS2D(32, 5e-3).simulate(w0, [0.1], dt=2.5e-3)[0]
+    les = TorchVorticityLES2D(32)
+    out = les.rollout(torch.tensor(w0)[None], torch.tensor([5e-3]), 2.5e-3, [40])[0, 0].numpy()
+    assert np.linalg.norm(out - ref) / np.linalg.norm(ref) < 1e-4
+    cl = LearnedClosure(hidden=8, layers=2)
+    torch.nn.init.normal_(cl.net[-1].weight, std=0.1)
+    t = as_numpy_closure(cl, 32)(w0)
+    assert abs(t.mean()) < 1e-10 and np.abs(t).max() > 0          # a flux divergence: zero mean
+
+
+def test_scale_conditioned_fno_and_consistency_loss():
+    torch = pytest.importorskip("torch")
+    from pinneapple_physics.multiscale.learned import (
+        ScaleConditionedFNO2d,
+        filtering_consistency_loss,
+        torch_filter,
+        torch_refilter,
+    )
+
+    torch.manual_seed(0)
+    x = torch.randn(2, 1, 32, 32, dtype=torch.float64)
+    d1, d2 = torch.tensor([0.2, 0.2], dtype=torch.float64), torch.tensor([0.5, 0.6], dtype=torch.float64)
+    np.testing.assert_allclose(torch_refilter(torch_filter(x, "gaussian", d1), "gaussian", d1, d2).numpy(),
+                               torch_filter(x, "gaussian", d2).numpy(), atol=1e-10)
+    np.testing.assert_allclose(torch_filter(x, "box", 0.4).numpy(), apply_filter(x.numpy(), Filter("box", 0.4)),
+                               atol=1e-12)
+
+    class ExactFilter(torch.nn.Module):                               # a perfectly scale-consistent "model"
+        conditioned = True
+
+        def forward(self, x, d):
+            return torch_filter(x, "gaussian", d)
+
+    assert float(filtering_consistency_loss(ExactFilter(), x, d1, d2)) < 1e-20
+    m = ScaleConditionedFNO2d(1, 1, width=8, modes=4, layers=2).double()
+    torch.nn.init.normal_(m.film[-1].weight, std=0.5)
+    assert float(filtering_consistency_loss(m, x, d1, d2).detach()) > 1e-6
+    blind = ScaleConditionedFNO2d(1, 1, width=8, modes=4, layers=2, conditioned=False).double()
+    torch.testing.assert_close(blind(x, 0.1), blind(x, 0.9))

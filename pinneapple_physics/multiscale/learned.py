@@ -64,7 +64,7 @@ def torch_filter(x: torch.Tensor, kind: str, delta: torch.Tensor | float, length
 
 
 def torch_refilter(x: torch.Tensor, kind: str, d_from: torch.Tensor, d_to: torch.Tensor, length: float = 2 * math.pi,
-                   max_gain: float = 1.0 + 1e-9) -> torch.Tensor:
+                   max_gain: float = 2.0) -> torch.Tensor:
     """Bring ``x`` filtered at ``d_from`` to ``d_to`` (per sample), as :func:`~.filters.refilter`."""
     n = x.shape[-1]
     gs = _transfer2d(kind, n, d_from, length, x.dtype)
@@ -87,9 +87,9 @@ class _SpectralConv2d(nn.Module):
         B, C, H, W = x.shape
         xf = torch.fft.rfft2(x)
         m = self.modes
-        out = torch.zeros(B, C, H, W // 2 + 1, dtype=torch.cfloat, device=x.device)
-        out[:, :, :m, :m] = torch.einsum("bixy,ioxy->boxy", xf[:, :, :m, :m], self.w1)
-        out[:, :, -m:, :m] = torch.einsum("bixy,ioxy->boxy", xf[:, :, -m:, :m], self.w2)
+        out = torch.zeros(B, C, H, W // 2 + 1, dtype=xf.dtype, device=x.device)
+        out[:, :, :m, :m] = torch.einsum("bixy,ioxy->boxy", xf[:, :, :m, :m], self.w1.to(xf.dtype))
+        out[:, :, -m:, :m] = torch.einsum("bixy,ioxy->boxy", xf[:, :, -m:, :m], self.w2.to(xf.dtype))
         return torch.fft.irfft2(out, s=(H, W))
 
 
