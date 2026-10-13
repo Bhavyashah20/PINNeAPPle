@@ -18,12 +18,12 @@ Convention (applies to every function here):
 """
 from __future__ import annotations
 
-from typing import Callable, Dict, Sequence
+from collections.abc import Callable, Sequence
 
 import numpy as np
 
 __all__ = ["l2", "relative_l2", "rmse", "mae", "max_abs", "relative_linf", "r2", "per_field", "summary", "pooled",
-           "METRICS"]
+           "rollout_relative_l2", "METRICS"]
 
 
 def _as2d(pred, true):
@@ -105,20 +105,20 @@ def r2(pred, true):
     return _out(v, s)
 
 
-METRICS: Dict[str, Callable] = {"relative_l2": relative_l2, "rmse": rmse, "mae": mae, "max_abs": max_abs,
+METRICS: dict[str, Callable] = {"relative_l2": relative_l2, "rmse": rmse, "mae": mae, "max_abs": max_abs,
                                 "relative_linf": relative_linf, "r2": r2, "l2": l2}
 
 
-def per_field(metric: Callable, pred, true, fields: Sequence[str]) -> Dict[str, float]:
+def per_field(metric: Callable, pred, true, fields: Sequence[str]) -> dict[str, float]:
     """``{field: value}`` for an ``(N, F)`` comparison."""
     v = np.atleast_1d(metric(pred, true))
     if len(v) != len(fields):
         raise ValueError(f"{len(fields)} field names for {len(v)} fields")
-    return {f: float(x) for f, x in zip(fields, v)}
+    return {f: float(x) for f, x in zip(fields, v, strict=True)}
 
 
 def summary(pred, true, fields: Sequence[str], names: Sequence[str] = ("relative_l2", "rmse", "max_abs")
-            ) -> Dict[str, Dict[str, float]]:
+            ) -> dict[str, dict[str, float]]:
     """``{metric: {field: value}}`` for several metrics at once (the shape benchmark tables use)."""
     unknown = [n for n in names if n not in METRICS]
     if unknown:
@@ -126,7 +126,7 @@ def summary(pred, true, fields: Sequence[str], names: Sequence[str] = ("relative
     return {n: per_field(METRICS[n], pred, true, fields) for n in names}
 
 
-def pooled(pred, true) -> Dict[str, float]:
+def pooled(pred, true) -> dict[str, float]:
     """One number per metric over every entry, all fields together: ``relative_l2``, ``rmse``, ``mse``, ``max_abs``,
     ``r2``. For leaderboards that rank models by a single value; use the per-field functions for anything reported
     per quantity. When the shapes differ, a 1-D side gets a trailing axis and the two are broadcast, as the benchmark
@@ -151,3 +151,31 @@ def _np(a) -> np.ndarray:
     except ImportError:  # pragma: no cover
         pass
     return np.asarray(a, dtype=np.float64)
+
+
+def rollout_relative_l2(pred_seq, true_seq, *, aggregate: str = "steps") -> float:
+    """Relative L2 error of a time rollout: ``pred_seq`` and ``true_seq`` have shape ``(T, ...)``, axis 0 is time.
+
+    * ``aggregate="steps"`` (default): the mean over steps of ``||pred_k - true_k|| / ||true_k||``, each norm over
+      every entry of step ``k``. Steps where ``||true_k|| = 0`` are skipped; ``nan`` if no step is left.
+    * ``aggregate="trajectory"``: ``||pred - true|| / ||true||`` over the whole sequence at once (Frobenius norms),
+      which weights steps by their magnitude.
+
+    Pass the predicted steps only (drop the initial condition when the rollout starts from the true state).
+    Unlike the per-field functions above, all fields of a step are pooled: use it on one field, or on fields
+    of comparable scale (e.g. normalised states).
+    """
+    p, t = _np(pred_seq), _np(true_seq)
+    if p.shape != t.shape:
+        raise ValueError(f"pred_seq and true_seq must have the same shape, got {p.shape} and {t.shape}")
+    if p.ndim == 0 or p.shape[0] == 0:
+        raise ValueError("expected a non-empty sequence with time on axis 0")
+    if aggregate == "trajectory":
+        den = np.linalg.norm(t)
+        return float(np.linalg.norm(p - t) / den) if den > 0 else float("nan")
+    if aggregate != "steps":
+        raise ValueError(f"aggregate must be 'steps' or 'trajectory', got {aggregate!r}")
+    d = p.reshape(len(p), -1) - t.reshape(len(t), -1)
+    num, den = np.linalg.norm(d, axis=1), np.linalg.norm(t.reshape(len(t), -1), axis=1)
+    ok = den > 0
+    return float(np.mean(num[ok] / den[ok])) if ok.any() else float("nan")

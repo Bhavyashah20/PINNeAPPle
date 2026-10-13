@@ -14,6 +14,15 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Helpers the experiment repositories used to copy: `pinneapple_analysis.uncertainty.resampling` (`block_bootstrap`,
+  moving-block bootstrap after Kunsch 1989; `group_bootstrap`; `skill_score` = 1 - E|model|/E|ref| with a paired
+  block, group or iid interval; blocked `jackknife`), `CalibrationSummary.from_predictions` and
+  `score_against_reference` (benchmark registration, `PhysicsCase` comparison, calibration and
+  `compute_physics_confidence` for several models in one call) in
+  `pinneapple_analysis.verification.physics_confidence_score`, `pinneapple_neural.architectures.rom.DMDc` (DMD with
+  control, Proctor, Brunton & Kutz 2016), `pinneapple_physics.metrics.rollout_relative_l2`,
+  `pinneapple_data.datasets.download.fetch_cached` (URL cache with retries and exponential backoff) and
+  `openradioss.read_energy_error` (energy-balance error from the engine log).
 - `scripts/check_app_helpers.py` (run in CI by `tests/test_app_helpers.py`): flags new local helper modules and new
   copies of library helpers in `apps/` and `examples/`, against a baseline that can only shrink. The rule
   ("reusable logic goes in the library; apps and examples only compose library calls") is in `AGENTS.md` and

@@ -34,6 +34,11 @@ Calibration utilities
 ``CalibrationMetrics``
     Static methods for ECE, coverage, sharpness, and Gaussian NLL.
 
+Resampling
+----------
+``block_bootstrap`` / ``group_bootstrap`` / ``skill_score`` / ``jackknife``
+    Confidence intervals for autocorrelated or grouped errors (NumPy only).
+
 Unified interface
 -----------------
 ``uq_predict(model, x, method=...) -> UQResult``
@@ -64,6 +69,7 @@ from pinneapple_analysis.uncertainty.calibration import CalibrationMetrics
 from pinneapple_analysis.uncertainty.aleatoric import AleatoricHead, aleatoric_nll_loss
 from pinneapple_analysis.uncertainty.decomposition import decompose_uncertainty
 from pinneapple_analysis.uncertainty.quantile import QuantileConfig, QuantileHead, QuantileLoss, pinball_loss_torch
+from pinneapple_analysis.uncertainty.resampling import block_bootstrap, group_bootstrap, jackknife, skill_score
 
 __all__ = [
     # Core types and unified interface
@@ -90,4 +96,9 @@ __all__ = [
     "QuantileHead",
     "QuantileLoss",
     "pinball_loss_torch",
+    # Resampling confidence intervals (dependent data)
+    "block_bootstrap",
+    "group_bootstrap",
+    "skill_score",
+    "jackknife",
 ]
