@@ -10,17 +10,19 @@ tags:
   - uncertainty quantification
 authors:
   - name: Yan Barros
-    orcid: 0000-0000-0000-0000 # TODO: replace with the real ORCID
+    orcid: 0009-0001-8507-8602
     corresponding: true
     affiliation: 1
   - name: Enrico Schiassi
-    orcid: 0000-0000-0000-0000 # TODO: replace with the real ORCID
-    affiliation: 2
+    orcid: 0000-0002-7882-5913
+    affiliation: "2, 3"
 affiliations:
-  - name: TODO, Country # TODO: affiliation of Yan Barros
+  - name: PINNeAPPle Labs, Brazil
     index: 1
-  - name: TODO, Country # TODO: affiliation of Enrico Schiassi
+  - name: University of Arizona, Tucson, AZ, United States
     index: 2
+  - name: University of Bologna, Bologna, Italy
+    index: 3
 date: 13 October 2026
 bibliography: paper.bib
 ---
@@ -164,25 +166,34 @@ data, and checking finite-element and OpenFOAM results against analytical
 solutions, engineering correlations and CalculiX. The repository has received issues and pull
 requests from contributors outside the author team.
 
-<!-- TODO (authors): add publications, preprints or external research groups
-that use PINNeAPPle. JOSS requires evidence of research use at submission. -->
+Beyond the Lab, PINNeAPPle is the basis of the PINNeAPPle-Benchmark repository
+(<https://github.com/PINNeAPPle-Labs/PINNeAPPle-Benchmark>), where each research
+experiment ships its code, results and a technical report generated from them:
+a physics-informed digital twin with parameter identification and anomaly
+detection; a crash surrogate for a bumper beam trained on an OpenRadioss
+design of experiments, reproducing and then improving a Transolver baseline;
+constraint-aware terramechanics surrogates; a heated-channel digital twin
+comparing FNO, DeepONet and POD surrogates with ensemble Kalman filtering;
+a reproduction and improvement of a published pedestrian dead-reckoning
+thesis; and a supersonic shock train in a duct. As of October 2026 the
+repository has external contributors and 17 forks.
 
 # AI usage disclosure
 
-<!-- TODO (authors): JOSS requires this section. State which generative AI
-tools and versions were used, where (code, documentation, paper text), the
-nature and scope of the assistance, and confirm that the human authors
-reviewed, edited and validated all assisted output and made the core design
-decisions. If no such tools were used, state this explicitly. -->
-
-TODO: to be completed by the authors.
+Generative AI tools were used in the development of PINNeAPPle. Claude Code (Anthropic), an
+agentic coding assistant running Claude models (Opus family), and ChatGPT (OpenAI) were used to write and refactor
+source code, tests, examples and documentation, to run and analyse simulations and benchmark
+experiments, and to draft parts of this paper. The human authors defined the scope, the
+architecture and the scientific choices of the library, reviewed and edited the assisted
+output, and validated the numerical methods against analytical solutions, independent
+implementations and reference data, as described in the repository's tests and experiments.
+The authors take full responsibility for the content of the software and of this paper.
 
 # Acknowledgements
 
 We thank everyone who has contributed code, issues and reviews to PINNeAPPle.
 
-<!-- TODO (authors): acknowledge all sources of financial support and state
-whether the sponsors had any involvement in the work, or state that the work
-received no specific funding. -->
+This work received no specific grant from any funding agency in the public,
+commercial or not-for-profit sectors.
 
 # References
