@@ -16,9 +16,11 @@ import pinneapple as pp  # noqa: E402
 from pinneapple_hub import zoo  # noqa: E402
 from pinneapple_hub.zoo import _artifacts as art  # noqa: E402
 
-MODELS = ["airfoil_cst_rans_mlp", "heatsink_forced_mlp", "rover_contact_grc1_viper"]
-DATASETS = ["airfoil_rans_cst_re4e6", "heatsink_forced_convection", "heatsink_natural_convection",
-            "rover_contact_grc1_viper", "single_wheel_tests"]
+MODELS = ["airfoil_cst_rans_mlp", "heatsink_forced_mlp", "heatsink_natural_mlp", "rover_contact_grc1_viper"]
+BUNDLED_DATASETS = ["airfoil_rans_cst_re4e6", "heatsink_forced_convection", "heatsink_natural_convection",
+                    "rover_contact_grc1_viper", "single_wheel_tests"]
+HUB_ONLY_DATASETS: list[str] = []                    # downloaded on first use, never bundled
+DATASETS = BUNDLED_DATASETS + HUB_ONLY_DATASETS
 
 
 @pytest.fixture
@@ -33,7 +35,7 @@ def isolated_cache(tmp_path, monkeypatch):
 def test_lazy_shortcuts_and_listing():
     assert pp.zoo is zoo and pp.datasets is zoo.datasets
     assert zoo.list() == MODELS
-    assert pp.datasets.list() == DATASETS
+    assert pp.datasets.list() == sorted(DATASETS)
     assert zoo.list(task="terramechanics") == ["rover_contact_grc1_viper"]
 
 
@@ -43,6 +45,10 @@ def test_manifest_is_small_hashed_and_versioned():
         for name, e in man[kind].items():
             assert e["hf_repo"].startswith("PINNeAPPle-Labs/") and e["revision"] == f"v{e['version']}"
             for fn, spec in e["files"].items():
+                assert len(spec["sha256"]) == 64 and spec["size"] > 0, (name, fn)
+                if name in HUB_ONLY_DATASETS:                          # downloaded on first use, never bundled
+                    assert "bundled" not in spec, (name, fn)
+                    continue
                 p = art.ASSETS / spec["bundled"]
                 assert p.stat().st_size == spec["size"] < 2_000_000, (name, fn)
                 assert art.sha256_file(p) == spec["sha256"], (name, fn)
@@ -60,7 +66,7 @@ def test_model_card_is_complete(name):
     assert "Validity range" in md and "Inputs" in md and "Training data" in md
 
 
-@pytest.mark.parametrize("name", DATASETS)
+@pytest.mark.parametrize("name", BUNDLED_DATASETS)
 def test_dataset_schema_and_splits(name):
     info = pp.datasets.info(name)
     splits = pp.datasets.load(name)
@@ -240,6 +246,53 @@ def test_not_yet_published_gives_a_clear_message(monkeypatch, isolated_cache):
         pp.datasets.load("single_wheel_tests", split="all")
 
 
+def test_hub_only_sharded_dataset_downloads_only_the_split(tmp_path, monkeypatch, isolated_cache):
+    """A Hub-only dataset stored as <split>.npz / <split>-NN.npz: loading a split fetches only its files, shards are
+    concatenated in order, and every file is checked against the manifest."""
+    hub = pytest.importorskip("huggingface_hub")
+    served = tmp_path / "hub"
+    rows = {"train": [np.arange(0, 3), np.arange(3, 5)], "test": [np.arange(5, 7)]}
+    files = {}
+    for split, parts in rows.items():
+        for j, r in enumerate(parts):
+            fn = f"{split}-{j:02d}.npz" if len(parts) > 1 else f"{split}.npz"
+            served.mkdir(exist_ok=True)
+            np.savez(served / fn, **{f"{split}__index": r, f"{split}__u": np.ones((len(r), 4, 4)) * r[:, None, None]})
+            files[fn] = {"sha256": art.sha256_file(served / fn), "size": (served / fn).stat().st_size}
+    man = json.loads(art.MANIFEST.read_text())
+    man["datasets"]["toy_sharded"] = {
+        "version": "1.0.0", "revision": "v1.0.0", "hf_repo": "PINNeAPPle-Labs/toy-sharded", "repo_type": "dataset",
+        "title": "toy", "description": "toy", "license": "cc-by-4.0", "source": "test", "verification": "test",
+        "citation": "", "tags": [], "splits": {"train": {"n": 5, "description": ""}, "test": {"n": 2, "description": ""}},
+        "columns": {"index": {"unit": "-", "description": "row", "dtype": "int64"},
+                    "u": {"unit": "-", "description": "field", "dtype": "float64[4, 4]"}},
+        "files": files}
+    mpath = tmp_path / "manifest.json"
+    mpath.write_text(json.dumps(man))
+    monkeypatch.setattr(art, "MANIFEST", mpath)
+    calls = []
+
+    def fake(repo_id, filename, *, revision, repo_type, local_dir):
+        calls.append(filename)
+        out = Path(local_dir) / filename
+        out.write_bytes((served / filename).read_bytes())
+        return str(out)
+
+    monkeypatch.setattr(hub, "hf_hub_download", fake)
+    test = pp.datasets.load("toy_sharded", split="test")
+    assert calls == ["test.npz"] and list(test["index"]) == [5, 6]
+    train = pp.datasets.load("toy_sharded", split="train")
+    assert calls[1:] == ["train-00.npz", "train-01.npz"] and list(train["index"]) == [0, 1, 2, 3, 4]
+    assert train["u"].shape == (5, 4, 4) and train["u"][4, 0, 0] == 4
+    assert pp.datasets.status("toy_sharded") == dict.fromkeys(files, "cached")
+    with pytest.raises(KeyError, match="no split"):
+        pp.datasets.load("toy_sharded", split="val")
+    (served / "test.npz").write_bytes((served / "train-01.npz").read_bytes())    # tampered upload
+    shutil.rmtree(isolated_cache)
+    with pytest.raises(zoo.ChecksumMismatchError):
+        pp.datasets.load("toy_sharded", split="test")
+
+
 # ------------------------------------------------------------------ fine-tuning guard
 def test_finetune_guard_refuses_a_worse_model(tmp_path):
     d = pp.datasets.load("rover_contact_grc1_viper", split="test")
@@ -303,6 +356,38 @@ def test_publish_script_dry_run_and_no_token(monkeypatch, capsys):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     assert mod.main(["--dry-run"]) == 0
+    out = capsys.readouterr().out
+    for name in HUB_ONLY_DATASETS:                                  # no staging directory: skipped, not an error
+        assert f"skip dataset {name}" in out
     monkeypatch.delenv("HF_TOKEN", raising=False)
     assert mod.main([]) == 0
     assert "HF_TOKEN is not set" in capsys.readouterr().out
+    items = {it["name"]: it for it in mod.plan()}
+    assert "10.5281/zenodo.23343062" in items["single_wheel_tests"]["readme"]
+
+
+def test_publish_script_uses_the_staging_directory(tmp_path, monkeypatch, capsys):
+    """A Hub-only item is uploaded only from the staging directory, whose files must match the manifest."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("publish_to_hub", Path(__file__).resolve().parents[1] /
+                                                  "scripts/zoo/publish_to_hub.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    staged = tmp_path / "staging" / "toy_hub_only"
+    staged.mkdir(parents=True)
+    np.savez(staged / "test.npz", test__x=np.arange(3))
+    man = json.loads(art.MANIFEST.read_text())
+    man["datasets"]["toy_hub_only"] = {
+        **man["datasets"]["single_wheel_tests"], "hf_repo": "PINNeAPPle-Labs/toy-hub-only",
+        "splits": {"test": {"n": 3, "description": ""}}, "columns": {},
+        "files": {"test.npz": {"sha256": art.sha256_file(staged / "test.npz"), "size": 1}}}
+    mpath = tmp_path / "manifest.json"
+    mpath.write_text(json.dumps(man))
+    monkeypatch.setattr(art, "MANIFEST", mpath)
+    assert "toy_hub_only" not in {it["name"] for it in mod.plan()}            # no staging: skipped
+    assert "skip dataset toy_hub_only" in capsys.readouterr().out
+    items = {it["name"]: it for it in mod.plan(tmp_path / "staging")}
+    assert items["toy_hub_only"]["hub_only"] and items["toy_hub_only"]["files"]["test.npz"] == staged / "test.npz"
+    (staged / "test.npz").write_bytes(b"not the data")
+    with pytest.raises(SystemExit, match="SHA-256"):                # a staged file must match the manifest
+        mod.plan(tmp_path / "staging")

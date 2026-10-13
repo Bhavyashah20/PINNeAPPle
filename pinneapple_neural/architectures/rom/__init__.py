@@ -1,6 +1,6 @@
 from .base import ROMBase, ROMOutput
 from .pod import POD
-from .dmd import DynamicModeDecomposition
+from .dmd import DMDc, DynamicModeDecomposition
 from .havok import HAVOK
 from .opinf import OperatorInference
 from .rom_hybrid import ROMHybrid
@@ -17,6 +17,7 @@ __all__ = [
     "ROMOutput",
     "POD",
     "DynamicModeDecomposition",
+    "DMDc",
     "HAVOK",
     "OperatorInference",
     "ROMHybrid",

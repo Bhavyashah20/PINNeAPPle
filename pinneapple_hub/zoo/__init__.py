@@ -39,10 +39,19 @@ from ._artifacts import (
     ZooError,
     cache_dir,
 )
-from ._models import OutOfRangeWarning, ZooModel, copy_model, fit, load_dir, load_model
+from ._models import (
+    OutOfRangeWarning,
+    SupersededModelWarning,
+    ZooModel,
+    copy_model,
+    fit,
+    load_dir,
+    load_model,
+)
 
-__all__ = ["list", "info", "load", "predict", "evaluate", "validate", "benchmark", "finetune", "status",
+__all__ = ["list", "info", "load", "versions", "predict", "evaluate", "validate", "benchmark", "finetune", "status",
            "load_dir", "datasets", "ZooModel", "FinetuneResult", "FinetuneRejectedError", "OutOfRangeWarning",
+           "SupersededModelWarning",
            "ZooError", "ArtifactNotPublishedError", "ArtifactUnavailableError", "ChecksumMismatchError", "cache_dir"]
 
 
@@ -68,15 +77,21 @@ def list(task: str | None = None) -> builtins.list:  # noqa: A001 - the public n
     return names
 
 
-def info(name: str, *, offline: bool | None = None) -> ModelCard:
+def info(name: str, *, offline: bool | None = None, version: str | None = None) -> ModelCard:
     """The model card (``ModelCard``): task, inputs/outputs with units, validity range, metrics against the
     reference, training data, licence, citation and the stored trust report. ``print(card.to_markdown())``."""
-    return ModelCard.load(str(art.fetch("models", name, "model_card.json", offline=offline)))
+    return ModelCard.load(str(art.fetch("models", name, "model_card.json", offline=offline, version=version)))
 
 
-def load(name: str, *, offline: bool | None = None) -> ZooModel:
-    """A ready-to-use predictor (weights verified against the manifest's SHA-256)."""
-    return load_model(name, offline=offline)
+def load(name: str, *, offline: bool | None = None, version: str | None = None) -> ZooModel:
+    """A ready-to-use predictor (weights verified against the manifest's SHA-256). ``version`` loads a superseded
+    release (see :func:`versions`; a ``SupersededModelWarning`` says why it was superseded)."""
+    return load_model(name, offline=offline, version=version)
+
+
+def versions(name: str) -> builtins.list[dict[str, str]]:
+    """Every release of a model, newest first, with the reason each older one was superseded."""
+    return art.versions("models", name)
 
 
 def predict(name: ModelRef, inputs=None, **named) -> dict[str, np.ndarray]:
