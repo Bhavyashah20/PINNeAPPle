@@ -14,6 +14,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- `scripts/check_app_helpers.py` (run in CI by `tests/test_app_helpers.py`): flags new local helper modules and new
+  copies of library helpers in `apps/` and `examples/`, against a baseline that can only shrink. The rule
+  ("reusable logic goes in the library; apps and examples only compose library calls") is in `AGENTS.md` and
+  `CONTRIBUTING.md`; the inventory of what is being moved is `docs/dev/LIBRARY_CONSOLIDATION.md`.
 - Model zoo: `heatsink_natural_mlp`, the natural-convection plate-fin heat-sink surrogate. It is trained with
   monotonicity constraints so that a more conductive material or a wider heat source never raises the resistance.
   Error against 750 held-out physics-engine designs: R 0.47 % mean, 1.5 % p95. The 95 % conformal bound covers
