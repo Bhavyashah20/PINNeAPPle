@@ -39,11 +39,12 @@ every `pp.zoo.validate()`.
 |---|---|---|---|---|---|
 | `airfoil_cst_rans_mlp` v1.0.0 | Cl, Cd, Cm of a 6-weight CST airfoil from the angle of attack (2-D steady RANS, k-ω SST, Re 4e6). Ensemble of 5 MLPs; the spread is the uncertainty. | **15 held-out shapes (60 OpenFOAM runs):** Cl MAE 0.0028, Cd MAPE 0.54 % (p90 1.0 %), Cm MAE 0.00045. **36 NACA runs never trained on:** Cl MAE 0.0032, Cd MAPE 0.62 %. **XFOIL 6.99 tripped polar, NACA 2412 (independent solver):** Cl MAE 0.010, Cd MAPE 2.8 %. | CST bounds T0 0.10–0.24, T1/T2 0.08–0.22, M0 −0.03–0.08, M1 −0.02–0.14, M2 −0.04–0.12; α −2…14°; Re 4e6; incompressible; no deep stall | 0.41 MB | Apache-2.0 |
 | `heatsink_forced_mlp` v1.0.0 | Plate-fin heat sink in ducted forced air. Outputs: base-to-air thermal resistance, pressure drop, and a conformal 95 % upper bound. | **900 held-out designs of the physics engine:** R mean 0.71 %, p95 2.1 %, max 5.9 %; ΔP mean 1.0 %, p95 2.7 %; 95 % bound coverage 95.8 %. The engine itself agrees with independent correlations to 0–5 %, with FVM grid convergence < 2 %. | W, D 30–200 mm; base 2–15 mm; fin 0.6–4 mm; H 8–80 mm; realised gap 0.6–12 mm; k 150–400 W/(m K); source 15–100 % of the base; T_amb 0–50 °C; V 0.5–6 m/s; Q 10–400 W | 0.21 MB | Apache-2.0 |
+| `heatsink_natural_mlp` v1.0.0 | Plate-fin heat sink in natural convection (free air, vertical fins). Outputs: thermal resistance and a conformal 95 % upper bound. Same architecture as the app's surrogate, trained with a monotonicity hinge penalty (d log R / d log k and d log R / d log source width ≤ −5e-4) on the training designs and on random in-range designs. | **750 held-out designs of the physics engine:** R mean 0.47 %, p95 1.5 %, max 4.4 %; 95 % bound coverage 97.1 %. The engine agrees with Elenbaas to 2 %, with FVM grid convergence < 2 %. | W, D 30–200 mm; base 2–15 mm; fin 0.6–4 mm; H 8–80 mm; realised gap 2.2–30.6 mm; k 150–400 W/(m K); source 15–100 % of the base; T_amb 0–50 °C; Q 1–80 W | 0.21 MB | Apache-2.0 |
 | `rover_contact_grc1_viper` v1.0.0 | Wheel–soil contact (Wong–Reece) for the NASA VIPER wheel on GRC-1 lunar simulant. Inputs: slip and sinkage. Outputs: drawbar pull Fx, normal load Fz, torque My. A PINN with four soft physics constraints. | **2000 held-out LHS states of the analytic Wong–Reece model:** Fx RMSE 0.21 N (max 1.1 N; range 1.63 kN), Fz 0.16 N (max 0.66 N; range 1.40 kN), My 0.055 N·m (max 0.24 N·m; range 465 N·m); R² > 0.99999. Retrained here (16000 epochs, 5 min CPU); the example's 4000-epoch recipe gave 0.85 / 0.51 / 0.23. | slip −0.4…0.9; sinkage 2–60 mm; GRC-1; VIPER wheel; zero slip angle | 0.33 MB | Apache-2.0 |
 
 ### Trust-report physics checks
 
-All three models pass every check (decision `APPROVED`, score 1.0).
+All four models pass every check (decision `APPROVED`, score 1.0).
 
 - **`airfoil_cst_rans_mlp`**
   - Lift-curve slope within 15 % of thin-airfoil 2π/rad on the held-out shapes; the worst deviation is 4.9 %.
@@ -55,6 +56,12 @@ All three models pass every check (decision `APPROVED`, score 1.0).
     designs violating each is 0 %, 0.35 % and 0.23 % (limit 1 %).
   - Pressure drop rises with velocity (0 % violating).
   - R > 0 and ΔP > 0.
+- **`heatsink_natural_mlp`**
+  - A more conductive material, a wider source or more power never raises the resistance. The share of held-out
+    designs violating each is 0 %, 0 % and 0 % (limit 1 %).
+  - The power law is checked but not enforced in training, because the engine's own resistance rises with power on
+    0.5 % of designs (up to +0.7 % for a +5 % step).
+  - R > 0.
 - **`rover_contact_grc1_viper`**
   - On a 66×59 grid over the whole box there are no violations of:
     - dFz/dz ≥ 0;
@@ -101,9 +108,9 @@ and its SHA-256 is recorded in `pinneapple_hub/zoo/manifest.json`.
 | `rover_contact_grc1_viper` | Wong–Reece forces over slip × sinkage | train 3600 (40×40 grid plus 2000 LHS), test 2000 (disjoint LHS) | Analytic model, quadrature-converged (3e-8) | 0.19 MB | CC-BY-4.0 |
 | `single_wheel_tests` | Published single-wheel testbed points: drawbar pull, sinkage and torque vs slip (Ding 2011, Wang & Han 2016, Hurrell 2025) | all 27 | Public experimental data, digitised from the papers' figures by RoverDevKit (MIT; status "digitised_approx"). For validation only. | 0.003 MB | MIT |
 
-Everything that ships is small, 2.48 MB in total. It is bundled in the package, so the zoo works offline and in CI.
-It is also mirrored to the Hugging Face Hub (`PINNeAPPle-Labs/<name>`, tag `v<version>`) by the "Publish zoo to the
-Hugging Face Hub" workflow. Larger artefacts added later can be Hub-only: same manifest, no `bundled` entry, lazy
+The bundled items are small, 2.70 MB in total. They are bundled in the package, so the zoo works offline and in CI.
+They are also mirrored to the Hugging Face Hub (`PINNeAPPle-Labs/<name>`, tag `v<version>`) by the "Publish zoo to the
+Hugging Face Hub" workflow. Larger items are Hub-only: same manifest, no `bundled` entry, lazy
 download.
 
 ## Candidates not shipped, and why
@@ -113,7 +120,7 @@ download.
 | Candidate | Where | Verdict and reason |
 |---|---|---|
 | Airfoil MeshGraphNet (fields + coefficients) | `apps/aero_optimizer/model/surrogate.pt` (`gnn_state`) | **Not shipped.** Its field error cannot be reproduced: the per-run field npz used for training and testing are not in git, and the 436 OpenFOAM runs take about 7 h to regenerate. On coefficients it is 3–4× worse than the MLP (Cl MAE 0.0106, Cd MAPE 1.5 %). Candidate for v2 once the fields are regenerated and published as a dataset. |
-| Heat-sink natural-convection surrogate | `apps/heatsink_sizer/artifacts/surrogate_natural.pt` | **Not shipped.** Its own trust report's verdict is `use_with_caution`: the conductivity monotonicity has the right sign in only 94.9 % of held-out designs (strict). Under the zoo gate (≤ 1 % violations) that fails a physics check. Its accuracy is fine (mean 0.72 %). The dataset ships. |
+| Heat-sink natural-convection surrogate, unconstrained | `apps/heatsink_sizer/artifacts/surrogate_natural.pt` | **Not shipped; replaced by `heatsink_natural_mlp`.** Its own trust report's verdict is `use_with_caution`: the conductivity monotonicity has the right sign in only 94.9 % of held-out designs (strict). Under the zoo gate (≤ 1 % violations) that fails a physics check. The cause is that raising k by 5 % lowers the engine's resistance by only 0.13 % (median), below the fit error. The engine itself is monotone in k and in source width on all 400 designs probed. |
 | Black-hole accretion residual U-Net | `examples/black_hole_weather/checkpoints/*.pt` (27 MB) | **Not shipped.** The reference is the in-house 2.5-D hydro simulation at about half the resolution of the paper being ported. There is no convergence study, and the 1.5 h of training data is not committed. The faithful port does not beat persistence (README). |
 | ERA5 weather model, phase 1 | `examples/weather_forecasting/checkpoints/phase1_step15000_fp16.pt` (40 MB) | **Not shipped.** Its README calls it unfinished ("half way", rollout phases not run). z500 RMSE is 397 m at day 3, against 104–125 m for IFS / Pangu / NeuralGCM. |
 | Burgers PINN | `data/artifacts/examples/burgers_pinn/burgers_pinn.pt` | **Not shipped.** A toy model: rel. L2 is 0.060 against the exact solution with a max error of 0.22 (a 6 % error is not "good"), and it was saved from an `mps` device. |
@@ -151,6 +158,8 @@ Everything excluded for client provenance has been left out of this document on 
 2. Add it to `pinneapple_hub/zoo/_catalog.py` (card or dataset description, acceptance limits, guard metrics) and,
    for a model, an adapter in `_models.py` (predict, metrics, physics checks, fine-tuning hooks).
 3. Run `python scripts/zoo/build_assets.py --rover DIR`. This regenerates the assets, cards (with metrics and trust
-   report) and the manifest; the build is deterministic.
+   report) and the manifest; the build is deterministic. To add one item without touching the published ones, use
+   `--only NAME` (with the training directory of a model trained by its own script, e.g. `--heatsink-natural DIR`)
+   or `--hub-only STAGING_DIR` (Hub-only datasets).
 4. Run `pytest tests/test_model_zoo.py`.
 5. After the merge, the publish workflow uploads to the Hub.
