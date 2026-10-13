@@ -55,7 +55,7 @@ through a web search. The search returned text excerpts, but the PDFs, figures a
 
 | Quantity | Value used | Source |
 |---|---|---|
-| Envelope (L × W × H) | 1.7 × 1.7 × 2.5 m (model: 1.63 × 1.65 × 2.50 m) | Bluethmann (2024), *VIPER Rover Overview and Mobility and Hardware*, LSIC, NTRS 20240013903 |
+| Envelope (L × W × H) | 1.7 × 1.7 × 2.5 m (model: 1.69 × 1.54 × 2.50 m) | Bluethmann (2024), *VIPER Rover Overview and Mobility and Hardware*, LSIC, NTRS 20240013903 |
 | Mass | 450 kg (447 kg roving in LSIC 2024) | Francis & Sobey (2025), *Design and Test of the VIPER Mobility Actuators*, NTRS 20250000568 |
 | Wheels | 4, 0.50 m diameter, 0.20 m wide, rigid sheet metal with spokes and rim grousers | Fong, VIPER briefings, NTRS 20220000441 and 20250004148 |
 | Grousers | 24, 0.025 m tall | Hu et al. (2025), J. Field Robotics, doi:10.1002/rob.22597 (arXiv:2405.11001); 2.5 cm also in LSIC 2024 |
@@ -102,8 +102,8 @@ All of this lives in `pinneapple_simulation.vehicle.viper.VIPER_SOURCES`. The CA
 - `export(".glb")` writes glTF with PBR materials (new studio materials: white paint, anodised black, wheel metal,
   solar cells, radiator, gold and silver MLI, lens, LED, regolith, rock).
 
-Computed for the model: total mass 450.0 kg, centre of mass 0.859 m above the ground at nominal ride height, and
-principal inertias about it 169 / 169 / 173 (roll / pitch / yaw) kg m² (glTF: [viper.glb](../assets/lunar_rover/viper.glb)).
+Computed for the model: total mass 450.0 kg, centre of mass 0.871 m above the ground at nominal ride height, and
+inertias about it 162 / 177 / 172 (roll / pitch / yaw) kg m² (glTF: [viper.glb](../assets/lunar_rover/viper.glb)).
 
 ## Wheel-soil model
 
@@ -193,8 +193,8 @@ them and checks that the fit does not change). Errors on the **held-out points o
 
 | Test | Fitted n0, n1, K | Sinkage RMSE before → after | Drawbar pull RMSE / load before → after |
 |---|---|---|---|
-| ding2011 smooth | 0.92, 0.64, 16 mm | 4.9 → 0.5 mm | 0.116 → 0.101 |
-| ding2011 grousered | 0.89, 0.83, 10 mm | 10.2 → 3.1 mm | 0.061 → 0.067 |
+| ding2011 smooth | 0.91, 0.65, 16 mm | 4.9 → 0.5 mm | 0.116 → 0.101 |
+| ding2011 grousered | 0.88, 0.84, 10 mm | 10.2 → 3.1 mm | 0.061 → 0.067 |
 | wanghan2016 smooth | 0.53, 0.82, 50 mm (bound) | 15.7 → 1.3 mm | 0.232 → 0.045 |
 | wanghan2016 grousered | 0.63, 0.94, 31 mm | 13.9 → 0.4 mm | 0.109 → 0.117 |
 | hurrell2025 grousered | 0.77, 0.74, 25 mm | 3.3 → 0.8 mm | 0.092 → 0.139 |
@@ -260,22 +260,22 @@ That is 18 degrees of freedom, with the bodies' masses and inertias taken from t
 
 | Grade [°] | Slip | Speed [m/s] | Sinkage [mm] | Drive torque per wheel [N m] | End heading [°] |
 |---|---|---|---|---|---|
-| 0.0 | -0.008 | 0.101 | 13.9 | 4.7 (peak 10.5) | -0.0 |
-| 5.0 | 0.010 | 0.100 | 13.2 | 9.2 (peak 18.2) | 0.0 |
-| 10.0 | 0.046 | 0.095 | 12.7 | 13.7 (peak 27.8) | -0.0 |
-| 12.5 | 0.077 | 0.091 | 12.5 | 16.0 (peak 32.4) | -0.0 |
-| 15.0 | 0.121 | 0.086 | 12.3 | 18.3 (peak 37.0) | -0.0 |
-| 17.5 | 0.178 | 0.079 | 12.1 | 20.7 (peak 48.1) | -0.0 |
-| 20.0 | 0.266 | 0.070 | 11.7 | 23.1 (peak 50.5) | -0.0 |
+| 0.0 | -0.007 | 0.101 | 14.8 | 4.8 (peak 10.1) | 0.0 |
+| 5.0 | 0.001 | 0.100 | 15.2 | 9.3 (peak 19.0) | 0.0 |
+| 10.0 | 0.020 | 0.098 | 16.0 | 14.0 (peak 28.3) | 0.0 |
+| 12.5 | 0.031 | 0.096 | 16.5 | 16.3 (peak 35.3) | -0.0 |
+| 15.0 | 0.054 | 0.093 | 17.2 | 18.8 (peak 39.1) | -0.0 |
+| 17.5 | 0.080 | 0.090 | 18.2 | 21.9 (peak 47.9) | 0.0 |
+| 20.0 | 0.125 | 0.085 | 20.0 | 25.0 (peak 54.4) | -0.0 |
 
-On level ground the mean slip is -0.008: the rear wheels, running in the front wheels' ruts, carry slightly more traction and push. The slip grows with grade, to 0.12 at 15° and 0.27 at 20°, and the vehicle holds its heading on every grade. **This is more optimistic than NASA's published figures.** LSIC 2024 lists 15° slopes as a design requirement, and a limit of 40 % slip on 15° is quoted for VIPER in the literature (secondary source). Pavlov et al. (NTRS 20220005373) give about 18° as the safe limit with a 50 % slip cap, and Hu et al. (2025) extrapolate about 85 % slip at 30° for the full-scale rover. Likely reasons:
+On level ground the mean slip is -0.007: the rear wheels, running in the front wheels' ruts, carry slightly more traction and push. The slip grows with grade, to 0.05 at 15° and 0.13 at 20°, the sinkage with it (slip-sinkage), and the vehicle holds its heading on every grade. **The averaging window straddles a change of regime:** the rear wheels drive on virgin soil until they reach the start of the front wheels' ruts, one wheelbase (≈ 1 m, ≈ 11 s) after the start; there the slip is ≈ 0.17 on 15° and ≈ 0.26 on 20° (all four wheels). In the ruts the shear carried over from the front wheels lets the rear wheels push and the slip of all four falls to ≈ 0. A longer run would report the in-rut value. **This is more optimistic than NASA's published figures.** LSIC 2024 lists 15° slopes as a design requirement, and a limit of 40 % slip on 15° is quoted for VIPER in the literature (secondary source). Pavlov et al. (NTRS 20220005373) give about 18° as the safe limit with a 50 % slip cap, and Hu et al. (2025) extrapolate about 85 % slip at 30° for the full-scale rover. Likely reasons:
 - the GRC-1 parameters are secondary and describe a dense, firm state (φ = 38°, n = 0.8);
 - the shear carried over between wheels in one rut (Wong's multi-pass treatment) helps the rear wheels, and its size is not calibrated for lunar simulants (`VehicleSimulator(multipass_shear=False)` turns it off);
 - slip-sinkage on GRC-1 uses an estimated n1 (0.8), not a measured one.
 
 Treat these grades as model results, not as predictions of VIPER's performance.
 
-**Cross slope 10°** at 0.1 m/s (heading hold): slip angles -3.6 / -3.4 / -5.4 / -5.4° and lateral forces 29 / 42 / 24 / 34 N per wheel
+**Cross slope 10°** at 0.1 m/s (heading hold): slip angles -3.2 / -3.0 / -5.7 / -5.6° and lateral forces 32 / 45 / 20 / 30 N per wheel
 (FL, FR, RL, RR). The steering crabs into the slope to hold the heading.
 
 ![Cross slope, per wheel](../assets/lunar_rover/crossslope_series.png)
@@ -285,11 +285,13 @@ holds for fresh craters), and a 12 cm rock sits under the left wheels:
 
 | Distance | Mean slip | Max sinkage | Energy | Max pitch | Max roll | Max rock force | Max drive torque |
 |---|---|---|---|---|---|---|---|
-| 8.61 m | 0.019 | 22.0 mm | 761 J (88.3 J/m) | 10.5° | 3.8° | 532 N | 31.9 N m |
+| 8.63 m | 0.018 | 36.6 mm | 794 J (92.0 J/m) | 10.5° | 3.8° | 490 N | 31.4 N m |
 
 What the run shows:
 - the left front wheel climbs the rock, leaves the soil and spins up (slip 1);
 - the wheel loads swing between 0 and about 300 N;
+- the rear-left wheel, pushed against the rock with the front-left wheel lifted, slips up to ≈ 0.3 and digs to
+  37 mm (slip-sinkage), the deepest point of the run; elsewhere the sinkage stays at 11-20 mm;
 - the chassis pitches down into the bowl and back up;
 - the arms move to keep all four wheels loaded;
 - slip rises on the climb out.
@@ -310,11 +312,11 @@ four hold. The error is measured on 2000 held-out Latin-hypercube points that we
 
 | Output | Held-out RMSE | Max error | RMSE / range | R² |
 |---|---|---|---|---|
-| Fx [N] | 0.852 | 5.714 | 0.052 % | 0.999993 |
-| Fz [N] | 0.512 | 2.565 | 0.037 % | 0.999998 |
-| My [N m] | 0.233 | 1.572 | 0.050 % | 0.999994 |
+| Fx [N] | 0.916 | 5.340 | 0.066 % | 0.999985 |
+| Fz [N] | 1.473 | 13.873 | 0.108 % | 0.999982 |
+| My [N m] | 0.196 | 1.110 | 0.052 % | 0.999989 |
 
-Along the crater run, at the (slip, sinkage) states the wheels actually met (same inputs to both): drawbar pull RMSE 0.81 N, load 0.32 N, torque 0.23 N m, with 0.0 % of the states outside the training box (they are left out of these errors).
+Along the crater run, at the (slip, sinkage) states the wheels actually met (same inputs to both): drawbar pull RMSE 0.79 N, load 2.83 N, torque 0.28 N m, with 0.2 % of the states outside the training box (they are left out of these errors).
 `sur.save(stem)` writes TorchScript + JSON in the format `rover.SurrogateContact.from_torchscript` reads.
 
 ![PINN vs Wong-Reece](../assets/lunar_rover/surrogate.png)

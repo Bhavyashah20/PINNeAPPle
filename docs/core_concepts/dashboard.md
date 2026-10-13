@@ -123,10 +123,11 @@ Around it:
 - `rover-frame.png`, one rendered frame.
 
 The run behind it is the crater crossing of the [lunar rover page](lunar_rover_terramechanics.md): NASA VIPER
-(450 kg) on GRC-1 at lunar gravity, a 0.2 m/s command, 45 s, 2 ms steps. The rover covers 8.61 m with a mean slip of
-0.019 and a maximum sinkage of 22 mm, uses 761 J (88 J/m), and reaches 10.5° of pitch and 3.8° of roll; the
-front-left wheel leaves the soil for a moment near 1.3 m (its sinkage and load drop to zero). The
-PINN surrogate's held-out RMSE is about 0.05 % of each output's range; along the run it stays within about 2 N of
+(450 kg) on GRC-1 at lunar gravity, a 0.2 m/s command, 45 s, 2 ms steps. The rover covers 8.63 m with a mean slip of
+0.018 and a maximum sinkage of 36.6 mm (the rear-left wheel digging in while it pushes against the rock), uses
+794 J (92 J/m), and reaches 10.5° of pitch and 3.8° of roll; the front-left wheel leaves the soil for a moment near
+1.3 m (its sinkage and load drop to zero). The
+PINN surrogate's held-out RMSE is 0.05-0.11 % of each output's range; along the run it stays within about 2 N of
 the Wong-Reece drawbar pull.
 
 ![One rendered frame](../assets/studio/rover-frame.png)
