@@ -106,6 +106,6 @@ cd apps/playground && npm ci && npm test         # JS unit tests + Playwright sm
 The page is static, so there are two options, both prepared and neither switched on:
 
 - **Docker + Caddy, next to the other apps.** `apps/playground/Dockerfile` builds the site and serves it with Caddy
-  on port 8094. `apps/deploy` has the `playground` service and the `PLG_DOMAIN` site block.
+  on port 8095. `apps/deploy` has the `playground` service and the `PLG_DOMAIN` site block.
 - **GitHub Pages, under the docs site.** Set the repository variable `PLAYGROUND_PAGES` to `true`. The docs workflow
   then publishes the build at `https://pinneapple-labs.github.io/PINNeAPPle/playground/`.

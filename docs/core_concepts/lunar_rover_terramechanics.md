@@ -1,5 +1,7 @@
 # Lunar rover terramechanics in 3D
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/04_lunar_rover_dashboard.ipynb)
+
 NASA's VIPER rover at real scale, driving on lunar regolith with Wong-Reece wheels and full multibody dynamics.
 Everything on this page is a library feature: the soil database, the wheel model, the deformable terrain, the
 multibody vehicle, the CAD, the renders and the PINN surrogate. The example

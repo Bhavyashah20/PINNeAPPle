@@ -120,29 +120,46 @@ def quality(V: np.ndarray, F: np.ndarray, closed: bool = True) -> dict[str, floa
 
 # ------------------------------------------------------------------------------------- self-intersection
 def _tri_tri(p, q):
-    """Vectorised Moller-style test: do triangles p[i] and q[i] (each (k, 3, 3)) intersect? Coplanar pairs count as
-    not intersecting (touching sheets of one body are not produced by the builders)."""
+    """Vectorised Moller-style test: do triangles p[i] and q[i] (each (k, 3, 3)) intersect? Distances below 1e-5 of
+    the pair's size count as touching, and pairs whose planes are within ~0.6 deg are not tested (coplanar or nearly
+    parallel neighbours, where the intersection line is ill-conditioned)."""
     def plane(t):
         n = np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0])
         d = -np.einsum("ij,ij->i", n, t[:, 0])
         return n, d
 
+    c = p.mean(1, keepdims=True)                       # translation-invariant: work about the pair's centre
+    p, q = p - c, q - c
     n1, d1 = plane(p)
     n2, d2 = plane(q)
-    dq = np.einsum("ikj,ij->ik", q, n1) + d1[:, None]
+    n1 /= np.linalg.norm(n1, axis=1, keepdims=True) + 1e-300
+    n2 /= np.linalg.norm(n2, axis=1, keepdims=True) + 1e-300
+    d1 = -np.einsum("ij,ij->i", n1, p[:, 0])
+    d2 = -np.einsum("ij,ij->i", n2, q[:, 0])
+    dq = np.einsum("ikj,ij->ik", q, n1) + d1[:, None]    # signed distances [m]
     dp = np.einsum("ikj,ij->ik", p, n2) + d2[:, None]
-    s1 = np.abs(n1).max(1)[:, None] * np.abs(q).max((1, 2))[:, None] * 1e-9 + 1e-15
-    s2 = np.abs(n2).max(1)[:, None] * np.abs(p).max((1, 2))[:, None] * 1e-9 + 1e-15
-    dq = np.where(np.abs(dq) < s1, 0.0, dq)
-    dp = np.where(np.abs(dp) < s2, 0.0, dp)
+    size = np.maximum(np.linalg.norm(p, axis=2).max(1), np.linalg.norm(q, axis=2).max(1))[:, None]
+    tol = 1e-5 * size                                  # contacts / penetrations below 1e-5 of the size are touching
+    dq = np.where(np.abs(dq) < tol, 0.0, dq)
+    dp = np.where(np.abs(dp) < tol, 0.0, dp)
     sep = (np.all(dq > 0, 1) | np.all(dq < 0, 1) | np.all(dp > 0, 1) | np.all(dp < 0, 1))
     coplanar = np.all(dq == 0, 1)
-    cand = ~sep & ~coplanar
+    # a triangle that meets the other's plane only with one of its edges (two vertices on the plane, the third off
+    # it) touches it along that edge: a side face meeting a flat cap at the boundary of a closed body
+    edge_on = ((dq == 0).sum(1) == 2) | ((dp == 0).sum(1) == 2)
+    cand = ~sep & ~coplanar & ~edge_on
     out = np.zeros(len(p), bool)
     if not cand.any():
         return out
     idx = np.where(cand)[0]
     D = np.cross(n1[idx], n2[idx])
+    sin = np.linalg.norm(D, axis=1)
+    par = sin < 1e-2                                   # planes within ~0.6 deg: neighbours on a flat or gently
+                                                       # curved sheet whose intersection line is ill-conditioned
+    idx, D, sin = idx[~par], D[~par], sin[~par]
+    if len(idx) == 0:
+        return out
+    D = D / sin[:, None]                               # unit direction: intervals in metres
 
     def interval(t, d):
         proj = np.einsum("ikj,ij->ik", t, D)
@@ -162,8 +179,7 @@ def _tri_tri(p, q):
 
     a0, a1 = interval(p[idx], dp[idx])
     b0, b1 = interval(q[idx], dq[idx])
-    eps = 1e-12 * (np.abs(D).max(1) + 1e-30)
-    out[idx] = (np.minimum(a1, b1) - np.maximum(a0, b0)) > eps
+    out[idx] = (np.minimum(a1, b1) - np.maximum(a0, b0)) > tol[idx, 0]
     return out
 
 

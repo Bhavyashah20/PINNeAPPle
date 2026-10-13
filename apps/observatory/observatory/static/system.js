@@ -1,0 +1,268 @@
+// The solar system in 3-D: heliocentric J2000-ecliptic positions from the JPL ephemeris (server), planets to scale
+// in distance (linear or logarithmic), the Earth with its day/night terminator, rotation and the observer's pin,
+// the Moon's orbit, and the real star background.
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/OrbitControls.js";
+import { D2R, interp, mul3, radecVec, rotZ, teffToRGB, bvToTeff, toMatrix4 } from "./astro.js";
+import { glowTexture } from "./sky.js";
+
+const RADII = { mercury: 2439.4, venus: 6051.8, earth: 6371.0, mars: 3389.5, jupiter: 69911, saturn: 58232, uranus: 25362, neptune: 24622 };
+const NAMES = { mercury: "Mercury", venus: "Venus", earth: "Earth", mars: "Mars", jupiter: "Jupiter", saturn: "Saturn", uranus: "Uranus", neptune: "Neptune" };
+const T = [[1, 0, 0], [0, 0, 1], [0, -1, 0]];                     // ecliptic (x, y, z) -> three (x, z, -y)
+const tr = (M) => M[0].map((_, j) => M.map((r) => r[j]));
+
+const EARTH_VS = `varying vec2 vUv; varying vec3 vN; varying vec3 vP;
+void main(){ vUv = uv; vN = normalize(mat3(modelMatrix) * normal); vP = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vP,1.0); }`;
+const EARTH_FS = `uniform sampler2D day; uniform sampler2D night; uniform vec3 sunDir; varying vec2 vUv; varying vec3 vN; varying vec3 vP;
+void main(){
+  vec3 n = normalize(vN); float ndl = dot(n, normalize(sunDir));
+  vec3 d = texture2D(day, vUv).rgb; vec3 ni = texture2D(night, vUv).rgb;
+  float k = smoothstep(-0.12, 0.12, ndl);
+  vec3 col = mix(ni * vec3(1.0, 0.85, 0.6) * 1.6, d * (0.08 + 1.05 * max(ndl, 0.0)), k);
+  vec3 v = normalize(cameraPosition - vP);
+  float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+  col += fres * vec3(0.3, 0.55, 1.0) * (0.15 + 0.9 * smoothstep(-0.3, 0.4, ndl));
+  // terminator: thin reddish twilight band
+  col += vec3(0.25, 0.08, 0.02) * exp(-pow(ndl / 0.05, 2.0)) * 0.6;
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+export class SystemView {
+  constructor(renderer, labels) {
+    this.renderer = renderer; this.labels = labels;
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(50, 1, 0.005, 20000);
+    this.camera.position.set(0, 60, 90);
+    this.controls = new OrbitControls(this.camera, renderer.domElement);
+    this.controls.enableDamping = true; this.controls.dampingFactor = 0.08; this.controls.enabled = false;
+    this.logScale = true; this.focus = null; this.tween = null;
+    const loader = new THREE.TextureLoader();
+    const tex = (f) => { const t = loader.load(`/static/textures/${f}`); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
+    // Sun
+    this.sun = new THREE.Mesh(new THREE.SphereGeometry(2.2, 64, 32), new THREE.MeshBasicMaterial({ map: tex("sun.jpg") }));
+    const sg = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture("rgba(255,240,200,1)", "rgba(255,170,60,0.35)"), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    sg.scale.setScalar(16); this.sun.add(sg);
+    this.scene.add(this.sun);
+    this.scene.add(new THREE.PointLight(0xffffff, 3.2, 0, 0), new THREE.AmbientLight(0x334455, 0.12));
+    // planets
+    this.planets = {};
+    for (const b of Object.keys(RADII)) {
+      const r = 0.32 * Math.sqrt(RADII[b] / 6371);
+      let mat;
+      if (b === "earth") {
+        mat = new THREE.ShaderMaterial({ vertexShader: EARTH_VS, fragmentShader: EARTH_FS,
+          uniforms: { day: { value: tex("earth_day.jpg") }, night: { value: tex("earth_night.jpg") }, sunDir: { value: new THREE.Vector3(1, 0, 0) } } });
+      } else mat = new THREE.MeshStandardMaterial({ map: tex(`${b}.jpg`), roughness: 1, metalness: 0 });
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 64, 32), mat);
+      mesh.userData.body = b;
+      const grp = new THREE.Group(); grp.add(mesh); this.scene.add(grp);
+      if (b === "earth") mesh.matrixAutoUpdate = false;
+      if (b === "saturn") {
+        const rg = new THREE.RingGeometry(r * 1.24, r * 2.27, 128, 1);
+        const pos = rg.attributes.position, uv = rg.attributes.uv;
+        for (let i = 0; i < pos.count; i++) { const rr = Math.hypot(pos.getX(i), pos.getY(i)) / r; uv.setXY(i, (rr - 1.24) / 1.03, 0.5); }
+        const ring = new THREE.Mesh(rg, new THREE.MeshStandardMaterial({ map: loader.load("/static/textures/saturn_rings.png"), transparent: true, side: THREE.DoubleSide, roughness: 1 }));
+        // Saturn's pole (RA 40.589, Dec 83.537) in three axes; the ring plane is perpendicular to it
+        this.saturnPole = radecVec(40.589, 83.537);
+        grp.add(ring); this.ring = ring;
+      }
+      this.planets[b] = { grp, mesh, r, orbit: null };
+    }
+    // Moon
+    this.moon = new THREE.Mesh(new THREE.SphereGeometry(0.32 * Math.sqrt(1737.4 / 6371), 48, 24), new THREE.MeshStandardMaterial({ map: tex("moon.jpg"), roughness: 1 }));
+    this.moon.userData.body = "moon";
+    this.scene.add(this.moon);
+    // observer pin
+    this.pin = new THREE.Mesh(new THREE.SphereGeometry(0.006, 16, 8), new THREE.MeshBasicMaterial({ color: 0xff4d4d }));
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.05, 6), new THREE.MeshBasicMaterial({ color: 0xff8080 }));
+    beam.position.y = 0.025; this.pinBeam = beam; this.pinGrp = new THREE.Group(); this.pinGrp.add(this.pin, beam);
+    this.scene.add(this.pinGrp);
+    this.orbits = new THREE.Group(); this.scene.add(this.orbits);
+  }
+
+  scaleR(rAU) { return this.logScale ? 30 * Math.log(1 + rAU / 0.4) / Math.log(3.5) : 30 * rAU; }
+  map(v) {                                       // ecliptic AU vector -> three position with the distance scale
+    const r = Math.hypot(...v); if (r === 0) return new THREE.Vector3();
+    const k = this.scaleR(r) / r;
+    return new THREE.Vector3(v[0] * k, v[2] * k, -v[1] * k);
+  }
+
+  setCatalog(cat) {
+    const E0 = [[1, 0, 0], [0, Math.cos(23.4392911 * D2R), Math.sin(23.4392911 * D2R)], [0, -Math.sin(23.4392911 * D2R), Math.cos(23.4392911 * D2R)]];
+    const M = mul3(T, E0);
+    const n = cat.ra.length, pos = [], col = [], size = [];
+    for (let i = 0; i < n; i++) {
+      if (cat.v[i] > 6.0) continue;
+      const v = radecVec(cat.ra[i], cat.dec[i]);
+      pos.push(...[0, 1, 2].map((r) => (M[r][0] * v[0] + M[r][1] * v[1] + M[r][2] * v[2]) * 8000));
+      col.push(...teffToRGB(bvToTeff(cat.bv[i] ?? 0.6)));
+      size.push(Math.max(1.0, 4.2 - cat.v[i] * 0.55));
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute("size", new THREE.Float32BufferAttribute(size, 1));
+    const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { pr: { value: this.renderer.getPixelRatio() } },
+      vertexShader: `attribute float size; attribute vec3 color; uniform float pr; varying vec3 c; void main(){ c = color; gl_PointSize = size * pr; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);} `,
+      fragmentShader: `varying vec3 c; void main(){ float r = length(gl_PointCoord-0.5)*2.0; if(r>1.0) discard; gl_FragColor = vec4(c*exp(-r*r*6.0)*0.9,1.0);} ` });
+    const pts = new THREE.Points(g, m); pts.frustumCulled = false;
+    this.starPts = pts; this.scene.add(pts);
+  }
+
+  setData(d) {
+    this.data = d;
+    this.tdbOffset = d.jd_tdb - d.jd_utc;
+    this.E = d.ecliptic_j2000; this.npb = d.npb;
+    this._buildOrbits();
+  }
+
+  _buildOrbits() {
+    this.orbits.clear();
+    const d = this.data; if (!d) return;
+    const colors = { mercury: "#a89f94", venus: "#e8cf9a", earth: "#6fa8ff", mars: "#ff8a5c", jupiter: "#e3bf8f", saturn: "#e9d39a", uranus: "#9fe3ea", neptune: "#7c9cff" };
+    for (const b of Object.keys(RADII)) {
+      const pts = d.orbits[b].map((v) => this.map(v));
+      pts.push(pts[0]);
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({ color: colors[b], transparent: true, opacity: 0.38, depthWrite: false }));
+      this.orbits.add(line);
+    }
+    this.moonOrbit = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: "#c8c8d8", transparent: true, opacity: 0.35 }));
+    this.orbits.add(this.moonOrbit);
+  }
+
+  moonScale() { return 1.15 / 384400; }        // units per km of the geocentric Moon (distance exaggerated)
+
+  update(simJD) {
+    const d = this.data; if (!d) return;
+    const jd = simJD + this.tdbOffset;
+    for (const [b, o] of Object.entries(this.planets)) {
+      const arr = d.planets[b];
+      const v = [0, 1, 2].map((k) => interp(d.jd, arr.map((p) => p[k]), jd));
+      o.grp.position.copy(this.map(v));
+      o.helio = v;
+    }
+    // Earth orientation: Earth-fixed -> three = T . E . NPB^T . R3(-GAST) . T^-1
+    const gast = d.gast_deg + 360.98564736629 * (simJD - d.jd_utc);
+    const G = mul3(mul3(mul3(T, this.E), mul3(tr(this.npb), rotZ(-gast * D2R))), tr(T));
+    const em = this.planets.earth.mesh;
+    em.matrix.copy(toMatrix4(THREE, G)); em.matrixWorldNeedsUpdate = true;
+    this.G = G;
+    const ep = this.planets.earth.grp.position;
+    em.material.uniforms.sunDir.value.copy(ep).negate().normalize();
+    // Saturn ring orientation
+    if (this.ring) {
+      const pole = this.saturnPole, M = mul3(T, this.E);
+      const p = new THREE.Vector3(...[0, 1, 2].map((r) => M[r][0] * pole[0] + M[r][1] * pole[1] + M[r][2] * pole[2]));
+      this.ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), p);
+      this.planets.saturn.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), p);
+    }
+    // Moon
+    const mp = d.moon.pos_km;
+    const mv = [0, 1, 2].map((k) => interp(d.moon.jd, mp.map((p) => p[k]), jd));
+    const s = this.moonScale();
+    this.moon.position.set(ep.x + mv[0] * s, ep.y + mv[2] * s, ep.z - mv[1] * s);
+    const i0 = Math.max(0, d.moon.jd.findIndex((x) => x >= jd) - 112);
+    const pts = d.moon.pos_km.slice(i0, i0 + 224).map((p) => new THREE.Vector3(ep.x + p[0] * s, ep.y + p[2] * s, ep.z - p[1] * s));
+    this.moonOrbit.geometry.setFromPoints(pts);
+    // observer pin
+    if (this.observer) {
+      const la = this.observer.lat * D2R, lo = this.observer.lon * D2R;
+      const itrs = [Math.cos(la) * Math.cos(lo), Math.cos(la) * Math.sin(lo), Math.sin(la)];
+      const g = [itrs[0], itrs[2], -itrs[1]];                    // T . itrs
+      const w = [0, 1, 2].map((r) => G[r][0] * g[0] + G[r][1] * g[1] + G[r][2] * g[2]);
+      const up = new THREE.Vector3(...w).normalize();
+      this.pinUp = up;
+      this.pinGrp.position.copy(ep).add(up.clone().multiplyScalar(this.planets.earth.r * 1.005));
+      this.pinGrp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
+    }
+    if (this.focus && !this.tween) {
+      const target = this.focusPos();
+      const delta = target.clone().sub(this.controls.target);
+      this.camera.position.add(delta); this.controls.target.copy(target);
+    }
+    this._tween();
+    this.controls.update();
+  }
+
+  focusPos() {
+    if (this.focus === "moon") return this.moon.position.clone();
+    if (this.focus === "sun") return new THREE.Vector3();
+    if (this.focus === "you") return this.pinGrp.position.clone();
+    return this.planets[this.focus]?.grp.position.clone() ?? new THREE.Vector3();
+  }
+
+  flyTo(pos, target, ms = 2200, then) {
+    this.tween = { p0: this.camera.position.clone(), t0: this.controls.target.clone(), p1: pos, t1: target, start: performance.now(), ms, then };
+  }
+  _tween() {
+    const tw = this.tween; if (!tw) return;
+    let k = Math.min(1, (performance.now() - tw.start) / tw.ms);
+    const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    // fly along a log-distance path so the zoom feels uniform
+    const d0 = tw.p0.distanceTo(tw.t0), d1 = tw.p1.distanceTo(tw.t1);
+    const tgt = tw.t0.clone().lerp(tw.t1, e);
+    const dir = tw.p0.clone().sub(tw.t0).normalize().lerp(tw.p1.clone().sub(tw.t1).normalize(), e).normalize();
+    const dist = Math.exp(Math.log(d0) + (Math.log(d1) - Math.log(d0)) * e);
+    this.camera.position.copy(tgt).add(dir.multiplyScalar(dist));
+    this.controls.target.copy(tgt);
+    if (k >= 1) { const f = tw.then; this.tween = null; if (f) f(); }
+  }
+
+  // camera hovering just above the observer, looking up their local vertical (start of the zoom-out)
+  observerShot() {
+    const up = this.pinUp ?? new THREE.Vector3(0, 1, 0);
+    const p = this.pinGrp.position.clone();
+    // just above the observer's spot on the globe, looking down at it
+    const side = new THREE.Vector3(0, 1, 0).cross(up).normalize().multiplyScalar(0.12);
+    return { pos: p.clone().add(up.clone().multiplyScalar(0.35)).add(side), target: this.planets.earth.grp.position.clone() };
+  }
+  overviewShot() {
+    const ep = this.planets.earth.grp.position;
+    const out = ep.clone().normalize();
+    const R = this.logScale ? 150 : 420;
+    return { pos: new THREE.Vector3(out.x * R * 0.55, R * 0.75, out.z * R * 0.55), target: new THREE.Vector3(out.x * 6, 0, out.z * 6) };
+  }
+
+  drawLabels(w, h) {
+    const L = this.labels; L.begin();
+    const v = new THREE.Vector3();
+    // hide labels of objects behind the Earth's disc
+    const cam = this.camera.position, ep = this.planets.earth.grp.position;
+    const toE = ep.clone().sub(cam), dE = toE.length(), rE = Math.asin(Math.min(1, this.planets.earth.r / dE));
+    const put = (p, text, cls, id) => {
+      if (id !== "earth" && id !== "you") {
+        const toP = p.clone().sub(cam);
+        if (toP.length() > dE && toP.angleTo(toE) < rE) return;
+      }
+      v.copy(p).project(this.camera);
+      if (v.z > 1) return;
+      L.add((v.x + 1) / 2 * w, (1 - v.y) / 2 * h, text, cls, id);
+    };
+    put(new THREE.Vector3(), "Sun", "body", "sun");
+    for (const [b, o] of Object.entries(this.planets)) put(o.grp.position, NAMES[b], "body", b);
+    if (this.camera.position.distanceTo(this.planets.earth.grp.position) < 12) {
+      put(this.moon.position, "Moon", "body", "moon");
+      if (this.observer) put(this.pinGrp.position, "You", "you", "you");
+    }
+    L.end();
+  }
+
+  pick(ndcX, ndcY) {
+    const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera);
+    const objs = [this.sun, this.moon, ...Object.values(this.planets).map((o) => o.mesh)];
+    const hit = rc.intersectObjects(objs, false)[0];
+    if (hit) return { kind: "body", id: hit.object === this.sun ? "sun" : hit.object.userData.body };
+    // fall back to the nearest label-sized target on screen
+    let best = null;
+    for (const [b, o] of Object.entries({ sun: { grp: this.sun }, moon: { grp: this.moon }, ...this.planets })) {
+      const p = o.grp.position.clone().project(this.camera);
+      const dd = Math.hypot(p.x - ndcX, p.y - ndcY);
+      if (dd < 0.04 && (!best || dd < best.d)) best = { kind: "body", id: b, d: dd };
+    }
+    return best;
+  }
+
+  render() { this.renderer.render(this.scene, this.camera); }
+}

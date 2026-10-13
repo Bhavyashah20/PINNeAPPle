@@ -19,7 +19,7 @@ python apps/playground/build.py --serve          # build into apps/playground/di
 | `tools/record_demo.mjs` | Records the demo video. |
 | `build.py` | Assembles the static site. It adds three.js and the light glTF files, and writes the offline service worker. |
 | `tests/` | `unit/` (node --test, against Python fixtures) and `e2e/` (Playwright smoke test). The Python parity test is `tests/test_playground.py`. |
-| `Dockerfile`, `Caddyfile` | Static image for `apps/deploy` (service `playground`, port 8094). |
+| `Dockerfile`, `Caddyfile` | Static image for `apps/deploy` (service `playground`, port 8095). |
 
 Tests:
 

@@ -168,7 +168,16 @@
 	}
 }
 
+{$OBS_DOMAIN} {
+	import common
+	reverse_proxy observatory:8094 {
+		transport http {
+			read_timeout 180s
+		}
+	}
+}
+
 {$PLG_DOMAIN} {
 	import common
-	reverse_proxy playground:8094
+	reverse_proxy playground:8095
 }

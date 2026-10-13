@@ -1,5 +1,5 @@
 # Static file server inside the playground container (TLS is terminated by apps/deploy/Caddyfile).
-:8094 {
+:8095 {
 	root * /srv
 	encode zstd gzip
 	file_server

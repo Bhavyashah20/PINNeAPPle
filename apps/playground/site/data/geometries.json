@@ -13,7 +13,7 @@
    },
    "triangles": 34560,
    "glb": "geometries/airliner_a320.light.glb",
-   "glb_bytes": 886624,
+   "glb_bytes": 886628,
    "glb_hub": "https://huggingface.co/datasets/PINNeAPPle-Labs/geometry-library/resolve/main/airliner_a320/airliner_a320.light.glb",
    "frame": "right-handed, metres: x aft from the nose (the free-stream direction), y to starboard (right), z up; origin on the centre plane at the nose, z = 0 on the fuselage axis",
    "physics": [
@@ -520,7 +520,7 @@
    },
    "triangles": 23612,
    "glb": "geometries/f1_car.light.glb",
-   "glb_bytes": 588984,
+   "glb_bytes": 588980,
    "glb_hub": "https://huggingface.co/datasets/PINNeAPPle-Labs/geometry-library/resolve/main/f1_car/f1_car.light.glb",
    "frame": "right-handed, metres: x aft from the nose (the free-stream direction), y to starboard (right), z up; origin on the centre plane at the front-wing leading edge, z = 0 on the ground for ground vehicles",
    "physics": [
@@ -602,7 +602,7 @@
    },
    "triangles": 11356,
    "glb": "geometries/falcon9_booster.light.glb",
-   "glb_bytes": 281552,
+   "glb_bytes": 281560,
    "glb_hub": "https://huggingface.co/datasets/PINNeAPPle-Labs/geometry-library/resolve/main/falcon9_booster/falcon9_booster.light.glb",
    "frame": "right-handed, metres: z up along the vehicle axis, x / y lateral; origin on the axis in the plane of the first-stage nozzle exits; legs and grid fins at 45 / 135 / 225 / 315 deg azimuth",
    "physics": [
@@ -670,7 +670,7 @@
    },
    "triangles": 12148,
    "glb": "geometries/helicopter_h145.light.glb",
-   "glb_bytes": 338316,
+   "glb_bytes": 338300,
    "glb_hub": "https://huggingface.co/datasets/PINNeAPPle-Labs/geometry-library/resolve/main/helicopter_h145/helicopter_h145.light.glb",
    "frame": "right-handed, metres: x aft from the nose (the free-stream direction), y to starboard (right), z up; origin on the centre plane at the nose, z = 0 on the ground under the skids; length includes the main rotor turning (blade 1 over the nose at azimuth 0)",
    "physics": [
@@ -972,7 +972,7 @@
    },
    "triangles": 7960,
    "glb": "geometries/quadrotor_drone.light.glb",
-   "glb_bytes": 239796,
+   "glb_bytes": 239776,
    "glb_hub": "https://huggingface.co/datasets/PINNeAPPle-Labs/geometry-library/resolve/main/quadrotor_drone/quadrotor_drone.light.glb",
    "frame": "right-handed, metres: x aft (the nose is between the two red arms, at -x), y to starboard, z up; origin on the ground below the frame centre (feet on z = 0)",
    "physics": [
@@ -1041,7 +1041,7 @@
    },
    "triangles": 21760,
    "glb": "geometries/road_car.light.glb",
-   "glb_bytes": 553280,
+   "glb_bytes": 553284,
    "glb_hub": "https://huggingface.co/datasets/PINNeAPPle-Labs/geometry-library/resolve/main/road_car/road_car.light.glb",
    "frame": "right-handed, metres: x aft from the nose (the free-stream direction), y to starboard (right), z up; origin on the centre plane at the nose, z = 0 on the ground for ground vehicles",
    "physics": [
@@ -1128,7 +1128,7 @@
    },
    "triangles": 18776,
    "glb": "geometries/turboprop_atr72.light.glb",
-   "glb_bytes": 529696,
+   "glb_bytes": 529684,
    "glb_hub": "https://huggingface.co/datasets/PINNeAPPle-Labs/geometry-library/resolve/main/turboprop_atr72/turboprop_atr72.light.glb",
    "frame": "right-handed, metres: x aft from the nose (the free-stream direction), y to starboard (right), z up; origin on the centre plane at the nose, z = 0 on the ground (aircraft on its gear, tyres touching z = 0)",
    "physics": [
@@ -1229,7 +1229,7 @@
    },
    "triangles": 24804,
    "glb": "geometries/viper_rover.light.glb",
-   "glb_bytes": 918672,
+   "glb_bytes": 918644,
    "glb_hub": "https://huggingface.co/datasets/PINNeAPPle-Labs/geometry-library/resolve/main/viper_rover/viper_rover.light.glb",
    "frame": "right-handed, metres: x forward, y to the left, z up; origin on the ground below the chassis centre",
    "physics": [
@@ -1364,7 +1364,7 @@
    },
    "triangles": 16816,
    "glb": "geometries/wind_turbine_nrel5mw.light.glb",
-   "glb_bytes": 413852,
+   "glb_bytes": 413848,
    "glb_hub": "https://huggingface.co/datasets/PINNeAPPle-Labs/geometry-library/resolve/main/wind_turbine_nrel5mw/wind_turbine_nrel5mw.light.glb",
    "frame": "right-handed, metres: x downwind, y lateral, z up; origin at the tower base on the ground; rotor upwind of the tower (x < 0)",
    "physics": [

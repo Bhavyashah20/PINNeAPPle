@@ -1,4 +1,4 @@
-# App images (30 apps with PINNeAPPle, days 1–13)
+# App images (30 apps with PINNeAPPle, days 1–14)
 
 Screenshots taken from each app running its own example (1600 px wide), plus Blender Cycles renders of the
 Aircraft Design Optimizer. Raw URL pattern: `https://raw.githubusercontent.com/PINNeAPPle-Labs/PINNeAPPle/main/docs/assets/apps/<file>`.
@@ -18,5 +18,6 @@ Aircraft Design Optimizer. Raw URL pattern: `https://raw.githubusercontent.com/P
 | 11 | Engineering Model Lineage | `11-model-lineage.jpg` | https://lineage.pinneapple.org |
 | 12 | Interoperability Hub | `12-interoperability-hub.jpg` | https://interop.pinneapple.org |
 | 13 | Aircraft Design Optimizer | `13-aircraft-design-optimizer.jpg`, renders `13-aircraft-render-flight.jpg`, `-streamlines.jpg`, `-pressure.jpg`, `-friction.jpg` | https://aero.pinneapple.org |
+| 14 | PINNeAPPle Observatory | `14-observatory-sky.jpg`, `-system.jpg`, `-engine.jpg`, `-lensing.jpg`, `-star-hr.jpg` | not deployed yet |
 
 The Form Compiler image uses the fictitious example documents only (no ASME form).

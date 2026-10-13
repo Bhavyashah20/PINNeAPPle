@@ -1,7 +1,7 @@
 # Positional astronomy and astrophysics (`pinneapple_physics.astro`)
 
 An independent NumPy implementation of the apparent sky, validated against USNO NOVAS, JPL Horizons, the USNO almanac,
-NASA eclipse predictions and skyfield. It powers the PINNeAPPle Observatory app (`apps/observatory`).
+NASA eclipse predictions and skyfield. It powers the [Observatory app](../guides/observatory.md).
 
 ```bash
 pip install "pinneapple[sky]"     # sgp4 + skyfield-data (bundles the public-domain JPL DE421 kernel)

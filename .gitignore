@@ -25,6 +25,9 @@ docs/api/
 dist/
 runs/
 run_results/
+# MCP server results (python -m pinneapple_mcp --workdir pinneapple_mcp_work) and notebook downloads
+pinneapple_mcp_work/
+pinneapple_files/
 examples/_out/
 examples/_runs*/
 examples/results_chassis/

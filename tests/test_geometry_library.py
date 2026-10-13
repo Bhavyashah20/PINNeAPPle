@@ -207,3 +207,21 @@ def test_top_level_shortcut():
     import pinneapple as pp
     assert pp.geometries.list() == NAMES
     assert pp.geometries.info("viper_rover")["category"] == "space"
+
+
+def test_self_intersection_check_finds_real_crossings_and_ignores_touching():
+    from pinneapple_design.geometry_library import kit
+    assert meshops.self_intersections(*kit.merge([kit.box((1, 1, 1)), kit.box((1, 1, 1), (0.5, 0.5, 0.5))])) > 0
+    thin = kit.box((1, 0.01, 1))
+    assert meshops.self_intersections(*kit.merge([thin, kit.tf(thin, R=kit.rot((0, 0, 1), 5))])) > 0
+    # far from the origin (a tower top, a ship) and with flat caps: no false positives
+    assert meshops.self_intersections(*kit.cylinder((0, 0, 90), (0, 0, 95), 3, 64)) == 0
+    V, F = kit.wing([{"le": (0, 0, 0), "chord": 1, "t": 0.04, "m": 0.08}, {"le": (0, 1, 0), "chord": 0.5, "t": 0.04,
+                                                                           "m": 0.08}], n=40, frame=((1, 0, 0), (0, 0, 1)))
+    assert meshops.self_intersections(np.round(V / 1e-7) * 1e-7, F) == 0
+
+
+def test_build_is_on_the_reproducibility_grid():
+    from pinneapple_design.geometry_library.core import QUANTUM
+    for b in gl.build("wigley_hull").bodies:
+        assert np.allclose(b.vertices / QUANTUM, np.round(b.vertices / QUANTUM), atol=1e-6)

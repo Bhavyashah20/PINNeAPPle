@@ -74,9 +74,9 @@ jobs:
         run: docker build -f apps/playground/Dockerfile -t pinneapple-playground:ci .
       - name: Serve and fetch the page
         run: |
-          docker run -d --name plg -p 8094:8094 pinneapple-playground:ci
-          for i in $(seq 1 20); do curl -fsS http://localhost:8094/health && break; sleep 1; done
-          curl -fsS http://localhost:8094/ | grep -q "PINNeAPPle Playground"
-          curl -fsS -o /dev/null http://localhost:8094/models/airfoil_cst_rans_mlp.onnx
-          curl -fsS -o /dev/null http://localhost:8094/geometries/viper_rover.light.glb
+          docker run -d --name plg -p 8095:8095 pinneapple-playground:ci
+          for i in $(seq 1 20); do curl -fsS http://localhost:8095/health && break; sleep 1; done
+          curl -fsS http://localhost:8095/ | grep -q "PINNeAPPle Playground"
+          curl -fsS -o /dev/null http://localhost:8095/models/airfoil_cst_rans_mlp.onnx
+          curl -fsS -o /dev/null http://localhost:8095/geometries/viper_rover.light.glb
           docker rm -f plg
