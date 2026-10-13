@@ -615,6 +615,11 @@ _SUBMODULES = {
     "zoo":        "pinneapple_hub.zoo",
     # dataset hub: verified datasets with schema, splits, checksums, caching and lazy download
     "datasets":   "pinneapple_hub.zoo.datasets",
+    # helpers consolidated from apps, examples and satellite repos (docs/dev/LIBRARY_CONSOLIDATION.md)
+    "uncertainty": "pinneapple_analysis.uncertainty",
+    "closed_form": "pinneapple_physics.closed_form",
+    "excitation": "pinneapple_systems.excitation",
+    "reporting":  "pinneapple_tools.reporting",
 }
 
 # Lazy functions: resolved on first access, so ``import pinneapple`` does not
@@ -643,6 +648,14 @@ _LAZY_ATTRS = {
     "verify":          ("pinneapple_decision.api", "verify"),
     "run_tree":        ("pinneapple_decision.api", "run_tree"),
     "decision_engine": ("pinneapple_decision.api", "decision_engine"),
+    # helpers consolidated from apps, examples and satellite repos (docs/dev/LIBRARY_CONSOLIDATION.md)
+    "as_tensor":       ("pinneapple_neural.utils", "as_tensor"),
+    "to_jsonable":     ("pinneapple_core.jsonable", "to_jsonable"),
+    "dominant_frequency": ("pinneapple_physics.physics_audit.regime", "dominant_frequency"),
+    "assess_drift":    ("pinneapple_analysis.uncertainty.drift", "assess_drift"),
+    "propagate_tolerances": ("pinneapple_analysis.uncertainty.tolerance", "propagate"),
+    "score_against_reference": ("pinneapple_analysis.verification.physics_confidence_score",
+                                "score_against_reference"),
 }
 
 

@@ -14,6 +14,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- `pp.` shortcuts for the helpers consolidated from the apps, examples and satellite repositories: `pp.uncertainty`,
+  `pp.closed_form`, `pp.excitation`, `pp.reporting` (modules) and `pp.as_tensor`, `pp.to_jsonable`, `pp.dominant_frequency`,
+  `pp.assess_drift`, `pp.propagate_tolerances`, `pp.score_against_reference` (resolved on first use).
 - Surrogate monitoring and sensor design: `pinneapple_analysis.uncertainty.assess_drift` (nRMSE, bias, interval
   coverage, per-feature KS input shift, out-of-range fraction, Mann-Kendall residual trend and an ok / review /
   retrain decision), `uncertainty.propagate` (Monte-Carlo tolerance propagation with Wilson intervals on the
