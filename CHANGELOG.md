@@ -14,6 +14,25 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Realistic planetary rover simulation, as library features (`pp.terramechanics`, `pp.multibody`, `pp.vehicle`):
+  - `pinneapple_simulation.terramechanics`: a soil database where every parameter records its source and how far
+    it was checked (GRC-1, JSC-1A, the soils of three published single-wheel test series); the Wong-Reece wheel
+    (Bekker pressure-sinkage, Janosi-Hanamoto shear) with slip-sinkage, grousers (equivalent shear radius, Ding et
+    al. 2011), multi-pass loading (Wong's unloading-reloading, prior shear), bulldozing and lateral force (Ishigami
+    et al. 2007); a deformable terrain with ruts, grouser marks, contact-stress maps and rigid rocks; a single-wheel
+    testbed with published points bundled; PINN training for wheel-soil contact with a held-out error report.
+  - `pinneapple_simulation.multibody`: floating-base revolute trees with linearly implicit steps (checked against
+    free fall, a pendulum period and momentum and energy conservation).
+  - `pinneapple_simulation.vehicle`: vehicle description, multibody model and simulator (suspension, steering,
+    wheel inertia, motor torque limits, speed control, load-levelling suspension), scenarios, renders and
+    animations; `viper()` is NASA VIPER at real scale from cited public figures, with the estimates listed.
+  - `pinneapple_design.geometry.vehicle_cad`: parametric vehicle CAD (wheels with rims, spokes and grousers or
+    chevrons, panels, radiators, dishes, camera heads), centre of mass and inertia from the meshes, glTF/STL.
+  - Studio: lighting and sky presets for PyVista, Blender and the browser viewer (`studio.lighting`, black lunar
+    sky with a low Sun), heightfield Sun shadows and Lunar-Lambert regolith shading (`studio.shadows`), planetary
+    surface renders with field colour maps (`studio.planetary`), and new PBR materials.
+  - Example: `examples/use_cases/terramechanics/lunar_rover_3d.py` is now a thin script over these features. Docs:
+    `docs/core_concepts/lunar_rover_terramechanics.md`.
 - Lunar rover terramechanics in 3D (`pinneapple_simulation.rover`): a parametric six-wheel rocker-bogie rover
   (glTF/STL export) on lunar terrain (grade, ramp, craters with Pike's 1977 depth ratio, rocks, soil regions) with
   Bekker-Wong wheels. Each step solves a quasi-static equilibrium of body, rockers, bogies and differential, with

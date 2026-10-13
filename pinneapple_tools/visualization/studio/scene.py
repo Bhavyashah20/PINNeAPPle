@@ -34,6 +34,18 @@ MATERIALS: Dict[str, Dict[str, Any]] = {
     "concrete": {"color": [0.62, 0.62, 0.60], "metallic": 0.0, "roughness": 0.9},
     "glass": {"color": [0.02, 0.035, 0.05], "metallic": 0.0, "roughness": 0.02, "clearcoat": 1.0},
     "grey": {"color": [0.62, 0.65, 0.69], "metallic": 0.0, "roughness": 0.6},
+    # spacecraft and lunar surface (vehicle CAD, lunar presets)
+    "white_paint": {"color": [0.88, 0.88, 0.86], "metallic": 0.0, "roughness": 0.45},
+    "anodized_black": {"color": [0.06, 0.06, 0.065], "metallic": 0.6, "roughness": 0.45},
+    "wheel_metal": {"color": [0.70, 0.71, 0.72], "metallic": 1.0, "roughness": 0.42},
+    "solar_cell": {"color": [0.05, 0.07, 0.16], "metallic": 0.35, "roughness": 0.12},
+    "radiator": {"color": [0.92, 0.93, 0.93], "metallic": 0.0, "roughness": 0.25},
+    "mli_gold": {"color": [0.86, 0.66, 0.30], "metallic": 1.0, "roughness": 0.32},
+    "mli_silver": {"color": [0.80, 0.80, 0.82], "metallic": 1.0, "roughness": 0.28},
+    "lens": {"color": [0.02, 0.03, 0.05], "metallic": 0.0, "roughness": 0.04, "clearcoat": 1.0},
+    "led": {"color": [1.0, 0.97, 0.88], "metallic": 0.0, "roughness": 0.3, "emissive": [1.0, 0.95, 0.85]},
+    "regolith": {"color": [0.45, 0.44, 0.42], "metallic": 0.0, "roughness": 0.97},
+    "rock": {"color": [0.50, 0.49, 0.47], "metallic": 0.0, "roughness": 0.9},
 }
 
 AXES = {   # engineering axes -> glTF (y up); Blender's importer maps glTF back to z up
@@ -88,6 +100,7 @@ class Scene:
     axes: str = "z_up"
     title: str = "PINNeAPPle scene"
     labels: Dict[str, str] = field(default_factory=dict)     # field name -> label with unit (for colour bars)
+    lighting: Optional[Dict[str, Any]] = None                 # a lighting preset for the browser viewer (see .lighting)
 
     # ------------------------------------------------------------------ construction
     @classmethod
@@ -200,6 +213,12 @@ class Scene:
                                  np.asarray(grid, float), label, group))
         return self
 
+    def set_lighting(self, preset="lunar_south_pole") -> "Scene":
+        """Use a preset of :mod:`.lighting` (e.g. ``"lunar_south_pole"``) in the browser viewer."""
+        from .lighting import threejs_config
+        self.lighting = threejs_config(preset)
+        return self
+
     def n_faces(self) -> int:
         return int(sum(len(s.faces) for s in self.surfaces))
 
@@ -243,6 +262,7 @@ class Scene:
         """Lines and slices as JSON (scene axes, same as the surfaces), with the field labels."""
         r = lambda a, nd=4: np.round(np.asarray(a, float), nd).tolist()  # noqa: E731
         return {"axes": self.axes, "title": self.title, "labels": self.labels, "fields": self.field_names(),
+                **({"lighting": self.lighting} if self.lighting else {}),
                 "lines": [{"name": L.name, "label": L.label, "points": [r(p) for p in L.points],
                            "values": None if L.values is None else [r(v) for v in L.values]} for L in self.lines],
                 "slices": [{"name": s.name, "label": s.label, "group": s.group or s.name, "origin": r(s.origin), "u": r(s.u), "v": r(s.v),

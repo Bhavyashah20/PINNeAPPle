@@ -22,9 +22,9 @@ from .geometry import (
            link_frames,
            rover_meshes,
 )
-from .terrain import PIKE_1977_DEPTH_RATIO, Crater, LunarTerrain, Rock, SoilRegion, random_rocks
+from .terrain import PIKE_1977_DEPTH_RATIO, Crater, LunarTerrain, Rock, SoilRegion, random_craters, random_rocks
 
 __all__ = ["RoverParams", "Pose", "WHEEL_NAMES", "link_frames", "rover_meshes", "assembled_mesh", "export_rover",
-           "LunarTerrain", "Crater", "Rock", "SoilRegion", "random_rocks", "PIKE_1977_DEPTH_RATIO",
+           "LunarTerrain", "Crater", "Rock", "SoilRegion", "random_rocks", "random_craters", "PIKE_1977_DEPTH_RATIO",
            "BekkerWongContact", "SurrogateContact", "RangeLog", "RoverSimulator", "Trajectory", "StepState",
            "LUNAR_G"]
