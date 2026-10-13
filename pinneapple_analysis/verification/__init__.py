@@ -189,6 +189,7 @@ from pinneapple_analysis.verification.physics_confidence_score import (
     CalibrationSummary,
     PhysicsConfidenceScore,
     compute_physics_confidence,
+    score_against_reference,
 )
 from pinneapple_analysis.verification.geometry_intelligence import (
     BoundaryLoop,
@@ -283,6 +284,7 @@ __all__ = [
     "CalibrationSummary",
     "PhysicsConfidenceScore",
     "compute_physics_confidence",
+    "score_against_reference",
     # geometry_intelligence
     "BoundaryLoop",
     "SurfaceRegion",

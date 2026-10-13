@@ -14,6 +14,15 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Helpers the experiment repositories used to copy: `pinneapple_analysis.uncertainty.resampling` (`block_bootstrap`,
+  moving-block bootstrap after Kunsch 1989; `group_bootstrap`; `skill_score` = 1 - E|model|/E|ref| with a paired
+  block, group or iid interval; blocked `jackknife`), `CalibrationSummary.from_predictions` and
+  `score_against_reference` (benchmark registration, `PhysicsCase` comparison, calibration and
+  `compute_physics_confidence` for several models in one call) in
+  `pinneapple_analysis.verification.physics_confidence_score`, `pinneapple_neural.architectures.rom.DMDc` (DMD with
+  control, Proctor, Brunton & Kutz 2016), `pinneapple_physics.metrics.rollout_relative_l2`,
+  `pinneapple_data.datasets.download.fetch_cached` (URL cache with retries and exponential backoff) and
+  `openradioss.read_energy_error` (energy-balance error from the engine log).
 - Rover dashboard with a semi-transparent stress map and the zoo PINN:
   - `SurfaceView(field_glow=..., far_field=...)`: a field map can sit semi-transparently on the shaded 3-D relief
     (`field_glow=0` is a pure albedo tint, so rut geometry, grouser marks and Sun shading show through) and continue
