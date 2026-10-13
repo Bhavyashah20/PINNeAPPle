@@ -50,6 +50,7 @@
 * [Validation status](validation_status.md)
 * Guides
     * [Recreate a 3D wear twin](guides/recreate_a_wear_twin.md)
+    * [Pre-trained models and datasets (pp.zoo)](guides/model_zoo.md)
     * [Colab notebooks](guides/colab_notebooks.md)
     * [PINNeAPPle from coding agents (MCP server)](guides/mcp_server.md)
 * [API Reference](api/index.md)

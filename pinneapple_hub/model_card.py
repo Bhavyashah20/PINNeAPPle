@@ -25,6 +25,14 @@ class ModelCard:
     name: str
     description: str = ""
 
+    # -- what the model does and where it may be used (model-zoo fields; optional for any other card) ---------
+    task: str = ""
+    version: str = ""
+    inputs: List[Dict[str, Any]] = field(default_factory=list)    # [{"name", "unit", "description"}]
+    outputs: List[Dict[str, Any]] = field(default_factory=list)
+    validity_range: Dict[str, Any] = field(default_factory=dict)  # input -> [lo, hi], plus regime notes
+    known_limitations: List[str] = field(default_factory=list)
+
     # -- architecture --------------------------------------------------
     architecture: str = ""  # ModelRegistry name, e.g. "modified_mlp"
     architecture_config: Dict[str, Any] = field(default_factory=dict)  # in_dim/out_dim/hidden_dim/...
@@ -123,6 +131,19 @@ class ModelCard:
             out += ["", f"Published despite {self.trust_override.get('decision')}: {self.trust_override['reason']}"]
         return out + [""]
 
+    def _io_markdown(self) -> List[str]:
+        out: List[str] = []
+        for title, rows in (("Inputs", self.inputs), ("Outputs", self.outputs)):
+            if rows:
+                out += [f"## {title}", "", "| Name | Unit | Description |", "|---|---|---|",
+                        *(f"| `{r.get('name', '')}` | {r.get('unit', '')} | {r.get('description', '')} |" for r in rows),
+                        ""]
+        if self.validity_range:
+            out += ["## Validity range", "", *(f"- `{k}`: {v}" for k, v in self.validity_range.items()), ""]
+        if self.known_limitations:
+            out += ["## Known limitations", "", *(f"- {x}" for x in self.known_limitations), ""]
+        return out
+
     def to_markdown(self) -> str:
         """A human-readable card, in the same spirit as a Hugging Face
         Hub README/model card (this is uploaded as the repo's README.md
@@ -132,6 +153,8 @@ class ModelCard:
             "",
             self.description,
             "",
+            *([f"**Task:** {self.task}", ""] if self.task else []),
+            *self._io_markdown(),
             "## Architecture",
             f"- `{self.architecture}` — `{json.dumps(self.architecture_config)}`",
             "",
@@ -146,6 +169,10 @@ class ModelCard:
             *(f"| {k} | {v} |" for k, v in self.validation_metrics.items()),
             "",
             *self._trust_markdown(),
+            *(["## Training data", "", *(f"- {k}: {v}" for k, v in self.data_lineage.items()), ""]
+              if self.data_lineage else []),
+            f"License: {self.license}",
+            "",
             "## Citation",
             f"```\n{self.citation}\n```" if self.citation else "(none provided)",
         ]

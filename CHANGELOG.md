@@ -35,14 +35,38 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   are safely parsed expressions); results are saved under a working directory and returned as paths; jobs run in a
   separate process with a wall-time limit, a memory limit and the network switched off. Added to `.mcp.json`; set-up
   for Gemini CLI, Claude Code, Cursor, Codex and a Colab cell in `docs/guides/mcp_server.md`.
-
-## [0.7.0] - 2026-10-13
-
-### Added
+- Model zoo `pp.zoo` and dataset hub `pp.datasets` (`pinneapple_hub.zoo`): pre-trained models and ready-made
+  datasets you can load in one line. Only items that passed a quality gate ship (an independent reference, physics
+  checks, a recorded validity range; for datasets, a verified solver or a public source with a compatible licence).
+  - Models:
+    - `airfoil_cst_rans_mlp`: CST airfoil Cl/Cd/Cm, Re 4e6 RANS. Cd 0.54 % on unseen shapes, 2.8 % against XFOIL.
+    - `heatsink_forced_mlp`: plate-fin resistance and pressure drop, mean error 0.71 %.
+    - `rover_contact_grc1_viper`: wheel-soil contact PINN, retrained for 16000 epochs; Fx RMSE 0.21 N.
+  - Datasets: the 436-run airfoil RANS campaign with its grid study and XFOIL polar, the forced and natural heat-sink
+    datasets, Wong-Reece contact forces, and published single-wheel tests.
+  - `list`, `info` (a `ModelCard` with task, units, validity range, metrics vs reference, training data, licence,
+    citation, trust report), `load`, `predict` (with an out-of-range warning), `evaluate` (reproduces the card's
+    metrics on the stored reference), `validate` (a `TrustReport` with physics checks), `benchmark` (through
+    `pp.benchmark`, against the same network trained from scratch) and `finetune`. `finetune` refuses to save a
+    model that is worse than the original on the original test set unless `force=True`.
+  - Weights and datasets are listed in `pinneapple_hub/zoo/manifest.json` with SHA-256 and versions. Small files are
+    bundled (2.5 MB); the rest is downloaded lazily from the Hugging Face Hub (`PINNeAPPle-Labs/<name>`) and cached.
+    Errors are explicit for offline use, checksum mismatches and items not published yet.
+  - Workflow "Publish zoo to the Hugging Face Hub": it uploads everything when the `HF_TOKEN` secret is set, and
+    skips with a warning otherwise.
+  - Supporting material: an inventory of every candidate model and dataset and its verdict
+    (`docs/dev/model_dataset_inventory.md`), a guide (`docs/guides/model_zoo.md`) and
+    `examples/model_zoo/quickstart.py`.
+- `ModelCard` has optional `task`, `version`, `inputs`, `outputs`, `validity_range` and `known_limitations` fields,
+  which are rendered in `to_markdown()`.
 - Two engineering hand-off case packages in `examples/handoff_cases/` (each also as a zip): `airfoil_ld` (max L/D of a
   2-D airfoil, OpenFOAM simpleFoam k-omega SST, CST geometry, the 436-run campaign, baseline against XFOIL, a
   surrogate optimum checked in CFD) and `free_surface_trough` (water jet into an open trough, interFoam VOF via
   `pp.cfd.FreeSurfaceFlow`, two meshes with mass balance, impingement, splash, floor shear and mean k).
+
+## [0.7.0] - 2026-10-13
+
+### Added
 - Animation-centred dashboards for any simulation (`pinneapple_tools.visualization.dashboard`, `pp.viz.Dashboard`):
   an animation in the middle, charts synced to its time cursor (time series with a cursor, or fixed curves with
   markers that move with the frames), KPI tiles, a parameter panel and a colour bar.
