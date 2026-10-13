@@ -13,6 +13,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-13
+
 ### Added
 - Animation-centred dashboards for any simulation (`pinneapple_tools.visualization.dashboard`, `pp.viz.Dashboard`):
   an animation in the middle, charts synced to its time cursor (time series with a cursor, or fixed curves with
@@ -810,7 +812,8 @@ Development before the first PyPI release is not itemized. In short: the initial
 PINN Arena and benchmark suite, the refactor into the current mega-modules (2026-05-06), the rename from `pinneaple` to
 `pinneapple` (2026-05-18), and the Physics Synthetic Data Factory and the 9-stage pipeline (2026-06-04).
 
-[Unreleased]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.6.3...v0.7.0
 [0.6.3]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.6.0...v0.6.1
