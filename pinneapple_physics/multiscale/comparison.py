@@ -154,7 +154,7 @@ def run_ensembles(queries: Sequence[dict], references: Sequence[np.ndarray], tab
         def predict(nm, q, cfg=cfg, idx=idx):
             return adapt_output(table["raw"][q["id"], idx[nm]], profiles[nm].filter, q["filter"], cfg.aware, length)
 
-        experts = [from_callable(nm, (lambda nm: lambda q: predict(nm, q))(nm), cost=cost[nm]) for nm in names]
+        experts = [from_callable(nm, (lambda nm: lambda q: predict(nm, q))(nm), cost=cost[nm]) for nm in names]  # noqa: B023
         router = ScaleAwareRouter([profiles[nm] for nm in names],
                                   lambda q: ScaleQuery(q["filter"], re=q["re"], kmax=kmax_out)) if cfg.router else None
         checks = None

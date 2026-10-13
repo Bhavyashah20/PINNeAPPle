@@ -9,7 +9,6 @@ from pinneapple_physics.multiscale import (
     DynamicSmagorinsky,
     Filter,
     GradientModel,
-    NoModel,
     ScaleAwareRouter,
     ScaleProfile,
     ScaleQuery,
@@ -31,7 +30,7 @@ from pinneapple_physics.multiscale import (
     scale_compatibility,
     transfer,
 )
-from pinneapple_physics.multiscale.closures import stress_tendency, strain
+from pinneapple_physics.multiscale.closures import strain, stress_tendency
 from pinneapple_physics.multiscale.ns2d import vorticity_residual
 
 L = 2 * np.pi
@@ -260,7 +259,7 @@ def test_router_ladder_escalates_with_scale_and_reports_not_covered():
 def test_ensemble_with_scale_router_and_failing_check_escalates_to_solver():
     names = [p.name for p in PROFILES]
     truth = lambda q: np.full(4, 1.0)  # noqa: E731
-    experts = [from_callable(n, (lambda n: lambda q: truth(q) + (0.5 if n == "les" else 0.01 * i))(n))
+    experts = [from_callable(n, (lambda n: lambda q: truth(q) + (0.5 if n == "les" else 0.01 * i))(n))  # noqa: B023
                for i, n in enumerate(names)]
     ens = PhysicsEnsemble(experts, mode="select", router=ScaleAwareRouter(PROFILES),
                           prediction_checks={"les": lambda p, q: (0.0, "closure check failed")})
@@ -275,7 +274,11 @@ def test_ensemble_with_scale_router_and_failing_check_escalates_to_solver():
 # ------------------------------------------------------------------------------------------ learned (torch)
 def test_differentiable_les_matches_numpy_solver_and_closure_conserves_circulation():
     torch = pytest.importorskip("torch")
-    from pinneapple_physics.multiscale.learned import LearnedClosure, TorchVorticityLES2D, as_numpy_closure
+    from pinneapple_physics.multiscale.learned import (
+        LearnedClosure,
+        TorchVorticityLES2D,
+        as_numpy_closure,
+    )
 
     rng = np.random.default_rng(10)
     w0 = apply_filter(random_vorticity(rng, 32, k0=3), Filter("sharp", L / 20))
@@ -351,7 +354,11 @@ def test_turbulence_benchmark_streams_and_pairs():
 
 
 def test_adapt_output_and_closed_residual():
-    from pinneapple_physics.multiscale.comparison import adapt_output, closed_multiscale_residual, raw_residual
+    from pinneapple_physics.multiscale.comparison import (
+        adapt_output,
+        closed_multiscale_residual,
+        raw_residual,
+    )
 
     X, Y = grid(32)
     w = 2 * np.sin(X) * np.sin(Y)
@@ -397,7 +404,11 @@ def test_run_ensembles_on_a_synthetic_table():
 def test_learned_benchmark_models():
     torch = pytest.importorskip("torch")
     from pinneapple_physics.multiscale.filters import fourier_basis, low_modes
-    from pinneapple_physics.multiscale.learned import FourierGalerkinPINN, periodic_cnn2d, torus_graph
+    from pinneapple_physics.multiscale.learned import (
+        FourierGalerkinPINN,
+        periodic_cnn2d,
+        torus_graph,
+    )
 
     assert periodic_cnn2d(2, 3, width=8)(torch.randn(1, 2, 16, 16)).shape == (1, 3, 16, 16)
     e, a = torus_graph(8, (1, 2))
@@ -417,7 +428,7 @@ def test_learned_benchmark_models():
 def test_error_tolerance_escalates_and_returns():
     names = [p.name for p in PROFILES]
     bad = {"v": 0.5}
-    experts = [from_callable(n, (lambda n: lambda q: np.full(4, 1.0) + (bad["v"] if n.startswith("surrogate") else 0.0))(n))
+    experts = [from_callable(n, (lambda n: lambda q: np.full(4, 1.0) + (bad["v"] if n.startswith("surrogate") else 0.0))(n))  # noqa: B023
                for n in names]
     ens = PhysicsEnsemble(experts, mode="select", router=ScaleAwareRouter(PROFILES), error_tolerance=0.2,
                           error_context=lambda q: q.filter.delta)

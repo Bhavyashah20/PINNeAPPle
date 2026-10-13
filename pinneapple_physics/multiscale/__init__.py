@@ -58,9 +58,23 @@ from .filters import (
     restrict,
     transfer,
 )
-from .ns2d import VorticityNS2D, energy_spectrum, random_vorticity, velocity_from_vorticity, vorticity_residual
+from .ns2d import (
+    VorticityNS2D,
+    energy_spectrum,
+    random_vorticity,
+    velocity_from_vorticity,
+    vorticity_residual,
+)
 from .residuals import MultiscaleResidual, multiscale_residuals, ns2d_multiscale_residuals
-from .scales import RUNGS, ScaleAwareRouter, ScaleCheck, ScaleProfile, ScaleQuery, ScaleRoute, scale_compatibility
+from .scales import (
+    RUNGS,
+    ScaleAwareRouter,
+    ScaleCheck,
+    ScaleProfile,
+    ScaleQuery,
+    ScaleRoute,
+    scale_compatibility,
+)
 
 __all__ = [
     "FILTER_KINDS", "Filter", "transfer", "apply_filter", "restrict", "prolong", "post_filter_transfer",

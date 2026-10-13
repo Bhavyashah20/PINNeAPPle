@@ -192,7 +192,14 @@ def benchmark_closures(bench: DecayingTurbulence2D, data: Mapping[str, np.ndarra
     :func:`~.closures.closure_health` flags the run. ``closures``: ``{name: closure}``, None for no model; closures
     without a ``stress`` method (learned ones) get the tendency-level tests only. ``times`` must be in
     ``bench.train_times``."""
-    from .closures import aposteriori_test, apriori_test, closure_health, germano_error, strain, true_subfilter
+    from .closures import (
+        aposteriori_test,
+        apriori_test,
+        closure_health,
+        germano_error,
+        strain,
+        true_subfilter,
+    )
 
     filt = bench.les_filter
     n = bench.les_n
@@ -268,7 +275,7 @@ def scale_conditioning_study(bench: DecayingTurbulence2D, data: Mapping[str, np.
             w = np.asarray(data["w"][i], float)
             nu = float(data["nu"][i])
             ref = bench.filtered_input(w[bench.out_index()], tgt)
-            rel = lambda p: float(np.linalg.norm(p - ref) / np.linalg.norm(ref))  # noqa: E731
+            rel = lambda p: float(np.linalg.norm(p - ref) / np.linalg.norm(ref))  # noqa: B023, E731
             p = conditioned(w[0], nu, d * h)
             acc["conditioned"].append(rel(p))
             acc["spectrum"].append(spectrum_error(p[-1], ref[-1], min(tgt.cutoff, bench.n_out / 2 - 1), bench.length))

@@ -26,8 +26,6 @@ import numpy as np
 import torch
 from torch import nn
 
-from .filters import Filter
-
 __all__ = ["torch_transfer", "torch_filter", "torch_refilter", "ScaleConditionedFNO2d", "filtering_consistency_loss",
            "fit_scale_conditioned", "TorchVorticityLES2D", "LearnedClosure", "train_closure_aposteriori",
            "as_numpy_closure", "periodic_cnn2d", "torus_graph", "FourierGalerkinPINN", "fit_supervised"]
@@ -473,7 +471,7 @@ class FourierGalerkinPINN:
         for step in range(steps):
             idx = torch.randint(0, C0.shape[0], (batch,), generator=g)
             t = torch.rand(batch, 1, generator=g) * self.t_ref
-            c, dcdt = jvp(lambda tt: self.coeffs(C0[idx], Z[idx], tt), (t,), (torch.ones_like(t),))
+            c, dcdt = jvp(lambda tt: self.coeffs(C0[idx], Z[idx], tt), (t,), (torch.ones_like(t),))  # noqa: B023
             r = dcdt - self.tendency(c, NU[idx])
             loss = (r ** 2).mean() / (self.tendency(C0[idx], NU[idx]) ** 2).mean().detach()
             opt.zero_grad()

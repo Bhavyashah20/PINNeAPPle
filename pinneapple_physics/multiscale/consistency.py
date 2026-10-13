@@ -72,14 +72,15 @@ class ConsistencyReport:
 
 
 def cross_scale_consistency(fine: np.ndarray, coarse: np.ndarray, coarse_filter: Filter,
-                            fine_filter: Filter = Filter("sharp", 0.0), *, length: float = 2 * np.pi,
+                            fine_filter: Filter | None = None, *, length: float = 2 * np.pi,
                             tol: float = 0.05, integrals: Mapping[str, Callable[[np.ndarray], float]] | None = None,
                             integral_tol: float | Mapping[str, float] = 0.02, gci: float | None = None,
                             safety: float = 1.25, spectrum: bool = True) -> ConsistencyReport:
-    """Compare ``fine`` (filtered by ``fine_filter``, on its grid) with ``coarse`` (filtered by ``coarse_filter``, on
+    """Compare ``fine`` (filtered by ``fine_filter``, default unfiltered, on its grid) with ``coarse`` (filtered by ``coarse_filter``, on
     a grid of equal or fewer points) after bringing the fine one to the coarse scale and grid. Arrays are ``(n, n)``
     or with leading axes (e.g. snapshots). ``integrals`` default to :data:`VORTICITY_INTEGRALS` for 2-D fields."""
     fine, coarse = np.asarray(fine, float), np.asarray(coarse, float)
+    fine_filter = fine_filter if fine_filter is not None else Filter("sharp", 0.0)
     f2c = refilter(fine, fine_filter, coarse_filter, length)
     if f2c.shape[-1] != coarse.shape[-1]:
         f2c = restrict(f2c, coarse.shape[-1])

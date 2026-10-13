@@ -82,7 +82,7 @@ class VorticityNS2D:
     length: float = 2 * np.pi
     forcing: np.ndarray | None = None
     drag: float = 0.0
-    closure: Callable[[np.ndarray, "VorticityNS2D"], np.ndarray] | None = None
+    closure: Callable[[np.ndarray, VorticityNS2D], np.ndarray] | None = None
     dealias: bool = True
 
     def __post_init__(self):

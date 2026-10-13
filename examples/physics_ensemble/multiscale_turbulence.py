@@ -131,7 +131,12 @@ def build_surrogates(data, scale=1.0):
     from pinneapple_neural.architectures.graphnn.mesh_graph_net import MeshGraphNet
     from pinneapple_neural.architectures.neural_operators.deeponet import DeepONet
     from pinneapple_neural.architectures.neural_operators.fno import FNO2d
-    from pinneapple_physics.multiscale.learned import FourierGalerkinPINN, fit_supervised, periodic_cnn2d, torus_graph
+    from pinneapple_physics.multiscale.learned import (
+        FourierGalerkinPINN,
+        fit_supervised,
+        periodic_cnn2d,
+        torus_graph,
+    )
 
     torch.set_num_threads(4)
     steps = lambda n: max(20, int(n * scale))  # noqa: E731
@@ -284,7 +289,7 @@ def experts_and_checks(surrogates, sc, closure):
     s_les = VorticityNS2D(n_les, 0.0, L)
     closures = {"LES-Smagorinsky": Smagorinsky(), "LES-dynamic": DynamicSmagorinsky(), "LES-gradient": GradientModel(),
                 "LES-learned": as_numpy_closure(closure, n_les)}
-    experts = {nm: (lambda nm: lambda w0, q: surrogates[nm](w0, q["nu"]))(nm) for nm in SURROGATES}
+    experts = {nm: (lambda nm: lambda w0, q: surrogates[nm](w0, q["nu"]))(nm) for nm in SURROGATES}  # noqa: B023
 
     def les(nm):
         def run(w0, q):
@@ -343,7 +348,7 @@ def main(scale=1.0, workers=4, assets="docs/assets/physics_ensemble", stage="all
 
     _, te = BENCH.split(data, ("mid", "high"))
     sc_rows = scale_conditioning_study(BENCH, data, te, sc["SC-FNO"],
-                                       {d * H: (lambda d: lambda w0, nu: sc[f"FNO-{d}h"](w0, nu, d * H))(d)
+                                       {d * H: (lambda d: lambda w0, nu: sc[f"FNO-{d}h"](w0, nu, d * H))(d)  # noqa: B023
                                         for d in SC_WIDTHS}, sc["FNO-blind"])
     bench_rows = benchmark_closures(BENCH, data, {"no model": None, "Smagorinsky (Cs 0.17)": Smagorinsky(),
                                                   "dynamic Smagorinsky": DynamicSmagorinsky(),

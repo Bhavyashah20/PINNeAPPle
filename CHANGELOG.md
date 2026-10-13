@@ -29,6 +29,16 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   - Scale-linking models (PyTorch): a scale-conditioned FNO with a filtering-consistency loss, a differentiable LES,
     and a closure trained a posteriori through the solver.
   - Decaying 2-D turbulence benchmark, ensemble comparison and animation.
+  - Results (180 held-out queries, 256² DNS reference):
+    - The scale-aware ensembles never answer below a model's resolved scale. The scale-blind ensemble, once cost
+      counts, does so on 25-29 queries, with 32-36 % error at the finest width against 3.3 %.
+    - In mean error per unit cost the scale-aware ensembles do not beat the scale-blind one on this small 2-D
+      case, where the 128² DNS costs about as much as the LES.
+    - The closure check flags static Smagorinsky on every query (Germano error 1.35, dissipation 1.5-7.9× too
+      high) and never the dynamic, gradient or learned closures.
+    - The closure trained a posteriori is the best LES: spectrum error 0.008-0.013 against 0.04-0.05.
+    - The scale-conditioned FNO beats the scale-blind network at the held-out width but not fixed-width FNOs
+      post-filtered exactly.
   - Example `examples/physics_ensemble/multiscale_turbulence.py`; docs page "Multiscale ensembles" and the guide
     "Choose a model by the scale of the question".
 - `PhysicsEnsemble(prediction_checks=..., error_tolerance=...)`: label-free checks of each prediction, and an error
