@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { SkyView } from "./sky.js";
 import { SystemView } from "./system.js";
 import { D2R, R2D, altazVec, compass, dateToJd, fmtDec, fmtRA, jdToDate, vecAltaz, mul3, radecVec } from "./astro.js";
+import { renderBlackHole, renderConditions, renderDecay, renderSmallBodies, renderSpaceWeather, renderStarsML } from "./ai.js";
 
 // ------------------------------------------------------------------------------------------------- setup
 const $ = (s) => document.querySelector(s);
@@ -61,6 +62,19 @@ async function api(path) {
 }
 const isoOf = (jd) => jdToDate(jd).toISOString();
 const qs = () => `lat=${S.obs.lat}&lon=${S.obs.lon}&elev=${S.obs.elev || 0}`;
+function viewRaDec() {                                   // J2000 RA/Dec of the centre of the sky view
+  const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(sky.camera.quaternion);
+  const M = sky.Mj2000; const v = [0, 1, 2].map((c) => M[0][c] * dir.x + M[1][c] * dir.y + M[2][c] * dir.z);
+  return [((Math.atan2(v[1], v[0]) * R2D) + 360) % 360, Math.asin(v[2]) * R2D];
+}
+function aboveHorizon() {
+  const out = new Set(), M = sky.Mj2000, cat = sky.cat;
+  if (!M || !cat) return out;
+  for (let i = 0; i < cat.hr.length; i++) { const s = radecVec(cat.ra[i], cat.dec[i]); if (M[1][0] * s[0] + M[1][1] * s[1] + M[1][2] * s[2] > 0) out.add(cat.hr[i]); }
+  return out;
+}
+const ctx = { iso: () => isoOf(S.simJD), qs, viewRaDec, aboveHorizon,
+  showSmallBody: async (key) => { const tr = await api(`/api/smallbodies/track?body=${key}&t=${isoOf(S.simJD)}&days=600`); sys.setSmallBody(tr); if (S.view !== "system") switchView("system"); } };
 
 async function loadSky(force) {
   if (S.skyLoading) return;
@@ -166,9 +180,11 @@ if (params.get("panel") === "0") $("#panel").classList.remove("open");
 const LAYERS = [["constellations", "Constellations"], ["names", "Names"], ["altaz", "Alt-az grid"], ["equatorial", "Equatorial grid + ecliptic"],
   ["milkyway", "Milky Way"], ["atmosphere", "Atmosphere"], ["ground", "Ground"], ["satellites", "Satellites"], ["planetsBig", "Planets ×60"]];
 $("#layers").innerHTML = LAYERS.map(([k, t]) => `<label><input type="checkbox" data-k="${k}" ${sky.layers[k] ? "checked" : ""}>${t}</label>`).join("") +
-  `<label class="sysonly"><input type="checkbox" id="logScale" checked>Log distances</label>`;
+  `<label class="sysonly"><input type="checkbox" id="logScale" checked>Log distances</label>` +
+  `<label class="sysonly">Planet size ×<input type="range" id="sizeK" min="1" max="12" value="3" step="0.5" style="width:90px"><span id="sizeKv">3</span></label>`;
 for (const cb of document.querySelectorAll("#layers input[data-k]")) cb.onchange = (e) => { sky.layers[e.target.dataset.k] = e.target.checked; if (e.target.dataset.k === "satellites") loadSats(true); };
 $("#logScale").onchange = (e) => { sys.logScale = e.target.checked; sys._buildOrbits(); };
+$("#sizeK").oninput = (e) => { sys.setSizeScale(+e.target.value); $("#sizeKv").textContent = e.target.value; };
 
 // location
 const sel = $("#city");
@@ -299,7 +315,7 @@ function focusSystem(id) {
   sys.flyTo(t.clone().add(dir.multiplyScalar(r)), t, 1800);
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-window.__obs = { S, sky, sys, switchView, focusSystem, loadSky };          // for scripted captures (GIF / screenshots)
+window.__obs = { S, sky, sys, switchView, focusSystem, loadSky, ctx };          // for scripted captures (GIF / screenshots)
 
 // ------------------------------------------------------------------------------------------------- panels
 for (const b of document.querySelectorAll(".ptabs button")) b.onclick = () => openTab(b.dataset.tab);
@@ -469,8 +485,9 @@ async function renderSatsPanel() {
     const err = src.groups ? Object.values(src.groups).find((g) => g.error) : null;
     let h = `<h3>Next passes: ISS, Tiangong, Hubble</h3>` + passesTable(p.passes);
     if (!p.passes.length && err) h = `<h3>Satellites</h3><div class="card">No current TLEs: CelesTrak could not be reached from the server (${esc(err.error)}). The pass predictor is validated offline against an independent implementation (Engine tab).</div>`;
-    h += `<p class="small muted">${esc(p.method)}. TLEs: CelesTrak GP data, refreshed every 6 h.</p>`;
+    h += `<p class="small muted">${esc(p.method)}. TLEs: CelesTrak GP data, refreshed every 6 h.</p><div id="decayBox"></div>`;
     el.innerHTML = h;
+    renderDecay($("#decayBox"), ctx);
   } catch (e) { el.innerHTML = `<p>${esc(e.message)}</p>`; }
 }
 
@@ -485,8 +502,18 @@ function renderAnalyses() {
   <h3>Orbit, light time & Doppler</h3><div class="row"><select id="aOrb">${opts.replace('<option value="sun">Sun</option>', "")}</select><button class="primary" id="aOrbit">Compute</button></div><div id="aOrbitOut"></div>
   <h3>Black-body spectrum</h3><div class="row"><input id="aT" type="range" min="2500" max="30000" value="5772" step="10" style="flex:1"><span id="aTv" class="pill">5772 K</span></div><div id="aBB"></div>
   <h3>Events: phases, oppositions, elongations, eclipses, transits</h3><div class="row"><select id="aDays"><option value="90">next 3 months</option><option value="365" selected>next 12 months</option><option value="730">next 2 years</option></select><button class="primary" id="aEv">List</button></div><div id="aEvOut"></div>
-  <h3>Gravitational lensing: a black hole in front of your sky</h3><p class="small muted">A Schwarzschild black hole placed where you are looking; the real stars (Yale BSC) and Milky Way are lensed by null geodesics traced with the black-hole module of PINNeAPPle.</p>
+  <h3>Space weather and aurora</h3><div id="aSW"><button class="ghost" id="aSWgo">Kp forecast and aurora chance here</button></div>
+  <h3>Observing conditions (next 48 h)</h3><div id="aWX"><button class="ghost" id="aWXgo">Clouds, transparency, seeing</button></div>
+  <h3>Asteroids and close approaches</h3><div id="aSB"><button class="ghost" id="aSBgo">Apophis, Phaethon, Ceres…</button></div>
+  <h3>Stellar ML on the HR diagram</h3><div id="aML"><button class="ghost" id="aMLgo">Cluster and classify the stars</button></div>
+  <h3>Black hole with an accretion disc, in front of your sky</h3><div id="aBH"></div>
+  <h3>Pure lensing (no disc)</h3><p class="small muted">A Schwarzschild black hole placed where you are looking; the real stars (Yale BSC) and Milky Way are lensed by null geodesics traced with the black-hole module of PINNeAPPle.</p>
   <div class="row"><label class="small">camera distance <input id="aRc" type="range" min="8" max="120" value="30"></label><button class="primary" id="aLens">Render where I look</button></div><div id="aLensOut"></div>`;
+  $("#aSWgo").onclick = () => renderSpaceWeather($("#aSW"), ctx);
+  $("#aWXgo").onclick = () => renderConditions($("#aWX"), ctx);
+  $("#aSBgo").onclick = () => renderSmallBodies($("#aSB"), ctx);
+  $("#aMLgo").onclick = () => renderStarsML($("#aML"), ctx);
+  renderBlackHole($("#aBH"), ctx);
   $("#aSep").onclick = async () => {
     try { const r = await api(`/api/analysis/separation?a=${encodeURIComponent($("#aA").value)}&b=${encodeURIComponent($("#aB").value)}&t=${isoOf(S.simJD)}&${qs()}`);
       $("#aSepOut").innerHTML = `<div class="card"><b>${r.separation_dms}</b> (${num(r.separation_deg, 5)}°), position angle ${num(r.position_angle_deg, 2)}°<br><span class="muted">${esc(r.method)}</span></div>`; }
@@ -538,9 +565,22 @@ async function renderEngine() {
   <p class="small">A PINN learns a planet's heliocentric orbit for the next year: <i>r(t) = r<sub>Kepler</sub>(t) + τ² g<sub>θ</sub>(τ)</i>, trained on the residual of the full N-body equation of motion plus 8 anchor states, then judged against the classical integrator with split-conformal bands and physics checks.</p>
   <div class="row"><select id="eBody"><option>mars</option><option>venus</option><option>mercury</option><option>jupiter</option><option>saturn</option><option>earth</option></select><button class="primary" id="eRun">Train / show</button><span id="eStat" class="small muted"></span></div>
   <div id="eOut"></div>
+  <h3>Other PINNeAPPle models in the observatory</h3>
+  <table class="small"><tr><th>Model</th><th>Checked against</th><th></th></tr>
+  <tr><td>Orbit-decay PINN (drag, NRLMSIS 2.0)</td><td>RK integration, input-uncertainty envelope, SGP4</td><td><button class="ghost" data-go="sats">Satellites</button></td></tr>
+  <tr><td>Learned NEO propagator</td><td>full N-body integrator, held-out bodies, Apophis</td><td><button class="ghost" data-go="aSBgo">Open</button></td></tr>
+  <tr><td>Small-body propagator</td><td>JPL Horizons (Ceres), JPL close approaches (Apophis 2029)</td><td><button class="ghost" data-go="aSBgo">Open</button></td></tr>
+  <tr><td>Kp forecaster + aurora</td><td>observed Kp, held-out months; persistence</td><td><button class="ghost" data-go="aSWgo">Open</button></td></tr>
+  <tr><td>Stellar classifiers / clustering</td><td>BSC5 MK spectral types, cross-validation</td><td><button class="ghost" data-go="aMLgo">Open</button></td></tr>
+  <tr><td>Observing-conditions ensemble</td><td>(not verified: needs an observation history)</td><td><button class="ghost" data-go="aWXgo">Open</button></td></tr></table>
   <h3>Classical integrators</h3><div id="eInt"><p class="muted">Loading…</p></div>
   <h3>Validation of every method</h3><div id="eVal"><p class="muted">Loading…</p></div>`;
   $("#eRun").onclick = () => runSurrogate($("#eBody").value);
+  for (const b of el.querySelectorAll("[data-go]")) b.onclick = () => {
+    const g = b.dataset.go;
+    if (g === "sats") return openTab("sats");
+    openTab("analyses"); const btn = $("#" + g); if (btn) { btn.click(); btn.scrollIntoView({ block: "start" }); }
+  };
   runSurrogate("mars"); loadIntegrators(); loadValidation();
 }
 async function runSurrogate(body) {
@@ -596,7 +636,9 @@ setViewButtons();
   last = performance.now();
   requestAnimationFrame(frame);
   window.__ready = true;
-  if (params.get("view") === "system") switchView("system");
+  if (params.get("view") === "system") switchView("system").then(() => {
+    if (params.get("focus")) setTimeout(() => focusSystem(params.get("focus")), +(params.get("focusDelay") || 7000));
+  });
   if (params.get("tab")) openTab(params.get("tab"));
   if (params.get("select")) {                    // e.g. select=star:2491 or select=body:saturn
     const [kind, id] = params.get("select").split(":");

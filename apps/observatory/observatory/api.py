@@ -591,6 +591,250 @@ def engine_integrators(years: float = Query(2.0, gt=0, le=20), dt_hours: float =
     return out
 
 
+# ------------------------------------------------------------------------------- orbit decay (satellites panel)
+@app.get("/api/sat/decay")
+def sat_decay(norad: int = 25544, days: float = Query(60.0, ge=5, le=365), f107: float = Query(150.0, ge=60, le=300),
+              ap: float = Query(15.0, ge=0, le=400), B: float = Query(0.005, gt=0, le=0.2),
+              h0: float | None = Query(None, ge=180, le=1000), incl: float = Query(51.6, ge=0, le=180),
+              t: str | None = None):
+    """Drag decay of a LEO satellite: the PINN, the RK reference with its input-uncertainty envelope, and, when a
+    TLE is loaded, SGP4's own decay prediction from that TLE (an independent drag model)."""
+    from pinneapple_physics.astro.decay import compare_with_sgp4, sgp4_decay, train_decay_pinn
+    tt = _time(t)
+    sats, _info = _satellites()
+    sat = next((x for x in sats if x.norad == norad), None)
+    sgp = None
+    date = tt.iso()[:16]
+    if sat is not None and h0 is None:
+        ts, hs, info = sgp4_decay(sat.line1, sat.line2, days=1.0)
+        h0, incl = float(hs[0]), info["inclination_deg"]
+    h0 = 415.0 if h0 is None else h0
+    key = ("decay", norad, round(h0, 1), days, f107, ap, B, round(incl, 1), date[:10])
+    if key not in _CACHE:
+        with _HEAVY:
+            rep = train_decay_pinn(h0, B, days, f107=f107, ap=ap, date=date, inclination_deg=incl, iters=1200)
+            if sat is not None:
+                sgp = compare_with_sgp4(sat.line1, sat.line2, min(days, 30.0), f107=f107, ap=ap, B=B)
+            rep["sgp4"] = sgp
+            rep["satellite"] = None if sat is None else {"name": sat.name, "norad": sat.norad,
+                                                         "tle_epoch_jd": sat.epoch_jd}
+            rep["method"] = ("da/dt = -B rho(h) sqrt(mu a); rho: orbit-averaged NRLMSIS 2.0; PINN a(t) = a0 - s tau "
+                             "softplus(g(tau)) trained on the ODE residual; reference: DOP853 integration; envelope: "
+                             "Monte Carlo over F10.7 (+-20 %), Ap (x0.5-2) and B (+-15 %)")
+            _CACHE[key] = rep
+    return _CACHE[key]
+
+
+# ------------------------------------------------------------------------------------------------- small bodies
+@app.get("/api/smallbodies")
+def smallbodies():
+    from pinneapple_physics.astro.smallbodies import available_bodies, load_body
+    out = []
+    for k in available_bodies():
+        b = load_body(k)
+        refs = [c for c in b.ca_data if c["body"] == "Earth" and 1950 <= int(c["cd"][:4]) <= 2049]
+        out.append({"key": k, "name": b.name, "a_au": b.a_au, "e": b.e, "i_deg": b.i_deg, "epoch_jd": b.epoch_jd,
+                    "neo": b.neo, "pha": b.pha, "H": b.H, "diameter_km": b.diameter_km,
+                    "close_approaches_jpl": [{"cd": c["cd"], "dist_au": float(c["dist"]),
+                                              "v_rel_km_s": float(c["v_rel"])} for c in refs[:60]]})
+    return {"bodies": out, "source": "JPL Small-Body Database (public domain), as bundled in the astroquery tests"}
+
+
+@app.get("/api/smallbodies/track")
+def smallbody_track(body: str = "apophis", t: str | None = None, days: int = Query(400, ge=30, le=1500)):
+    """Heliocentric J2000-ecliptic track (AU) of a small body around t from the full propagator, and the learned
+    propagator's track over its one-year validity window."""
+    from pinneapple_physics.astro.smallbodies import Trajectory, load_body
+    tt = _time(t)
+    key = ("sbtrack", body, round(float(tt.tdb)), days)
+    if key not in _CACHE:
+        b = load_body(body)
+        jd = float(tt.tdb) + np.linspace(-days / 2, days / 2, 241)
+        with _HEAVY:
+            tr = Trajectory(b, float(jd.min()), float(jd.max()), EPH)
+            r, _ = tr.heliocentric(jd)
+        E = frames.ecliptic_matrix(None)
+        _CACHE[key] = {"body": body, "name": b.name, "jd": jd.tolist(), "pos_au": np.round(r @ E.T / AU_KM, 6).tolist()}
+    return _CACHE[key]
+
+
+@app.get("/api/smallbodies/approaches")
+def smallbody_approaches(body: str = "apophis", start: str = "2026-01-01T00:00:00Z",
+                         years: float = Query(10.0, gt=0, le=24), max_au: float = Query(0.2, gt=0, le=1)):
+    from pinneapple_physics.astro.smallbodies import close_approaches, load_body
+    t0 = _time(start)
+    jd0 = float(t0.tdb)
+    jd1 = min(jd0 + years * 365.25, EPH.jd_range[1] - 2)
+    key = ("sbca", body, round(jd0), round(jd1), max_au)
+    if key not in _CACHE:
+        b = load_body(body)
+        with _HEAVY:
+            ca = close_approaches(b, jd0, jd1, max_dist_au=max_au, step_days=1.0, eph=EPH)
+        refs = {c["cd"][:11]: c for c in b.ca_data if c["body"] == "Earth"}
+        for c in ca:
+            c["utc"] = Time.from_tt(c["jd_tdb"]).iso()
+            c["lunar_distances"] = c["dist_km"] / 384400.0
+            from pinneapple_physics.astro.timescales import datetime_from_jd
+            d = datetime_from_jd(c["jd_tdb"]).strftime("%Y-%b-%d")
+            ref = refs.get(d)
+            if ref:
+                c["jpl"] = {"cd": ref["cd"], "dist_au": float(ref["dist"]), "dist_min_au": float(ref["dist_min"]),
+                            "dist_max_au": float(ref["dist_max"])}
+        _CACHE[key] = {"body": body, "approaches": ca,
+                       "method": "DOP853 test-particle integration in the DE421 field of the Sun, planets and Moon, "
+                                 "with the Sun's 1PN relativistic term; no Yarkovsky or asteroid perturbers"}
+    return _CACHE[key]
+
+
+@app.get("/api/smallbodies/validation")
+def smallbody_validation():
+    from pinneapple_physics.astro import neural_propagator as npg
+    from pinneapple_physics.astro.smallbodies import validation_summary
+    if "sbval" not in _CACHE:
+        with _HEAVY:
+            val = validation_summary(EPH)
+        try:
+            val["neural"] = npg.trust_report()
+        except OSError:
+            val["neural"] = None
+        _CACHE["sbval"] = val
+    return _CACHE["sbval"]
+
+
+@app.get("/api/smallbodies/pinn")
+def smallbody_pinn(body: str = "apophis", t: str | None = None, days: int = Query(365, ge=30, le=730)):
+    """The physics-informed orbit surrogate (Kepler + tau^2 network, N-body residual) trained for one small body,
+    judged against the high-accuracy propagator."""
+    from pinneapple_physics.astro.smallbodies import load_body
+    from pinneapple_physics.astro.surrogate import train_orbit_pinn
+    tt = _time(t)
+    day = math.floor(float(tt.tdb) - 0.5) + 0.5
+    key = ("sbpinn", body, day, days)
+    if key not in _CACHE:
+        with _HEAVY:
+            _CACHE[key] = train_orbit_pinn(load_body(body), day, float(days), iters=800, eph=EPH)
+    return _CACHE[key]
+
+
+@app.get("/api/smallbodies/neural")
+def smallbody_neural(body: str = "apophis"):
+    """The learned propagator on a real object over one year from its SBDB epoch, against the full integrator."""
+    from pinneapple_physics.astro import neural_propagator as npg
+    from pinneapple_physics.astro.smallbodies import load_body
+    key = ("sbnn", body)
+    if key not in _CACHE:
+        model = npg.NeuralPropagator.load()
+        with _HEAVY:
+            row = npg.evaluate(model, [load_body(body)])[0]
+        _CACHE[key] = row
+    return _CACHE[key]
+
+
+# ----------------------------------------------------------------------------------------- stars ML / weather
+@app.get("/api/stars/ml")
+def stars_ml():
+    from pinneapple_physics.astro.stars_ml import analyse
+    if "starsml" not in _CACHE:
+        _CACHE["starsml"] = analyse()
+    return JSONResponse(_CACHE["starsml"], headers={"Cache-Control": "public, max-age=3600"})
+
+
+_SW = {}
+
+
+def _sw_models():
+    from pinneapple_physics.astro.spaceweather import train_forecaster
+    if not _SW:
+        for h in (1, 8):
+            _SW[h] = train_forecaster(h)
+    return _SW
+
+
+@app.get("/api/spaceweather")
+def spaceweather(lat: float = Query(-23.5505), lon: float = Query(-46.6333)):
+    """Kp now and forecast 3 h / 24 h ahead with calibrated intervals, and the aurora probability here."""
+    from pinneapple_physics.astro import spaceweather as sw
+    with _HEAVY:
+        models = _sw_models()
+    live, source = None, None
+    try:
+        times, kp = sw.fetch_live_kp()
+        live = {"times": times[-56:], "kp": kp[-56:].tolist()}
+        source = "NOAA SWPC planetary K index (live)"
+        hist = kp
+    except Exception as exc:  # noqa: BLE001
+        h = sw.load_history()
+        hist = h["kp"][: 330 * 8]                                   # replay: 2000-Nov-25, a stormy autumn
+        source = f"offline replay of observed Kp (GFZ), 2000-Nov-25 -- live NOAA SWPC unavailable ({type(exc).__name__})"
+    maglat, plat, plon = sw.geomagnetic_latitude(lat, lon)
+    out = {"source": source, "live": live, "kp_now": float(hist[-1]), "maglat": maglat,
+           "pole": [plat, plon], "boundary_now": float(sw.oval_boundary(hist[-1])), "forecasts": []}
+    if len(hist) >= sw.RECUR + 8:
+        for hzn, (model, rep) in models.items():
+            lo, med, hi = sw.forecast(model, hist, 150.0)
+            out["forecasts"].append({"horizon_h": hzn * 3, "lo": lo, "median": med, "hi": hi,
+                                     "aurora": sw.aurora_probability(lo, med, hi, maglat),
+                                     "verdict": rep["verdict"], "checks": rep["checks"],
+                                     "mae_model": rep["mae_model"], "mae_persistence": rep["mae_persistence"],
+                                     "coverage_80": rep["coverage_80"], "median_source": rep["median_source"]})
+    out["method"] = models[8][1]["method"] + "; aurora boundary 66.5 - 2.04 Kp (geomagnetic latitude, IGRF-13 dipole)"
+    return out
+
+
+@app.get("/api/spaceweather/verification")
+def spaceweather_verification():
+    with _HEAVY:
+        models = _sw_models()
+    return {str(h * 3): {k: v for k, v in rep.items()} for h, (m, rep) in models.items()}
+
+
+@app.get("/api/conditions")
+def conditions(lat: float = Query(-23.5505), lon: float = Query(-46.6333)):
+    """Cloud / transparency / seeing proxy for the next 48 h from the Open-Meteo ensemble (members' spread)."""
+    from pinneapple_physics.astro.conditions import fetch_ensemble, summarize
+    key = ("wx", round(lat, 2), round(lon, 2), int(time.time() // 3600))
+    if key not in _CACHE:
+        try:
+            _CACHE[key] = summarize(fetch_ensemble(lat, lon))
+        except Exception as exc:  # noqa: BLE001
+            return {"error": f"Open-Meteo unavailable from the server ({type(exc).__name__}: {exc})"}
+    return _CACHE[key]
+
+
+@app.get("/api/blackhole/status")
+def blackhole_status():
+    """Show the black-hole accretion forecaster only if it is in the model zoo and passes the zoo gate."""
+    try:
+        import pinneapple_hub.zoo as zoo
+        names = [m if isinstance(m, str) else getattr(m, "name", str(m)) for m in zoo.list()]
+        cand = [n for n in names if any(k in n.lower() for k in ("black", "accretion", "riaf"))]
+        for n in cand:
+            st = zoo.status(n)
+            if str(st.get("gate", st.get("status", ""))).lower() in ("pass", "passed", "trustworthy", "ok"):
+                return {"available": True, "model": n, "status": st}
+        return {"available": False, "candidates": cand,
+                "note": "The black-hole accretion forecaster is not in the model zoo yet (or has not passed its "
+                        "gate); its forecast and skill horizon will appear here when it does."}
+    except Exception as exc:  # noqa: BLE001
+        return {"available": False, "note": f"model zoo unavailable: {exc}"}
+
+
+@app.get("/api/analysis/accretion.png")
+def accretion_png(ra: float = Query(266.4, ge=0, le=360), dec: float = Query(-29.0, ge=-90, le=90),
+                  doppler: bool = True, incl: float = Query(86.0, ge=10, le=89.5)):
+    from PIL import Image
+
+    from pinneapple_physics.astro.lensing import accretion_view
+    with _HEAVY:
+        if "sky_disc" not in _SKY:
+            from pinneapple_physics.astro.lensing import catalog_sky
+            _SKY["sky_disc"] = catalog_sky(2048, 1024, milky_way=0.10)
+        r = accretion_view(ra, dec, 640, 360, inclination_deg=incl, doppler=doppler, sky=_SKY["sky_disc"])
+    buf = io.BytesIO()
+    Image.fromarray((np.clip(r["image"], 0, 1) * 255).astype("uint8")).save(buf, "PNG")
+    return Response(buf.getvalue(), media_type="image/png", headers={"Cache-Control": "max-age=3600"})
+
+
 _VALIDATION = {"rows": None, "running": False, "seconds": None}
 
 

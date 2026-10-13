@@ -91,29 +91,7 @@ def scope() -> dict:
 
 
 def _graph_payload(g: Lineage) -> dict:
-    lay = g.layers()
-    checks = g.checks()
-    flag = {}
-    for c in checks:
-        if c.get("artifact") and c["status"] in ("fail", "warn"):
-            cur = flag.get(c["artifact"])
-            if cur != "fail":
-                flag[c["artifact"]] = c["status"]
-    nodes = []
-    for a in g.nodes.values():
-        d = a.to_dict()
-        d.update(layer=lay.get(a.id, 0), completeness=round(a.completeness(), 2), outputs=g.children(a.id),
-                 flag=flag.get(a.id), verified=bool(a.hash and a.actual_hash and (a.actual_hash.startswith(a.hash.lower()[:16])
-                                                                                  or a.hash.lower().startswith(a.actual_hash[:16]))))
-        nodes.append(d)
-    worst = "fail" if any(c["status"] == "fail" for c in checks) else "warn" if any(c["status"] == "warn" for c in checks) else "pass"
-    return {"project": g.project, "nodes": nodes, "edges": g.edges(), "checks": checks,
-            "status": {"fail": "FAIL", "warn": "WARNING", "pass": "PASS"}[worst],
-            "summary": {"artifacts": len(g.nodes), "links": len(g.edges()),
-                        "by_kind": {k: sum(1 for a in g.nodes.values() if a.kind == k) for k in {a.kind for a in g.nodes.values()}},
-                        "verified": sum(1 for n in nodes if n["verified"]),
-                        "completeness": round(sum(a.completeness() for a in g.nodes.values()) / max(len(g.nodes), 1), 2)},
-            "lineage": g.to_json(), "prov": g.to_prov(), "markdown": g.to_markdown(), "scope": scope()}
+    return {**g.report(), "lineage": g.to_json(), "prov": g.to_prov(), "markdown": g.to_markdown(), "scope": scope()}
 
 
 def _run(files: List[Tuple[str, bytes]]) -> dict:

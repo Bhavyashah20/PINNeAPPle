@@ -130,3 +130,24 @@ def test_login(client):
         assert client.get("/api/catalog", auth=("u", "p")).status_code == 200
     finally:
         app.state.auth_user = app.state.auth_password = None
+
+
+def test_ai_endpoints(client):
+    from pinneapple_physics.astro.ephemeris import AU_KM
+    sb = client.get("/api/smallbodies").json()
+    keys = {b["key"] for b in sb["bodies"]}
+    assert {"apophis", "ceres", "phaethon"} <= keys
+    tr = client.get("/api/smallbodies/track?body=apophis&t=2029-04-13T00:00:00Z&days=60").json()
+    assert len(tr["pos_au"]) == 241 and 0.6 < np.linalg.norm(tr["pos_au"][120]) < 1.2
+    ca = client.get("/api/smallbodies/approaches?body=apophis&start=2029-04-01T00:00:00Z&years=0.1").json()
+    a = ca["approaches"][0]
+    assert abs(a["dist_km"] - 0.000252172816 * AU_KM) < 700 and a["jpl"] is not None
+    ml = client.get("/api/stars/ml").json()
+    assert ml["lum_cv"]["accuracy"] > ml["lum_cv"]["baseline"]
+    wx = client.get("/api/conditions?lat=0&lon=0").json()
+    assert "error" in wx or "p_clear" in wx                          # offline: an explained error
+    bh = client.get("/api/blackhole/status").json()
+    assert "available" in bh
+    dec = client.get("/api/sat/decay?days=10&f107=150&ap=15&B=0.005&h0=415").json()
+    assert dec["verdict"]["status"] in ("trustworthy", "use_with_caution") and len(dec["h_pinn_km"]) == 200
+    assert dec["h_pinn_km"][-1] < dec["h_pinn_km"][0]

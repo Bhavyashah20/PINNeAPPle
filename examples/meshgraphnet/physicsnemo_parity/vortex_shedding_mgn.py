@@ -21,24 +21,20 @@ on the same test trajectories (same RMSE definition: velocity, NORMAL nodes).
 """
 import argparse
 import json
-import sys
 import time
 from pathlib import Path
 
 import numpy as np
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from _common import (  # noqa: E402
+from pinneapple_data.datasets.deepmind_mgn import (
     CYLINDER_TYPE_MAP,
     cylinder_flow_to_tensors,
     download_prefix,
-    eval_rollout,
-    pick_device,
     read_trajectories,
 )
-
-from pinneapple_neural.architectures.graphnn.mgn_dynamics import MeshDynamicsMGN  # noqa: E402
+from pinneapple_neural.architectures.graphnn.mgn_dynamics import MeshDynamicsMGN, eval_rollout
+from pinneapple_neural.trainer.parallel import best_device
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--data", default="examples/meshgraphnet/_data/cylinder_flow")
@@ -58,7 +54,7 @@ a = ap.parse_args()
 
 torch.manual_seed(a.seed)
 rng = np.random.default_rng(a.seed)
-dev = pick_device()
+dev = best_device(allow_mps=False)  # tiny graphs: MPS launch latency dominates
 data_dir, out = Path(a.data), Path(a.out)
 out.mkdir(parents=True, exist_ok=True)
 

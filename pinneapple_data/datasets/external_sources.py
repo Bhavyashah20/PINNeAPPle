@@ -17,6 +17,8 @@ Sources
   designsafe          — Earthquake / structural / FEM data (DesignSafe API)
   openfoam_tutorials  — CFD cases from OpenFOAM tutorial collection
   su2                 — Aerodynamics / CFD / optimization (SU2 Foundation)
+  nasa_power          — Daily point meteorology / solar resource (NASAPowerClient)
+  open_meteo          — Hourly historical weather archive (OpenMeteoClient)
 
 Usage
 -----
@@ -44,6 +46,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import urllib.parse
 import urllib.request
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
@@ -1045,3 +1048,120 @@ for _id, _name, _desc, _fields, _tags, _loader in [
                     reference="https://su2code.github.io"),
         _loader,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 13. NASA POWER (daily point data)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_json_params(url: str, params: dict[str, Any], timeout: int = _TIMEOUT) -> Any:
+    return _get_json(f"{url}?{urllib.parse.urlencode(params)}", timeout=timeout)
+
+
+class NASAPowerClient:
+    """Client for the NASA POWER daily point API (meteorology and solar resource, no API key).
+
+    Docs: https://power.larc.nasa.gov/docs/services/api/temporal/daily/ . Network errors and HTTP errors raise.
+
+        >>> c = NASAPowerClient()
+        >>> js = c.fetch_daily(latitude=-8.05, longitude=-34.9, start="20240101", end="20240131",
+        ...                    parameters=["T2M", "PRECTOTCORR"])                         # doctest: +SKIP
+        >>> arrays = c.to_arrays(js)          # {"date": datetime64[D], "T2M": ..., "PRECTOTCORR": ...}  # doctest: +SKIP
+    """
+
+    DAILY_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
+
+    def fetch_daily(self, *, latitude: float, longitude: float, start: str, end: str, parameters: list[str],
+                    community: str = "SB", time_standard: str = "UTC", timeout: int = 60) -> dict[str, Any]:
+        """Raw JSON of daily ``parameters`` at one point; ``start``/``end`` as ``"YYYYMMDD"``."""
+        params = {
+            "parameters": ",".join(parameters), "community": community,
+            "longitude": str(float(longitude)), "latitude": str(float(latitude)),
+            "start": start, "end": end, "format": "JSON", "time-standard": time_standard,
+        }
+        return _get_json_params(self.DAILY_URL, params, timeout=timeout)
+
+    @staticmethod
+    def to_arrays(power: dict[str, Any]) -> dict[str, np.ndarray]:
+        """``{"date": datetime64[D] (T,), <PARAM>: float64 (T,)}``; the POWER fill value (``header.fill_value``,
+        -999) and missing days become NaN. Dates are the sorted union over all parameters."""
+        param = power.get("properties", {}).get("parameter", {})
+        if not param:
+            raise ValueError("POWER response missing properties.parameter")
+        fill = power.get("header", {}).get("fill_value", -999.0)
+        dates = sorted({d for series in param.values() for d in series})
+        out: dict[str, np.ndarray] = {
+            "date": np.array([f"{d[:4]}-{d[4:6]}-{d[6:8]}" for d in dates], dtype="datetime64[D]")}
+        for k in sorted(param):
+            v = np.array([param[k].get(d) for d in dates], dtype=np.float64)   # None -> nan
+            v[v == fill] = np.nan
+            out[k] = v
+        return out
+
+    @staticmethod
+    def to_physical_samples(power: dict[str, Any]) -> list[Any]:
+        """One :class:`pinneapple_data.physical_sample.PhysicalSample` with ``state["x"]`` ``(T, D)`` float32 (columns
+        = sorted parameter names), ``state["t"]`` ``(T, 1)`` day index, provenance from the response header."""
+        import torch
+
+        from pinneapple_data.physical_sample import PhysicalSample
+
+        arr = NASAPowerClient.to_arrays(power)
+        keys = [k for k in arr if k != "date"]
+        x = torch.from_numpy(np.stack([arr[k] for k in keys], axis=1).astype(np.float32))
+        t = torch.arange(x.shape[0], dtype=torch.float32).unsqueeze(1)
+        dates = [str(d).replace("-", "") for d in arr["date"]]
+        header, props = power.get("header", {}), power.get("properties", {})
+        meta = {"source": "nasa_power", "title": header.get("title"), "api": header.get("api"),
+                "start": props.get("start", header.get("start")), "end": props.get("end", header.get("end")),
+                "parameters": keys, "dates": dates[:10] + (["..."] if len(dates) > 10 else [])}
+        units = {k: (power.get("parameters", {}).get(k, {}) or {}).get("units", "unknown") for k in keys}
+        return [PhysicalSample(state={"x": x, "t": t}, domain={"type": "point", "crs": "WGS84"}, provenance=meta,
+                               schema={"units": units, "columns": keys, "time": "daily"})]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 14. Open-Meteo (historical weather archive)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class OpenMeteoClient:
+    """Client for the Open-Meteo Historical Weather API (ERA5-based reanalysis, hourly, no API key; CC BY 4.0).
+
+    Docs: https://open-meteo.com/en/docs/historical-weather-api . Network errors and HTTP errors raise.
+
+        >>> d = OpenMeteoClient().fetch_archive(-5.795, -35.209, "2026-08-01", "2026-08-30",
+        ...                                     hourly=["temperature_2m", "shortwave_radiation"])  # doctest: +SKIP
+        >>> d["time"][:2], d["temperature_2m"][:2]                                                  # doctest: +SKIP
+    """
+
+    ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+
+    def fetch_archive_json(self, latitude: float, longitude: float, start_date: str, end_date: str,
+                           hourly: list[str], *, timezone: str = "UTC", temperature_unit: str = "celsius",
+                           wind_speed_unit: str = "kmh", precipitation_unit: str = "mm",
+                           timeout: int = 60) -> dict[str, Any]:
+        """Raw JSON of the ``hourly`` variables between ``start_date`` and ``end_date`` (``"YYYY-MM-DD"``)."""
+        params = {"latitude": latitude, "longitude": longitude, "start_date": start_date, "end_date": end_date,
+                  "hourly": ",".join(hourly), "temperature_unit": temperature_unit,
+                  "wind_speed_unit": wind_speed_unit, "precipitation_unit": precipitation_unit,
+                  "timezone": timezone}
+        return _get_json_params(self.ARCHIVE_URL, params, timeout=timeout)
+
+    @staticmethod
+    def hourly_arrays(js: dict[str, Any]) -> dict[str, np.ndarray]:
+        """``{"time": datetime64[m] (T,), <variable>: float64 (T,)}`` from an archive response (null -> NaN).
+        Times are local to the requested ``timezone``."""
+        hourly = js.get("hourly")
+        if not hourly or "time" not in hourly:
+            raise ValueError("Open-Meteo response missing hourly.time")
+        out: dict[str, np.ndarray] = {"time": np.array(hourly["time"], dtype="datetime64[m]")}
+        for k, v in hourly.items():
+            if k != "time":
+                out[k] = np.array(v, dtype=np.float64)
+        return out
+
+    def fetch_archive(self, latitude: float, longitude: float, start_date: str, end_date: str,
+                      hourly: list[str], **kwargs: Any) -> dict[str, np.ndarray]:
+        """:meth:`fetch_archive_json` followed by :meth:`hourly_arrays`."""
+        return self.hourly_arrays(self.fetch_archive_json(latitude, longitude, start_date, end_date, hourly,
+                                                          **kwargs))
