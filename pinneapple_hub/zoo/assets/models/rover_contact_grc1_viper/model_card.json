@@ -1,0 +1,194 @@
+{
+  "name": "rover_contact_grc1_viper",
+  "description": "Physics-informed surrogate (random-Fourier-feature residual tanh MLP, 4 blocks x 96) of the Wong-Reece rigid-wheel model for the NASA VIPER wheel (R 0.25 m, b 0.20 m, 24 grousers, parametric model from public figures) on GRC-1 lunar simulant. Inputs slip and sinkage, outputs drawbar pull, normal load and driving torque. Trained with soft constraints dFz/dz >= 0, dFx/ds >= 0 (slip <= 0.3), Mohr-Coulomb traction limit and My >= R Fx.",
+  "task": "Wheel-soil contact forces of a rigid grousered wheel on lunar regolith simulant (terramechanics)",
+  "version": "1.0.0",
+  "inputs": [
+    {
+      "name": "slip",
+      "unit": "-",
+      "description": "longitudinal slip ratio (negative = skid)"
+    },
+    {
+      "name": "sinkage_m",
+      "unit": "m",
+      "description": "static + slip sinkage of the wheel"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "Fx_N",
+      "unit": "N",
+      "description": "drawbar pull"
+    },
+    {
+      "name": "Fz_N",
+      "unit": "N",
+      "description": "normal load carried by the soil"
+    },
+    {
+      "name": "My_Nm",
+      "unit": "N m",
+      "description": "driving torque"
+    }
+  ],
+  "validity_range": {
+    "slip": [
+      -0.4,
+      0.9
+    ],
+    "sinkage_m": [
+      0.002,
+      0.06
+    ],
+    "soil": "GRC-1 (pinneapple terramechanics soil database)",
+    "wheel": "VIPER wheel, R 0.25 m, b 0.20 m, 24 grousers",
+    "slip_angle_deg": 0.0
+  },
+  "known_limitations": [
+    "Only as good as the Wong-Reece model: against published single-wheel tests the model's drawbar pull RMSE is 4-14 N (digitised data), larger than the surrogate's own error (~0.2 N).",
+    "One soil and one wheel; zero slip angle (no lateral force); steady state."
+  ],
+  "architecture": "contact_net",
+  "architecture_config": {
+    "hidden": 96,
+    "depth": 4,
+    "n_fourier": 16,
+    "scale": 2.0,
+    "seed": 0
+  },
+  "equations": [
+    "Wong-Reece rigid wheel on deformable soil (Bekker pressure-sinkage, Janosi-Hanamoto shear)"
+  ],
+  "domain_bounds": {},
+  "boundary_conditions": {},
+  "initial_condition": {},
+  "training_config": {
+    "epochs": 16000,
+    "optimizer": "Adam lr 2e-3, cosine to 1 %",
+    "batch": 1024,
+    "w_phys": 0.1,
+    "n_train": 3600,
+    "seed": 0,
+    "train_seconds_cpu": 300,
+    "script": "scripts/zoo/train_rover_contact.py"
+  },
+  "data_lineage": {
+    "dataset": "rover_contact_grc1_viper",
+    "source": "pinneapple_simulation.terramechanics.WongReeceModel(get_soil('GRC-1'), pinneapple_simulation.vehicle.viper().wheel)"
+  },
+  "validation_metrics": {
+    "test/Fx_rmse_N": 0.20736592572546925,
+    "test/Fx_max_abs_N": 1.0792020686719752,
+    "test/Fx_r2": 0.9999995706205718,
+    "test/Fz_rmse_N": 0.1568210078193249,
+    "test/Fz_max_abs_N": 0.6640089749187155,
+    "test/Fz_r2": 0.9999998419103606,
+    "test/My_rmse_Nm": 0.05530825731613573,
+    "test/My_max_abs_Nm": 0.23872462260743532,
+    "test/My_r2": 0.9999996657312542,
+    "test/n": 2000.0
+  },
+  "reference_source": "2000 held-out Latin-hypercube states (seed 1000, disjoint from training) of the Wong-Reece model evaluated by adaptive quadrature (analytic reference). The Wong-Reece implementation is compared with published single-wheel tests (Ding et al. 2011; Wang & Han 2016; dataset single_wheel_tests).",
+  "citation": "PINNeAPPle contributors (2026). Wheel-soil contact PINN surrogate (Wong-Reece, GRC-1, VIPER wheel). PINNeAPPle model zoo, https://github.com/PINNeAPPle-Labs/PINNeAPPle",
+  "license": "apache-2.0",
+  "tags": [
+    "terramechanics",
+    "planetary rover",
+    "PINN",
+    "surrogate"
+  ],
+  "pinneapple_version": "0.7.0",
+  "trust_report": {
+    "modelo": "rover_contact_grc1_viper v1.0.0",
+    "decisao": "APPROVED",
+    "score": 1.0,
+    "cobertura": 1.0,
+    "motivos": [],
+    "checagens": [
+      {
+        "name": "card metrics reproduced on the stored reference (max relative difference)",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.0,
+        "limit": 0.001,
+        "source": "2000 held-out Latin-hypercube states (seed 1000, disjoint from training) of the Wong-Reece model evaluated by adaptive q",
+        "reason": ""
+      },
+      {
+        "name": "held-out test/Fx_rmse_N within the zoo acceptance limit",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.20736592572546925,
+        "limit": 5.0,
+        "source": "independent reference",
+        "reason": ""
+      },
+      {
+        "name": "held-out test/Fz_rmse_N within the zoo acceptance limit",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.1568210078193249,
+        "limit": 5.0,
+        "source": "independent reference",
+        "reason": ""
+      },
+      {
+        "name": "held-out test/My_rmse_Nm within the zoo acceptance limit",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.05530825731613573,
+        "limit": 2.0,
+        "source": "independent reference",
+        "reason": ""
+      },
+      {
+        "name": "dFz/dz >= 0 (share of grid steps violating beyond 0.2 % of range)",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.0,
+        "limit": 0.01,
+        "source": "pressure-sinkage",
+        "reason": ""
+      },
+      {
+        "name": "dFx/ds >= 0 for slip <= 0.3 (share violating)",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.0,
+        "limit": 0.01,
+        "source": "shear mobilisation",
+        "reason": ""
+      },
+      {
+        "name": "Mohr-Coulomb limit Fx <= c A + Fz tan(phi) (share violating)",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.0,
+        "limit": 0.01,
+        "source": "Mohr-Coulomb",
+        "reason": ""
+      },
+      {
+        "name": "torque coupling My >= R Fx (share violating)",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.0,
+        "limit": 0.01,
+        "source": "moment balance",
+        "reason": ""
+      }
+    ],
+    "min_coverage": 0.6,
+    "min_score": 0.8
+  },
+  "trust_override": {}
+}

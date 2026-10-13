@@ -1,0 +1,284 @@
+"""Build the zoo's bundled assets, model cards and ``manifest.json`` from the committed sources.
+
+    python scripts/zoo/train_rover_contact.py ROVER_DIR      # ~5 min on one CPU core
+    python scripts/zoo/build_assets.py --rover ROVER_DIR
+
+Sources (all in this repository):
+  airfoil_cst_rans_mlp        apps/aero_optimizer/model/surrogate.pt (MLP part) + surrogate.metrics.json
+  airfoil_rans_cst_re4e6      examples/handoff_cases/airfoil_ld/results/{campaign,baseline,reference}
+  heatsink_forced_mlp         apps/heatsink_sizer/artifacts/surrogate_forced.pt
+  heatsink_*_convection       apps/heatsink_sizer/artifacts/dataset_{forced,natural}.json.gz
+  rover_contact_grc1_viper    scripts/zoo/train_rover_contact.py output (TorchScript -> state_dict)
+  single_wheel_tests          pinneapple_simulation/terramechanics/data/single_wheel_tests.csv
+
+Every weight file is re-serialised as a plain ``state_dict`` (loadable with ``weights_only=True``). The card metrics
+are computed by the zoo's own ``evaluate`` on the stored reference and the card carries the model's trust report;
+a model whose trust report is not APPROVED, or whose metrics break the acceptance limits, is not written.
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import gzip
+import io
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+import torch
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from pinneapple_hub.model_card import ModelCard  # noqa: E402
+from pinneapple_hub.zoo import _artifacts as art  # noqa: E402
+from pinneapple_hub.zoo._catalog import DATASETS, MODELS, hf_repo  # noqa: E402
+
+ASSETS = art.ASSETS
+AIR = ROOT / "examples/handoff_cases/airfoil_ld/results"
+HS = ROOT / "apps/heatsink_sizer/artifacts"
+CST = ["T0", "T1", "T2", "M0", "M1", "M2"]
+
+
+def _save_npz(name: str, splits: dict) -> None:
+    d = ASSETS / "datasets" / name
+    d.mkdir(parents=True, exist_ok=True)
+    arrays = {f"{s}__{c}": np.asarray(v) for s, cols in splits.items() for c, v in cols.items()}
+    for k, v in arrays.items():
+        if v.dtype == object:
+            raise TypeError(f"{name}: column {k} is an object array")
+    buf = io.BytesIO()
+    np.savez_compressed(buf, **arrays)
+    # zip entries carry a timestamp: rewrite deterministically so the SHA-256 does not change on every build
+    import zipfile
+    out = io.BytesIO()
+    with zipfile.ZipFile(buf) as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in sorted(zin.infolist(), key=lambda i: i.filename):
+            zi = zipfile.ZipInfo(item.filename, date_time=(2026, 1, 1, 0, 0, 0))
+            zi.compress_type = zipfile.ZIP_DEFLATED
+            zout.writestr(zi, zin.read(item.filename))
+    (d / "data.npz").write_bytes(out.getvalue())
+
+
+def _save_weights(path: Path, state: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    buf = io.BytesIO()
+    torch.save({k: v.detach().cpu().clone().contiguous() for k, v in state.items()}, buf)
+    path.write_bytes(buf.getvalue())
+
+
+# ------------------------------------------------------------------------------------------------ datasets
+def build_airfoil_dataset() -> dict:
+    rows = {r["run_id"]: r for r in csv.DictReader(open(AIR / "campaign/campaign_runs.csv"))}
+    met = json.load(open(ROOT / "apps/aero_optimizer/model/surrogate.metrics.json"))
+    bundle = torch.load(ROOT / "apps/aero_optimizer/model/surrogate.pt", map_location="cpu", weights_only=False)
+    test_shapes = set(bundle["meta"]["test_shapes"])
+
+    def from_points(points):
+        cols = {k: [] for k in ["run_id", "shape_id", *CST, "alpha_deg", "Cl", "Cd", "Cm", "status"]}
+        for p in points:
+            r = rows[p["id"]]
+            cols["run_id"].append(p["id"])
+            cols["shape_id"].append(r["shape_id"])
+            for k in CST:
+                cols[k].append(float(r[k]))
+            cols["alpha_deg"].append(float(p["alpha"]))
+            for k, v in zip(("Cl", "Cd", "Cm"), p["true"], strict=True):
+                cols[k].append(float(v))
+            cols["status"].append(r["status"])
+        return {k: np.array(v) if k in ("run_id", "shape_id", "status") else np.array(v, np.float64)
+                for k, v in cols.items()}
+
+    train = [r for r in rows.values() if r["set"] == "lhs" and r["shape_id"] not in test_shapes]
+    tr = {"run_id": np.array([r["run_id"] for r in train]), "shape_id": np.array([r["shape_id"] for r in train]),
+          **{k: np.array([float(r[k]) for r in train]) for k in CST},
+          "alpha_deg": np.array([float(r["alpha_deg"]) for r in train]),
+          "Cl": np.array([float(r["Cl"]) for r in train]), "Cd": np.array([float(r["Cd"]) for r in train]),
+          "Cm": np.full(len(train), np.nan), "status": np.array([r["status"] for r in train])}
+    naca2412 = next(r for r in rows.values() if r["shape_id"] == "NACA 2412")
+    pol = json.load(open(AIR / "reference/xfoil_summary.json"))["polars"]["naca2412_cst_tripped"]
+    xf = {**{k: np.full(len(pol), float(naca2412[k])) for k in CST},
+          "alpha_deg": np.array([p["alpha"] for p in pol], float), "Cl": np.array([p["Cl"] for p in pol], float),
+          "Cd": np.array([p["Cd"] for p in pol], float), "Cm": np.array([p["Cm"] for p in pol], float)}
+    gs = list(csv.DictReader(open(AIR / "baseline/grid_study.csv")))
+    grid = {"grid": np.array([g["grid"] for g in gs]), "cells": np.array([int(g["cells"]) for g in gs]),
+            **{k: np.full(len(gs), float(naca2412[k])) for k in CST}, "alpha_deg": np.full(len(gs), 4.0),
+            **{k: np.array([float(g[k]) for g in gs]) for k in ("Cl", "Cd", "Cm")}}
+    splits = {"train": tr, "test": from_points(met["mlp_test_points"]),
+              "naca_reference": from_points(met["mlp_reference_points"]), "xfoil_naca2412": xf, "grid_study": grid}
+    assert len(splits["test"]["Cl"]) == 60 and len(splits["naca_reference"]["Cl"]) == 36
+    _save_npz("airfoil_rans_cst_re4e6", splits)
+    return splits
+
+
+def build_heatsink_dataset(mode: str) -> dict:
+    rows = json.load(gzip.open(HS / f"dataset_{mode}.json.gz", "rt"))
+    keys = list(rows[0])
+    cols = {k: np.array([r[k] for r in rows], np.int64 if k == "n_fins" else np.float64) for k in keys}
+    cols["source_width_mm"] = cols["source_frac_w"] * cols["base_width_mm"]
+    cols["source_depth_mm"] = cols["source_frac_d"] * cols["base_depth_mm"]
+    n = len(rows)
+    idx = np.random.default_rng(0).permutation(n)                  # the surrogate's own split (surrogate.train)
+    n_te, n_cal, n_val = int(0.15 * n), int(0.10 * n), int(0.10 * n)
+    parts = {"test": idx[:n_te], "cal": idx[n_te:n_te + n_cal], "val": idx[n_te + n_cal:n_te + n_cal + n_val],
+             "train": idx[n_te + n_cal + n_val:]}
+    splits = {s: {k: v[np.sort(ix)] for k, v in cols.items()} for s, ix in parts.items()}
+    _save_npz(f"heatsink_{mode}_convection", splits)
+    return splits
+
+
+def build_rover_dataset() -> dict:
+    from pinneapple_simulation.terramechanics import WongReeceModel, get_soil
+    from pinneapple_simulation.terramechanics.surrogate import _lhs
+    from pinneapple_simulation.vehicle import viper
+    wr = WongReeceModel(get_soil("GRC-1"), viper().wheel)
+    lo, hi = np.array([-0.4, 0.002]), np.array([0.9, 0.06])
+    S, Z = np.meshgrid(np.linspace(-0.4, 0.9, 40), np.linspace(0.002, 0.06, 40))
+    Xtr = np.concatenate([np.stack([S.ravel(), Z.ravel()], 1), _lhs(2000, lo, hi, 1)])
+    Xte = _lhs(2000, lo, hi, 1000)
+    out = {}
+    for s, X in (("train", Xtr), ("test", Xte)):
+        Y = wr.forces(X[:, 0], X[:, 1]).as_array()
+        out[s] = {"slip": X[:, 0], "sinkage_m": X[:, 1], "Fx_N": Y[:, 0], "Fz_N": Y[:, 1], "My_Nm": Y[:, 2]}
+    _save_npz("rover_contact_grc1_viper", out)
+    return out
+
+
+def build_single_wheel() -> dict:
+    src = ROOT / "pinneapple_simulation/terramechanics/data/single_wheel_tests.csv"
+    lines = [ln for ln in src.read_text().splitlines() if ln and not ln.startswith("#")]
+    rows = list(csv.DictReader(lines))
+    text = ("dataset", "wheel", "soil")
+    cols = {k: (np.array([r[k] for r in rows]) if k in text else np.array([float(r[k]) if r[k] != "" else np.nan for r in rows]))
+            for k in rows[0]}
+    _save_npz("single_wheel_tests", {"all": cols})
+    return {"all": cols}
+
+
+SW_UNITS = {"dataset": ("-", "source publication key"), "wheel": ("-", "wheel variant"),
+            "radius_m": ("m", "wheel radius"), "width_m": ("m", "wheel width"),
+            "grouser_height_m": ("m", "grouser height"), "grouser_count": ("-", "number of grousers"),
+            "soil": ("-", "soil name (pinneapple terramechanics database)"), "load_N": ("N", "vertical load"),
+            "slip": ("-", "slip ratio"), "drawbar_pull_N": ("N", "measured drawbar pull"),
+            "sinkage_m": ("m", "measured sinkage (NaN = not reported)"), "torque_Nm": ("N m", "measured driving torque (NaN = not reported)")}
+
+
+# ------------------------------------------------------------------------------------------------ models
+def airfoil_model():
+    b = torch.load(ROOT / "apps/aero_optimizer/model/surrogate.pt", map_location="cpu", weights_only=False)
+    cfg = {"k": int(b["mlp_k"]), "width": int(b["mlp_width"]), "y_mean": np.asarray(b["mlp_norm"]["mean"]).tolist(),
+           "y_std": np.asarray(b["mlp_norm"]["std"]).tolist()}
+    return b["mlp_state"], cfg
+
+
+def heatsink_model():
+    o = torch.load(HS / "surrogate_forced.pt", map_location="cpu", weights_only=False)
+    cfg = {"arch": o["arch"], "in_dim": len(o["x_mean"]), "out_dim": len(o["y_mean"]),
+           **{k: np.asarray(o[k]).tolist() for k in ("x_mean", "x_std", "y_mean", "y_std")},
+           "conformal_log_q": o["conformal_log_q"]}
+    return o["state"], cfg
+
+
+def rover_model(rover_dir: Path):
+    from pinneapple_simulation.terramechanics import get_soil
+    from pinneapple_simulation.vehicle import viper
+    meta = json.load(open(rover_dir / "rover_contact.json"))
+    ts = torch.jit.load(str(rover_dir / "rover_contact.pt"), map_location="cpu")
+    soil, wheel = get_soil("GRC-1"), viper().wheel
+    cfg = {"arch": {"hidden": 96, "depth": 4, "n_fourier": 16, "scale": 2.0, "seed": 0},
+           "x_lo": meta["norm_x_lo"], "x_hi": meta["norm_x_hi"], "y_lo": meta["norm_y_lo"], "y_hi": meta["norm_y_hi"],
+           "physics": {"R_m": wheel.radius, "b_m": wheel.width, "c_Pa": soil.c, "phi_deg": soil.phi_deg}}
+    return dict(ts.state_dict()), cfg
+
+
+def _file(path: Path) -> dict:
+    return {"sha256": art.sha256_file(path), "size": path.stat().st_size,
+            "bundled": str(path.relative_to(ASSETS)).replace("\\", "/")}
+
+
+def write_manifest(models: dict, datasets: dict) -> None:
+    man = {"schema": 1, "hf_organization": "PINNeAPPle-Labs",
+           "note": "Generated by scripts/zoo/build_assets.py; do not edit by hand.", "models": models,
+           "datasets": datasets}
+    art.MANIFEST.write_text(json.dumps(man, indent=1, sort_keys=False) + "\n")
+
+
+def main(rover_dir: Path) -> None:
+    from pinneapple_hub.zoo import _models
+
+    print("datasets ...", flush=True)
+    built = {"airfoil_rans_cst_re4e6": build_airfoil_dataset(), "heatsink_forced_convection":
+             build_heatsink_dataset("forced"), "heatsink_natural_convection": build_heatsink_dataset("natural"),
+             "rover_contact_grc1_viper": build_rover_dataset(), "single_wheel_tests": build_single_wheel()}
+    ds_man = {}
+    for name, spec in DATASETS.items():
+        splits = built[name]
+        cols_spec = spec["columns"] or SW_UNITS
+        all_cols = sorted({c for s in splits.values() for c in s})
+        columns = {c: {"unit": cols_spec.get(c, ("-", ""))[0], "description": cols_spec.get(c, ("-", c))[1],
+                       "dtype": str(next(s[c] for s in splits.values() if c in s).dtype)} for c in all_cols}
+        missing = [c for c in all_cols if c not in cols_spec and c not in ("source_width_mm", "source_depth_mm")]
+        if missing:
+            raise ValueError(f"{name}: undocumented columns {missing}")
+        for c in ("source_width_mm", "source_depth_mm"):
+            if c in columns:
+                columns[c].update(unit="mm", description=f"heat-source footprint {c.split('_')[1]} = "
+                                                         f"source_frac_{c[7]} x base_{c.split('_')[1]}_mm")
+        ds_man[name] = {"version": spec["version"], "revision": f"v{spec['version']}", "hf_repo": hf_repo("d", name),
+                        "repo_type": "dataset",
+                        **{k: spec[k] for k in ("title", "description", "license", "source", "verification",
+                                                "citation", "tags")},
+                        **({"split_rule": spec["split_rule"]} if "split_rule" in spec else {}),
+                        "splits": {s: {"n": int(len(next(iter(v.values())))), "description": spec["splits"][s]}
+                                   for s, v in splits.items()},
+                        "columns": columns,
+                        "files": {"data.npz": _file(ASSETS / "datasets" / name / "data.npz")}}
+    write_manifest({}, ds_man)
+
+    makers = {"airfoil_cst_rans_mlp": airfoil_model, "heatsink_forced_mlp": heatsink_model,
+              "rover_contact_grc1_viper": lambda: rover_model(rover_dir)}
+    m_man = {}
+    for name, spec in MODELS.items():
+        print(f"model {name} ...", flush=True)
+        state, cfg = makers[name]()
+        d = ASSETS / "models" / name
+        _save_weights(d / "weights.pt", state)
+        (d / "config.json").write_text(json.dumps({**cfg, "adapter": spec["adapter"]}, indent=1) + "\n")
+        card = ModelCard(name=name, description=spec["description"], task=spec["task"], version=spec["version"],
+                         inputs=spec["inputs"], outputs=spec["outputs"], validity_range=spec["validity_range"],
+                         known_limitations=spec["known_limitations"], architecture=spec["architecture"],
+                         architecture_config=spec["architecture_config"], equations=spec["equations"],
+                         training_config=spec["training_config"], data_lineage=spec["data_lineage"],
+                         reference_source=spec["reference_source"], citation=spec["citation"],
+                         license=spec["license"], tags=spec["tags"], pinneapple_version=_version())
+        mspec = {k: spec[k] for k in ("version", "adapter", "dataset", "task", "tags", "guard_metrics", "acceptance",
+                                      "card_tolerance")}
+        state_t = torch.load(d / "weights.pt", map_location="cpu", weights_only=True)
+        model = _models.ADAPTERS[spec["adapter"]](name, card, {**cfg, "adapter": spec["adapter"]}, state_t, mspec)
+        card.validation_metrics = model.evaluate_splits(model.eval_splits)
+        from pinneapple_hub import zoo
+        rep = zoo.validate(model)
+        card.attach_trust_report(rep)
+        print(f"  {rep.decisao}  " + ", ".join(f"{k}={v:.4g}" for k, v in card.validation_metrics.items()
+                                               if not k.endswith("/n")))
+        if rep.decisao != "APPROVED":
+            raise SystemExit(f"{name} did not pass the gate:\n{rep.to_markdown()}")
+        card.save(str(d / "model_card.json"))
+        m_man[name] = {**mspec, "revision": f"v{spec['version']}", "hf_repo": hf_repo("m", name), "repo_type": "model",
+                       "files": {f: _file(d / f) for f in ("weights.pt", "config.json", "model_card.json")}}
+        write_manifest(m_man, ds_man)
+    total = sum(f["size"] for k in ("models", "datasets") for e in art.manifest()[k].values()
+                for f in e["files"].values())
+    print(f"done: {len(m_man)} models, {len(ds_man)} datasets, {total / 1e6:.2f} MB bundled")
+
+
+def _version() -> str:
+    import re
+    return re.search(r'__version__\s*=\s*"([^"]+)"', (ROOT / "pinneapple/__init__.py").read_text()).group(1)
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--rover", required=True, type=Path, help="output directory of train_rover_contact.py")
+    main(ap.parse_args().rover)
