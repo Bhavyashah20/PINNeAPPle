@@ -14,6 +14,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- `pp.zoo.catalogue()` and the docs page `docs/guides/zoo_catalogue.md` generated from it. The page lists every zoo
+  model and dataset: version, task, held-out metrics, trust decision, size (bundled or Hub-only), licence and
+  Hugging Face link. A test keeps the committed page in sync with the manifest.
 - `pinneapple_tools.reporting.paperkit`: the report figure style (`setup_mpl`, `savefig`, `CAT`/`SEQ`/`DIV`
   palettes), `fmt`, `sanitize` and `Paper`, an A4 PDF builder for numbered technical reports (reportlab, from the
   `veriphysics` extra, is imported only when a `Paper` is built). Moved from the benchmark and climate repos.
