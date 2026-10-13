@@ -23,7 +23,6 @@ Smoke test: --epochs 1 --num-seq 2 --steps-per-epoch 20 --num-test-seq 1 --rollo
 import argparse
 import json
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -31,11 +30,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from _common import pick_device  # noqa: E402
-
-from pinneapple_neural.architectures.graphnn.base import GraphBatch  # noqa: E402
-from pinneapple_neural.architectures.graphnn.mesh_graph_net import MeshGraphNet  # noqa: E402
+from pinneapple_neural.architectures.graphnn.base import GraphBatch
+from pinneapple_neural.architectures.graphnn.mesh_graph_net import MeshGraphNet
+from pinneapple_neural.trainer.parallel import best_device
 
 L2S_URL = "https://storage.googleapis.com/learning-to-simulate-complex-physics/Datasets"
 KINEMATIC_ID = 3
@@ -58,7 +55,7 @@ ap.add_argument("--seed", type=int, default=0)
 a = ap.parse_args()
 torch.manual_seed(a.seed)
 rng = np.random.default_rng(a.seed)
-dev = pick_device()
+dev = best_device(allow_mps=False)  # tiny graphs: MPS launch latency dominates
 root = Path(a.data) / a.dataset
 out = Path(a.out)
 out.mkdir(parents=True, exist_ok=True)

@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from pinneapple_data.datasets.external_sources import OpenMeteoClient
 from pinneapple_neural.trainer.self_scaled_qn import SelfScaledQuasiNewton
 from pinneapple_physics.pinn_solver.factory import (
     PINN, NeuralNetwork, PINNFactory, PINNProblemSpec, TabulatedSignal,
@@ -51,15 +52,8 @@ RENAME = {"time": "timestamp", "temperature_2m": "temperature", "relative_humidi
 
 # ── cells 5-7: data ──────────────────────────────────────────────────────
 def fetch_open_meteo(lat=-5.795, lon=-35.209, start="2026-08-01", end="2026-08-30") -> pd.DataFrame:
-    import requests
-    r = requests.get("https://archive-api.open-meteo.com/v1/archive", timeout=60, params={
-        "latitude": lat, "longitude": lon, "start_date": start, "end_date": end, "hourly": ",".join(HOURLY),
-        "temperature_unit": "celsius", "wind_speed_unit": "kmh", "precipitation_unit": "mm",
-        "timezone": "America/Fortaleza"})
-    r.raise_for_status()
-    df = pd.DataFrame(r.json()["hourly"])
-    df["time"] = pd.to_datetime(df["time"])
-    return df.rename(columns=RENAME)
+    d = OpenMeteoClient().fetch_archive(lat, lon, start, end, HOURLY, timezone="America/Fortaleza")
+    return pd.DataFrame(d).rename(columns=RENAME)
 
 
 SYNTH_A, SYNTH_B = 40.0, 60.0  # true a, b of the offline soil model (units of the 7-day window C trains on)

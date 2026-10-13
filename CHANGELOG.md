@@ -14,6 +14,15 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Library homes for helpers that lived in examples: `pinneapple_neural.utils.as_tensor` (model output ->
+  prediction Tensor); `pinneapple_data.datasets.deepmind_mgn` (DeepMind meshgraphnets partial download over HTTP
+  Range, TFRecord reader, `cylinder_flow` conversion) and `train_dynamics` / `eval_rollout` in
+  `graphnn.mgn_dynamics`; `pinneapple_systems.excitation` (step, ramp, sinusoid, PRBS, chirp, ... actuator signals and
+  rate limit); `NASAPowerClient` and `OpenMeteoClient` in `pinneapple_data.datasets.external_sources`;
+  `pinneapple_physics.solid.axisymmetric` (strains, stresses, equilibrium residual and von Mises in (r, z) with
+  optional torsion, tested against the Lame cylinder); `burgers_periodic_solve` / `burgers_periodic_pairs` in
+  `pinneapple_data.datasets.physics` (pseudo-spectral, checked against Cole-Hopf). The examples import them.
+  `best_device(allow_mps=False)` skips Apple MPS.
 - Rover dashboard with a semi-transparent stress map and the zoo PINN:
   - `SurfaceView(field_glow=..., far_field=...)`: a field map can sit semi-transparently on the shaded 3-D relief
     (`field_glow=0` is a pure albedo tint, so rut geometry, grouser marks and Sun shading show through) and continue
