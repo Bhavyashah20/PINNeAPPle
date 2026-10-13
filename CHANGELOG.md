@@ -14,6 +14,16 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Zoo datasets for operator learning (Hub-only), the problems and input distributions of Li et al. (2021),
+  generated with PINNeAPPle's verified solvers:
+  - `burgers_1d_li2021`: viscous Burgers, ν = 0.1, 1200 trajectories on 1024 points, 11 snapshots. The grid and
+    time-step study gives a 4e-12 relative L2 discretisation error; the solver is checked against Cole–Hopf.
+  - `darcy_2d_li2021`: 1200 permeability / pressure pairs on 128 × 128. Each sample is solved on 512² and averaged
+    onto the cells. The grid study against 1024² gives 4.3e-4 relative L2 (Richardson estimate about 8e-4).
+  - Both have a 1000 / 200 train / test split.
+- `pinneapple_simulation.numerical_solvers.operator_benchmarks` (reference solvers and Gaussian random fields of
+  the three standard problems) and `operator_datasets` (the dataset recipes: inputs, solves, convergence study,
+  generation). `scripts/zoo/operator_data.py` is the command-line front end.
 - Model zoo: `heatsink_natural_mlp`, the natural-convection plate-fin heat-sink surrogate. It is trained with
   monotonicity constraints so that a more conductive material or a wider heat source never raises the resistance.
   Error against 750 held-out physics-engine designs: R 0.47 % mean, 1.5 % p95. The 95 % conformal bound covers
