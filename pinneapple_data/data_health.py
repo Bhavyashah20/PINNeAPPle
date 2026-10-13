@@ -27,13 +27,14 @@ from __future__ import annotations
 
 import io
 import json
-import math
 import re
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+
+from pinneapple_core.jsonable import to_jsonable
 
 from .physical_units import QUANTITIES, Unit, convert, infer_quantity, split_header, try_parse_unit
 
@@ -914,17 +915,7 @@ def _series(numeric: Dict[str, pd.Series], t: Optional[pd.Series], issues: List[
 
 
 def _clean(o: Any) -> Any:
-    if isinstance(o, dict):
-        return {str(k): _clean(v) for k, v in o.items()}
-    if isinstance(o, (list, tuple)):
-        return [_clean(v) for v in o]
-    if isinstance(o, (np.floating, float)):
-        return None if not math.isfinite(float(o)) else float(o)
-    if isinstance(o, np.integer):
-        return int(o)
-    if isinstance(o, np.bool_):
-        return bool(o)
-    return o
+    return to_jsonable(o)
 
 
 # ── example dataset ─────────────────────────────────────────────────────────

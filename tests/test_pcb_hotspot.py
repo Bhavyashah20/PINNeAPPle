@@ -14,8 +14,8 @@ sys.path.insert(0, os.path.abspath(APP))
 
 pytest.importorskip("scipy")
 
-from pcb_hotspot.engine import calibrate, evaluate, what_if  # noqa: E402
-from pcb_hotspot.solver import Board, Component, overlaps, solve  # noqa: E402
+from pinneapple_physics.pcb.engine import calibrate, evaluate, what_if  # noqa: E402
+from pinneapple_physics.pcb.solver import Board, Component, overlaps, solve  # noqa: E402
 
 ENV = pt.Environment(t_ambient_c=35.0)
 
@@ -140,7 +140,7 @@ def _synthetic(board, comps, h_true=0.75, k_true=0.6):
     nom = solve(board, comps, ENV, n_cells=60)
     h = {s: v * h_true for s, v in nom["h"].items() if s in ("top", "bottom")}
     truth = solve(board, comps, ENV, n_cells=60, h_override=h, k_xy_scale=k_true)
-    from pcb_hotspot.engine import _interp_map
+    from pinneapple_physics.pcb.engine import _interp_map
     pts = [(20, 20), (60, 50), (100, 80), (140, 60), (30, 70), (120, 30)]
     meas = [{"x_mm": x, "y_mm": y, "t_c": _interp_map(truth["t_top_c"], 160, 100, x, y)} for x, y in pts]
     meas.append({"component": "FPGA", "t_c": truth["components"][0]["t_junction_c"]})

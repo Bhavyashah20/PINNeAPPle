@@ -11,8 +11,10 @@ One model per cooling mode (forced / natural): they depend on different
 variables and a single model would have to learn a discontinuity at
 ``v = 0``.
 
-Run ``python -m heatsink_sizer.surrogate`` to regenerate the dataset,
-retrain and write ``artifacts/surrogate_<mode>.pt`` + its trust report.
+Run ``python -m pinneapple_design.thermal.heatsink.surrogate`` (``--help`` for the
+sizes) to regenerate the dataset, retrain and write ``surrogate_<mode>.pt`` + its
+trust report into ``ARTIFACTS`` (``apps/heatsink_sizer/artifacts`` unless
+``PINNEAPPLE_HEATSINK_ARTIFACTS`` is set).
 """
 from __future__ import annotations
 

@@ -64,7 +64,7 @@ def test_geometry_errors_are_reported():
 # ── finite-volume base solve ─────────────────────────────────────────────────
 
 def test_fvm_energy_balance_and_agreement_with_lee():
-    from heatsink_sizer.field import solve_base_field
+    from pinneapple_design.thermal.heatsink.field import solve_base_field
     f = solve_base_field(base_width=0.08, base_depth=0.08, base_thickness=0.006, k=209.0,
                          power_w=100.0, r_fins_k_w=0.2, source_width=0.03, source_depth=0.03)
     assert f["energy_balance_rel_error"] < 1e-8
@@ -73,7 +73,7 @@ def test_fvm_energy_balance_and_agreement_with_lee():
 
 
 def test_fvm_off_centre_source_moves_hotspot():
-    from heatsink_sizer.field import solve_base_field
+    from pinneapple_design.thermal.heatsink.field import solve_base_field
     f = solve_base_field(base_width=0.1, base_depth=0.1, base_thickness=0.004, k=209.0, power_w=50.0,
                          r_fins_k_w=0.3, source_width=0.02, source_depth=0.02, source_x=0.02, source_y=0.08)
     x, y = f["hotspot_xy_m"]
@@ -83,7 +83,7 @@ def test_fvm_off_centre_source_moves_hotspot():
 # ── engine / sizer / API ─────────────────────────────────────────────────────
 
 def test_evaluate_design_checks_and_band():
-    from heatsink_sizer.engine import DesignInput, OperatingInput, evaluate_design
+    from pinneapple_design.thermal.heatsink.engine import DesignInput, OperatingInput, evaluate_design
     r = evaluate_design(DesignInput(80, 80, 6, 30, 1.2, 35), OperatingInput(100, 25, 2, 30, 30, t_limit_c=70))
     lo, hi = r["kpis"]["t_source_band_c"]
     assert lo < r["kpis"]["t_source_max_c"] < hi
@@ -92,7 +92,7 @@ def test_evaluate_design_checks_and_band():
 
 
 def test_sizer_closed_form_screen_returns_verified_designs():
-    from heatsink_sizer.sizer import SizingRequest, size
+    from pinneapple_design.thermal.heatsink.sizer import SizingRequest, size
     res = size(SizingRequest(power_w=60, t_limit_c=75, n_candidates=1500, n_verify=6), surrogates={})
     json.dumps(res)                                   # plain JSON types only (no numpy scalars)
     assert res["status"] == "ok"
@@ -101,7 +101,7 @@ def test_sizer_closed_form_screen_returns_verified_designs():
 
 
 def test_sizer_reports_infeasible_requests():
-    from heatsink_sizer.sizer import SizingRequest, size
+    from pinneapple_design.thermal.heatsink.sizer import SizingRequest, size
     res = size(SizingRequest(power_w=400, t_limit_c=30, max_width_mm=40, max_depth_mm=40,
                              max_height_mm=20, n_candidates=800, n_verify=4), surrogates={})
     assert res["status"] == "no_feasible_design"
@@ -126,7 +126,7 @@ def test_api_endpoints():
 
 
 def test_sizer_with_trained_surrogate_if_available():
-    from heatsink_sizer.sizer import SizingRequest, size
+    from pinneapple_design.thermal.heatsink.sizer import SizingRequest, size
     from heatsink_sizer.surrogate import load_surrogates
     surs = load_surrogates()
     if "forced" not in surs:
@@ -140,7 +140,7 @@ def test_sizer_with_trained_surrogate_if_available():
 
 def test_field3d_is_physically_consistent():
     import numpy as np
-    from heatsink_sizer.engine import DesignInput, OperatingInput, evaluate_design
+    from pinneapple_design.thermal.heatsink.engine import DesignInput, OperatingInput, evaluate_design
     r = evaluate_design(DesignInput(80, 80, 6, 30, 1.2, 35), OperatingInput(100, 25, 2, 30, 30))
     f = r["field3d"]
     root = np.array(f["fins"]["root_c"])
@@ -215,7 +215,7 @@ def test_natural_convection_matches_elenbaas_and_optimum_spacing():
 
 
 def test_report_scope_is_specific_to_the_cooling_mode():
-    from heatsink_sizer.engine import DesignInput, OperatingInput, evaluate_design
+    from pinneapple_design.thermal.heatsink.engine import DesignInput, OperatingInput, evaluate_design
     forced = evaluate_design(DesignInput(80, 80, 6, 30, 1.2, 35), OperatingInput(100, 25, 2, 30, 30))
     natural = evaluate_design(DesignInput(100, 100, 5, 12, 2, 30), OperatingInput(20, 25, 0, 30, 30))
     topics = lambda r: {i["topic"]: i["effect"] for i in r["scope"]["items"]}  # noqa: E731

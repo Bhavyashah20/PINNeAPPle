@@ -82,5 +82,5 @@ python rerun_sample.py $W/sample s012_a1 s047_a2 NACA4412_a+08
 python plot_results.py ../results
 ```
 
-The 436-run campaign itself and the surrogate training are in `apps/aero_optimizer` (`tools/generate_dataset.py`,
+The 436-run campaign itself and the surrogate training are in `apps/aero_optimizer` (`tools/generate_dataset.py`, on `pinneapple_design.aero.dataset` and `.train`,
 `tools/train_surrogate.py`, `tools/verify.py`); `run_campaign.py --original` repeats the same runs.

@@ -152,7 +152,18 @@ class PhysicsEnsemble:
     with ``prior(query, names) -> {name: log-weight}`` and ``awake(query, names) -> {name: bool}``). Before
     predicting, the compatibility of each expert's assumptions and training envelope with the current case tilts the
     learned weights; experts outside their physics are asleep for that case: not used, and not penalised by it (their
-    loss is set to the mixture's), so they keep their weight for when the case returns to their regime."""
+    loss is set to the mixture's), so they keep their weight for when the case returns to their regime.
+    ``prediction_checks``: label-free checks of each expert's prediction for the current case, run after the experts
+    and before choosing (``{name: fn(prediction, query)}``, or one ``fn(name, prediction, query)`` for all), each
+    returning a score in [0, 1] or ``(score, reason)``: a closure check of an LES, a cross-scale consistency check, a
+    conservation check. A score below ``check_threshold`` takes the expert out of this case (it is still scored, so
+    its weight learns from the failure); the others are tilted by ``score ** check_strength``. When every awake
+    expert fails, the router's ``escalate_from(query, names, failed)`` (a fidelity ladder, see
+    :class:`pinneapple_physics.multiscale.ScaleAwareRouter`) gives the experts to use instead, which are checked in
+    turn. ``error_tolerance``: an expert whose last reference error in the same context (``error_context(query)``,
+    e.g. the requested scale; one context if None) is above it fails the checks for this case too, so a fidelity
+    ladder escalates when the cheap rung is not accurate enough; it is still scored and comes back once its error
+    is within the tolerance again."""
 
     def __init__(self, experts: Sequence[Expert] | Mapping[str, Callable], mode: str = "combine",
                  etas: Sequence[float] = (0.5, 2.0, 8.0), alphas: Sequence[float] = (0.0, 0.01, 0.05),
@@ -163,7 +174,9 @@ class PhysicsEnsemble:
                  min_weight: float = 0.05, residual_lookahead: float = 0.0, lookahead_reference: str = "self",
                  lookahead_window: int = 10, residual_baseline: Mapping[str, float] | None = None,
                  lookahead_persistence: int = 1, measurement_check: Callable[[Any], bool] | None = None,
-                 router: Any = None):
+                 router: Any = None, prediction_checks: Mapping[str, Callable] | Callable | None = None,
+                 check_threshold: float = 0.5, check_strength: float = 1.0, error_tolerance: float | None = None,
+                 error_context: Callable[[Any], Any] | None = None):
         if isinstance(experts, Mapping):
             experts = [from_callable(n, f) for n, f in experts.items()]
         if len(experts) < 2:
@@ -202,6 +215,10 @@ class PhysicsEnsemble:
         self.lookahead_persistence = max(1, int(lookahead_persistence))
         self.measurement_check = measurement_check
         self.router = router
+        self.prediction_checks = prediction_checks
+        self.check_threshold, self.check_strength = float(check_threshold), float(check_strength)
+        self.error_tolerance, self.error_context = error_tolerance, error_context
+        self._ctx_err: dict[tuple, float] = {}                        # (expert, context) -> last reference error
 
     # ------------------------------------------------------------------------------------------ prediction
     def weights(self) -> dict[str, float]:
@@ -236,7 +253,7 @@ class PhysicsEnsemble:
     def predict(self, query: Any, select_only_leader: bool = False) -> dict[str, Any]:
         """Predict one case. With ``select_only_leader`` only the leading expert is run (to save cost), except every
         ``explore_every``-th call, when all experts run so the others' errors stay up to date."""
-        w = self.grid.expert_weights()
+        w = w_learned = self.grid.expert_weights()
         prior, awake = None, np.ones(len(self.experts), dtype=bool)
         if self.router is not None:                                  # physics compatibility of the current case
             lp = self.router.prior(query, self.names)
@@ -257,6 +274,10 @@ class PhysicsEnsemble:
         if not ok_all:
             raise RuntimeError("every expert failed on this query")
         ok = [i for i in ok_all if awake[i]] or ok_all                # asleep experts are run (scored) but not used
+        check_out, failed, escalated = {}, [], False
+        if self.prediction_checks is not None or self.error_tolerance is not None:
+            ok, w, awake, check_out, failed, escalated = self._run_checks(query, preds, ok, ok_all, w, w_learned,
+                                                                           prior, awake)
         stack = np.stack([preds[i] for i in ok])
         res_now = None
         suspect = bool(self.measurement_check(query)) if self.measurement_check is not None else False
@@ -311,10 +332,73 @@ class PhysicsEnsemble:
             out["prior"] = dict(zip(self.names, prior.tolist(), strict=True))
             out["awake"] = dict(zip(self.names, awake.tolist(), strict=True))
             out["escalate"] = bool(self.router.escalate(query, self.names)) if hasattr(self.router, "escalate") else False
+        if self.prediction_checks is not None or self.error_tolerance is not None:
+            out["checks"] = check_out
+            out["failed_checks"] = [self.names[i] for i in failed]
+            out["escalated_by_checks"] = escalated
+            out["awake"] = dict(zip(self.names, awake.tolist(), strict=True))
         self._last = {"query": query, "preds": preds, "y": y, "spread": spread, "scale": scale, "costs": costs, "w": w,
                       "evaluated": set(which), "res_now": res_now,
-                      "suspect": suspect, "awake": awake}
+                      "suspect": suspect, "awake": awake, "failed": set(failed)}
         return out
+
+    def _context(self, query: Any) -> Any:
+        return self.error_context(query) if self.error_context is not None else None
+
+    def _check(self, i: int, pred: np.ndarray, query: Any) -> tuple[float, str] | None:
+        if self.error_tolerance is not None:
+            e = self._ctx_err.get((i, self._context(query)))
+            if e is not None and e > self.error_tolerance:
+                return 0.0, f"last error in this context {e:.3g} above the tolerance {self.error_tolerance:.3g}"
+        pc = self.prediction_checks
+        if pc is None:
+            return None
+        if isinstance(pc, Mapping):
+            fn = pc.get(self.names[i])
+            r = fn(pred, query) if fn is not None else None
+        else:
+            r = pc(self.names[i], pred, query)
+        if r is None:
+            return None
+        score, why = (r[0], r[1]) if isinstance(r, tuple) else (r, "")
+        return float(score), str(why)
+
+    def _run_checks(self, query, preds, ok, ok_all, w, w_learned, prior, awake):
+        """Check the awake experts; drop those that fail; escalate through the router when none is left."""
+        checked: dict[int, tuple[float, str]] = {}
+        failed: list[int] = []
+        escalated = False
+        awake = awake.copy()
+        for _ in range(len(self.experts)):                           # at most one pass per rung
+            for i in ok:
+                if i not in checked and preds[i] is not None:
+                    r = self._check(i, preds[i], query)
+                    if r is not None:
+                        checked[i] = r
+                        if r[0] < self.check_threshold:
+                            failed.append(i)
+            remaining = [i for i in ok if i not in failed]
+            if remaining:
+                ok = remaining
+                break
+            if self.router is not None and hasattr(self.router, "escalate_from"):
+                aw = self.router.escalate_from(query, self.names, [self.names[i] for i in failed])
+                new_awake = np.array([bool(aw.get(n, False)) for n in self.names]) & ~np.isin(np.arange(len(preds)), failed)
+                new_ok = [i for i in ok_all if new_awake[i]]
+                if new_ok and set(new_ok) != set(ok):
+                    awake, ok, escalated = new_awake, new_ok, True
+                    logw = np.log(np.maximum(w_learned, 1e-300)) + (prior if prior is not None else 0.0)
+                    w = np.where(awake, np.exp(logw - logw[awake].max()), 0.0)
+                    continue
+            break                                                      # nobody passes and nowhere to go: keep them
+        if any(i not in failed for i in ok):
+            for i in failed:
+                awake[i] = False
+        for i, (sc, _) in checked.items():
+            if i in ok:
+                w[i] = w[i] * max(sc, 1e-12) ** self.check_strength
+        out = {self.names[i]: {"score": sc, "reason": why} for i, (sc, why) in checked.items()}
+        return ok, w, awake, out, [i for i in failed if i not in ok], escalated
 
     # ------------------------------------------------------------------------------------------ learning
     def update(self, query: Any = None, reference: np.ndarray | None = None) -> dict[str, Any]:
@@ -340,6 +424,10 @@ class PhysicsEnsemble:
             err = np.array([relative_l2(p, ref, self.point_weights) if p is not None else np.inf for p in preds])
             loss += np.minimum(err, self.clip)
             info["errors"] = err
+            if self.error_tolerance is not None:
+                ctx = self._context(query)
+                for i in last["evaluated"]:
+                    self._ctx_err[(i, ctx)] = float(err[i])
             info["ensemble_error"] = relative_l2(last["y"], ref, self.point_weights)
             if self.alpha_t is not None:
                 denom = last["spread"] + 1e-3 * last["scale"]
@@ -371,6 +459,8 @@ class PhysicsEnsemble:
         loss = np.where(np.isnan(loss), np.median(known) if known.size else 0.0, loss)
         loss = np.where(np.isfinite(loss), loss, worst)
         asleep = ~last.get("awake", np.ones(n, dtype=bool))
+        for i in last.get("failed", ()):                              # failed a check: scored by its real loss
+            asleep[i] = False
         if asleep.any() and not asleep.all():                       # sleeping experts: the mixture's loss, no change
             wg = self.grid.expert_weights()
             aw = ~asleep

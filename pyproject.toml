@@ -107,6 +107,7 @@ newton = [
 # as an independent cross-check in the validation suite
 sky = [
   "sgp4>=2.22",
+  "pymsis>=0.10",
   "skyfield-data>=6.0",
   "skyfield>=1.48",
 ]

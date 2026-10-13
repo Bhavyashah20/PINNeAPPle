@@ -1,0 +1,281 @@
+{
+"object": {
+"fullname": "67P/Churyumov-Gerasimenko",
+"des": "67P",
+"kind": "cn",
+"neo": true,
+"pha": false,
+"orbit_class": {
+"name": "Jupiter-family Comet",
+"code": "JFc"
+}
+},
+"orbit": {
+"epoch": "2455493.5",
+"elements": [
+{
+"value": ".6405847372930017",
+"sigma": "4.3158E-8",
+"name": "e",
+"title": "eccentricity",
+"label": "e",
+"units": null
+},
+{
+"value": "3.46473701803964",
+"sigma": "2.3334E-8",
+"name": "a",
+"title": "semi-major axis",
+"label": "a",
+"units": "au"
+},
+{
+"value": "1.245279365549379",
+"sigma": "1.4977E-7",
+"name": "q",
+"title": "perihelion distance",
+"label": "q",
+"units": "au"
+},
+{
+"value": "7.043698689343029",
+"sigma": "3.8011E-6",
+"name": "i",
+"title": "inclination",
+"label": "i",
+"units": "deg"
+},
+{
+"value": "50.18000114437616",
+"sigma": "5.3835E-5",
+"name": "om",
+"title": "longitude of the ascending node",
+"label": "node",
+"units": "deg"
+},
+{
+"value": "12.69446404906225",
+"sigma": "5.4182E-5",
+"name": "w",
+"title": "argument of perihelion",
+"label": "peri",
+"units": "deg"
+},
+{
+"value": "92.07346224536946",
+"sigma": "2.5955E-6",
+"name": "ma",
+"title": "mean anomaly",
+"label": "M",
+"units": "deg"
+},
+{
+"value": "2454891.029460959733",
+"sigma": "1.9341E-5",
+"name": "tp",
+"title": "time of perihelion passage",
+"label": "tp",
+"units": "JED"
+},
+{
+"value": "2355.612450811296",
+"sigma": "2.3796E-5",
+"name": "per",
+"title": "orbital period",
+"label": "period",
+"units": "d"
+},
+{
+"value": ".152826497362082",
+"sigma": "1.5438E-9",
+"name": "n",
+"title": "mean motion",
+"label": "n",
+"units": "deg/d"
+},
+{
+"value": "5.684194670529901",
+"sigma": "3.8281E-8",
+"name": "ad",
+"title": "aphelion distance",
+"label": "Q",
+"units": "au"
+}
+],
+"moid": ".259321",
+"soln_date": "2018-02-28 15:34:48",
+"orbit_id": "K154/2",
+"equinox": "J2000",
+"source": "JPL"
+},
+"phys_par": [
+{
+"ref": "K154/2",
+"value": "11.3",
+"name": "M1",
+"desc": "absolute magnitude of comet and coma (i.e. total)",
+"notes": "2 parameter fit from 764 observations, autocmod 2.6m",
+"sigma": "1.",
+"title": "comet total magnitude",
+"units": "mag"
+},
+{
+"ref": "K154/2",
+"value": "11.",
+"name": "K1",
+"desc": "comet total magnitude slope parameter",
+"notes": "autocmod 2.6m",
+"sigma": null,
+"title": "comet total magnitude slope",
+"units": null
+},
+{
+"ref": "K154/2",
+"value": "13.9",
+"name": "M2",
+"desc": "absolute magnitude of comet nucleus",
+"notes": "from 4038 observations, autocmod 2.6m",
+"sigma": "0.9",
+"title": "comet nuclear magnitude",
+"units": "mag"
+},
+{
+"ref": "K154/2",
+"value": "5.",
+"name": "K2",
+"desc": "comet nuclear magnitude slope parameter",
+"notes": "autocmod 2.6m",
+"sigma": null,
+"title": "comet nuclear magnitude slope",
+"units": null
+},
+{
+"ref": "K154/2",
+"value": "0.03",
+"name": "PC",
+"desc": "comet nuclear magnitude law phase coefficient",
+"notes": "autocmod 2.6m",
+"sigma": null,
+"title": "comet nuclear phase coefficient",
+"units": null
+},
+{
+"ref": "Lamy,P.L.;Toth,I.;Fernandez,Y.R.;Weaver,H.A. (2004) Comets II, pp. 223-264",
+"value": "4.0",
+"name": "diameter",
+"desc": "effective body diameter",
+"notes": null,
+"sigma": null,
+"title": "diameter",
+"units": "km"
+},
+{
+"ref": "LCDB (Rev. 2018-June); Warner et al., 2009",
+"value": "12.76137",
+"name": "rot_per",
+"desc": "body rotation period (synodic)",
+"notes": "[sidereal period (not synodic); Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Lowry, S.; Duddy, S.R.; Rozitis, B.; Green, S.F.; et al. (2012)   Astron. Astrophys. 548, A12.]",
+"sigma": null,
+"title": "rotation period",
+"units": "h"
+}
+],
+"ca_data": [
+{
+"sigma_t": "0.147087534641537",
+"unc_minor": "65.2589128207745",
+"sigma_tf": "< 00:01",
+"cd": "1982-Nov-27 14:26",
+"orbit_ref": "K154/2",
+"dist_min": "0.391000444945285",
+"dist": "0.391005286291946",
+"v_rel": "5.33791726721975",
+"dist_max": "0.39101012765112",
+"body": "Earth",
+"unc_angle": "-26.2398073208685",
+"v_inf": "5.33664050556374",
+"unc_major": "267.210208315515",
+"jd": "2445301.101577126"
+},
+{
+"sigma_t": "0.187294333298092",
+"unc_minor": "19.3596809863136",
+"sigma_tf": "< 00:01",
+"cd": "2021-Nov-12 00:49",
+"orbit_ref": "K154/2",
+"dist_min": "0.418225829191497",
+"dist": "0.41823238915607",
+"v_rel": "9.25568513100564",
+"dist_max": "0.418238949126562",
+"body": "Earth",
+"unc_angle": "-13.5797442001109",
+"v_inf": "9.25499679217238",
+"unc_major": "336.442313425059",
+"jd": "2459530.534348674"
+},
+{
+"sigma_t": "0.428624762310266",
+"unc_minor": "41.7131535569165",
+"sigma_tf": "< 00:01",
+"cd": "2034-Nov-28 23:50",
+"orbit_ref": "K154/2",
+"dist_min": "0.451709264579991",
+"dist": "0.451722974373626",
+"v_rel": "4.75131864629615",
+"dist_max": "0.451736684198792",
+"body": "Earth",
+"unc_angle": "-15.4155592242101",
+"v_inf": "4.75007704325268",
+"unc_major": "709.175004339768",
+"jd": "2464295.493279083"
+},
+{
+"sigma_t": "1.61617181556432",
+"unc_minor": "170.588837535401",
+"sigma_tf": "00:02",
+"cd": "2067-Nov-12 18:42",
+"orbit_ref": "K154/2",
+"dist_min": "0.44175671907221",
+"dist": "0.441814295146661",
+"v_rel": "4.96123137528335",
+"dist_max": "0.441871877051658",
+"body": "Earth",
+"unc_angle": "-41.4940219463577",
+"v_inf": "4.96001564754489",
+"unc_major": "3830.6234163495",
+"jd": "2476332.279203729"
+},
+{
+"sigma_t": "2.02984269761028",
+"unc_minor": "320.488791732482",
+"sigma_tf": "00:02",
+"cd": "2080-Nov-01 21:56",
+"orbit_ref": "K154/2",
+"dist_min": "0.496056146593427",
+"dist": "0.49611039923109",
+"v_rel": "3.04053709191524",
+"dist_max": "0.496164654042626",
+"body": "Earth",
+"unc_angle": "-31.3917018920233",
+"v_inf": "3.03877020023623",
+"unc_major": "3168.59136106074",
+"jd": "2481070.414118458"
+},
+{
+"sigma_t": "2.21701987709958",
+"unc_minor": "356.188364011334",
+"sigma_tf": "00:02",
+"cd": "2114-Nov-07 23:25",
+"orbit_ref": "K154/2",
+"dist_min": "0.444532786926881",
+"dist": "0.444593646103858",
+"v_rel": "2.73653410045228",
+"dist_max": "0.444654510309351",
+"body": "Earth",
+"unc_angle": "-38.142517828868",
+"v_inf": "2.73434320261895",
+"unc_major": "3853.68539744368",
+"jd": "2493493.475647075"
+}
+]
+}

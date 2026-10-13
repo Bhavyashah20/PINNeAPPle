@@ -15,6 +15,11 @@ import math
 import os
 import sys
 
+from pinneapple_tools.visualization.studio.colormap import (  # noqa: F401  (the CFD jet scale)
+    JET,
+    jet,
+)
+
 VIEWS = {   # camera offset from the aircraft centre (Blender axes after the glTF import), lens mm
     "hero": ((-11.0, -8.0, 1.6), 60),
     "hero_front": ((-10.5, 8.5, 1.2), 55),
@@ -29,20 +34,6 @@ VIEWS = {   # camera offset from the aircraft centre (Blender axes after the glT
     "cfd": ((-9.5, 8.0, 7.5), 50),                   # front-left, above: the upper skin of the left wing
     "cfd_low": ((-9.5, 8.5, -4.0), 50),              # front-left, below
 }
-
-
-JET = [(0.0, (0, 0, 143)), (0.125, (0, 0, 255)), (0.375, (0, 255, 255)), (0.625, (255, 255, 0)), (0.875, (255, 0, 0)),
-       (1.0, (128, 0, 0))]
-
-
-def jet(t: float):
-    """sRGB jet colour for t in [0, 1] (0..1 floats)."""
-    t = min(1.0, max(0.0, t))
-    for (a, ca), (b, cb) in zip(JET, JET[1:]):
-        if t <= b:
-            f = (t - a) / (b - a)
-            return tuple((ca[k] + f * (cb[k] - ca[k])) / 255 for k in range(3))
-    return tuple(c / 255 for c in JET[-1][1])
 
 
 def _lin(c):

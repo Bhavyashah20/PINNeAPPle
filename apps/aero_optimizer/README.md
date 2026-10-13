@@ -126,6 +126,9 @@ python apps/aero_optimizer/tools/train_surrogate.py runs/ apps/aero_optimizer/mo
 python apps/aero_optimizer/tools/build_assets.py runs/ verify/ --out apps/aero_optimizer/model
 ```
 
+The tools are thin command lines over the library: `pinneapple_design.aero.dataset` (run plan, one run),
+`pinneapple_design.aero.train` (`load_runs`, `split`, `train_surrogates`) and `pinneapple_design.aero.verify`.
+
 Library: `pinneapple_design.aero` (`geometry`: CST/NACA shapes · `mesh`: O-grid → polyMesh · `case`: OpenFOAM case,
 forces from the fields · `aircraft`: performance and requirements · `surrogate`: MeshGraphNet graph + MLP ensemble ·
 `optimize`: the engine and NSGA-II search).

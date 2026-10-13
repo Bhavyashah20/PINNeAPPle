@@ -542,5 +542,42 @@ def example_sources(seed: int = 3) -> List[Tuple[str, bytes]]:
 
 EXAMPLE_TIMEZONES = {"bms_export.csv": "America/Sao_Paulo"}
 
-__all__ = ["UNIT_SYSTEMS", "UNIT_CHOICES", "canonical_name", "conversion_text", "propose_mapping", "make_recipe",
+def _downsample(x: pd.Series, y: pd.Series, k: int) -> Dict[str, list]:
+    n = len(x)
+    if n == 0:
+        return {"x": [], "y": []}
+    idx = np.linspace(0, n - 1, min(k, n)).astype(int)
+    return {"x": [pd.Timestamp(v).strftime("%Y-%m-%d %H:%M") for v in x.iloc[idx]],
+            "y": [None if not np.isfinite(v) else float(v) for v in y.iloc[idx].to_numpy(dtype=float)]}
+
+
+def before_after_series(result: Dict[str, Any], k: int = 500) -> Dict[str, Any]:
+    """Per variable of a :func:`standardize` result: the raw values of every source (in their original units) and
+    the standardized values, on the common UTC time axis, downsampled to at most ``k`` evenly spaced points.
+
+    Raw samples are projected on the common grid by nearest sample within one hour (``pd.merge_asof``) and hidden
+    where the standardized series has no value, so both views line up. Returns
+    ``{variable: {"x": [time labels], "unit": ..., "before": [{"name", "y"}], "after": [{"name", "y"}]}}`` with
+    non-finite values as ``None`` (JSON-ready).
+    """
+    out: Dict[str, Any] = {}
+    wide, raw = result["wide"], result["raw"]
+    grid = wide["time_utc"]
+    for v in result["manifest"]["variables"]:
+        name = v["name"]
+        before, after = [], []
+        for s in v["sources"]:
+            r = raw[(raw["variable"] == name) & (raw["source"] == s["tag"])].sort_values("time_utc")
+            rr = pd.merge_asof(pd.DataFrame({"time_utc": grid}), r[["time_utc", "value"]], on="time_utc",
+                               direction="nearest", tolerance=pd.Timedelta("1h"))
+            col = f"{name}@{s['tag']}" if f"{name}@{s['tag']}" in wide.columns else name
+            yb = rr["value"].where(~wide[col].isna().to_numpy())
+            before.append({"name": f"{s['tag']} [{s['unit']}]", "y": _downsample(grid, yb, k)["y"]})
+            after.append({"name": f"{s['tag']} [{v['unit']}]", "y": _downsample(grid, wide[col], k)["y"]})
+        out[name] = {"x": _downsample(grid, wide[wide.columns[1]], k)["x"], "unit": v["unit"], "before": before,
+                     "after": after}
+    return out
+
+
+__all__ = ["before_after_series", "UNIT_SYSTEMS", "UNIT_CHOICES", "canonical_name", "conversion_text", "propose_mapping", "make_recipe",
            "standardize", "write", "to_physical_sample", "example_sources", "EXAMPLE_TIMEZONES"]

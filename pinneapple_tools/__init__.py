@@ -27,6 +27,10 @@ dataset_quality
     model dataset curation (run a VLM over each sequence's clip and
     filter on its label/confidence judgment before training).
 
+reporting
+    Report figure style and PDF technical-report builder (``reporting.paperkit``;
+    the PDF part needs reportlab). Not imported eagerly.
+
 Integration helpers
 -------------------
 ``plot(model, domain, ...)``
