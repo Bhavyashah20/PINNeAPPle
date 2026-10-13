@@ -33,8 +33,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `solve` and `benchmark` (equal training budget) as jobs with a trust card per result, `trust_card` for any field
   or file, `zoo_list` / `zoo_predict` / `zoo_validate` for the model zoo, and `job_status` / `list_jobs` /
   `cancel_job`. Problems are JSON (a preset or a box problem whose values are safely parsed expressions);
-  results are saved under a working directory and returned as paths; jobs run in a separate process with a wall-time limit, a memory limit and the network switched off. Added to `.mcp.json`; set-up
-  for Gemini CLI, Claude Code, Cursor, Codex and a Colab cell in `docs/guides/mcp_server.md`.
+  results are saved under a working directory and returned as paths; jobs run in a separate process with a
+  wall-time limit, a memory limit and the network switched off. Added to `.mcp.json`; set-up for Gemini
+  CLI, Claude Code, Cursor, Codex and a Colab cell in `docs/guides/mcp_server.md`.
 - `pinneapple check`, a physics linter for CI (`pinneapple_check`; also `python -m pinneapple.check`): fails when a
   simulation result or a Physics-AI model violates physics. 29 rules with ids, explanations and fix hints
   (`--list-rules`, `--explain PC101`): conservation of mass, energy and momentum, divergence, conserved totals in
