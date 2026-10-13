@@ -212,3 +212,13 @@ def test_registry_exposes_license_tool_always(tmp_path, monkeypatch):
     assert [t.name for t in reg.list_by_category("research")] == ["reference_license_policy"]
     (tmp_path / "LICENSE").write_text(MIT)
     assert reg.get("reference_license_policy").call(path=str(tmp_path))["policy"] == "adapt"
+
+
+def test_gpl_text_file_and_setup_py_declaration(tmp_path):
+    """JAX-Fluids ships gpl-3.0.txt; Dedalus declares license="GPL3" in setup.py."""
+    (tmp_path / "gpl-3.0.txt").write_text("GNU GENERAL PUBLIC LICENSE\n Version 3, 29 June 2007")
+    assert policy_for(detect_licenses(tmp_path)).policy == "clean_room"
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "setup.py").write_text('setup(name="x", license="GPL3")')
+    assert detect_licenses(other) == ["GPL-3.0"]
