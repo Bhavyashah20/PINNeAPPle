@@ -50,6 +50,8 @@
 * [Validation status](validation_status.md)
 * Guides
     * [Recreate a 3D wear twin](guides/recreate_a_wear_twin.md)
+    * [Colab notebooks](guides/colab_notebooks.md)
+    * [PINNeAPPle from coding agents (MCP server)](guides/mcp_server.md)
 * [API Reference](api/index.md)
   * [pinneapple](api/pinneapple/index.md)
   * [pinneapple_physics](api/pinneapple_physics/index.md)

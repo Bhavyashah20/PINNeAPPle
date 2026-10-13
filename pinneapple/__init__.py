@@ -611,6 +611,8 @@ _SUBMODULES = {
 # Lazy functions: resolved on first access, so ``import pinneapple`` does not
 # import their package. ``pinneapple_decision`` itself does not import torch.
 _LAZY_ATTRS = {
+    # physics checks of a field on a grid -> trust card with a deploy decision
+    "trust_card": ("pinneapple_analysis.trust.field_card", "trust_card"),
     "PhysicsOptimizer": ("pinneapple_core.optim", "PhysicsOptimizer"),
     "compile": ("pinneapple_physics.compile_api", "compile"),
     "PhysicsModule": ("pinneapple_core.module", "PhysicsModule"),

@@ -1,5 +1,7 @@
 # Animation-centred dashboards
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/04_lunar_rover_dashboard.ipynb)
+
 `pinneapple_tools.visualization.dashboard` turns any time-dependent simulation into one view:
 - the animation in the middle;
 - charts around it, synchronised to its time cursor;
