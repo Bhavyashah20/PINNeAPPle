@@ -159,6 +159,7 @@ Everything excluded for client provenance has been left out of this document on 
    for a model, an adapter in `_models.py` (predict, metrics, physics checks, fine-tuning hooks).
 3. Run `python scripts/zoo/build_assets.py --rover DIR`. This regenerates the assets, cards (with metrics and trust
    report) and the manifest; the build is deterministic. To add one item without touching the published ones, use
-   `--model NAME TRAIN_DIR` (a model trained by its own script) or `--hub-only STAGING_DIR` (Hub-only datasets).
+   `--only NAME` (with the training directory of a model trained by its own script, e.g. `--heatsink-natural DIR`)
+   or `--hub-only STAGING_DIR` (Hub-only datasets).
 4. Run `pytest tests/test_model_zoo.py`.
 5. After the merge, the publish workflow uploads to the Hub.

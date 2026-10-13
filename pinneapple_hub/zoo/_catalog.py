@@ -205,16 +205,21 @@ MODELS = {
         "card_tolerance": 1e-3,
     },
     "rover_contact_grc1_viper": {
-        "version": "1.0.0",
+        "version": "1.1.0",
+        "supersedes_reason": ("v1.0.0 was trained on GRC-1 without slip-sinkage (n1 = 0); the library's GRC-1 has "
+                              "n = n0 + n1 s with n1 = 0.8 since the slip-sinkage update, so v1.0.0 is not a surrogate of "
+                              "the current Wong-Reece model at driving slip"),
         "adapter": "rover_contact",
         "dataset": "rover_contact_grc1_viper",
         "task": "Wheel-soil contact forces of a rigid grousered wheel on lunar regolith simulant (terramechanics)",
         "description": (
             "Physics-informed surrogate (random-Fourier-feature residual tanh MLP, 4 blocks x 96) of the Wong-Reece "
             "rigid-wheel model for the NASA VIPER wheel (R 0.25 m, b 0.20 m, 24 grousers, parametric model from "
-            "public figures) on GRC-1 lunar simulant. Inputs slip and sinkage, outputs drawbar pull, normal load and "
-            "driving torque. Trained with soft constraints dFz/dz >= 0, dFx/ds >= 0 (slip <= 0.3), Mohr-Coulomb "
-            "traction limit and My >= R Fx."),
+            "public figures) on GRC-1 lunar simulant, with slip-sinkage (sinkage exponent n = n0 + n1 s, Ding et al. "
+            "2010/2011; GRC-1 n1 = 0.8). Inputs slip and sinkage, outputs drawbar pull, normal load and driving "
+            "torque. Trained with soft constraints dFz/dz >= 0, dFx/ds >= 0 (slip <= 0.3), Mohr-Coulomb traction "
+            "limit and My >= R Fx. The exact physics configuration it was trained on is recorded in data_lineage."
+            "physics and config.json (checked by ZooContactSurrogate.check_physics)."),
         "architecture": "contact_net",
         "architecture_config": {"hidden": 96, "depth": 4, "n_fourier": 16, "scale": 2.0, "seed": 0},
         "inputs": [{"name": "slip", "unit": "-", "description": "longitudinal slip ratio (negative = skid)"},
@@ -224,7 +229,9 @@ MODELS = {
                     {"name": "My_Nm", "unit": "N m", "description": "driving torque"}],
         "validity_range": {"slip": [-0.4, 0.9], "sinkage_m": [0.002, 0.06], "soil": "GRC-1 (pinneapple "
                            "terramechanics soil database)", "wheel": "VIPER wheel, R 0.25 m, b 0.20 m, 24 grousers",
-                           "slip_angle_deg": 0.0},
+                           "slip_angle_deg": 0.0,
+                           "physics": "Wong-Reece with slip-sinkage n = n0 + n1 s on driving slip (GRC-1: n0 0.8, "
+                                      "n1 0.8); steady state, so the slip that sets the exponent equals the slip"},
         "equations": ["Wong-Reece rigid wheel on deformable soil (Bekker pressure-sinkage, Janosi-Hanamoto shear)"],
         "reference_source": (
             "2000 held-out Latin-hypercube states (seed 1000, disjoint from training) of the Wong-Reece model "
@@ -238,8 +245,10 @@ MODELS = {
                                    "pinneapple_simulation.vehicle.viper().wheel)"},
         "known_limitations": [
             "Only as good as the Wong-Reece model: against published single-wheel tests the model's drawbar pull "
-            "RMSE is 4-14 N (digitised data), larger than the surrogate's own error (~0.2 N).",
-            "One soil and one wheel; zero slip angle (no lateral force); steady state."],
+            "RMSE is 4-14 N (digitised data), larger than the surrogate's own error.",
+            "One soil and one wheel; zero slip angle (no lateral force); steady state.",
+            "Slip-sinkage makes the forces kink at zero slip (the exponent grows only with driving slip); the "
+            "network smooths the kink over a small slip interval."],
         "license": "apache-2.0",
         "tags": ["terramechanics", "planetary rover", "PINN", "surrogate"],
         "citation": ("PINNeAPPle contributors (2026). Wheel-soil contact PINN surrogate (Wong-Reece, GRC-1, VIPER "
@@ -331,9 +340,11 @@ DATASETS = {
         "citation": "PINNeAPPle contributors (2026). HeatSink Sizer physics dataset.",
     },
     "rover_contact_grc1_viper": {
-        "version": "1.0.0",
+        "version": "1.1.0",
+        "supersedes_reason": "v1.0.0 was generated without slip-sinkage (GRC-1 n1 = 0); v1.1.0 uses n1 = 0.8",
         "title": "Wong-Reece wheel-soil contact forces, GRC-1 simulant, VIPER wheel",
-        "description": "Drawbar pull, normal load and torque of the Wong-Reece model over slip x sinkage.",
+        "description": ("Drawbar pull, normal load and torque of the Wong-Reece model (with slip-sinkage, GRC-1 "
+                        "n1 = 0.8) over slip x sinkage."),
         "license": "cc-by-4.0",
         "source": "pinneapple_simulation.terramechanics.WongReeceModel (scripts/zoo/build_assets.py)",
         "verification": (

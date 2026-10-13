@@ -103,10 +103,22 @@ class Param:
 
 @dataclass
 class ColorBar:
+    """Colour bar beside the animation; ``saturation`` < 1 shows the colour map muted the way a semi-transparent,
+    desaturated field overlay draws it (``studio.planetary.SurfaceView.field_saturation``)."""
     title: str
     cmap: str
     lo: float
     hi: float
+    saturation: float = 1.0
+
+    def colors(self, n: int = 256) -> np.ndarray:
+        """(n, 3) RGB in [0, 1] from ``lo`` to ``hi``."""
+        import matplotlib
+        c = matplotlib.colormaps[self.cmap](np.linspace(0, 1, n))[:, :3]
+        if self.saturation != 1.0:
+            lum = (c @ np.array([0.299, 0.587, 0.114]))[:, None]
+            c = np.clip(lum + self.saturation * (c - lum), 0.0, 1.0)
+        return c
 
 
 @dataclass
