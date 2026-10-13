@@ -31,11 +31,19 @@ from pinneapple_tools.visualization.dashboard import (
 )
 
 
-def render_frames(run, terrain, n: int = 150, *, field="normal_stress", clim=None, size=(1280, 720), camera=None,
+def render_frames(run, terrain, n: int = 150, *, field=None, clim=None, size=(1280, 720), camera=None,
                   preset="lunar_low_sun", sun_azimuth_deg=160.0, earth=False, trail: float = 0.0,
-                  half_window=(3.2, 3.4), progress=None):
+                  half_window=(3.2, 3.4), progress=None, overlay: bool = True, field_alpha: float = 0.85,
+                  field_glow: float = 0.55, field_saturation: float = 1.0, clim_percentiles=(0.0, 99.0)):
     """``n`` rendered frames spread over the run and their sample indices (``vehicle.viz.render_frame``).
-    ``trail`` and ``half_window`` place the detailed terrain window (see ``vehicle.viz.frame_view``)."""
+    ``trail`` and ``half_window`` place the detailed terrain window (see ``vehicle.viz.frame_view``).
+
+    The default is the beauty view: ruts, berms and grouser marks as geometry, shaded by the Sun. ``field``
+    ("normal_stress", "shear_stress", "sinkage") adds the colour map as an overlay on the ruts and wheels
+    (``overlay=False``: on the wheels only); ``field_alpha`` / ``field_glow`` set its opacity on the relief
+    (e.g. 0.6 / 0.1: semi-transparent, the rut geometry and the Sun shading stay visible), ``field_saturation``
+    mutes its colours. Without ``clim`` the colour range spans ``clim_percentiles`` of the stress the ruts carry
+    at the end of the run (e.g. (5, 95), so the variation along the ruts uses the whole colour map)."""
     from .viz import render_frame
     ks = np.unique(np.linspace(0, len(run.t) - 1, n).astype(int))
     if clim is None and field in ("normal_stress", "shear_stress"):
@@ -43,13 +51,17 @@ def render_frames(run, terrain, n: int = 150, *, field="normal_stress", clim=Non
         ter_end = terrain.copy_empty()
         run.replay_terrain(ter_end, 1e9)
         g = 1e-3 * getattr(ter_end, key)
-        clim = (0.0, float(np.percentile(g[g > 0], 99))) if (g > 0).any() else (0.0, 1.0)
+        g = g[g > 0.05 * g.max()] if (g > 0).any() else g          # the ruts, not their anti-aliased edges
+        lo, hi = clim_percentiles
+        clim = ((float(np.percentile(g, lo)) if lo > 0 else 0.0), float(np.percentile(g, hi))) if g.size \
+            else (0.0, 1.0)
     cache: dict = {}
     frames = []
     for j, k in enumerate(ks):
         img = render_frame(run, terrain, int(k), None, field=field, clim=clim, camera=camera, size=size, cache=cache,
                            preset=preset, sun_azimuth_deg=sun_azimuth_deg, earth=earth, title="", colorbar=False,
-                           trail=trail, half_window=half_window)
+                           trail=trail, half_window=half_window, overlay=overlay, field_alpha=field_alpha,
+                           field_glow=field_glow, field_saturation=field_saturation)
         frames.append(np.asarray(img)[..., :3])
         if progress:
             progress(j + 1, len(ks))
@@ -61,10 +73,16 @@ def _running(fn, a):
 
 
 def vehicle_dashboard(run, frames, ks, *, model=None, surrogate=None, title: str | None = None, subtitle: str = "",
-                      field_label="Peak normal stress in the ruts [kPa]", cmap="inferno", clim=(0.0, 1.0),
+                      field_label=None, cmap="inferno", clim=(0.0, 1.0), field_saturation: float = 1.0,
                       wheel_for_pinn: int = 0, extra_params=(), scene3d: bool = False, terrain=None,
-                      footer: str = "") -> Dashboard:
-    """Build the dashboard of ``run`` with the rendered ``frames`` at sample indices ``ks``."""
+                      footer: str = "", pinn_note: str = "") -> Dashboard:
+    """Build the dashboard of ``run`` with the rendered ``frames`` at sample indices ``ks``. ``field_label`` (with
+    ``cmap`` / ``clim``) adds a colour bar for frames rendered with a field overlay. ``surrogate`` is a
+    :class:`~pinneapple_simulation.terramechanics.surrogate.ContactSurrogate` or a model-zoo contact model
+    (``pp.zoo.load(...)``, wrapped in ``ZooContactSurrogate``); it is compared with ``model`` (the Wong-Reece model
+    of the run) at the wheels' (slip, sinkage) states; a zoo model trained on other physics than ``model`` raises a
+    ``PhysicsMismatchWarning`` and the difference is noted on the chart. ``pinn_note`` is added under the PINN
+    chart."""
     ks = np.asarray(ks, int)
     spec = run.model.spec
     names = run.corner_names
@@ -93,6 +111,14 @@ def vehicle_dashboard(run, frames, ks, *, model=None, surrogate=None, title: str
     charts.append(Chart("Slip", "slip [-]", "time [s]", [Series(n_, W["slip"][ks, i]) for i, n_ in enumerate(names)],
                         slot="right", ylim=(-0.3, 1.0)))
     pin_err = None
+    if surrogate is not None and not hasattr(surrogate, "meta") and hasattr(surrogate, "card"):
+        from pinneapple_simulation.terramechanics.surrogate import ZooContactSurrogate
+        surrogate = ZooContactSurrogate(surrogate)
+    phys_diff = []
+    if surrogate is not None and model is not None and hasattr(surrogate, "check_physics"):
+        phys_diff = surrogate.check_physics(model)              # warns (PhysicsMismatchWarning) when it differs
+        if phys_diff:
+            pinn_note = "; ".join(x for x in (pinn_note, "trained on other physics: " + ", ".join(phys_diff)) if x)
     if surrogate is not None and model is not None:
         from pinneapple_simulation.terramechanics.surrogate import compare_on_states
         c = compare_on_states(surrogate, model, W["slip"][ks].ravel(), W["sinkage"][ks].ravel())
@@ -103,7 +129,8 @@ def vehicle_dashboard(run, frames, ks, *, model=None, surrogate=None, title: str
         charts.append(Chart(f"PINN vs Wong-Reece, {names[i]} drawbar pull", "drawbar pull [N]", "time [s]",
                             [Series("Wong-Reece", ref[:, i], color="#e8e8e8", width=2.6),
                              Series("PINN", pr[:, i], color="#d95926", dash=True)], slot="right",
-                            note="same (slip, sinkage) inputs to both; gaps: outside the training box"))
+                            note="same (slip, sinkage) inputs to both; gaps: outside the training box"
+                            + (f"; {pinn_note}" if pinn_note else "")))
         pin_err = np.abs(pr - ref)
     # --- bottom: along the traverse
     charts.append(Chart("Sinkage per wheel along the traverse", "sinkage [mm]", "distance [m]",
@@ -135,17 +162,27 @@ def vehicle_dashboard(run, frames, ks, *, model=None, surrogate=None, title: str
     if soil is not None:
         params += [Param("Soil", soil.name), Param("Cohesion c", soil.c / 1e3, "kPa"),
                    Param("Friction angle", soil.phi_deg, "deg"), Param("k_phi", soil.k_phi / 1e3, "kN/m^(n+2)"),
-                   Param("Sinkage exponent n", soil.n0), Param("Shear modulus K", 1e3 * soil.K, "mm")]
+                   Param("Sinkage exponent n0 + n1 s", f"{soil.n0:g} + {soil.n1:g} s"),
+                   Param("Shear modulus K", 1e3 * soil.K, "mm")]
     if cmd is not None:
         params.append(Param("Speed command", cmd, "m/s"))
     params.append(Param("Time step", 1e3 * run.meta.get("dt", 0.002), "ms"))
     if surrogate is not None:
+        if surrogate.meta.get("name"):
+            params.append(Param("PINN model", surrogate.meta["name"]))
+        if hasattr(surrogate, "check_physics") and model is not None:
+            params.append(Param("PINN physics vs run", "same" if not phys_diff else "differs"))
         te = surrogate.meta.get("test_errors", {}).get("Fx")
         if te:
             params.append(Param("PINN held-out rmse (Fx)", round(te["rmse_N"], 3), "N"))
+        if pin_err is not None and np.isfinite(pin_err).any():
+            params.append(Param("PINN rmse on this run (Fx)", round(float(np.sqrt(np.nanmean(pin_err ** 2))), 2),
+                                "N"))
     params += list(extra_params)
     db = Dashboard(title or f"{spec.name} on the Moon", t, list(frames), charts=charts, tiles=tiles, params=params,
-                   subtitle=subtitle, colorbar=ColorBar(field_label, cmap, *clim), footer=footer)
+                   subtitle=subtitle, colorbar=ColorBar(field_label, cmap, *clim, saturation=field_saturation)
+                   if field_label else None,
+                   footer=footer)
     if scene3d:
         db.scene3d = vehicle_scene3d(run, ks, terrain)
     return db

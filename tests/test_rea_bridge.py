@@ -212,3 +212,25 @@ def test_registry_exposes_license_tool_always(tmp_path, monkeypatch):
     assert [t.name for t in reg.list_by_category("research")] == ["reference_license_policy"]
     (tmp_path / "LICENSE").write_text(MIT)
     assert reg.get("reference_license_policy").call(path=str(tmp_path))["policy"] == "adapt"
+
+
+def test_gpl_text_file_and_setup_py_declaration(tmp_path):
+    """JAX-Fluids ships gpl-3.0.txt; Dedalus declares license="GPL3" in setup.py."""
+    (tmp_path / "gpl-3.0.txt").write_text("GNU GENERAL PUBLIC LICENSE\n Version 3, 29 June 2007")
+    assert policy_for(detect_licenses(tmp_path)).policy == "clean_room"
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "setup.py").write_text('setup(name="x", license="GPL3")')
+    assert detect_licenses(other) == ["GPL-3.0"]
+
+
+def test_gnu_notice_form_beats_bundled_permissive_texts(tmp_path):
+    """Firedrake's LICENSE opens with the LGPL notice and later quotes BSD
+    texts of bundled components: the result must be LGPL (clean_room)."""
+    (tmp_path / "LICENSE").write_text(
+        "Firedrake:\nFiredrake is free software: you can redistribute it and/or modify it under\n"
+        "the terms of the GNU Lesser General Public License as published by the\n"
+        "Free Software Foundation, either version 3 of the License, or (at your\noption) any later version.\n\n"
+        "Bundled component:\nRedistributions in binary form must reproduce the above copyright notice\n")
+    ids = detect_licenses(tmp_path)
+    assert "LGPL-3.0" in ids and policy_for(ids).policy == "clean_room"

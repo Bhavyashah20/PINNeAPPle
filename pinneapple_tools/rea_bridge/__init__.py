@@ -18,13 +18,15 @@ tools       registration on :class:`pinneapple_worldmodel.PhysicsToolRegistry`
 See ``docs/dev/REA_INTEGRATION.md`` for setup and the harvest workflow.
 """
 from .client import PINNED_VERSION, ReaClient, ReaError, ReaResult, ReaUnavailable, resolve_rea_command
-from .evidence import FeatureHit, FeatureMap, FunctionRef, locate, summarize_js_evidence
+from .evidence import (FeatureHit, FeatureMap, FunctionRef, exported_functions_from_layout, locate,
+                       summarize_js_evidence)
 from .harvest import Finding, HarvestEntry, HarvestLedger, LicenseGateError
 from .licenses import LicensePolicy, detect_licenses, policy_for, policy_for_path
 
 __all__ = [
     "PINNED_VERSION", "ReaClient", "ReaError", "ReaResult", "ReaUnavailable", "resolve_rea_command",
-    "FeatureHit", "FeatureMap", "FunctionRef", "locate", "summarize_js_evidence",
+    "FeatureHit", "FeatureMap", "FunctionRef", "exported_functions_from_layout", "locate",
+    "summarize_js_evidence",
     "Finding", "HarvestEntry", "HarvestLedger", "LicenseGateError",
     "LicensePolicy", "detect_licenses", "policy_for", "policy_for_path",
 ]

@@ -809,8 +809,8 @@ def ito_bend_loss(Re: float, radius_ratio: float, angle_deg: float = 90.0) -> fl
 
 
 def colebrook(Re: float, rel_roughness: float = 0.0) -> float:
-    """Darcy friction factor of fully developed turbulent pipe flow (Colebrook-White), solved by fixed point."""
-    f = 0.02
-    for _ in range(60):
-        f = (-2 * math.log10(rel_roughness / 3.7 + 2.51 / (Re * math.sqrt(f)))) ** -2
-    return f
+    """Darcy friction factor of fully developed turbulent pipe flow (Colebrook-White):
+    :func:`pinneapple_physics.closed_form.pipe_flow.colebrook`."""
+    from pinneapple_physics.closed_form.pipe_flow import colebrook as _colebrook
+
+    return _colebrook(Re, rel_roughness)

@@ -7,6 +7,7 @@
 **Solve, simulate, forecast and design with physics-informed AI — and know, for every prediction, whether it still holds.**
 
 [![Tests](https://github.com/PINNeAPPle-Labs/PINNeAPPle/actions/workflows/tests.yml/badge.svg)](https://github.com/PINNeAPPle-Labs/PINNeAPPle/actions/workflows/tests.yml)
+[![Physics check](https://github.com/PINNeAPPle-Labs/PINNeAPPle/actions/workflows/physics-check.yml/badge.svg)](docs/guides/physics_checks_in_ci.md)
 [![PyPI](https://img.shields.io/pypi/v/pinneapple.svg)](https://pypi.org/project/pinneapple/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23343062.svg)](https://doi.org/10.5281/zenodo.23343062)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -51,6 +52,27 @@ Most Physics AI libraries stop at the prediction. PINNeAPPle adds a **trust laye
 | **A Formula car in OpenFOAM.** A parametric open-wheel car with wings, floor and diffuser, solved at 70 m/s with a moving road; skin pressure coefficient. | **Forces by component.** Opening the DRS flap cuts the rear-wing drag by 56 %; the wheels give part of it back. A pipeline demonstration, not a validated F1 model. |
 
 </div>
+
+## Physics checks in CI
+
+`pinneapple check` is a linter for physics: it fails a pull request when a simulation result or a Physics-AI model
+breaks conservation, its PDE, its boundary or initial conditions, bounds, units, its training range, a stored
+reference or the integrity of its files. Zero configuration to start, rule ids with fixes (`PC101`...), exit
+codes, SARIF and JUnit; the GitHub Action annotates the line that caused the violation.
+
+```yaml
+# .github/workflows/physics-check.yml, in a job with `permissions: security-events: write`
+- uses: actions/checkout@v4
+- uses: PINNeAPPle-Labs/PINNeAPPle@main    # pin a tag or a commit SHA
+```
+
+```bash
+pinneapple check cases/ models/            # locally: same rules, readable output, exit code 1 on a violation
+```
+
+<div align="center"><img src="docs/assets/physics_check/pr_blocked.gif" width="80%" alt="A pull request blocked because the lid boundary condition of an OpenFOAM cavity changed"/></div>
+
+Rules, configuration and the Action: [docs/guides/physics_checks_in_ci.md](docs/guides/physics_checks_in_ci.md).
 
 ## Discovering physical laws from data
 
@@ -102,6 +124,20 @@ in the **[experiment catalogue](https://pinneapple-labs.github.io/PINNeAPPle/lab
 pip install pinneapple
 pip install "pinneapple[all]"     # every optional backend (solvers, geometry, FEniCS, ONNX, ...)
 ```
+
+Or start in the browser, on a free Colab GPU (each notebook installs PINNeAPPle in its first cell):
+
+| Notebook | |
+|---|---|
+| First PINN: heat in a plate, with its physics checks | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/01_first_pinn_heat.ipynb) |
+| Airfoil: geometry, surrogate prediction, validation against stored CFD | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/02_airfoil_surrogate.ipynb) |
+| Equal-budget benchmark of methods | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/03_equal_budget_benchmark.ipynb) |
+| Lunar rover terramechanics and its animated dashboard | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/04_lunar_rover_dashboard.ipynb) |
+| Verify a model: the trust card catching bad predictions | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/05_verify_a_model.ipynb) |
+
+Working with a coding agent (Gemini CLI, Antigravity, Claude Code, Codex, Cursor)? [`AGENTS.md`](AGENTS.md) is the
+guide it should read, and `pip install "pinneapple[mcp]"` adds an MCP server, `pinneapple-mcp`, with tools to solve,
+benchmark and validate ([how to plug it in](docs/guides/mcp_server.md)).
 
 ## Five things to try
 

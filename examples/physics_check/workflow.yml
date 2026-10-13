@@ -1,0 +1,25 @@
+# Copy to .github/workflows/physics-check.yml in your repository, next to a pinneapple-check.toml.
+# Every pull request is checked; a physics violation fails the job, is annotated on the changed line and
+# appears under Security > Code scanning.
+name: Physics check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write      # SARIF upload to code scanning
+
+jobs:
+  physics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PINNeAPPle-Labs/PINNeAPPle@main   # pin a release tag or a commit SHA for reproducible checks
+        with:
+          paths: .                              # or the folders holding results and models
+          # version: "0.8.0"                    # install this pinneapple release from PyPI instead
+          # torch: "true"                       # only to load .pt checkpoints
+          # baseline: .pinneapple-check-baseline.json

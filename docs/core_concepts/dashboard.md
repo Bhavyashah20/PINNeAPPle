@@ -1,5 +1,7 @@
 # Animation-centred dashboards
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/04_lunar_rover_dashboard.ipynb)
+
 `pinneapple_tools.visualization.dashboard` turns any time-dependent simulation into one view:
 - the animation in the middle;
 - charts around it, synchronised to its time cursor;
@@ -16,7 +18,7 @@ It uses the dark style of the studio renders (aircraft, Formula car).
 
 ![VIPER crossing a lunar crater, dashboard](../assets/studio/rover-dashboard.gif)
 
-Interactive page: [rover-dashboard.html](../assets/studio/rover-dashboard.html) (≈ 6.1 MB, opens offline).
+Interactive page: [rover-dashboard.html](../assets/studio/rover-dashboard.html) (≈ 6.3 MB, opens offline).
 Static: [rover-dashboard.png](../assets/studio/rover-dashboard.png). Video: [rover-dashboard.mp4](../assets/studio/rover-dashboard.mp4).
 
 ```python
@@ -87,40 +89,61 @@ shifts the series colours a little, so the MP4 and the HTML page are the referen
 `pinneapple_simulation.vehicle.dashboard` builds the dashboard of any vehicle run:
 
 ```python
+import pinneapple as pp
 from pinneapple_simulation.vehicle import dashboard as vdash
-frames, ks, clim = vdash.render_frames(run, terrain, n=150)       # planetary renders, ruts coloured by stress
-db = vdash.vehicle_dashboard(run, frames, ks, model=wong_reece, surrogate=pinn, clim=clim,
+frames, ks, clim = vdash.render_frames(run, terrain, n=150,      # planetary renders, 3-D ruts
+                                       field="normal_stress", field_alpha=0.45, field_glow=0.05,
+                                       field_saturation=0.6, clim_percentiles=(5, 95))
+db = vdash.vehicle_dashboard(run, frames, ks, model=wong_reece, surrogate=pp.zoo.load("rover_contact_grc1_viper"),
+                             clim=clim, field_label="Peak normal stress in the ruts [kPa]", field_saturation=0.6,
                              scene3d=True, terrain=terrain)
 ```
 
 The animation shows:
 - a hard, low Sun (`lunar_low_sun`, 12°) under a black sky, with long shadows;
 - regolith with small craters and rocks;
-- wheels that roll with the joint angles and leave ruts with grouser marks;
-- ruts coloured by the peak normal stress they carried [kPa], with the colour bar beside the animation.
+- wheels that roll with the joint angles and leave ruts deformed into the terrain mesh: a floor at the computed
+  sinkage, walls at the angle of repose, berms of displaced soil and grouser marks spaced by the pitch and the
+  slip, all shaded and shadowed by the low Sun;
+- the ruts coloured by the peak normal stress they carried [kPa], with its colour bar. The map is muted and
+  semi-transparent (`field_alpha=0.45`, `field_glow=0.05`, `field_saturation=0.6`): it tints the regolith's albedo
+  before the photometry, so the rut walls, the grouser marks and the Sun's shading and shadows dominate; its range
+  spans the 5-95 % percentiles of the stress the ruts carry (≈ 14-21 kPa), so the variation along the ruts shows;
+- the ground running out to the real lunar horizon, so no mesh edge shows in any frame (checked for the frames by
+  `studio.planetary.border_visibility`).
 
 Around it:
 - **left:** drawbar pull, driving torque and sinkage versus slip. The grey line is the single-wheel testbed curve at
   the static wheel load; the dots are the four wheels' live operating points;
-- **right:** speed against the command; slip per wheel; the PINN against the Wong-Reece reference for the front-left
-  wheel (same inputs; gaps where a wheel leaves the PINN's training box);
+- **right:** speed against the command; slip per wheel; the PINN against the run's Wong-Reece model for the
+  front-left wheel (same inputs; gaps where a wheel leaves the PINN's training box). The PINN is the pre-trained
+  model of the model zoo, `pp.zoo.load("rover_contact_grc1_viper")`; a zoo model is wrapped in
+  `terramechanics.surrogate.ZooContactSurrogate`;
 - **bottom:** sinkage and normal load per wheel along the traverse; the PINN's error for every wheel;
 - **tiles:** distance [m], mean slip, maximum sinkage [mm], drive energy [J] and the PINN's RMS error [N], all up
   to the cursor;
-- **parameters:** the vehicle, the wheel, the soil (with units), gravity, the command, the time step and the PINN's
-  held-out error.
+- **parameters:** the vehicle, the wheel, the soil (with units), gravity, the command, the time step, the PINN
+  model, its held-out error (from its model card) and its error along this run.
 
 ![Rover dashboard](../assets/studio/rover-dashboard.png)
 
 `examples/studio/07_lunar_rover_dashboard.py` regenerates every file:
-- `docs/assets/studio/rover-dashboard.{html,png,gif,mp4}`;
+- `docs/assets/studio/rover-dashboard.{html,png,gif,mp4}`: the MP4 at 1920 × 1080; the GIF at 1280 × 720, laid
+  out natively at that size (`to_video(gif_font_scale=1.0)`) so the chart text stays readable, with one shared
+  octree palette and frame differencing to stay under 6 MB (`dashboard.static.write_gif`);
 - `rover-frame.png`, one rendered frame.
 
 The run behind it is the crater crossing of the [lunar rover page](lunar_rover_terramechanics.md): NASA VIPER
-(450 kg) on GRC-1 at lunar gravity, a 0.2 m/s command, 45 s, 2 ms steps. The rover covers 8.61 m with a mean slip of
-0.019 and a maximum sinkage of 22 mm, uses 761 J (88 J/m), and reaches 10.5° of pitch and 3.8° of roll; the
-front-left wheel leaves the soil for a moment near 1.3 m (its sinkage and load drop to zero). The
-PINN surrogate's held-out RMSE is about 0.05 % of each output's range; along the run it stays within about 2 N of
-the Wong-Reece drawbar pull.
+(450 kg) on GRC-1 at lunar gravity, a 0.2 m/s command, 45 s, 2 ms steps. The rover covers 8.63 m with a mean slip of
+0.018 and a maximum sinkage of 36.6 mm (the rear-left wheel digging in while it pushes against the rock), uses
+794 J (92 J/m), and reaches 10.5° of pitch and 3.8° of roll; the front-left wheel leaves the soil for a moment near
+1.3 m (its sinkage and load drop to zero).
+
+**The zoo PINN along the run.** `rover_contact_grc1_viper` v1.1.0 is trained on the physics of this run (GRC-1
+with slip-sinkage, n1 = 0.8; the dashboard checks it with `ZooContactSurrogate.check_physics` and shows "PINN
+physics vs run: same"). Its model card gives a held-out drawbar-pull RMSE of 0.22 N; along this run, at the states
+the wheels met, its drawbar-pull RMSE over all wheels is 0.33 N, with no error above 1 N. v1.0.0, trained before
+slip-sinkage was added (n1 = 0), erred by 11.3 N RMS on the same run and by up to ≈ 190 N near the rock; it stays
+loadable as a superseded release (see the [model zoo guide](../guides/model_zoo.md)).
 
 ![One rendered frame](../assets/studio/rover-frame.png)

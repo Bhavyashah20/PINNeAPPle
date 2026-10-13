@@ -12,7 +12,8 @@ cos theta_f)`` with ``theta* = theta`` ahead of ``theta_m`` and, behind it, the 
 the front arc ``theta* = theta_f - (theta - theta_r) / (theta_m - theta_r) (theta_f - theta_m)``.
 
 * Normal stress, Bekker pressure-sinkage: ``sigma = (k_c / b + k_phi) h^n``.
-* Slip-sinkage: the exponent grows with slip, ``n = n0 + n1 |s|`` (Ding et al. 2011).
+* Slip-sinkage: the exponent grows with slip, ``n = n0 + n1 |s|`` (Ding et al. 2010, 2011; calibrated with held-out points in
+  :func:`.testbed.calibrate_holdout`).
 * Shear, Janosi-Hanamoto with Mohr-Coulomb strength: ``tau_x = (c + sigma tan phi) (1 - exp(-j_x / K))`` with the
   shear displacement ``j_x = R_s [(theta_f - theta) - (1 - s)(sin theta_f - sin theta)]``.
 * Grousers: shear displacement on the equivalent radius ``R_s = R + lambda h_g`` (Ding et al. 2011).
@@ -114,15 +115,58 @@ class WongReeceModel:
     >>> r.Fx, r.Fz, r.My
 
     ``bulldozing``: "lateral" (default, side face only), "both", or "none". ``n_gl``: Gauss-Legendre nodes on each of
-    the three smooth pieces of the arc.
+    the three smooth pieces of the arc. ``slip_sinkage``: which slips raise the sinkage exponent ``n = n0 + n1 s``:
+    "drive" (default, driving slip s > 0 only -- the range Ding et al. identified it on), "both" (``n1 |s|``, skid
+    too) or "none".
     """
 
-    def __init__(self, soil: Soil, wheel: Wheel, g: float = 1.62, bulldozing: str = "lateral", n_gl: int = 24):
+    def __init__(self, soil: Soil, wheel: Wheel, g: float = 1.62, bulldozing: str = "lateral", n_gl: int = 24,
+                 slip_sinkage: str = "drive"):
         if bulldozing not in ("lateral", "both", "none"):
             raise ValueError("bulldozing must be 'lateral', 'both' or 'none'")
+        if slip_sinkage not in ("drive", "both", "none"):
+            raise ValueError("slip_sinkage must be 'drive', 'both' or 'none'")
         self.soil, self.wheel, self.g = soil, wheel, float(g)
         self.bulldozing = bulldozing
+        self.slip_sinkage = slip_sinkage
         self.n_gl = int(n_gl)
+
+    def physics_config(self) -> dict:
+        """Everything that sets this model's forces, as plain data: the soil (name and every parameter), the wheel,
+        gravity and the model options. A surrogate trained on the model records it (e.g. in a zoo model card), so a
+        later change of the library's physics can be detected with :func:`physics_mismatch`."""
+        S, W = self.soil, self.wheel
+        g = W.grousers
+        soil = {k: (float(v) if isinstance(v, (int, float)) else v) for k, v in
+                (("name", S.name), ("c", S.c), ("phi_deg", S.phi_deg), ("K", S.K), ("Ky", S.Ky), ("k_c", S.k_c),
+                 ("k_phi", S.k_phi), ("n0", S.n0), ("n1", S.n1), ("rho", S.rho), ("a0", S.a0), ("a1", S.a1),
+                 ("c3", S.c3), ("k_u0", S.k_u0), ("A_u", S.A_u))}
+        wheel = {"radius": float(W.radius), "width": float(W.width), "grouser_count": int(g.count),
+                 "grouser_height": float(g.height), "shear_radius_factor": float(g.shear_radius_factor)}
+        return {"model": "Wong-Reece", "soil": soil, "wheel": wheel, "g": self.g, "bulldozing": self.bulldozing,
+                "slip_sinkage": self.slip_sinkage}
+
+    @classmethod
+    def from_physics_config(cls, cfg: dict, n_gl: int = 24) -> WongReeceModel:
+        """The model a :meth:`physics_config` describes (e.g. the one recorded in a zoo model card)."""
+        from .soils import Soil
+        from .wheel import Grousers
+        sp = dict(cfg["soil"])
+        soil = Soil(sp.pop("name"), **sp)
+        w = cfg["wheel"]
+        g = Grousers(count=int(w["grouser_count"]), height=float(w["grouser_height"]),
+                     shear_radius_factor=float(w["shear_radius_factor"]))
+        return cls(soil, Wheel(radius=w["radius"], width=w["width"], grousers=g), g=cfg["g"],
+                   bulldozing=cfg["bulldozing"], slip_sinkage=cfg["slip_sinkage"], n_gl=n_gl)
+
+    def sinkage_exponent(self, slip) -> np.ndarray:
+        """Exponent of the pressure-sinkage law at ``slip``: ``n0 + n1 s`` (Ding et al. 2010, 2011), see
+        ``slip_sinkage``."""
+        s = np.asarray(slip, float)
+        if self.slip_sinkage == "none":
+            return np.full(s.shape, self.soil.n0)
+        s_eff = np.abs(s) if self.slip_sinkage == "both" else np.clip(s, 0.0, None)
+        return self.soil.n0 + self.soil.n1 * s_eff
 
     # ------------------------------------------------------------------ stresses
     def _k(self) -> float:
@@ -149,17 +193,20 @@ class WongReeceModel:
 
     # ------------------------------------------------------------------ forces
     def forces(self, slip, sinkage, slip_angle=0.0, precompaction=0.0, prior_shear=0.0, *,
-               stresses: bool = False) -> ContactResult:
+               stresses: bool = False, sinkage_slip=None) -> ContactResult:
         """Forces for arrays of slip [-], sinkage below the original surface [m], slip angle [rad], prior sinkage [m]
-        and prior shear displacement [m] of the soil ahead (all broadcast to one shape)."""
-        s, z, beta, zu, j0 = (np.asarray(a, float) for a in np.broadcast_arrays(slip, sinkage, slip_angle,
-                                                                                 precompaction, prior_shear))
+        and prior shear displacement [m] of the soil ahead (all broadcast to one shape). ``sinkage_slip`` (default:
+        ``slip``) is the slip that sets the sinkage exponent, e.g. a slip gated by the wheel speed in a dynamic
+        simulation, where the slip ratio of a nearly stopped wheel is not meaningful."""
+        ss = slip if sinkage_slip is None else sinkage_slip
+        s, z, beta, zu, j0, ss = (np.asarray(a, float) for a in np.broadcast_arrays(slip, sinkage, slip_angle,
+                                                                                     precompaction, prior_shear, ss))
         shape = s.shape
         s, z, beta, zu, j0 = s.ravel(), z.ravel(), beta.ravel(), np.clip(zu.ravel(), 0.0, None), j0.ravel()
         S, W = self.soil, self.wheel
         R, b, Rs = W.radius, W.width, W.shear_radius
         s = np.clip(s, -0.99, 0.99)
-        n = S.n0 + S.n1 * np.abs(s)
+        n = self.sinkage_exponent(np.clip(ss.ravel(), -0.99, 0.99))
         offset = np.clip(zu - self.rebound(zu), 0.0, None)            # current surface below the original one
         z_eff = np.clip(z - offset, 0.0, 0.95 * R)
         on = z_eff > 1e-7
@@ -255,5 +302,30 @@ def slip_angle(v_long, v_lat, v_eps: float = 1e-3):
     return np.arctan2(np.asarray(v_lat, float), np.abs(np.asarray(v_long, float)) + v_eps)
 
 
+def physics_mismatch(recorded: dict | None, current: dict, rtol: float = 1e-9) -> list[str]:
+    """Keys (dotted paths) where a recorded :meth:`WongReeceModel.physics_config` differs from ``current``; a key the
+    recorded configuration lacks counts as a difference ("not recorded"). Empty list: same physics."""
+    if not recorded:
+        return ["physics configuration not recorded"]
+    out = []
+
+    def walk(a, b, path):
+        if isinstance(b, dict):
+            for k, v in b.items():
+                if not isinstance(a, dict) or k not in a:
+                    out.append(f"{path}{k} (not recorded)")
+                else:
+                    walk(a[k], v, f"{path}{k}.")
+            return
+        key = path[:-1]
+        if isinstance(b, (int, float)) and isinstance(a, (int, float)):
+            if not math.isclose(float(a), float(b), rel_tol=rtol, abs_tol=1e-12):
+                out.append(f"{key}: {a:g} -> {b:g}")
+        elif a != b:
+            out.append(f"{key}: {a} -> {b}")
+    walk(recorded, current, "")
+    return out
+
+
 __all__ = ["WongReeceModel", "ContactResult", "bulldozing_resistance", "bearing_capacity_factors", "slip_ratio",
-           "slip_angle"]
+           "slip_angle", "physics_mismatch"]

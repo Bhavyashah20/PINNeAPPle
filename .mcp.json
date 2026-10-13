@@ -2,7 +2,20 @@
   "mcpServers": {
     "rea": {
       "command": "npx",
-      "args": ["-y", "rea-agents@6.4.0", "--mcp"]
+      "args": [
+        "-y",
+        "rea-agents@6.4.0",
+        "--mcp"
+      ]
+    },
+    "pinneapple": {
+      "command": "python",
+      "args": [
+        "-m",
+        "pinneapple_mcp",
+        "--workdir",
+        "pinneapple_mcp_work"
+      ]
     }
   }
 }

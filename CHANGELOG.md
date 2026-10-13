@@ -43,6 +43,175 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
     "Choose a model by the scale of the question".
 - `PhysicsEnsemble(prediction_checks=..., error_tolerance=...)`: label-free checks of each prediction, and an error
   tolerance per context, both escalate through the router's fidelity ladder. A model that fails is still scored.
+- Closed-form flow and heat helpers moved from benchmarks, lab experiments and examples into the library:
+  `closed_form.pipe_flow` (laminar / Blasius / Colebrook / Haaland friction factors with validity warnings, Darcy and
+  parallel-plate pressure drop, `first_cell_height` for a target y+), `closed_form.compressible` (isentropic ratios,
+  `normal_shock`, Rayleigh `pitot_pressure_ratio`, modified-Newtonian `cp_max_newtonian`),
+  `closed_form.heat.slab_transient` (Fourier series, Carslaw & Jaeger) and `burgers.burgers_sine_inviscid_exact` (entropy solution).
+- `physics_audit.regime.dominant_frequency` (Hann window, rfft, parabolic peak refinement) for Strouhal numbers;
+  `fitmesh.size_layers` (geometric prism-layer stack); `pinneapple_data.cae.courant_number` / `wall_distance` and
+  their `mesh_*` wrappers; `simulation_metadata.openfoam.read_dat` / `parse_dat` for function-object tables;
+  `lpm.Design.ellipse` / `Design.square`.
+- Helpers the experiment repositories used to copy: `pinneapple_analysis.uncertainty.resampling` (`block_bootstrap`,
+  moving-block bootstrap after Kunsch 1989; `group_bootstrap`; `skill_score` = 1 - E|model|/E|ref| with a paired
+  block, group or iid interval; blocked `jackknife`), `CalibrationSummary.from_predictions` and
+  `score_against_reference` (benchmark registration, `PhysicsCase` comparison, calibration and
+  `compute_physics_confidence` for several models in one call) in
+  `pinneapple_analysis.verification.physics_confidence_score`, `pinneapple_neural.architectures.rom.DMDc` (DMD with
+  control, Proctor, Brunton & Kutz 2016), `pinneapple_physics.metrics.rollout_relative_l2`,
+  `pinneapple_data.datasets.download.fetch_cached` (URL cache with retries and exponential backoff) and
+  `openradioss.read_energy_error` (energy-balance error from the engine log).
+- `scripts/check_app_helpers.py` (run in CI by `tests/test_app_helpers.py`): flags new local helper modules and new
+  copies of library helpers in `apps/` and `examples/`, against a baseline that can only shrink. The rule
+  ("reusable logic goes in the library; apps and examples only compose library calls") is in `AGENTS.md` and
+  `CONTRIBUTING.md`; the inventory of what is being moved is `docs/dev/LIBRARY_CONSOLIDATION.md`.
+- Model zoo: `heatsink_natural_mlp`, the natural-convection plate-fin heat-sink surrogate. It is trained with
+  monotonicity constraints so that a more conductive material or a wider heat source never raises the resistance.
+  Error against 750 held-out physics-engine designs: R 0.47 % mean, 1.5 % p95. The 95 % conformal bound covers
+  97.1 %. Trust report `APPROVED`: monotonicity violations are 0 % for conductivity, source width and power (limit
+  1 %). The app's unconstrained surrogate had the conductivity sign wrong on 5 % of designs.
+- `pinneapple_neural.trainer.monotonic`: `monotonicity_penalty` (a hinge on input-output derivatives, in physical
+  units, with a margin) and `monotone_violation_share`.
+- `pinneapple_design.thermal.heatsink.monotone.train_monotone`: the training recipe of the constrained heat-sink
+  surrogate. It uses the same data, features and split as the app, the library `Trainer` with the penalty on
+  training and random in-range designs, then an L-BFGS polish.
+- Zoo infrastructure for large datasets:
+  - Hub-only datasets: one `<split>.npz` per split, optionally sharded into `<split>-NN.npz`. `pp.datasets.load`
+    downloads only the requested split, concatenates the shards and checks every file's SHA-256.
+  - `pp.datasets.split_files`.
+  - `scripts/zoo/build_assets.py --hub-only DIR` enters the Hub-only datasets, and `--heatsink-natural DIR --only
+    heatsink_natural_mlp` rebuilds the new model; neither touches the published files of the other items.
+  - `publish_to_hub.py --staging DIR` and `--verify --allow-unpublished`.
+  - A `staging_ref` input in the publish workflow.
+  - Hub cards now end with a citation section (PINNeAPPle, Zenodo DOI 10.5281/zenodo.23343062).
+- Zoo model `rover_contact_grc1_viper` v1.1.0 (model and dataset), trained on the library's current physics (GRC-1
+  with slip-sinkage, n1 = 0.8): held-out Fx 0.220 N, Fz 0.470 N, My 0.071 N m RMSE. v1.0.0 (trained without
+  slip-sinkage) stays published and listed under `superseded`; `pp.zoo.load(name, version=...)` and
+  `pp.zoo.versions(name)` (with a `SupersededModelWarning`).
+- Physics guard for surrogates: `WongReeceModel.physics_config()` / `from_physics_config()` and
+  `terramechanics.physics_mismatch`; the zoo card records the physics a model was trained on (`data_lineage.physics`),
+  `ZooContactSurrogate.check_physics` raises a `PhysicsMismatchWarning` and the rover dashboard notes any difference.
+- Field overlays: `SurfaceView(field_saturation=...)`, `dashboard.ColorBar(saturation=...)` and
+  `vehicle.dashboard.render_frames(clim_percentiles=...)` (colour range from the stress the ruts actually carry).
+- `scripts/zoo/build_assets.py --only NAME` rebuilds one item and keeps the published files of the others.
+- Rover dashboard with a semi-transparent stress map and the zoo PINN:
+  - `SurfaceView(field_glow=..., far_field=...)`: a field map can sit semi-transparently on the shaded 3-D relief
+    (`field_glow=0` is a pure albedo tint, so rut geometry, grouser marks and Sun shading show through) and continue
+    onto the far grid; `vehicle.viz.frame_view` and `vehicle.dashboard.render_frames` take `field_alpha` and
+    `field_glow`.
+  - `terramechanics.surrogate.ZooContactSurrogate` gives a model-zoo contact model the `ContactSurrogate` interface;
+    `vehicle_dashboard` accepts zoo models directly and lists the model, its held-out error and its error along the
+    run.
+  - `examples/studio/07_lunar_rover_dashboard.py` uses `pp.zoo.load("rover_contact_grc1_viper")` and colours the
+    ruts by normal stress at 0.6 opacity with a kPa colour bar.
+- Colab notebooks in `notebooks/colab/`, each self-contained (the first cell installs `pinneapple>=0.7.0` and picks
+  the GPU, a parameter cell sets the sizes): a first PINN with its physics checks, an airfoil surrogate from
+  `pp.zoo` validated against stored OpenFOAM runs, an equal-budget benchmark, the lunar rover terramechanics
+  dashboard as a GIF, and a "verify a model" notebook where the trust card catches bad predictions. `scripts/run_colab_notebooks.py` runs
+  them headless (`--smoke` for tiny sizes) and checks that the committed copies carry no outputs; a CI job runs them
+  in smoke mode. "Open in Colab" badges in the README and the docs (Guides > Colab notebooks).
+- `pp.trust_card` (`pinneapple_analysis.trust.field_card`): physics checks of any field on a grid with NumPy only
+  (finite values, PDE residual of Laplace / Poisson / heat by finite differences, Dirichlet boundary values per face,
+  conservation by the divergence theorem, maximum principle, reference error, applicability against the training
+  bounds), turned into the deploy decision of `TrustReport` (APPROVED / REVIEW / REJECT) and the six questions of the
+  lab trust card.
+- `AGENTS.md` for coding agents (what the library is, the APIs to use first, how to validate any result, layout,
+  tests, what never to do), with `GEMINI.md` and `CLAUDE.md` pointing to it; `tests/test_agents_md.py` runs every
+  Python block in it.
+- MCP server `pinneapple-mcp` (`pinneapple_mcp`, extra `pinneapple[mcp]`, MCP Python SDK 1.x or 2.x, stdio): tools
+  `capabilities`, `list_methods` / `describe_method` (with the catalog's validation status), `list_presets`,
+  `solve` and `benchmark` (equal training budget) as jobs with a trust card per result, `trust_card` for any field
+  or file, `zoo_list` / `zoo_predict` / `zoo_validate` for the model zoo, and `job_status` / `list_jobs` /
+  `cancel_job`. Problems are JSON (a preset or a box problem whose values are safely parsed expressions);
+  results are saved under a working directory and returned as paths; jobs run in a separate process with a
+  wall-time limit, a memory limit and the network switched off. Added to `.mcp.json`; set-up for Gemini
+  CLI, Claude Code, Cursor, Codex and a Colab cell in `docs/guides/mcp_server.md`.
+- Latent surrogate with a trust card (`pinneapple_neural.architectures.rom.TrustedLatentSurrogate`): wraps a POD
+  latent model (`ParametricPOD`) with three per-query checks calibrated on held-out designs — a normalised
+  split-conformal bound on the relative field error (Gaussian-process spread or a bootstrap ensemble of latent
+  regressors), a conformal p-value of the distance to the training designs (design envelope), and an optional
+  physics residual of the decoded field — and returns the library's `TrustReport` (APPROVED / REVIEW / REJECT).
+  Example `examples/latent/trusted_latent_surrogate.py` (2-D advection-diffusion-reaction, every answer checked
+  against a full solve). Guide: `docs/guides/trusted_latent_surrogate.md`.
+- Physics-residual false-data-injection detection for cyber-physical systems (`pinneapple_security.cps`): grey-box
+  residual components (`MassBalance`, `FlowLaw`) whose constants are identified from trusted data, a per-channel
+  CUSUM detector calibrated to a false-alarm budget, localisation of the broken balance, ROC AUC and episode metrics.
+  Reproducible benchmark `pinneapple_security.cps_bench` (three-tank water network, six attacks, data-driven
+  baselines: autoregressive twin, PCA Q statistic, isolation forest; nominal and shifted operating regimes).
+  Example `examples/security/02_physics_residual_fdi.py`. Guide: `docs/guides/physics_residual_attack_detection.md`.
+- Evaluation of latent-space methods and new cybersecurity applications, ranked, with a roadmap:
+  `docs/dev/LATENT_AND_CYBER_EVALUATION.md`.
+- Geometry library `pp.geometries` (`pinneapple_design.geometry_library`): 17 realistic parametric 3-D geometries
+  for Physics-AI, each with the code that regenerates it and ready-made files. Uniform API: `list()`, `info(name)`
+  (dimensions, units, parameters with ranges, sources of the real-world numbers with estimates flagged, frame,
+  physics uses), `build(name, **params)`, `load(name, format, lod)`, `export(...)`, `render(...)`.
+  - First entries wrapped from the existing models (their classes keep working): A320-class airliner, road car,
+    Formula car, two-stage launcher, NASA VIPER.
+  - New: NREL 5-MW wind turbine (published chord / twist table), ATR 72-class turboprop, H145-class helicopter,
+    F450-class quadcopter, KCS-class container ship, Wigley hull, high-speed train, Falcon 9-class launcher,
+    pin-fin heat sink, closed centrifugal impeller, CAARC tall building with an urban block, human aortic arch.
+  - Every body closed and outward (watertight, no self-intersections), metres, documented frame, two levels of
+    detail; `Geometry.solid()` fuses the bodies into one watertight surface (manifold3d).
+  - Formats: binary STL, OBJ, glTF, OpenUSD, STEP (faceted B-rep that OpenCASCADE reads back as solids).
+  - Light files committed in `data/geometries/`; every file of both levels on the Hugging Face Hub
+    (`PINNeAPPle-Labs/geometry-library`) with SHA-256 in a manifest; the loader downloads on demand into a cache
+    and falls back to `build()` offline. The `geometries` job of `publish-zoo.yml` rebuilds, verifies, uploads.
+  - Software renderer (no GPU) for thumbnails, a contact sheet and a turntable GIF; gallery page
+    `docs/guides/geometry_library.md`; examples: CAARC building wind with OpenFOAM through the STL path, BEM power
+    curve of the 5-MW turbine, vortex-lattice and friction drag of the airliner.
+- Positional astronomy and astrophysics (`pinneapple_physics.astro`): JPL SPK reader (DE421), time scales, IAU 2006
+  precession and nutation, apparent places with light time, deflection and aberration, refraction, airmass and
+  extinction; rise/transit/set, twilight, Moon phase, magnitudes, oppositions, elongations, lunar and solar eclipses,
+  transits; SGP4 satellite passes with magnitudes; Yale BSC5 stars with luminosity, radius and HR diagram; Kepler
+  elements, N-body integrators (leapfrog, Yoshida-4, RK4, DOP853) with conservation checks; a physics-informed orbit
+  surrogate with conformal bands and a trust verdict; black-hole lensing of the real sky. Validated against USNO NOVAS,
+  JPL Horizons, the USNO almanac, NASA eclipse predictions and skyfield (`validation.run_all()`). Extra `sky`.
+  Docs: `docs/core_concepts/astro.md`.
+- PINNeAPPle Observatory app (`apps/observatory`): the sky and the solar system now from the visitor's location in
+  3-D (three.js), with satellites, astrophysics analyses, the orbit surrogate with its checks, and the validation table;
+  deploy service `observatory` (`OBS_DOMAIN`). Guide: `docs/guides/observatory.md`.
+- `pinneapple check`, a physics linter for CI (`pinneapple_check`; also `python -m pinneapple.check`): fails when a
+  simulation result or a Physics-AI model violates physics. 29 rules with ids, explanations and fix hints
+  (`--list-rules`, `--explain PC101`): conservation of mass, energy and momentum, divergence, conserved totals in
+  time (PC1xx), boundary and initial conditions, wall velocity (PC2xx), PDE residual of stored fields and of a
+  model's predictions (PC3xx), declared bounds, physical admissibility, non-finite values (PC4xx), units and
+  parameter dimensions (PC5xx), queries outside a model's training range or in a gap of its data (PC6xx), field
+  and quantity-of-interest regression against a reference (PC7xx), hashes, signatures, unsafe checkpoints and
+  untracked artefacts (PC8xx), method status in the catalog (PC9xx).
+  - Reads OpenFOAM cases (with `phi`, so continuity is checked on the solver's own flux), VTK/VTU, NPZ/HDF5 grids
+    and point tables, CSV of quantities of interest; models as a `file.py:function`, a PINNeAPPle checkpoint with
+    its architecture name (scanned before loading; training range from its metadata), a `pp.zoo` model (range from
+    its card) or a hub model. Physics:
+    incompressible flow, heat, linear elasticity, generic conservation law.
+  - `pinneapple-check.toml` or `[tool.pinneapple.check]` in `pyproject.toml`, zero-config discovery, `--select` /
+    `--ignore` prefixes, `--format text|json|sarif|junit|github|summary`, a baseline to adopt it gradually, exit
+    codes 0/1/2. The JSON report carries the trust card of each target and feeds the veriphysics applicability map.
+  - Reuses `pinneapple_data` readers and units, the `physics_audit` training envelope, field metrics, the method
+    catalog and `pinneapple_security`, without importing torch.
+  - `action.yml`: a composite GitHub Action (pinned to its own ref or a PyPI version, pip cache, SARIF upload to
+    code scanning, annotations, job summary); example workflow in `examples/physics_check/workflow.yml`.
+  - `examples/physics_check/`: a passing and a failing fixture for every rule (real icoFoam runs among them), used
+    by `tests/test_physics_check.py` and by `.github/workflows/physics-check.yml`. Docs:
+    `docs/guides/physics_checks_in_ci.md`.
+  - New extra `check` (meshio, h5py, cryptography) and the `pinneapple` command (`pinneapple check ...`; it also
+    forwards `pinneapple benchmark ...` to `pinneapple_analysis.benchmark` when installed).
+- Rover realism (`pinneapple_simulation.terramechanics`, `.vehicle`, `pinneapple_tools.visualization.studio`,
+  `pinneapple_design.geometry.vehicle_cad`):
+  - Slip-sinkage calibration with held-out points: `testbed.calibrate_holdout` fits the slip-dependent sinkage
+    exponent `n = n0 + n1 s` (Ding et al. 2010, 2011) and K on every other published single-wheel point and reports
+    the errors on the held-out points before and after (`testbed.holdout_split`, `plot_validation(calibrated=...)`).
+    `WongReeceModel(slip_sinkage="drive" | "both" | "none")`, `sinkage_exponent()`, `forces(..., sinkage_slip=...)`.
+  - 3-D ruts: `DeformableTerrain` rut walls at the angle of repose (`wall_angle_deg`) and rounded berms holding the
+    displaced soil (`berm`), as separate layers; the default renders show ruts by their geometry, the stress map
+    is an option (`overlay=`).
+  - Ground to the horizon: `SurfaceView(horizon=..., far_fn=...)` adds a curved annulus past the lunar horizon;
+    `studio.planetary.border_visibility` checks that no mesh border is visible from a camera.
+  - Dashboard exports at small sizes: `font_scale` with text-aware gaps, `write_video(gif_font_scale=...)` lays the
+    GIF out natively at its size, `dashboard.static.write_gif` writes a palette-optimised GIF.
+  - VIPER CAD from public NASA figures: chamfered body, radiator and MLI front, pan-tilt mast head, box-beam
+    suspension arms with actuators, the TRIDENT drill (`vehicle_cad.drill_assembly`) and new primitives
+    (`loft`, `extrude_polygon`, `chamfered_box`, `box_beam`, `ladder_rail`, `helix_sweep`, `mli_blanket`,
+    `actuator`, `pan_tilt_head`); sources and estimates in `VIPER_SOURCES`.
 - Model zoo `pp.zoo` and dataset hub `pp.datasets` (`pinneapple_hub.zoo`): pre-trained models and ready-made
   datasets you can load in one line. Only items that passed a quality gate ship (an independent reference, physics
   checks, a recorded validity range; for datasets, a verified solver or a public source with a compatible licence).
@@ -71,6 +240,25 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   2-D airfoil, OpenFOAM simpleFoam k-omega SST, CST geometry, the 436-run campaign, baseline against XFOIL, a
   surrogate optimum checked in CFD) and `free_surface_trough` (water jet into an open trough, interFoam VOF via
   `pp.cfd.FreeSurfaceFlow`, two meshes with mass balance, impingement, splash, floor shear and mean k).
+
+### Changed
+- `compressible_fv.sod_exact` delegates to `astrophysics.sod_exact_solution` (same output to round-off; covers every wave pattern);
+  `internal_flow.colebrook` delegates to `closed_form.pipe_flow.colebrook`; the LBM shedding benchmark, the
+  cylinder / car / ROM lab experiments, the SSQN benchmarks and the missile example use the library functions above.
+- **Behavior:** the zoo gate of `rover_contact_grc1_viper` checks that dFx/ds has the sign of the recorded Wong-Reece
+  reference (with slip-sinkage the pull need not grow with slip at a fixed sinkage) instead of dFx/ds >= 0.
+- **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their
+  sinkage grows with driving slip. The validation soils keep n1 = 0. In `VehicleSimulator` the slip that sets the
+  exponent lags the wheel's slip over `sink_length` (0.15 m) of rim travel.
+- **Behavior:** `vehicle.dashboard.render_frames` and `vehicle_dashboard` default to the geometry-only view (no
+  stress colour map, no colour bar); pass `field=` / `field_label=` for the overlay.
+
+### Fixed
+- Geometry library: `build()` snaps vertices to a 0.1 um grid, so the files rebuilt on another machine (the Hub
+  publishing job) are bit-identical to the manifest; the publishing job pins the NumPy / SciPy / manifold3d
+  versions the manifest was generated with. All files and the manifest were regenerated. The self-intersection
+  check measures distances about each triangle pair's centre with a size-relative tolerance (no false hits on flat
+  caps far from the origin or on nearly parallel neighbours).
 
 ## [0.7.0] - 2026-10-13
 

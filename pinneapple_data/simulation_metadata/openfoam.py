@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -34,16 +34,16 @@ _RE_CONT = re.compile(rf"time step continuity errors : sum local = ({_NUM}), glo
 _RE_EXEC = re.compile(rf"ExecutionTime = ({_NUM}) s\s+ClockTime = ({_NUM}) s")
 
 
-def parse_log(text: str) -> Dict[str, Any]:
+def parse_log(text: str) -> dict[str, Any]:
     """Parse an OpenFOAM solver log (or blockMesh / checkMesh log)."""
     lines = text.splitlines()
-    head: Dict[str, str] = {}
-    for l in lines[:40]:
-        m = re.match(r"^(Build|Exec|Date|Time|Host|PID|Case|nProcs|Arch|I/O)\s*:\s*(.*)$", l)
+    head: dict[str, str] = {}
+    for ln in lines[:40]:
+        m = re.match(r"^(Build|Exec|Date|Time|Host|PID|Case|nProcs|Arch|I/O)\s*:\s*(.*)$", ln)
         if m:
             head[m.group(1)] = m.group(2).strip()
     m = re.search(r"Version:\s*(\S+)", text[:3000])
-    out: Dict[str, Any] = {"header": head, "exec": head.get("Exec", "").split()[0] if head.get("Exec") else None,
+    out: dict[str, Any] = {"header": head, "exec": head.get("Exec", "").split()[0] if head.get("Exec") else None,
                            "version": m.group(1) if m and m.group(1) != "|" else None}
     bm = re.search(r"OPENFOAM=(\d+)", head.get("Build", ""))
     if bm and not out["version"]:
@@ -51,16 +51,16 @@ def parse_log(text: str) -> Dict[str, Any]:
     elif head.get("Build") and not out["version"]:
         out["version"] = head["Build"].split()[0]
 
-    steps: List[float] = []
-    res_init: Dict[str, List[float]] = {}
-    res_final: Dict[str, List[float]] = {}
-    iters: Dict[str, List[int]] = {}
-    lin_solver: Dict[str, str] = {}
+    steps: list[float] = []
+    res_init: dict[str, list[float]] = {}
+    res_final: dict[str, list[float]] = {}
+    iters: dict[str, list[int]] = {}
+    lin_solver: dict[str, str] = {}
     co_mean, co_max, dts, cont, exec_t = [], [], [], [], []
     seen_this_step: set = set()
     bounding = 0
-    for l in lines:
-        mt = _RE_TIME.match(l)
+    for ln in lines:
+        mt = _RE_TIME.match(ln)
         if mt:
             steps.append(float(mt.group(1)))
             seen_this_step = set()
@@ -70,7 +70,7 @@ def parse_log(text: str) -> Dict[str, Any]:
             continue
         if not steps:
             continue
-        ms = _RE_SOLVE.search(l)
+        ms = _RE_SOLVE.search(ln)
         if ms:
             solver, field, r0, r1, n = ms.group(1), ms.group(2), float(ms.group(3)), float(ms.group(4)), int(ms.group(5))
             lin_solver.setdefault(field, solver)
@@ -84,24 +84,24 @@ def parse_log(text: str) -> Dict[str, Any]:
             res_final[field][-1] = r1
             iters[field][-1] += n
             continue
-        mc = _RE_CO.search(l)
+        mc = _RE_CO.search(ln)
         if mc:
             co_mean.append(float(mc.group(1)))
             co_max.append(float(mc.group(2)))
             continue
-        md = _RE_DT.match(l)
+        md = _RE_DT.match(ln)
         if md:
             dts.append(float(md.group(1)))
             continue
-        mo = _RE_CONT.search(l)
+        mo = _RE_CONT.search(ln)
         if mo:
             cont.append((float(mo.group(1)), float(mo.group(2)), float(mo.group(3))))
             continue
-        me = _RE_EXEC.search(l)
+        me = _RE_EXEC.search(ln)
         if me:
             exec_t.append((float(me.group(1)), float(me.group(2))))
             continue
-        if l.startswith("bounding "):
+        if ln.startswith("bounding "):
             bounding += 1
     conv = re.search(r"(SIMPLE|PIMPLE|PISO)?\s*solution converged in (\d+) iterations", text)
     fatal = re.search(r"--> FOAM FATAL (IO )?ERROR[^\n]*\n(.*?)(?:\n\n|\n\s+From)", text, re.S)
@@ -121,7 +121,7 @@ def parse_log(text: str) -> Dict[str, Any]:
     if out["exec"] == "blockMesh" and bmc:
         out["mesh_cells"] = int(bmc.group(1))
     if out["exec"] == "checkMesh" or "Checking geometry" in text:
-        q: Dict[str, Any] = {}
+        q: dict[str, Any] = {}
         for k, pat in (("cells", r"cells:\s+(\d+)"), ("points", r"points:\s+(\d+)"), ("faces", r"faces:\s+(\d+)"),
                        ("max_non_orthogonality", rf"Mesh non-orthogonality Max: ({_NUM})"),
                        ("avg_non_orthogonality", rf"average: ({_NUM})"), ("max_skewness", rf"Max skewness = ({_NUM})"),
@@ -135,12 +135,12 @@ def parse_log(text: str) -> Dict[str, Any]:
     return out
 
 
-def _read(fs: Dict[str, bytes], path: str) -> Optional[str]:
+def _read(fs: dict[str, bytes], path: str) -> str | None:
     b = fs.get(path)
     return b.decode("utf-8", errors="replace") if b is not None else None
 
 
-def _first(fs: Dict[str, bytes], root: str, *rels: str) -> Tuple[Optional[str], Optional[str]]:
+def _first(fs: dict[str, bytes], root: str, *rels: str) -> tuple[str | None, str | None]:
     for r in rels:
         p = f"{root}{r}"
         if p in fs:
@@ -148,13 +148,13 @@ def _first(fs: Dict[str, bytes], root: str, *rels: str) -> Tuple[Optional[str], 
     return None, None
 
 
-def find_root(fs: Dict[str, bytes]) -> Optional[str]:
+def find_root(fs: dict[str, bytes]) -> str | None:
     """Case root: the directory that holds system/controlDict (shortest such path)."""
     roots = [p[: -len("system/controlDict")] for p in fs if p.endswith("system/controlDict")]
     return min(roots, key=len) if roots else None
 
 
-def _points_bbox(text: str) -> Optional[Dict[str, List[float]]]:
+def _points_bbox(text: str) -> dict[str, list[float]] | None:
     h = header(text)
     if h.get("format", "ascii") != "ascii":
         return None
@@ -166,21 +166,21 @@ def _points_bbox(text: str) -> Optional[Dict[str, List[float]]]:
     return {"min": mn.tolist(), "max": mx.tolist(), "size": (mx - mn).tolist()}
 
 
-def _block_mesh(text: str) -> Dict[str, Any]:
+def _block_mesh(text: str) -> dict[str, Any]:
     d = parse(text)
     scale = scalar(d.get("convertToMeters", d.get("scale", "1"))) or 1.0
     verts = re.findall(rf"\(\s*({_NUM})\s+({_NUM})\s+({_NUM})\s*\)", str(d.get("vertices", "")))
     cells = 0
     for m in re.finditer(r"hex\s*\(([^)]*)\)\s*\((\d+)\s+(\d+)\s+(\d+)\)", re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.S)):
         cells += int(m.group(2)) * int(m.group(3)) * int(m.group(4))
-    out: Dict[str, Any] = {"cells_from_blocks": cells or None}
+    out: dict[str, Any] = {"cells_from_blocks": cells or None}
     if verts:
         a = np.array(verts, dtype=float) * scale
         out["bounding_box"] = {"min": a.min(0).tolist(), "max": a.max(0).tolist(), "size": (a.max(0) - a.min(0)).tolist()}
     return out
 
 
-def _field_bcs(text: str, field: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def _field_bcs(text: str, field: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     d = parse(text)
     rows = []
     for patch, spec in (d.get("boundaryField") or {}).items():
@@ -194,7 +194,7 @@ def _field_bcs(text: str, field: str) -> Tuple[List[Dict[str, Any]], Dict[str, A
     return rows, info
 
 
-def _match_key(d: Dict[str, Any], field: str) -> Optional[Any]:
+def _match_key(d: dict[str, Any], field: str) -> Any | None:
     if field in d:
         return d[field]
     for k, v in d.items():
@@ -207,10 +207,98 @@ def _match_key(d: Dict[str, Any], field: str) -> Optional[Any]:
     return None
 
 
-def extract_case(fs: Dict[str, bytes], root: str) -> Dict[str, Any]:
-    rec: Dict[str, Any] = {"files_used": []}
+# ------------------------------------------------------------------ function-object tables (postProcessing/**.dat)
+_RE_HEADER_NAME = re.compile(r"[^\s(]+(?:\([^)]*\))?|\([^)]*\)")
 
-    def use(path: Optional[str]) -> None:
+
+def _nested(line: str) -> list[Any]:
+    """Whitespace tokens of a data row, parenthesised groups as (nested) lists: ``1 (2 3 4)`` -> [1, [2, 3, 4]]."""
+    stack: list[list[Any]] = [[]]
+    for tok in line.replace("(", " ( ").replace(")", " ) ").split():
+        if tok == "(":
+            stack.append([])
+        elif tok == ")":
+            if len(stack) == 1:
+                raise ValueError("unbalanced parentheses")
+            grp = stack.pop()
+            stack[-1].append(grp)
+        else:
+            stack[-1].append(float(tok))
+    if len(stack) != 1:
+        raise ValueError("unbalanced parentheses")
+    return stack[0]
+
+
+def _expand(name: str, item: Any) -> list[str]:
+    """Column names for one row item: a scalar keeps ``name``; a 3-vector gives ``name_x/_y/_z``; other groups get
+    ``name_0, name_1...`` or, for a header such as ``forces(pressure viscous)``, ``forces_pressure_x...``."""
+    if not isinstance(item, list):
+        return [name]
+    m = re.fullmatch(r"([^\s(]+)\((.+\s.+)\)", name)
+    subs = m.group(2).split() if m else []
+    base = m.group(1) if m else name
+    if len(subs) == len(item) and all(isinstance(x, list) for x in item):
+        return [c for sub, x in zip(subs, item, strict=True) for c in _expand(f"{base}_{sub}", x)]
+    if len(item) == 3 and not any(isinstance(x, list) for x in item):
+        return [f"{base}_x", f"{base}_y", f"{base}_z"]
+    return [c for j, x in enumerate(item) for c in _expand(f"{base}_{j}", x)]
+
+
+def _flatten(item: Any) -> list[float]:
+    return [v for x in item for v in _flatten(x)] if isinstance(item, list) else [item]
+
+
+def parse_dat(text: str) -> tuple[list[str], np.ndarray]:
+    """Parse an OpenFOAM function-object table (forceCoeffs.dat, forces.dat, probes, residuals.dat, ...).
+
+    Header lines start with ``#``; the last non-empty one names the columns (``# Time Cd Cl Cd(f) ...``). Data
+    values in parentheses are vectors (or nested groups) and are expanded to one column each: a 3-vector under
+    the header name ``U`` becomes ``U_x, U_y, U_z``. Rows that do not parse or have another layout than the first
+    data row are skipped. Returns ``(columns, array)`` with ``array.shape == (n_rows, len(columns))``.
+    """
+    names: list[str] = []
+    rows: list[list[float]] = []
+    columns: list[str] = []
+    width = None
+    for line in text.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith("#"):
+            h = s.lstrip("#").strip()
+            if h and not rows:
+                names = _RE_HEADER_NAME.findall(h)
+            continue
+        try:
+            items = _nested(s)
+        except ValueError:
+            continue
+        flat = _flatten(items)
+        if width is None:
+            if len(names) == len(items):
+                columns = [c for n, it in zip(names, items, strict=True) for c in _expand(n, it)]
+            else:
+                columns = [f"col_{j}" for j in range(len(flat))]
+            width = len(flat)
+            if len(columns) != width:
+                columns = [f"col_{j}" for j in range(width)]
+        if len(flat) == width:
+            rows.append(flat)
+    if not rows:
+        return names, np.zeros((0, len(names)))
+    return columns, np.asarray(rows, dtype=np.float64)
+
+
+def read_dat(path: str) -> tuple[list[str], np.ndarray]:
+    """:func:`parse_dat` of the file at ``path`` (an OpenFOAM ``postProcessing/<name>/<time>/<table>.dat``)."""
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        return parse_dat(fh.read())
+
+
+def extract_case(fs: dict[str, bytes], root: str) -> dict[str, Any]:
+    rec: dict[str, Any] = {"files_used": []}
+
+    def use(path: str | None) -> None:
         if path:
             rec["files_used"].append(path)
 
@@ -228,7 +316,7 @@ def extract_case(fs: Dict[str, bytes], root: str) -> Dict[str, Any]:
     rec["controlDict"], rec["fvSchemes"], rec["fvSolution"] = cd, schemes, sol
 
     # physical properties / models
-    props: Dict[str, Any] = {}
+    props: dict[str, Any] = {}
     for rel in ("constant/transportProperties", "constant/physicalProperties", "constant/thermophysicalProperties",
                 "constant/turbulenceProperties", "constant/momentumTransport", "constant/g",
                 "constant/thermophysicalTransport", "constant/radiationProperties"):
@@ -241,7 +329,7 @@ def extract_case(fs: Dict[str, bytes], root: str) -> Dict[str, Any]:
     rec["properties"] = props
 
     # mesh
-    mesh: Dict[str, Any] = {}
+    mesh: dict[str, Any] = {}
     p, t = _first(fs, root, "constant/polyMesh/owner")
     if t:
         note = header(t).get("note", "")
@@ -273,8 +361,8 @@ def extract_case(fs: Dict[str, bytes], root: str) -> Dict[str, Any]:
     rec["mesh"] = mesh
 
     # initial / boundary conditions (0 or 0.orig)
-    bcs: List[Dict[str, Any]] = []
-    fields: Dict[str, Any] = {}
+    bcs: list[dict[str, Any]] = []
+    fields: dict[str, Any] = {}
     zero = next((d for d in ("0/", "0.orig/") if any(k.startswith(f"{root}{d}") for k in fs)), None)
     if zero:
         for path in sorted(k for k in fs if k.startswith(f"{root}{zero}") and k.count("/") == (root + zero).count("/")):
@@ -309,14 +397,14 @@ def extract_case(fs: Dict[str, bytes], root: str) -> Dict[str, Any]:
     return rec
 
 
-def summarise(case: Dict[str, Any]) -> Dict[str, Any]:
+def summarise(case: dict[str, Any]) -> dict[str, Any]:
     """Turn the raw case extraction into the record sections."""
     cd, schemes, sol, props = case["controlDict"], case["fvSchemes"], case["fvSolution"], case["properties"]
-    solver_log = next((l for l in case["logs"] if l.get("exec") and l["exec"] not in
+    solver_log = next((ln for ln in case["logs"] if ln.get("exec") and ln["exec"] not in
                        ("blockMesh", "checkMesh", "snappyHexMesh", "decomposePar", "reconstructPar", "setFields",
                         "surfaceFeatureExtract", "surfaceFeatures", "mapFields", "foamToVTK", "postProcess")), None)
     if solver_log is None:
-        solver_log = next((l for l in case["logs"] if l.get("time_steps")), None)
+        solver_log = next((ln for ln in case["logs"] if ln.get("time_steps")), None)
     app = cd.get("application") or (solver_log or {}).get("exec")
     ddt = (schemes.get("ddtSchemes") or {}).get("default", "")
     steady = "steadyState" in ddt or app in STEADY_SOLVERS
@@ -338,7 +426,7 @@ def summarise(case: Dict[str, Any]) -> Dict[str, Any]:
     tp = props.get("transportProperties") or props.get("physicalProperties") or {}
     nu = scalar(tp.get("nu")) if tp.get("nu") is not None else None
     thermo = props.get("thermophysicalProperties") or {}
-    params: List[Dict[str, Any]] = []
+    params: list[dict[str, Any]] = []
     if nu is not None:
         params.append({"name": "kinematic viscosity ν", "value": nu, "unit": "m²/s", "source": "transportProperties"})
     if tp.get("rho") is not None and scalar(tp.get("rho")) is not None:
@@ -401,14 +489,14 @@ def summarise(case: Dict[str, Any]) -> Dict[str, Any]:
                     "wall_time_s": solver_log.get("clock_time_s"), "cpu_time_s": solver_log.get("execution_time_s"),
                     "log": solver_log["path"]}
     mesh = dict(case["mesh"])
-    q = next((l.get("mesh_quality") for l in case["logs"] if l.get("mesh_quality")), None)
+    q = next((ln.get("mesh_quality") for ln in case["logs"] if ln.get("mesh_quality")), None)
     if q:
         mesh["quality"] = q
         for k in ("cells", "points", "faces"):
             if k not in mesh and q.get(k):
                 mesh[k] = int(q[k])
     if "cells" not in mesh:
-        bm = next((l.get("mesh_cells") for l in case["logs"] if l.get("mesh_cells")), None)
+        bm = next((ln.get("mesh_cells") for ln in case["logs"] if ln.get("mesh_cells")), None)
         if bm:
             mesh["cells"], mesh["source"] = bm, "blockMesh log"
     end = scalar(cd.get("endTime"))

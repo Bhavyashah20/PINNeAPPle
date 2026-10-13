@@ -18,24 +18,29 @@ import numpy as np
 from .spec import THEME, Chart, Dashboard
 
 
-def _style(ax):
+def _style(ax, fs: float = 1.0):
     ax.set_facecolor(THEME["panel"])
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
     for s in ("left", "bottom"):
         ax.spines[s].set_color(THEME["axis"])
-    ax.tick_params(colors=THEME["text2"], labelsize=7.5, length=2.5)
+    ax.tick_params(colors=THEME["text2"], labelsize=7.5 * fs, length=2.5)
     ax.grid(True, color=THEME["grid"], lw=0.6)
     ax.set_axisbelow(True)
 
 
 class _Layout:
-    def __init__(self, db: Dashboard, size=(1920, 1080), dpi: int = 100):
+    def __init__(self, db: Dashboard, size=(1920, 1080), dpi: int = 100, font_scale: float = 1.0):
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         self.db = db
+        self.fs = float(font_scale)
         W, H = size
+        # text size relative to the figure, against the 1920 x 1080 / 100 dpi reference layout: gaps that hold
+        # text (titles, axis labels, legends) grow with it, so a small or large-font layout does not overlap
+        self.kh = self.fs * dpi / 100.0 * 1080.0 / H
+        self.kw = self.fs * dpi / 100.0 * 1920.0 / W
         self.fig = plt.figure(figsize=(W / dpi, H / dpi), dpi=dpi, facecolor=THEME["bg"])
         self.dyn = []                                   # (update(k) callables)
         self._header()
@@ -46,10 +51,16 @@ class _Layout:
     # ------------------------------------------------------------------ pieces
     def _header(self):
         f, db = self.fig, self.db
-        f.text(0.012, 0.962, db.title, color=THEME["text"], fontsize=17, fontweight="bold", va="center")
-        if db.subtitle:
-            f.text(0.012, 0.928, db.subtitle, color=THEME["text2"], fontsize=9.5, va="center")
         n = len(db.tiles)
+        x_tiles = 0.47 if n else 0.988
+        f.text(0.012, 0.962, db.title, color=THEME["text"], fontsize=self.fs * 17, fontweight="bold", va="center")
+        if db.subtitle:
+            import textwrap
+            W = f.get_size_inches()[0] * f.dpi
+            chars = max(20, int((x_tiles - 0.025) * W / (0.52 * self.fs * 9.5 * f.dpi / 72)))
+            lines = textwrap.wrap(db.subtitle, chars)[:2]
+            f.text(0.012, 0.928 - 0.012 * self.kh * (len(lines) - 1), "\n".join(lines), color=THEME["text2"],
+                   fontsize=self.fs * (9.5 if len(lines) == 1 else 8.5), va="center", linespacing=1.15)
         if not n:
             return
         x0, x1, w_gap = 0.47, 0.988, 0.006
@@ -61,10 +72,11 @@ class _Layout:
             ax.set_yticks([])
             for s in ax.spines.values():
                 s.set_color(THEME["grid"])
-            ax.text(0.06, 0.78, tl.label, color=THEME["text2"], fontsize=8.5, transform=ax.transAxes, va="center")
-            val = ax.text(0.06, 0.36, "", color=THEME["text"], fontsize=17, fontweight="bold", transform=ax.transAxes,
+            ax.text(0.06, 0.78, tl.label, color=THEME["text2"], fontsize=self.fs * 8.5, transform=ax.transAxes,
+                    va="center")
+            val = ax.text(0.06, 0.36, "", color=THEME["text"], fontsize=self.fs * 17, fontweight="bold", transform=ax.transAxes,
                           va="center")
-            ax.text(0.94, 0.36, tl.unit, color=THEME["muted"], fontsize=9, transform=ax.transAxes, va="center",
+            ax.text(0.94, 0.36, tl.unit, color=THEME["muted"], fontsize=self.fs * 9, transform=ax.transAxes, va="center",
                     ha="right")
             self.dyn.append(lambda k, v=val, tl=tl: v.set_text(tl.text(k)))
 
@@ -87,18 +99,15 @@ class _Layout:
         self.dyn.append(lambda k, im=im: im.set_data(db.frame(k)))
         cb = db.colorbar
         if cb is not None:
-            import matplotlib
             cax = f.add_axes([box[0] + box[2] - 0.012, box[1] + 0.06, 0.008, box[3] * 0.5])
-            g = np.linspace(0, 1, 256)[:, None]
-            cax.imshow(g, aspect="auto", cmap=matplotlib.colormaps[cb.cmap], origin="lower",
-                       extent=[0, 1, cb.lo, cb.hi])
+            cax.imshow(cb.colors(256)[:, None, :], aspect="auto", origin="lower", extent=[0, 1, cb.lo, cb.hi])
             cax.set_xticks([])
             cax.yaxis.tick_left()
-            cax.tick_params(colors=THEME["text"], labelsize=7.5)
+            cax.tick_params(colors=THEME["text"], labelsize=7.5 * self.fs)
             for s in cax.spines.values():
                 s.set_color(THEME["axis"])
             f.text(box[0] + box[2] - 0.008, box[1] + 0.06 + box[3] * 0.5 + 0.012, cb.title, color=THEME["text"],
-                   fontsize=8.5, ha="right")
+                   fontsize=self.fs * 8.5, ha="right")
         # time cursor bar under the animation
         tax = f.add_axes([box[0], box[1] - 0.03, box[2], 0.012])
         tax.set_xlim(db.t[0], db.t[-1])
@@ -108,7 +117,7 @@ class _Layout:
                                                                  color=THEME["grid"]))
         prog = tax.barh(0.5, 0.0, left=db.t[0], height=0.3, color=THEME["accent"])[0]
         dot, = tax.plot([db.t[0]], [0.5], "o", color=THEME["cursor"], ms=7)
-        lab = f.text(box[0], box[1] - 0.052, "", color=THEME["text2"], fontsize=9)
+        lab = f.text(box[0], box[1] - 0.052, "", color=THEME["text2"], fontsize=self.fs * 9)
 
         def upd(k, prog=prog, dot=dot, lab=lab):
             prog.set_width(db.t[k] - db.t[0])
@@ -118,11 +127,11 @@ class _Layout:
 
     def _chart(self, rect, c: Chart):
         ax = self.fig.add_axes(rect)
-        _style(ax)
+        _style(ax, self.fs)
         db = self.db
-        ax.set_title(c.title, color=THEME["text"], fontsize=9, loc="left", pad=4)
-        ax.set_xlabel(c.xlabel, color=THEME["text2"], fontsize=7.5, labelpad=1)
-        ax.set_ylabel(c.ylabel, color=THEME["text2"], fontsize=7.5, labelpad=2)
+        ax.set_title(c.title, color=THEME["text"], fontsize=self.fs * 9, loc="left", pad=4)
+        ax.set_xlabel(c.xlabel, color=THEME["text2"], fontsize=self.fs * 7.5, labelpad=1)
+        ax.set_ylabel(c.ylabel, color=THEME["text2"], fontsize=self.fs * 7.5, labelpad=2)
         if c.kind == "series":
             x = c.x if c.x is not None else db.t
             for s in c.series:
@@ -140,7 +149,7 @@ class _Layout:
         else:
             for s in c.series:
                 ax.plot(s.x, s.y, color=s.color, lw=s.width * 0.75, ls="--" if s.dash else "-", label=s.label)
-            ms = [ax.plot([m.x[0]], [m.y[0]], "o", color=m.color, ms=6, mec=THEME["text"], mew=0.8,
+            ms = [ax.plot([m.x[0]], [m.y[0]], "o", color=m.color, ms=6 * self.fs, mec=THEME["text"], mew=0.8,
                           label=m.label)[0] for m in c.markers]
             xs = np.concatenate([s.x for s in c.series] + [m.x for m in c.markers])
             ys = np.concatenate([s.y for s in c.series] + [m.y for m in c.markers])
@@ -158,7 +167,7 @@ class _Layout:
             ax.set_ylim(*c.ylim)
         n = len(c.series) + len(c.markers)
         if n >= 2:
-            leg = ax.legend(fontsize=6.5, frameon=True, ncol=min(4, n), loc="upper left", handlelength=1.4,
+            leg = ax.legend(fontsize=self.fs * 6.5, frameon=True, ncol=min(4, n), loc="upper left", handlelength=1.4,
                             columnspacing=0.8, borderaxespad=0.2, facecolor=THEME["panel"], edgecolor="none",
                             framealpha=0.85)                 # the curves pass under the legend, not through it
             for t in leg.get_texts():
@@ -172,8 +181,10 @@ class _Layout:
                 continue
             top, bottom = 0.875, 0.335
             h = (top - bottom) / len(cs)
+            dx = 0.012 * (self.kw - 1) if slot == "left" else 0.0
             for i, c in enumerate(cs):
-                self._chart([x0, top - (i + 1) * h + 0.035, 0.19, h - 0.062], c)
+                self._chart([x0 + dx, top - (i + 1) * h + 0.035 * self.kh, 0.19 - abs(dx) - 0.006 * (self.kw - 1),
+                             h - 0.062 * self.kh], c)
 
     def _bottom(self):
         cs = self.db.charts_in("bottom")
@@ -181,8 +192,9 @@ class _Layout:
         x1 = 0.80 if params else 0.988
         if cs:
             w = (x1 - 0.035) / len(cs)
+            x0 = 0.035 + 0.012 * (self.kw - 1)
             for i, c in enumerate(cs):
-                self._chart([0.035 + i * w, 0.06, w - 0.045, 0.20], c)
+                self._chart([x0 + i * w, 0.06 * self.kh, w - 0.045 * self.kw, 0.255 - 0.06 * self.kh], c)
         if params:
             ax = self.fig.add_axes([0.815, 0.03, 0.173, 0.25])
             ax.set_facecolor(THEME["panel"])
@@ -190,17 +202,20 @@ class _Layout:
             ax.set_yticks([])
             for s in ax.spines.values():
                 s.set_color(THEME["grid"])
-            ax.text(0.05, 0.95, "Parameters", color=THEME["text"], fontsize=9.5, fontweight="bold",
+            ax.text(0.05, 0.95, "Parameters", color=THEME["text"], fontsize=self.fs * 9.5, fontweight="bold",
                     transform=ax.transAxes, va="top")
             n = len(params)
-            step = min(0.075, 0.84 / max(n, 1))
+            top = 0.95 - 0.10 * self.kh
+            step = min(0.075, top / max(n, 1))
+            box_px = 0.25 * self.fig.get_size_inches()[1] * 72           # box height in points
+            fsz = min(self.fs * 7.6, 0.92 * step * box_px)
             for i, p in enumerate(params):
-                y = 0.85 - i * step
-                ax.text(0.05, y, p.label, color=THEME["text2"], fontsize=7.6, transform=ax.transAxes, va="top")
-                ax.text(0.95, y, p.text(), color=THEME["text"], fontsize=7.6, transform=ax.transAxes, va="top",
+                y = top - i * step
+                ax.text(0.05, y, p.label, color=THEME["text2"], fontsize=fsz, transform=ax.transAxes, va="top")
+                ax.text(0.95, y, p.text(), color=THEME["text"], fontsize=fsz, transform=ax.transAxes, va="top",
                         ha="right")
         if self.db.footer:
-            self.fig.text(0.012, 0.008, self.db.footer, color=THEME["muted"], fontsize=7)
+            self.fig.text(0.012, 0.008, self.db.footer, color=THEME["muted"], fontsize=self.fs * 7)
 
     # ------------------------------------------------------------------ output
     def draw(self, k: int) -> np.ndarray:
@@ -214,46 +229,82 @@ class _Layout:
         plt.close(self.fig)
 
 
-def write_png(db: Dashboard, path: str, k: int | None = None, size=(1920, 1080), dpi: int = 100) -> str:
+def write_png(db: Dashboard, path: str, k: int | None = None, size=(1920, 1080), dpi: int = 100,
+              font_scale: float = 1.0) -> str:
     """The dashboard at frame ``k`` (default: the last) as a PNG."""
     from PIL import Image
-    L = _Layout(db, size, dpi)
+    L = _Layout(db, size, dpi, font_scale)
     img = L.draw(len(db.t) - 1 if k is None else k)
     L.close()
     Image.fromarray(img).save(path)
     return path
 
 
+def write_gif(path: str, frames, fps: float, colors: int = 255, loop: int = 0) -> str:
+    """Animated GIF of RGB ``frames`` with one shared adaptive palette (octree quantisation of a few frames spread
+    over the clip, which keeps small areas of distinct colour -- chart lines, a colour bar -- that a median cut
+    merges away) and frame differencing: after the first frame, pixels whose palette index did not change are written as
+    one transparent index, so the static parts of a dashboard (and the still areas of the picture) cost almost
+    nothing."""
+    from PIL import Image
+    frames = [np.asarray(f)[..., :3] for f in frames]
+    colors = int(np.clip(colors, 2, 255))                 # one index stays free for transparency
+    pick = frames[:: max(1, len(frames) // 6)][:6]
+    mosaic = Image.fromarray(np.concatenate(pick, 0))
+    pal = mosaic.quantize(colors=colors, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
+    palette = pal.getpalette()[: 3 * colors] + [0, 0, 0] * (256 - colors)
+    clear = colors                                        # the transparent index
+    ims, prev = [], None
+    for f in frames:
+        idx = np.asarray(Image.fromarray(f).quantize(palette=pal, dither=Image.Dither.NONE), np.uint8)
+        out = idx if prev is None else np.where(idx == prev, np.uint8(clear), idx)
+        prev = idx
+        im = Image.fromarray(out, "P")
+        im.putpalette(palette)
+        ims.append(im)
+    ims[0].save(path, save_all=True, append_images=ims[1:], duration=int(round(1000 / fps)), loop=loop,
+                optimize=False, disposal=1, transparency=clear)
+    return path
+
+
 def write_video(db: Dashboard, gif: str | None = None, mp4: str | None = None, *, fps: int = 12, size=(1920, 1080),
-                gif_size=(1280, 720), gif_every: int = 1, dpi: int = 100, frames=None, progress=None) -> dict:
-    """GIF and/or MP4 (H.264, ``size``) of the dashboard over ``frames`` (default all). The GIF is downscaled to
-    ``gif_size`` and keeps every ``gif_every``-th frame at the same playback speed."""
+                gif_size=(1280, 720), gif_every: int = 1, dpi: int = 100, frames=None, progress=None,
+                gif_font_scale: float | None = None, gif_colors: int = 255, mp4_quality: int = 8) -> dict:
+    """GIF and/or MP4 (H.264, ``size``) of the dashboard over ``frames`` (default all). The GIF keeps every
+    ``gif_every``-th frame at the same playback speed. With ``gif_font_scale`` the GIF is laid out natively at
+    ``gif_size`` with the text scaled by that factor (readable on small screens and social feeds); otherwise its
+    frames are the video frames downscaled to ``gif_size``."""
     import imageio.v2 as imageio
     from PIL import Image
     ks = list(range(len(db.t))) if frames is None else list(frames)
     L = _Layout(db, size, dpi)
+    Lg = _Layout(db, gif_size, dpi, gif_font_scale) if gif and gif_font_scale else None
     out = {}
     writer = None
     if mp4 and shutil.which("ffmpeg"):
-        writer = imageio.get_writer(mp4, fps=fps, codec="libx264", quality=8, macro_block_size=8)
+        writer = imageio.get_writer(mp4, fps=fps, codec="libx264", quality=mp4_quality, macro_block_size=8,
+                                    pixelformat="yuv420p")
     gif_frames = []
     for j, k in enumerate(ks):
-        img = L.draw(k)
+        img = L.draw(k) if (writer is not None or Lg is None) else None
         if writer is not None:
             writer.append_data(img)
         if gif and j % gif_every == 0:
-            gif_frames.append(np.asarray(Image.fromarray(img).resize(gif_size, Image.LANCZOS)))
+            gif_frames.append(Lg.draw(k) if Lg is not None else
+                              np.asarray(Image.fromarray(img).resize(gif_size, Image.LANCZOS)))
         if progress:
             progress(j + 1, len(ks))
     L.close()
+    if Lg is not None:
+        Lg.close()
     if writer is not None:
         writer.close()
         out["mp4"] = mp4
     if gif:
-        imageio.mimsave(gif, gif_frames, duration=gif_every / fps, loop=0)
+        write_gif(gif, gif_frames, fps / gif_every, colors=gif_colors)
         out["gif"] = gif
     out["frames"] = len(ks)
     return out
 
 
-__all__ = ["write_png", "write_video"]
+__all__ = ["write_png", "write_video", "write_gif"]
