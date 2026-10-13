@@ -56,12 +56,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
       - name: Install
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -e . manifold3d "huggingface_hub>=0.24"
+          pip install -e . "huggingface_hub>=0.24"
+          # the versions the manifest was generated with (bit-identical rebuilds)
+          pip install numpy==2.5.3 scipy==1.18.1 manifold3d==3.5.4
       - name: Build every geometry file (light and fine; STL, glTF, OBJ, USD, STEP)
         run: python scripts/geometry_library.py hub --out dist/geometries
       - name: Check every file against the manifest (SHA-256)
