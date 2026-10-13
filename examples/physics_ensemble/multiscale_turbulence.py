@@ -69,6 +69,7 @@ from pinneapple_physics.multiscale.comparison import (
     EnsembleConfig,
     closure_flag_table,
     evaluate_experts,
+    frontier_figure,
     markdown_tables,
     run_ensembles,
     summarise_runs,
@@ -380,10 +381,68 @@ def main(scale=1.0, workers=4, assets="docs/assets/physics_ensemble", stage="all
     return rows
 
 
+SWEEP_COST = (0.1, 0.5, 2.0, 5.0)              # A: weight of the cost in the loss
+SWEEP_TOL = (0.1, 0.25, 0.5)                   # B-D: accepted error before the ladder escalates
+
+
+def sweep_configs():
+    out = {}
+    for cw in SWEEP_COST:
+        out[f"A|cost weight {cw:g}"] = EnsembleConfig(False, False, False, tuple(BASE), cost_weight=cw)
+    for tol in SWEEP_TOL:
+        for name, cfg in list(CONFIGS.items())[1:]:
+            out[f"{name.split('.')[0]}|tolerance {tol:g}"] = EnsembleConfig(cfg.aware, cfg.router, cfg.checks,
+                                                                            cfg.experts, error_tolerance=tol)
+    return out
+
+
+def sweep(seed: int):
+    """Every trade-off setting on one cached stream (run after the main stage); writes sweep_seed<s>.json."""
+    qs = BENCH.query_stream(seed, N_QUERIES)
+    refs = BENCH.generate_reference(OUT / f"reference_seed{seed}.npz", qs)
+    table = evaluate_experts(OUT / f"experts_seed{seed}.npz", qs, refs["w0"], {}, {})
+    out_refs = [BENCH.reference_output(refs["traj"][k], q["filter"]) for k, q in enumerate(qs)]
+    cfgs = sweep_configs()
+    res = run_ensembles(qs, out_refs, table, profiles(), cfgs, dt=BENCH.dt_pair, h=H, length=L, cost_weight=0.1)
+    keep = {c: {k: res[c][k] for k in ("active", "error", "spec_err", "expert_errors", "policy_cost")} for c in cfgs}
+    keep["_cost"] = res["_cost"]
+    (OUT / f"sweep_seed{seed}.json").write_text(json.dumps(keep, default=float))
+
+
+def sweep_report(assets="docs/assets/physics_ensemble"):
+    prof = profiles()
+    runs = {}
+    for s in SEEDS:
+        res = json.loads((OUT / f"sweep_seed{s}.json").read_text())
+        runs[s] = (BENCH.query_stream(s, N_QUERIES), res)
+    cfgs = list(sweep_configs())
+    rows = summarise_runs(runs, prof, cfgs, BENCH.widths, solver="DNS-128", oracle_config=cfgs[-1])
+    md = markdown_tables(rows, BENCH.widths)
+    (OUT / "sweep.md").write_text(md)
+    print(md)
+    pts: dict[str, list] = {}
+    for r in rows:
+        if "|" in r["config"]:
+            group, setting = r["config"].split("|")
+            label = {"A": "A. original (scale-blind)"}.get(group, next(c for c in CONFIGS if c.startswith(group)))
+            pts.setdefault(label, []).append((r["cost_chosen"], r["error"], setting.split()[-1]))
+    base = [(r["cost_chosen"], r["error"], r["config"]) for r in rows if "|" not in r["config"]]
+    frontier_figure(pts, Path(assets) / "multiscale_frontier.png", base,
+                    title="Error against cost: cost weight (A) or error tolerance (B-D)")
+    (OUT / "sweep.json").write_text(json.dumps(rows, indent=1, default=float))
+    return rows
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", default="all", choices=["data", "train", "all"])
+    ap.add_argument("--stage", default="all", choices=["data", "train", "all", "sweep", "sweep-report"])
+    ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--scale", type=float, default=1.0, help="multiplies the training steps")
     a = ap.parse_args()
-    main(a.scale, a.workers, stage=a.stage)
+    if a.stage == "sweep":
+        sweep(a.seed)
+    elif a.stage == "sweep-report":
+        sweep_report()
+    else:
+        main(a.scale, a.workers, stage=a.stage)

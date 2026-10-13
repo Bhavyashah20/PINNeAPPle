@@ -28,7 +28,7 @@ from .ns2d import VorticityNS2D, vorticity_residual
 
 __all__ = ["EnsembleConfig", "DEFAULT_CONFIGS", "evaluate_experts", "adapt_output", "raw_residual",
            "closed_multiscale_residual", "run_ensembles", "summarise_runs", "closure_flag_table", "markdown_tables",
-           "summary_figure"]
+           "summary_figure", "frontier_figure"]
 
 
 @dataclass(frozen=True)
@@ -42,6 +42,7 @@ class EnsembleConfig:
     checks: bool
     experts: tuple[str, ...]
     error_tolerance: float | None = None
+    cost_weight: float | None = None          # None: the cost_weight given to run_ensembles
 
 
 DEFAULT_CONFIGS = ("A. original (scale-blind)", "B. + scale-aware selection", "C. + closure & consistency checks",
@@ -166,7 +167,8 @@ def run_ensembles(queries: Sequence[dict], references: Sequence[np.ndarray], tab
         else:
             res_fn = lambda p, q: raw_residual(p, q["nu"], dt, length)  # noqa: E731
         ens = PhysicsEnsemble(experts, mode="select", residual_fn=res_fn, residual_lookahead=lookahead,
-                              cost_weight=cost_weight, router=router, prediction_checks=checks,
+                              cost_weight=cost_weight if cfg.cost_weight is None else cfg.cost_weight,
+                              router=router, prediction_checks=checks,
                               error_tolerance=cfg.error_tolerance, error_context=lambda q: q["filter"])
         rec: dict[str, list] = {k: [] for k in ("active", "error", "spec_err", "expert_errors", "weights", "awake",
                                                 "failed", "escalated", "policy_cost", "pred")}
@@ -382,6 +384,40 @@ def summary_figure(rows: Sequence[dict], widths: Sequence[int], path: str | Path
         a.legend(fontsize=8)
     else:
         a.axis("off")
+    fig.tight_layout()
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=110)
+    plt.close(fig)
+    return path
+
+
+def frontier_figure(points: Mapping[str, Sequence[tuple[float, float, str]]], path: str | Path,
+                    baselines: Sequence[tuple[float, float, str]] = (),
+                    colors: Sequence[str] = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100"),
+                    title: str = "Error against cost over the trade-off setting") -> Path:
+    """One line per configuration through its operating points ``(cost, error, label)`` (e.g. a sweep of the cost
+    weight or of the error tolerance); ``baselines`` as grey squares. Lower-left is better."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, a = plt.subplots(figsize=(7.5, 5))
+    for i, (name, pts) in enumerate(points.items()):
+        pts = sorted(pts)
+        c = colors[i % len(colors)]
+        a.plot([p[0] for p in pts], [100 * p[1] for p in pts], "-o", color=c, lw=2, ms=6, label=name)
+        for x, y, lab in pts:
+            a.annotate(lab, (x, 100 * y), textcoords="offset points", xytext=(5, 4), fontsize=7, color="0.3")
+    for x, y, lab in baselines:
+        a.scatter([x], [100 * y], marker="s", s=45, color="0.45", zorder=3)
+        a.annotate(lab, (x, 100 * y), textcoords="offset points", xytext=(5, -10), fontsize=7, color="0.3")
+    a.set_xscale("log")
+    a.set_xlabel("wall time of the chosen model per query (s, CPU)")
+    a.set_ylabel("mean relative L2 error (%)")
+    a.set_title(title)
+    a.legend(fontsize=8)
     fig.tight_layout()
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
