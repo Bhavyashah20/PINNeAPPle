@@ -6,6 +6,7 @@
     python scripts/geometry_library.py verify --out dist/geom     # rebuilt files == manifest (CI before upload)
     python scripts/geometry_library.py sheet                 # docs/assets/geometry_library/: contact sheet + GIF
     python scripts/geometry_library.py upload --out dist/geom     # push to the Hub (needs HF_TOKEN)
+    python scripts/geometry_library.py verify-hub            # anonymous download + SHA-256 of every published file
 
 Add ``--only name1,name2`` to restrict to some entries. The light files are committed; the Hub carries every
 file (light and fine; STEP for the light level only: a faceted STEP of the fine level would be ~100 MB).
@@ -161,8 +162,9 @@ offline (`PINNEAPPLE_OFFLINE=1`) or when the file is not published yet. The defa
 triangular faces) that OpenCASCADE, FreeCAD and the usual CAD tools import as solids; it is published for the light
 level (the fine one would be about 100 MB, export it locally with `g.export("x.step")` if needed).
 
-The workflow `.github/workflows/geometry-library.yml` rebuilds every file, checks it against the manifest and
-uploads it to the Hub when the repository secret `HF_TOKEN` is set (it skips the upload with a warning otherwise).
+The `geometries` job of `.github/workflows/publish-zoo.yml` rebuilds every file, checks it against the manifest and
+uploads it to the Hub when the repository secret `HF_TOKEN` is set (it skips the upload with a warning otherwise), then
+verifies the published files by anonymous download.
 Regenerate after changing an entry:
 
 ```bash
@@ -247,6 +249,32 @@ def cmd_upload(a):
     return 0
 
 
+def cmd_verify_hub(a):
+    """Download every manifest file anonymously from the Hub and compare its SHA-256 with the manifest."""
+    import hashlib
+    import urllib.request
+    m = store.read_manifest()
+    bad = n_ok = 0
+    for n in _names(a.only):
+        for fname, e in m["geometries"].get(n, {}).get("files", {}).items():
+            url = store.hub_url(n, fname)
+            try:
+                with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "pinneapple"}),
+                                            timeout=120) as r:
+                    h = hashlib.sha256(r.read()).hexdigest()
+            except Exception as exc:  # noqa: BLE001
+                print(f"FAILED {url}: {exc}")
+                bad += 1
+                continue
+            if h != e["sha256"]:
+                print(f"SHA MISMATCH {url}")
+                bad += 1
+            else:
+                n_ok += 1
+    print(f"verify-hub: {n_ok} files OK, {bad} problem(s); https://huggingface.co/datasets/{store.HUB_REPO}")
+    return 1 if bad else 0
+
+
 def _card() -> str:
     return ("---\nlicense: apache-2.0\ntags: [geometry, cfd, physics-ai, stl, gltf, step]\n---\n"
             "# PINNeAPPle geometry library\n\nParametric 3-D geometries for Physics-AI (metres, closed bodies, "
@@ -257,13 +285,13 @@ def _card() -> str:
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("command", choices=["light", "hub", "manifest", "verify", "sheet", "upload", "docs"])
+    p.add_argument("command", choices=["light", "hub", "manifest", "verify", "sheet", "upload", "docs", "verify-hub"])
     p.add_argument("--out", default="dist/geometries")
     p.add_argument("--only", default="")
     p.add_argument("--frames", type=int, default=24)
     a = p.parse_args(argv)
     return {"light": cmd_light, "hub": cmd_hub, "manifest": cmd_manifest, "verify": cmd_verify,
-            "sheet": cmd_sheet, "upload": cmd_upload, "docs": cmd_docs}[a.command](a) or 0
+            "sheet": cmd_sheet, "upload": cmd_upload, "docs": cmd_docs, "verify-hub": cmd_verify_hub}[a.command](a) or 0
 
 
 if __name__ == "__main__":
