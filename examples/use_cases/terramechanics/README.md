@@ -171,30 +171,29 @@ def predict_forces(slip: float, sinkage_m: float):
 
 ## Full 3D rover: `lunar_rover_3d.py`
 
-The same Bekker-Wong wheel, now on a six-wheel rocker-bogie rover driving over lunar terrain
-(`pinneapple_simulation.rover`). Each wheel's load, sinkage and slip come from the rover state, and a
-quasi-static equilibrium of body, rockers, bogies and differential is solved at every step. The
-scenarios are a level traverse at three speeds, a drawbar-pull test, climbing until traction fails, a
-crater crossing and a 20 kg payload.
+NASA's VIPER at real scale (four wheels 0.5 m across with 24 grousers, 450 kg, actuated suspension and steering)
+on GRC-1 regolith in lunar gravity. The script is a thin composition of library features:
+- `pinneapple_simulation.vehicle`: VIPER from cited public figures, its CAD, the multibody model, the simulator;
+- `pinneapple_simulation.terramechanics`: the soil database, the Wong-Reece wheel with grousers, slip-sinkage,
+  multi-pass, bulldozing and lateral force, the deformable terrain, the single-wheel testbed and the PINN
+  surrogate;
+- the studio's lunar lighting, shadows and planetary renders.
 
 ```bash
-python examples/use_cases/terramechanics/lunar_rover_3d.py          # ~7 min, writes docs/assets/lunar_rover/
-python examples/use_cases/terramechanics/lunar_rover_3d.py --quick  # shorter, writes outputs/rover3d/media/
+python examples/use_cases/terramechanics/lunar_rover_3d.py          # ~20 min on 4 cores, writes docs/assets/lunar_rover/
+python examples/use_cases/terramechanics/lunar_rover_3d.py --quick  # shorter, writes outputs/viper/media/
 ```
 
-Results from the run:
-- Level traverse: 8.69 J/m.
-- Maximum grade: 28.8° (25.7° with the payload). The "drawbar pull = grade resistance" estimate gives 31.5°.
-- Static sinkage: within 0.67 % of Bekker's closed form.
-- Each wheel: within 1e-10 of the standalone solver.
+It writes:
+- the CAD (glTF, STL) and beauty renders;
+- single-wheel curves of the VIPER wheel;
+- the model against published single-wheel tests;
+- the PINN's held-out errors;
+- a grade sweep, a cross-slope run and a crater crossing with rocks;
+- an animation of the crater crossing.
 
-The PINN surrogate of this use case, as trained, is **not accurate enough** at this rover's wheel loads (about
-10 N). Its torque error is about 2 N·m, while the rover needs 0.15–0.19 N·m per wheel. Assumptions, limits and
-all numbers are in
+Every number, its source, and what was estimated are in
 [docs/core_concepts/lunar_rover_terramechanics.md](../../../docs/core_concepts/lunar_rover_terramechanics.md).
-
-`train(slip_range=..., sinkage_range=...)` in `terramechanics_rover_pinn.py` retrains the surrogate on another
-box. The defaults keep the original box, and `export_surrogate(..., stem=..., meta_name=...)` names the files.
 
 ---
 

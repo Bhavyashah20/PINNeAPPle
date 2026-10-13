@@ -593,6 +593,12 @@ _SUBMODULES = {
     "qualitative": "pinneapple_design.qualitative",
     # data assimilation: 4D-Var through autograd, Lorenz-96/63
     "assimilation": "pinneapple_analysis.data_assimilation",
+    # planetary wheels: soils with provenance, Wong-Reece + grousers / multi-pass / lateral, testbed, PINN surrogate
+    "terramechanics": "pinneapple_simulation.terramechanics",
+    # floating-base multibody trees with revolute joints (reduced coordinates, implicit stepping)
+    "multibody":  "pinneapple_simulation.multibody",
+    # wheeled planetary vehicles: spec + CAD + multibody + terramechanics simulator; NASA VIPER from public figures
+    "vehicle":    "pinneapple_simulation.vehicle",
     # Field, Mesh, Domain, Geometry primitives
     "core":       "pinneapple_core",
     "loss":       "pinneapple_core.loss",
