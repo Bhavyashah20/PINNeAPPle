@@ -88,6 +88,11 @@ twin = [
   "asyncua>=1.1",
 ]
 # FMI: simulate FMUs (FMI 1.0 / 2.0 / 3.0) through fmpy; pythonfmu builds the test FMU
+# Geometry library (pp.geometries): boolean union of the bodies (Geometry.solid), Hub downloads, STEP read-back
+geometry = [
+  "manifold3d>=2.4",
+  "huggingface_hub>=0.20",
+]
 # Problem -> CAD -> fit-for-purpose meshes (pinneapple_design.fitmesh); OpenFOAM is a separate install
 fitmesh = [
   "cadquery>=2.4",
@@ -97,6 +102,13 @@ fitmesh = [
 # NVIDIA Newton rigid-body solvers (pinneapple_simulation.external_solvers.newton_physics)
 newton = [
   "newton>=1.6",
+]
+# Positional astronomy (pinneapple_physics.astro): SGP4 satellites, the public-domain JPL DE421 kernel, and skyfield
+# as an independent cross-check in the validation suite
+sky = [
+  "sgp4>=2.22",
+  "skyfield-data>=6.0",
+  "skyfield>=1.48",
 ]
 # astroML periodograms, extreme deconvolution, fits with errors (pde_environment.presets.astroml_bridge)
 astroml = [

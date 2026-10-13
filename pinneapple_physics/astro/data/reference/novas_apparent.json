@@ -1,0 +1,325 @@
+{
+ "source": "USNO NOVAS C 3.1 with JPL DE405, geocentric apparent places. Values transcribed from the skyfield test suite (skyfield/tests/test_against_novas.py, MIT licence, (c) Brandon Rhodes), generated there by build_novas_tests.py. ra/dec_date: true equator and equinox of date; ra/dec_gcrs: apparent, GCRS axes.",
+ "cases": [
+  {
+   "body": "mercury",
+   "jd_tt": 2440423.345833333,
+   "ra_date_deg": 118.12457437643575,
+   "dec_date_deg": 22.415970392044656,
+   "ra_gcrs_deg": 118.57480842189017,
+   "dec_gcrs_deg": 22.333433087908823
+  },
+  {
+   "body": "mercury",
+   "jd_tt": 2448031.5,
+   "ra_date_deg": 36.92515083969714,
+   "dec_date_deg": 11.207785493244957,
+   "ra_gcrs_deg": 37.0519238035945,
+   "dec_gcrs_deg": 11.248550502940756
+  },
+  {
+   "body": "mercury",
+   "jd_tt": 2451545.0,
+   "ra_date_deg": 272.0733818310437,
+   "dec_date_deg": -24.41884580373209,
+   "ra_gcrs_deg": 272.0776553860817,
+   "dec_gcrs_deg": -24.420393338459686
+  },
+  {
+   "body": "mercury",
+   "jd_tt": 2456164.5,
+   "ra_date_deg": 139.61349132146572,
+   "dec_date_deg": 16.631743449679668,
+   "ra_gcrs_deg": 139.43362558630082,
+   "dec_gcrs_deg": 16.687409731964937
+  },
+  {
+   "body": "venus",
+   "jd_tt": 2440423.345833333,
+   "ra_date_deg": 74.05029395331644,
+   "dec_date_deg": 20.166644671858105,
+   "ra_gcrs_deg": 74.49984209130659,
+   "dec_gcrs_deg": 20.210145917097474
+  },
+  {
+   "body": "venus",
+   "jd_tt": 2448031.5,
+   "ra_date_deg": 17.301262177339183,
+   "dec_date_deg": 5.277365365528824,
+   "ra_gcrs_deg": 17.423123860231,
+   "dec_gcrs_deg": 5.326768071513868
+  },
+  {
+   "body": "venus",
+   "jd_tt": 2451545.0,
+   "ra_date_deg": 239.89185164565498,
+   "dec_date_deg": -18.44871897642583,
+   "ra_gcrs_deg": 239.89557536886727,
+   "dec_gcrs_deg": -18.450881488018126
+  },
+  {
+   "body": "venus",
+   "jd_tt": 2456164.5,
+   "ra_date_deg": 107.82050591625543,
+   "dec_date_deg": 19.85167856390226,
+   "ra_gcrs_deg": 107.62968493212607,
+   "dec_gcrs_deg": 19.87477997549141
+  },
+  {
+   "body": "mars",
+   "jd_tt": 2440423.345833333,
+   "ra_date_deg": 239.99264734738273,
+   "dec_date_deg": -24.046277103674843,
+   "ra_gcrs_deg": 240.4482650974602,
+   "dec_gcrs_deg": -24.128202621801755
+  },
+  {
+   "body": "mars",
+   "jd_tt": 2448031.5,
+   "ra_date_deg": 353.0527144609988,
+   "dec_date_deg": -4.935089760397492,
+   "ra_gcrs_deg": 353.1733805828128,
+   "dec_gcrs_deg": -4.88299363089811
+  },
+  {
+   "body": "mars",
+   "jd_tt": 2451545.0,
+   "ra_date_deg": 330.51626239211345,
+   "dec_date_deg": -13.182689288940116,
+   "ra_gcrs_deg": 330.5203141398576,
+   "dec_gcrs_deg": -13.182134899635477
+  },
+  {
+   "body": "mars",
+   "jd_tt": 2456164.5,
+   "ra_date_deg": 208.5857427898515,
+   "dec_date_deg": -12.184654273116957,
+   "ra_gcrs_deg": 208.41198574025046,
+   "dec_gcrs_deg": -12.121796956140246
+  },
+  {
+   "body": "jupiter",
+   "jd_tt": 2440423.345833333,
+   "ra_date_deg": 181.1697306807423,
+   "dec_date_deg": 0.8216129394812305,
+   "ra_gcrs_deg": 181.55904470422016,
+   "dec_gcrs_deg": 0.6524656208782568
+  },
+  {
+   "body": "jupiter",
+   "jd_tt": 2448031.5,
+   "ra_date_deg": 101.33074624537848,
+   "dec_date_deg": 23.182684693676578,
+   "ra_gcrs_deg": 101.4728136706264,
+   "dec_gcrs_deg": 23.170736332068763
+  },
+  {
+   "body": "jupiter",
+   "jd_tt": 2451545.0,
+   "ra_date_deg": 23.867832636496917,
+   "dec_date_deg": 8.594250857972387,
+   "ra_gcrs_deg": 23.87125191275016,
+   "dec_gcrs_deg": 8.59631203599914
+  },
+  {
+   "body": "jupiter",
+   "jd_tt": 2456164.5,
+   "ra_date_deg": 72.53505607298202,
+   "dec_date_deg": 21.67058638943795,
+   "ra_gcrs_deg": 72.34147153699105,
+   "dec_gcrs_deg": 21.64994169521302
+  },
+  {
+   "body": "saturn",
+   "jd_tt": 2440423.345833333,
+   "ra_date_deg": 36.529319373435264,
+   "dec_date_deg": 11.9115661075769,
+   "ra_gcrs_deg": 36.94061390555292,
+   "dec_gcrs_deg": 12.045735497802628
+  },
+  {
+   "body": "saturn",
+   "jd_tt": 2448031.5,
+   "ra_date_deg": 297.07916578433617,
+   "dec_date_deg": -20.958164640919687,
+   "ra_gcrs_deg": 297.2169516677334,
+   "dec_gcrs_deg": -20.932846451357463
+  },
+  {
+   "body": "saturn",
+   "jd_tt": 2451545.0,
+   "ra_date_deg": 38.76541682262684,
+   "dec_date_deg": 12.614774672730574,
+   "ra_gcrs_deg": 38.768899820266135,
+   "dec_gcrs_deg": 12.616983167644802
+  },
+  {
+   "body": "saturn",
+   "jd_tt": 2456164.5,
+   "ra_date_deg": 204.59443120275947,
+   "dec_date_deg": -7.723201642102626,
+   "ra_gcrs_deg": 204.42412563671894,
+   "dec_gcrs_deg": -7.658028344724226
+  },
+  {
+   "body": "uranus",
+   "jd_tt": 2440423.345833333,
+   "ra_date_deg": 180.9157882155815,
+   "dec_date_deg": 0.37749969290358576,
+   "ra_gcrs_deg": 181.305156393835,
+   "dec_gcrs_deg": 0.20832526777272883
+  },
+  {
+   "body": "uranus",
+   "jd_tt": 2448031.5,
+   "ra_date_deg": 279.8904169962807,
+   "dec_date_deg": -23.447681812488984,
+   "ra_gcrs_deg": 280.03288755775446,
+   "dec_gcrs_deg": -23.437016930580615
+  },
+  {
+   "body": "uranus",
+   "jd_tt": 2451545.0,
+   "ra_date_deg": 317.4748142137841,
+   "dec_date_deg": -17.020320613172004,
+   "ra_gcrs_deg": 317.4790422757354,
+   "dec_gcrs_deg": -17.020267168405784
+  },
+  {
+   "body": "uranus",
+   "jd_tt": 2456164.5,
+   "ra_date_deg": 7.508250981755096,
+   "dec_date_deg": 2.429779341040803,
+   "ra_gcrs_deg": 7.341694884808482,
+   "dec_gcrs_deg": 2.358369638516312
+  },
+  {
+   "body": "neptune",
+   "jd_tt": 2440423.345833333,
+   "ra_date_deg": 234.12730095895614,
+   "dec_date_deg": -17.583793285519313,
+   "ra_gcrs_deg": 234.5608648152447,
+   "dec_gcrs_deg": -17.68045373026462
+  },
+  {
+   "body": "neptune",
+   "jd_tt": 2448031.5,
+   "ra_date_deg": 285.4074612345794,
+   "dec_date_deg": -21.808047913986808,
+   "ra_gcrs_deg": 285.54770449980845,
+   "dec_gcrs_deg": -21.79251066237039
+  },
+  {
+   "body": "neptune",
+   "jd_tt": 2451545.0,
+   "ra_date_deg": 305.43282236340724,
+   "dec_date_deg": -19.21323379889766,
+   "ra_gcrs_deg": 305.4371315851588,
+   "dec_gcrs_deg": -19.213645950878377
+  },
+  {
+   "body": "neptune",
+   "jd_tt": 2456164.5,
+   "ra_date_deg": 333.964737464616,
+   "dec_date_deg": -11.437330191299896,
+   "ra_gcrs_deg": 333.7923894155462,
+   "dec_gcrs_deg": -11.50264948264589
+  },
+  {
+   "body": "pluto",
+   "jd_tt": 2440423.345833333,
+   "ra_date_deg": 179.8384898110239,
+   "dec_date_deg": 16.792242650891875,
+   "ra_gcrs_deg": 180.22711925705715,
+   "dec_gcrs_deg": 16.622990160668607
+  },
+  {
+   "body": "pluto",
+   "jd_tt": 2448031.5,
+   "ra_date_deg": 228.12872495971314,
+   "dec_date_deg": -1.3022394883151638,
+   "ra_gcrs_deg": 228.24991554407686,
+   "dec_gcrs_deg": -1.3358630622052712
+  },
+  {
+   "body": "pluto",
+   "jd_tt": 2451545.0,
+   "ra_date_deg": 251.41916157689946,
+   "dec_date_deg": -11.39428873441123,
+   "ra_gcrs_deg": 251.4229001311015,
+   "dec_gcrs_deg": -11.396301545071504
+  },
+  {
+   "body": "pluto",
+   "jd_tt": 2456164.5,
+   "ra_date_deg": 277.5200741050373,
+   "dec_date_deg": -19.541227909743732,
+   "ra_gcrs_deg": 277.3286043390885,
+   "dec_gcrs_deg": -19.551729414764313
+  },
+  {
+   "body": "sun",
+   "jd_tt": 2440423.345833333,
+   "ra_date_deg": 120.00162174858593,
+   "dec_date_deg": 20.58493093599605,
+   "ra_gcrs_deg": 120.44535454574971,
+   "dec_gcrs_deg": 20.497605463260726
+  },
+  {
+   "body": "sun",
+   "jd_tt": 2448031.5,
+   "ra_date_deg": 56.4994380687365,
+   "dec_date_deg": 19.879173772309745,
+   "ra_gcrs_deg": 56.63582078230821,
+   "dec_gcrs_deg": 19.906601181542
+  },
+  {
+   "body": "sun",
+   "jd_tt": 2451545.0,
+   "ra_date_deg": 281.27756962168485,
+   "dec_date_deg": -23.032488638722818,
+   "ra_gcrs_deg": 281.2818934213705,
+   "dec_gcrs_deg": -23.03376015263556
+  },
+  {
+   "body": "sun",
+   "jd_tt": 2456164.5,
+   "ra_date_deg": 154.1889675700806,
+   "dec_date_deg": 10.688507865341325,
+   "ra_gcrs_deg": 154.01708477175652,
+   "dec_gcrs_deg": 10.753946960547603
+  },
+  {
+   "body": "moon",
+   "jd_tt": 2440423.345833333,
+   "ra_date_deg": 186.69393167521642,
+   "dec_date_deg": -4.378227942512158,
+   "ra_gcrs_deg": 187.08510430599694,
+   "dec_gcrs_deg": -4.545964408923231
+  },
+  {
+   "body": "moon",
+   "jd_tt": 2448031.5,
+   "ra_date_deg": 355.02417145310807,
+   "dec_date_deg": 1.8051891857266409,
+   "ra_gcrs_deg": 355.1443488106428,
+   "dec_gcrs_deg": 1.857413875990142
+  },
+  {
+   "body": "moon",
+   "jd_tt": 2451545.0,
+   "ra_date_deg": 222.4435990764112,
+   "dec_date_deg": -10.897905576904787,
+   "ra_gcrs_deg": 222.4471183553951,
+   "dec_gcrs_deg": -10.90012775884129
+  },
+  {
+   "body": "moon",
+   "jd_tt": 2456164.5,
+   "ra_date_deg": 246.05746697148288,
+   "dec_date_deg": -20.96508913558473,
+   "ra_gcrs_deg": 245.86592952920472,
+   "dec_gcrs_deg": -20.936774891979848
+  }
+ ]
+}
