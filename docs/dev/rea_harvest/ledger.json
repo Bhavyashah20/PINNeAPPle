@@ -74,6 +74,151 @@
       "note": "Public docs/press only. EULAs prohibit reverse engineering; REA was not run on these."
     },
     {
+      "project": "Basilisk",
+      "url": "http://basilisk.fr",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "GPL-3.0"
+      ],
+      "policy": "clean_room",
+      "findings": [
+        {
+          "title": "Wavelet AMR, geometric VOF",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "http://basilisk.fr"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/007-solution-adaptive-amr.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": "Out-of-process data source only."
+    },
+    {
+      "project": "COMSOL Multiphysics",
+      "url": "https://www.comsol.com/release/6.4",
+      "commit": "n/a (proprietary)",
+      "licenses": [
+        "proprietary"
+      ],
+      "policy": "reference_only",
+      "findings": [
+        {
+          "title": "Surrogate model training (GP/PCE/DNN), Model Manager",
+          "summary": "See issue.",
+          "source_refs": [
+            "https://www.comsol.com/release/6.4"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/035-comsol-mph-bridge.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": "Public docs only; no reverse engineering."
+    },
+    {
+      "project": "Clawpack",
+      "url": "https://github.com/clawpack/clawpack",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "BSD-3-Clause"
+      ],
+      "policy": "adapt",
+      "findings": [
+        {
+          "title": "Riemann-solver library, GeoClaw AMR",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/clawpack/clawpack"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/ANALISE_FEATURES_COMERCIAIS.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": ""
+    },
+    {
+      "project": "Code_Saturne",
+      "url": "https://github.com/code-saturne/code_saturne",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "GPL-2.0"
+      ],
+      "policy": "clean_room",
+      "findings": [
+        {
+          "title": "Polyhedral FV, RANS/LES suite, user hooks",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/code-saturne/code_saturne"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/ANALISE_FEATURES_COMERCIAIS.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": ""
+    },
+    {
+      "project": "Dassault SIMULIA (Abaqus, Isight, 3DEXPERIENCE AI)",
+      "url": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAECMDRefMap/simacmd-m-IntPythonandacl-sb.htm",
+      "commit": "n/a (proprietary)",
+      "licenses": [
+        "proprietary"
+      ],
+      "policy": "reference_only",
+      "findings": [
+        {
+          "title": "Isight approximation models; LEO/AURA companions",
+          "summary": "See issue.",
+          "source_refs": [
+            "https://docs.software.vt.edu/abaqusv2025/English/SIMACAECMDRefMap/simacmd-m-IntPythonandacl-sb.htm"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/032-rbf-kriging-surrogates-outliers.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": "Public docs only; no reverse engineering."
+    },
+    {
       "project": "Dedalus",
       "url": "https://github.com/DedalusProject/dedalus",
       "commit": "2a2ad15108f2",
@@ -164,6 +309,35 @@
       "note": ""
     },
     {
+      "project": "Earth2Studio CRPS",
+      "url": "https://github.com/NVIDIA/earth2studio",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "Apache-2.0"
+      ],
+      "policy": "adapt",
+      "findings": [
+        {
+          "title": "Ensemble scoring (CRPS)",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/NVIDIA/earth2studio"
+          ],
+          "status": "reimplemented",
+          "method": "manual",
+          "pinneapple_refs": [
+            "pinneapple_analysis/uncertainty/posterior_metrics.py"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": ""
+    },
+    {
       "project": "Exponax",
       "url": "https://github.com/Ceyron/exponax",
       "commit": "849f2c487398",
@@ -182,6 +356,35 @@
           "method": "manual",
           "pinneapple_refs": [
             "pinneapple_simulation/numerical_solvers/etdrk4.py"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": ""
+    },
+    {
+      "project": "Firedrake",
+      "url": "https://github.com/firedrakeproject/firedrake",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "LGPL-3.0"
+      ],
+      "policy": "clean_room",
+      "findings": [
+        {
+          "title": "NN inside UFL forms (fem_operator/ml_operator), pyadjoint",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/firedrakeproject/firedrake"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/030-nn-in-weak-forms.md"
           ],
           "note": ""
         }
@@ -250,7 +453,7 @@
       "evidence_id": null,
       "subject_sha256": null,
       "studied_on": "2026-10-12",
-      "note": ""
+      "note": "Repo BSD-3-Clause (+Apache-2.0 Mimic); the PyPI 'isaaclab' package declares NVIDIA proprietary terms and needs Isaac Sim."
     },
     {
       "project": "Isaac Sim",
@@ -343,6 +546,64 @@
       "note": "Public docs/press only. EULAs prohibit reverse engineering; REA was not run on these."
     },
     {
+      "project": "MOOSE",
+      "url": "https://github.com/idaholab/moose",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "LGPL-2.1"
+      ],
+      "policy": "clean_room",
+      "findings": [
+        {
+          "title": "Stochastic Tools (GP/POD surrogates, active learning), MultiApps",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/idaholab/moose"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/002-active-simulation-loop.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": ""
+    },
+    {
+      "project": "MathWorks (Reduced Order Modeler, exportToFMU)",
+      "url": "https://www.mathworks.com/help/fmuexport/ref/exporttofmu.html",
+      "commit": "n/a (proprietary)",
+      "licenses": [
+        "proprietary"
+      ],
+      "policy": "reference_only",
+      "findings": [
+        {
+          "title": "AI ROMs + FMU 2/3 export",
+          "summary": "See issue.",
+          "source_refs": [
+            "https://www.mathworks.com/help/fmuexport/ref/exporttofmu.html"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/004-rom-fmu-export.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": "Public docs only; no reverse engineering."
+    },
+    {
       "project": "Modelica Reference-FMUs",
       "url": "https://github.com/modelica/Reference-FMUs",
       "commit": "86ca571ec1ed",
@@ -392,6 +653,64 @@
           "pinneapple_refs": [
             "pinneapple_simulation/particle_dynamics",
             "pinneapple_tools/compute_backends"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": ""
+    },
+    {
+      "project": "NVIDIA Warp (fem)",
+      "url": "https://github.com/NVIDIA/warp",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "Apache-2.0"
+      ],
+      "policy": "adapt",
+      "findings": [
+        {
+          "title": "warp.fem + zero-copy torch",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/NVIDIA/warp"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/031-warp-backend.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": ""
+    },
+    {
+      "project": "NekRS",
+      "url": "https://github.com/Nek5000/nekRS",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "BSD-3-Clause"
+      ],
+      "policy": "adapt",
+      "findings": [
+        {
+          "title": "GPU spectral element, OIFS, in-situ",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/Nek5000/nekRS"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/ANALISE_FEATURES_COMERCIAIS.md"
           ],
           "note": ""
         }
@@ -491,6 +810,35 @@
       "note": ""
     },
     {
+      "project": "Oceananigans.jl",
+      "url": "https://github.com/CliMA/Oceananigans.jl",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "MIT"
+      ],
+      "policy": "adapt",
+      "findings": [
+        {
+          "title": "GPU ocean FV, immersed boundaries",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/CliMA/Oceananigans.jl"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/ANALISE_FEATURES_COMERCIAIS.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": ""
+    },
+    {
       "project": "Omniverse Kit (kit-app-template)",
       "url": "https://github.com/NVIDIA-Omniverse/kit-app-template",
       "commit": "9cc43b764e6d",
@@ -519,6 +867,35 @@
       "subject_sha256": null,
       "studied_on": "2026-10-12",
       "note": ""
+    },
+    {
+      "project": "Onshape",
+      "url": "https://onshape-public.github.io/docs/api-adv/configs/",
+      "commit": "n/a (proprietary)",
+      "licenses": [
+        "proprietary"
+      ],
+      "policy": "reference_only",
+      "findings": [
+        {
+          "title": "Configuration REST API",
+          "summary": "See issue.",
+          "source_refs": [
+            "https://onshape-public.github.io/docs/api-adv/configs/"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/033-onshape-configuration-sampler.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": "Public docs only; no reverse engineering."
     },
     {
       "project": "OpenFOAM",
@@ -554,7 +931,7 @@
       "url": "https://github.com/PixarAnimationStudios/OpenUSD",
       "commit": "dd6886c0085e",
       "licenses": [
-        "Apache-2.0"
+        "LicenseRef-TOST-1.0"
       ],
       "policy": "adapt",
       "findings": [
@@ -564,7 +941,7 @@
           "source_refs": [
             "pxr/usd/usdPhysics"
           ],
-          "status": "idea",
+          "status": "reimplemented",
           "method": "manual",
           "pinneapple_refs": [
             "pinneapple_twin3d/usd.py"
@@ -576,7 +953,7 @@
       "evidence_id": null,
       "subject_sha256": null,
       "studied_on": "2026-10-12",
-      "note": ""
+      "note": "Tomorrow Open Source Technology License 1.0: Apache-2.0 with a modified section 6 (trademarks); permissive. The UsdPhysics export writes USDA text and copies no OpenUSD code."
     },
     {
       "project": "PDEBench",
@@ -649,6 +1026,35 @@
       "subject_sha256": null,
       "studied_on": "2026-10-12",
       "note": ""
+    },
+    {
+      "project": "ParaView",
+      "url": "https://github.com/Kitware/ParaView",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "BSD-3-Clause"
+      ],
+      "policy": "adapt",
+      "findings": [
+        {
+          "title": "Catalyst 2 in-situ",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/Kitware/ParaView"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/029-paraview-catalyst-insitu.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": "License in Copyright.txt (no LICENSE file)."
     },
     {
       "project": "PhiFlow",
@@ -900,6 +1306,93 @@
       "note": ""
     },
     {
+      "project": "PyFR",
+      "url": "https://github.com/PyFR/PyFR",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "BSD-3-Clause"
+      ],
+      "policy": "adapt",
+      "findings": [
+        {
+          "title": "Flux reconstruction, kernel codegen, P-multigrid",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/PyFR/PyFR"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/ANALISE_FEATURES_COMERCIAIS.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": ""
+    },
+    {
+      "project": "Rescale",
+      "url": "https://engineering.rescale.com/api-docs/",
+      "commit": "n/a (proprietary)",
+      "licenses": [
+        "proprietary"
+      ],
+      "policy": "reference_only",
+      "findings": [
+        {
+          "title": "Jobs REST API, AI Physics",
+          "summary": "See issue.",
+          "source_refs": [
+            "https://engineering.rescale.com/api-docs/"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/034-rescale-job-connector.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": "Public docs only; no reverse engineering."
+    },
+    {
+      "project": "SU2",
+      "url": "https://github.com/su2code/SU2",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "LGPL-2.1"
+      ],
+      "policy": "clean_room",
+      "findings": [
+        {
+          "title": "Discrete adjoint (CoDiPack), FFD",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/su2code/SU2"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/019-adjoint-mma-bspline.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": ""
+    },
+    {
       "project": "Siemens Simcenter (STAR-CCM+, HEEDS, Amesim)",
       "url": "https://plm.sw.siemens.com/en-US/simcenter/",
       "commit": "n/a (proprietary)",
@@ -962,6 +1455,35 @@
           "method": "manual",
           "pinneapple_refs": [
             "docs/dev/issues/023-the-well-adapter.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": ""
+    },
+    {
+      "project": "Trixi.jl",
+      "url": "https://github.com/trixi-framework/Trixi.jl",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "MIT"
+      ],
+      "policy": "adapt",
+      "findings": [
+        {
+          "title": "Entropy-stable DGSEM, shock capturing",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/trixi-framework/Trixi.jl"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/ANALISE_FEATURES_COMERCIAIS.md"
           ],
           "note": ""
         }
@@ -1126,6 +1648,35 @@
       "note": ""
     },
     {
+      "project": "deal.II",
+      "url": "https://github.com/dealii/dealii",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "Apache-2.0"
+      ],
+      "policy": "adapt",
+      "findings": [
+        {
+          "title": "Matrix-free, hp-AMR, DWR estimators",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/dealii/dealii"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/007-solution-adaptive-amr.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": "Dual Apache-2.0 WITH LLVM-exception OR LGPL-2.1-or-later."
+    },
+    {
       "project": "jax-cfd",
       "url": "https://github.com/google/jax-cfd",
       "commit": "469d78997cb2",
@@ -1183,6 +1734,35 @@
       "subject_sha256": null,
       "studied_on": "2026-10-12",
       "note": ""
+    },
+    {
+      "project": "waLBerla / lbmpy / pystencils",
+      "url": "https://github.com/lssfau/walberla",
+      "commit": "see docs (license verified 2026-10-12)",
+      "licenses": [
+        "GPL-3.0"
+      ],
+      "policy": "clean_room",
+      "findings": [
+        {
+          "title": "Symbolic stencil codegen, cumulant LBM",
+          "summary": "See issue / analysis document.",
+          "source_refs": [
+            "https://github.com/lssfau/walberla"
+          ],
+          "status": "idea",
+          "method": "manual",
+          "pinneapple_refs": [
+            "docs/dev/issues/012-lbm-d3q27-cumulant-voxel.md"
+          ],
+          "note": ""
+        }
+      ],
+      "rea_version": null,
+      "evidence_id": null,
+      "subject_sha256": null,
+      "studied_on": "2026-10-12",
+      "note": "No import; out-of-process only."
     }
   ]
 }

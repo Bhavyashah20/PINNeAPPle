@@ -222,3 +222,15 @@ def test_gpl_text_file_and_setup_py_declaration(tmp_path):
     other.mkdir()
     (other / "setup.py").write_text('setup(name="x", license="GPL3")')
     assert detect_licenses(other) == ["GPL-3.0"]
+
+
+def test_gnu_notice_form_beats_bundled_permissive_texts(tmp_path):
+    """Firedrake's LICENSE opens with the LGPL notice and later quotes BSD
+    texts of bundled components: the result must be LGPL (clean_room)."""
+    (tmp_path / "LICENSE").write_text(
+        "Firedrake:\nFiredrake is free software: you can redistribute it and/or modify it under\n"
+        "the terms of the GNU Lesser General Public License as published by the\n"
+        "Free Software Foundation, either version 3 of the License, or (at your\noption) any later version.\n\n"
+        "Bundled component:\nRedistributions in binary form must reproduce the above copyright notice\n")
+    ids = detect_licenses(tmp_path)
+    assert "LGPL-3.0" in ids and policy_for(ids).policy == "clean_room"

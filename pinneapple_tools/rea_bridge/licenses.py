@@ -48,6 +48,14 @@ _COPYLEFT = {
 # (SPDX id, regex over the normalised license text). Order matters: the more
 # specific texts (LGPL, AGPL) must be tested before their substrings (GPL).
 _TEXT_RULES: List[Tuple[str, str]] = [
+    # Short "notice" form used at the top of many LICENSE files ("... under the
+    # terms of the GNU Lesser General Public License as published by the Free
+    # Software Foundation, either version 3 ...").
+    ("AGPL-3.0", r"gnu affero general public license as published by the free software foundation,? either version 3"),
+    ("LGPL-3.0", r"gnu lesser general public license as published by the free software foundation,? either version 3"),
+    ("LGPL-2.1", r"gnu lesser general public license as published by the free software foundation,? either version 2\.1"),
+    ("GPL-3.0", r"gnu general public license as published by the free software foundation,? either version 3"),
+    ("GPL-2.0", r"gnu general public license as published by the free software foundation,? either version 2"),
     ("AGPL-3.0", r"gnu affero general public license"),
     ("LGPL-3.0", r"gnu lesser general public license\s+version 3"),
     ("LGPL-2.1", r"gnu lesser general public license\s+version 2\.1"),
