@@ -160,6 +160,12 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   2-D airfoil, OpenFOAM simpleFoam k-omega SST, CST geometry, the 436-run campaign, baseline against XFOIL, a
   surrogate optimum checked in CFD) and `free_surface_trough` (water jet into an open trough, interFoam VOF via
   `pp.cfd.FreeSurfaceFlow`, two meshes with mass balance, impingement, splash, floor shear and mean k).
+- Aero optimizer logic in the library: `pinneapple_design.aero.train` (load OpenFOAM runs, split by shape, metrics,
+  MLP-ensemble and MeshGraphNet training/prediction, `train_surrogates` -> the `Engine` bundle),
+  `pinneapple_design.aero.dataset` (run plan, `run_job`, `steady_values`, the one averaging rule for unsteady runs),
+  `pinneapple_design.aero.verify` (Pareto picks checked in OpenFOAM), `pinneapple_design.aero.case.case_zip` (a
+  ready OpenFOAM case with a stand-alone `COEF_SCRIPT`), `pinneapple_design.aero.optimize.infeasibility_reasons`
+  and `pinneapple_design.design_optimizer.representatives` (best per objective + balanced pick of a Pareto front).
 
 ### Changed
 - **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their
@@ -167,6 +173,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   exponent lags the wheel's slip over `sink_length` (0.15 m) of rim travel.
 - **Behavior:** `vehicle.dashboard.render_frames` and `vehicle_dashboard` default to the geometry-only view (no
   stress colour map, no colour bar); pass `field=` / `field_label=` for the overlay.
+- `apps/aero_optimizer`: `tools/train_surrogate.py`, `tools/generate_dataset.py` and `tools/verify.py` are thin CLIs
+  over the library; the API uses the library picks, reasons and case zip (same responses);
+  `tools/render_airliner.py` uses the studio `colorbar` (tick labels now follow the viewer's format) and
+  `aero.render_blender` the studio `jet`.
 
 ### Fixed
 - Geometry library: `build()` snaps vertices to a 0.1 um grid, so the files rebuilt on another machine (the Hub
