@@ -14,6 +14,16 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Lunar rover terramechanics in 3D (`pinneapple_simulation.rover`): a parametric six-wheel rocker-bogie rover
+  (glTF/STL export) on lunar terrain (grade, ramp, craters with Pike's 1977 depth ratio, rocks, soil regions) with
+  Bekker-Wong wheels. Each step solves a quasi-static equilibrium of body, rockers, bogies and differential, with
+  longitudinal motion in speed or slip mode. Outputs per wheel: sinkage, slip, drawbar pull, load, torque and
+  power; per rover: attitude and energy per metre. The maximum grade comes from bisection.
+  - Verification: Bekker's closed form, the standalone solver, the balance laws, the drawbar-pull grade estimate,
+    and surrogate errors with range flags.
+  - Example: `examples/use_cases/terramechanics/lunar_rover_3d.py`. Docs:
+    `docs/core_concepts/lunar_rover_terramechanics.md`.
+  - `pinneapple_twin3d.Scene.add_motion`: rigid part motion per time step, played by the bundled viewer.
 - Fit-for-purpose geometry and mesh (`pinneapple_design.fitmesh`): reads a problem description (English or
   Portuguese) and asks for what is missing; suggests reference geometries with their published sources (NACA wing,
   Ahmed body, cylinder, sphere, 90-degree pipe bend, backward-facing step, plate with a hole, cantilever beam,
