@@ -14,7 +14,7 @@ authors:
   - family-names: "Schiassi"
     given-names: "Enrico"
     orcid: "https://orcid.org/0000-0002-7882-5913"
-    # TODO: affiliation
+    affiliation: "University of Arizona; University of Bologna"
 version: "0.6.3"
 date-released: "2026-10-04"
 repository-code: "https://github.com/PINNeAPPle-Labs/PINNeAPPle"

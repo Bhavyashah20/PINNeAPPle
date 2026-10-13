@@ -15,12 +15,14 @@ authors:
     affiliation: 1
   - name: Enrico Schiassi
     orcid: 0000-0002-7882-5913
-    affiliation: 2
+    affiliation: "2, 3"
 affiliations:
   - name: PINNeAPPle Labs, Brazil
     index: 1
-  - name: TODO, Country # TODO: affiliation of Enrico Schiassi
+  - name: University of Arizona, Tucson, AZ, United States
     index: 2
+  - name: University of Bologna, Bologna, Italy
+    index: 3
 date: 13 October 2026
 bibliography: paper.bib
 ---
