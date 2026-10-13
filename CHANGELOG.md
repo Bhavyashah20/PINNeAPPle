@@ -38,14 +38,14 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
     `examples/model_zoo/quickstart.py`.
 - `ModelCard` has optional `task`, `version`, `inputs`, `outputs`, `validity_range` and `known_limitations` fields,
   which are rendered in `to_markdown()`.
-
-## [0.7.0] - 2026-10-13
-
-### Added
 - Two engineering hand-off case packages in `examples/handoff_cases/` (each also as a zip): `airfoil_ld` (max L/D of a
   2-D airfoil, OpenFOAM simpleFoam k-omega SST, CST geometry, the 436-run campaign, baseline against XFOIL, a
   surrogate optimum checked in CFD) and `free_surface_trough` (water jet into an open trough, interFoam VOF via
   `pp.cfd.FreeSurfaceFlow`, two meshes with mass balance, impingement, splash, floor shear and mean k).
+
+## [0.7.0] - 2026-10-13
+
+### Added
 - Animation-centred dashboards for any simulation (`pinneapple_tools.visualization.dashboard`, `pp.viz.Dashboard`):
   an animation in the middle, charts synced to its time cursor (time series with a cursor, or fixed curves with
   markers that move with the frames), KPI tiles, a parameter panel and a colour bar.
