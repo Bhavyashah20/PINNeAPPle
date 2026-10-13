@@ -772,6 +772,120 @@
      "bundled": "datasets/single_wheel_tests/data.npz"
     }
    }
+  },
+  "burgers_1d_li2021": {
+   "version": "1.0.0",
+   "revision": "v1.0.0",
+   "hf_repo": "PINNeAPPle-Labs/burgers-1d-li2021",
+   "repo_type": "dataset",
+   "title": "1-D viscous Burgers, Li et al. (2021) operator-learning benchmark (1200 trajectories, 1024 points)",
+   "description": "u_t + (u^2/2)_x = nu u_xx on the periodic interval [0, 1), nu = 0.1, t in [0, 1]. Initial conditions u0 ~ N(0, 625 (-Laplacian + 25 I)^-2), the input distribution stated in Li et al. (2021), section 5.1 (their released generator used alpha 2.5, tau 7, sigma 49 instead; this dataset follows the paper's text). The standard task maps u0 to u(., 1); the 11 snapshots t = 0, 0.1, ..., 1 are stored for time-dependent models. Grid x_j = j / 1024, j = 0..1023; u[:, 0] equals u0.",
+   "license": "cc-by-4.0",
+   "source": "python scripts/zoo/operator_data.py generate --out DIR (inputs drawn from fixed seeds in the parent process, so the data do not depend on the number of workers); solvers in pinneapple_simulation.numerical_solvers.operator_benchmarks, written from the equations; seed 20211",
+   "verification": "Solver (Fourier pseudo-spectral, 2/3 dealiasing, ETDRK4) checked in tests/test_operator_benchmarks.py against the Cole-Hopf exact solution (max error < 1e-8) and for exact mean conservation. Resolution and time-step study on 4 held-aside inputs against a reference with 4096 points and dt 2.5e-5, all 10 saved times: the dataset setting (1024 points, dt 1e-4) has max rel. L2 error 4.4e-12; halving dt gives 6.3e-13, doubling the points 4.4e-12 (time-step limited, spectrally converged in space). Mean conserved to 8e-17. Stored in float32 (rounding ~6e-8 relative), far below the 1e-3 to 1e-2 errors operator-learning methods reach on this task (scripts/zoo/operator_data.py convergence).",
+   "citation": "Li Z., Kovachki N., Azizzadenesheli K., Liu B., Bhattacharya K., Stuart A., Anandkumar A. (2021). Fourier Neural Operator for Parametric Partial Differential Equations. ICLR 2021, arXiv:2010.08895. Data generated with PINNeAPPle's reference solvers (pinneapple_simulation.numerical_solvers.operator_benchmarks); PINNeAPPle, Zenodo DOI 10.5281/zenodo.23343062.",
+   "tags": [
+    "operator learning",
+    "neural operator",
+    "Burgers",
+    "benchmark",
+    "FNO"
+   ],
+   "split_rule": "rows 0-999 are train, 1000-1199 test; inputs are i.i.d. draws, so the contiguous split is a random split",
+   "splits": {
+    "train": {
+     "n": 1000,
+     "description": "1000 trajectories"
+    },
+    "test": {
+     "n": 200,
+     "description": "200 trajectories (held out)"
+    }
+   },
+   "columns": {
+    "index": {
+     "unit": "-",
+     "description": "sample index (row of the generated set)",
+     "dtype": "int32"
+    },
+    "u": {
+     "unit": "-",
+     "description": "solution u(x, t) at t = 0, 0.1, ..., 1 (11 snapshots x 1024 points)",
+     "dtype": "float32[11, 1024]"
+    },
+    "u0": {
+     "unit": "-",
+     "description": "initial condition u(x, 0) on the 1024-point grid",
+     "dtype": "float32[1024]"
+    }
+   },
+   "files": {
+    "train.npz": {
+     "sha256": "0c7c22fd0faededc5447776d938566c328f091cdf588c62110927da656ebff62",
+     "size": 45544849
+    },
+    "test.npz": {
+     "sha256": "9e4b470ec59c7079846d326e937c3388212426605349a731323466a0b8e68966",
+     "size": 9109578
+    }
+   }
+  },
+  "darcy_2d_li2021": {
+   "version": "1.0.0",
+   "revision": "v1.0.0",
+   "hf_repo": "PINNeAPPle-Labs/darcy-2d-li2021",
+   "repo_type": "dataset",
+   "title": "2-D Darcy flow, Li et al. (2021) operator-learning benchmark (1200 coefficient / pressure pairs, 128 x 128)",
+   "description": "-div(a grad u) = 1 on the unit square, u = 0 on the boundary. Coefficients a = 12 where g >= 0 and 3 where g < 0, g ~ N(0, (-Laplacian + 9 I)^-2) (Li et al. 2021, section 5.2). g is drawn as a periodic Gaussian random field on the 128 x 128 cell grid (Li et al. use a cosine expansion on 421 nodes), so a is piecewise constant on the cells of the stored grid. The task maps a to u. Cell centres ((i + 1/2) / 128, (j + 1/2) / 128); u is the cell average of the solution.",
+   "license": "cc-by-4.0",
+   "source": "python scripts/zoo/operator_data.py generate --out DIR (inputs drawn from fixed seeds in the parent process, so the data do not depend on the number of workers); solvers in pinneapple_simulation.numerical_solvers.operator_benchmarks, written from the equations; seed 20212",
+   "verification": "Solver (cell-centred two-point-flux finite volumes, harmonic face coefficients, sparse direct solve) checked in tests/test_operator_benchmarks.py on a manufactured variable-coefficient solution (second order, max error < 2e-3 at 64^2). Each sample is solved on the 512^2 grid (the piecewise-constant coefficient is represented exactly on every refinement) and averaged onto its 128^2 cells. Grid study on 4 held-aside inputs against 1024^2: max rel. L2 error 4.6e-3 (128^2), 1.6e-3 (256^2), 4.3e-4 (512^2, the dataset); observed order 1.36 / 1.21 (reduced from 2 by the coefficient jumps); Richardson estimate of the dataset's discretisation error ~8e-4 rel. L2, ten times below the ~1e-2 operator-learning methods reach on this task. u > 0 and below the a = 3 bound 1/24 in every sample.",
+   "citation": "Li Z., Kovachki N., Azizzadenesheli K., Liu B., Bhattacharya K., Stuart A., Anandkumar A. (2021). Fourier Neural Operator for Parametric Partial Differential Equations. ICLR 2021, arXiv:2010.08895. Data generated with PINNeAPPle's reference solvers (pinneapple_simulation.numerical_solvers.operator_benchmarks); PINNeAPPle, Zenodo DOI 10.5281/zenodo.23343062.",
+   "tags": [
+    "operator learning",
+    "neural operator",
+    "Darcy",
+    "benchmark",
+    "FNO"
+   ],
+   "split_rule": "rows 0-999 are train, 1000-1199 test; inputs are i.i.d. draws, so the contiguous split is a random split",
+   "splits": {
+    "train": {
+     "n": 1000,
+     "description": "1000 pairs"
+    },
+    "test": {
+     "n": 200,
+     "description": "200 pairs (held out)"
+    }
+   },
+   "columns": {
+    "a": {
+     "unit": "-",
+     "description": "permeability on the 128 x 128 cells (values 3 and 12)",
+     "dtype": "float32[128, 128]"
+    },
+    "index": {
+     "unit": "-",
+     "description": "sample index (row of the generated set)",
+     "dtype": "int32"
+    },
+    "u": {
+     "unit": "-",
+     "description": "pressure, cell averages on the 128 x 128 cells",
+     "dtype": "float32[128, 128]"
+    }
+   },
+   "files": {
+    "train.npz": {
+     "sha256": "e32d8114482e9bcef831ab291938bbe0fd9306a24fb675d95a5735a98d1cc72d",
+     "size": 59215573
+    },
+    "test.npz": {
+     "sha256": "c7f7b49deb5eff530405f44a8b2f8246d8c666b898b32ebeb6a18e82b049e89e",
+     "size": 11848499
+    }
+   }
   }
  }
 }
