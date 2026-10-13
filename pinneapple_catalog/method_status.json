@@ -1734,6 +1734,30 @@
    ],
    "status": "validated"
   },
+  "S27": {
+   "other_tests": [],
+   "reference_tests": [
+    "PINNeAPPle/tests/test_rea_harvest_numerics.py::test_etdrk4_blowup_is_detected_not_returned_as_data",
+    "PINNeAPPle/tests/test_rea_harvest_numerics.py::test_etdrk4_burgers_against_cole_hopf_exact_solution",
+    "PINNeAPPle/tests/test_rea_harvest_numerics.py::test_etdrk4_complex_linear_part_dispersion_closed_form",
+    "PINNeAPPle/tests/test_rea_harvest_numerics.py::test_etdrk4_fourth_order_against_exact_exponential",
+    "PINNeAPPle/tests/test_rea_harvest_numerics.py::test_etdrk4_linear_part_is_exact_closed_form"
+   ],
+   "status": "validated"
+  },
+  "S28": {
+   "other_tests": [
+    "PINNeAPPle/tests/test_rea_harvest_numerics.py::test_confinement_off_is_identity_and_on_injects_rotational_force",
+    "PINNeAPPle/tests/test_rea_harvest_numerics.py::test_projection_is_discretely_divergence_free_and_idempotent",
+    "PINNeAPPle/tests/test_rea_harvest_numerics.py::test_projection_keeps_exact_divergence_free_field",
+    "PINNeAPPle/tests/test_rea_harvest_numerics.py::test_semi_lagrangian_translation_of_scalar_is_exact_for_whole_cells"
+   ],
+   "reference_tests": [
+    "PINNeAPPle/tests/test_rea_harvest_numerics.py::test_stable_time_step_closed_forms",
+    "PINNeAPPle/tests/test_rea_harvest_numerics.py::test_taylor_green_viscous_decay_converges_to_exact_solution"
+   ],
+   "status": "validated"
+  },
   "S3": {
    "other_tests": [],
    "reference_tests": [

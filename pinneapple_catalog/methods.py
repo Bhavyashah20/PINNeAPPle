@@ -187,6 +187,16 @@ METHODS: List[Method] = [
        refs_added=["Toro, Shock-Capturing Methods for Free-Surface Shallow Flows, Wiley, 2001",
                    "Ritter, Die Fortpflanzung der Wasserwellen, Z. Vereines Deutscher Ingenieure 36 (1892) 947-954",
                    "Stoker, Water Waves, Interscience, 1957 (wet-bed dam break)"]),
+    _m("S27", "ETDRK4 exponential integrator for stiff semilinear PDEs (contour phi-functions, blow-up guard)",
+       [NS + "etdrk4.py"], ["ETDRK4(", "numerical_solvers.etdrk4"],
+       refs_in_code=["Cox & Matthews, Exponential time differencing for stiff systems, J. Comput. Phys. 176 (2002) 430-455",
+                     "Kassam & Trefethen, Fourth-order time-stepping for stiff PDEs, SIAM J. Sci. Comput. 26(4) (2005) 1214-1233"]),
+    _m("S28", "Stable fluids 2D (semi-Lagrangian advection, spectral projection, vorticity confinement)",
+       [NS + "stable_fluids.py"], ["StableFluids2D", "numerical_solvers.stable_fluids"],
+       refs_in_code=["Stam, Stable fluids, SIGGRAPH 1999, 121-128",
+                     "Fedkiw, Stam & Jensen, Visual simulation of smoke, SIGGRAPH 2001, 15-22"],
+       refs_added=["Taylor & Green, Mechanism of the production of small eddies from large ones, "
+                   "Proc. R. Soc. A 158 (1937) 499-521"]),
     # ── B. Training ──────────────────────────────────────────────────────
     _m("T1", "Base trainer: AMP, gradient accumulation, auto batch size, CUDA graphs, profiler",
        [TR + "trainer.py", TR + "hpc.py"], ["trainer.trainer", "from pinneapple_neural.trainer import", "Trainer("],
