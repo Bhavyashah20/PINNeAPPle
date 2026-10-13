@@ -32,7 +32,7 @@ import numpy as np
 
 __all__ = ["FILTER_KINDS", "Filter", "wavenumbers", "transfer", "apply_filter", "restrict", "prolong",
            "post_filter_transfer", "realizability_mismatch", "refilter", "filter_variable_width",
-           "spectral_derivative", "commutation_error"]
+           "spectral_derivative", "commutation_error", "low_modes", "fourier_basis", "fourier_coefficients"]
 
 FILTER_KINDS = ("box", "gaussian", "sharp")
 
@@ -243,3 +243,28 @@ def commutation_error(u: np.ndarray, kind: str, delta: float | np.ndarray, axis:
     dubar = spectral_derivative(ubar, axis, length)
     du_bar = filter_variable_width(spectral_derivative(u, axis, length), kind, dfield, length, axes)
     return dubar - du_bar
+
+
+def low_modes(kmax: int) -> list[tuple[int, int]]:
+    """Half-plane list of the 2-D integer wavenumbers with ``|kx|, |ky| <= kmax`` (sharp square cut-off), mean
+    excluded: one of each pair ``k, -k``."""
+    return [(kx, ky) for kx in range(0, kmax + 1) for ky in range(-kmax, kmax + 1) if (kx > 0 or ky > 0)]
+
+
+def fourier_basis(modes: Sequence[tuple[int, int]], n: int, length: float = 2 * np.pi) -> np.ndarray:
+    """``(2 len(modes), n * n)`` real basis ``cos, sin(kx x + ky y)`` on an ``n x n`` grid (``k`` in units of
+    ``2 pi / length``)."""
+    x = np.arange(n) * length / n
+    X, Y = np.meshgrid(x, x, indexing="ij")
+    c = 2 * np.pi / length
+    rows = []
+    for kx, ky in modes:
+        rows += [np.cos(c * (kx * X + ky * Y)).ravel(), np.sin(c * (kx * X + ky * Y)).ravel()]
+    return np.array(rows)
+
+
+def fourier_coefficients(w: np.ndarray, modes: Sequence[tuple[int, int]], length: float = 2 * np.pi) -> np.ndarray:
+    """Coefficients of a periodic field on :func:`fourier_basis` (exact for modes below the grid's Nyquist)."""
+    n = w.shape[-1]
+    B = fourier_basis(modes, n, length)
+    return np.asarray(w, float).reshape(*np.shape(w)[:-2], -1) @ B.T * (2.0 / (n * n))

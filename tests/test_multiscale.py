@@ -316,3 +316,97 @@ def test_scale_conditioned_fno_and_consistency_loss():
     assert float(filtering_consistency_loss(m, x, d1, d2).detach()) > 1e-6
     blind = ScaleConditionedFNO2d(1, 1, width=8, modes=4, layers=2, conditioned=False).double()
     torch.testing.assert_close(blind(x, 0.1), blind(x, 0.9))
+
+
+# ------------------------------------------------------------------------------------------ benchmark helpers
+def test_fourier_coefficients_round_trip():
+    from pinneapple_physics.multiscale.filters import fourier_basis, fourier_coefficients, low_modes
+
+    rng = np.random.default_rng(11)
+    modes = low_modes(4)
+    c = rng.standard_normal(2 * len(modes))
+    w = (c @ fourier_basis(modes, 32)).reshape(32, 32)
+    np.testing.assert_allclose(fourier_coefficients(w, modes), c, atol=1e-12)
+    np.testing.assert_allclose(apply_filter(w, Filter("sharp", np.pi / 4)), w, atol=1e-12)   # all modes |k| <= 4
+
+
+def test_turbulence_benchmark_streams_and_pairs():
+    from pinneapple_physics.multiscale.turbulence import DecayingTurbulence2D
+
+    b = DecayingTurbulence2D(n_out=16, n_train=32, train_times=(0.02, 0.04), t_out=(0.02, 0.04), spinup=0.02,
+                             dt_train=1e-2)
+    q1, q2 = b.query_stream(3, 9), b.query_stream(3, 9)
+    assert [q["re"] for q in q1] == [q["re"] for q in q2]                  # reproducible
+    assert [q["band"] for q in q1] == ["low"] * 3 + ["high"] * 3 + ["mid"] * 3
+    assert all(q["filter"].delta == q["width"] * b.h for q in q1)
+    data = {"w": np.stack([b._map([(s, 0.01, 32, 1e-2, 0.02, b.train_times, 3.0, 0.5, 0)], 1)[0] for s in range(4)]),
+            "nu": np.full(4, 0.01), "band": np.array(["low"] * 4)}
+    tr, te = b.split(data, "low", test_frac=0.25)
+    assert len(te) == 1 and len(tr) == 3
+    x, y = b.filtered_pairs(data, tr, Filter("gaussian", 2 * b.h))
+    assert x.shape == (3, 16, 16) and y.shape == (3, 2, 16, 16)
+    assert abs(b.les_filter.cutoff - b.les_n // 3) < 1e-9
+
+
+def test_adapt_output_and_closed_residual():
+    from pinneapple_physics.multiscale.comparison import adapt_output, closed_multiscale_residual, raw_residual
+
+    X, Y = grid(32)
+    w = 2 * np.sin(X) * np.sin(Y)
+    g2, g4 = Filter("gaussian", 0.2), Filter("gaussian", 0.4)
+    src = apply_filter(w, g2)
+    np.testing.assert_allclose(adapt_output(src, g2, g4, aware=True), apply_filter(w, g4), atol=1e-12)
+    blind = adapt_output(src, g2, g4, aware=False)                         # applies g4 on top: wider than asked
+    assert np.abs(blind - apply_filter(w, g4)).max() > 1e-4
+    nu, dt = 0.01, 0.01
+    pair = np.stack([w * np.exp(-2 * nu * 0.0), w * np.exp(-2 * nu * dt)])  # exact decaying Taylor-Green
+    assert raw_residual(pair, nu, dt) < 1e-5
+    assert closed_multiscale_residual(apply_filter(pair, g2), nu, dt, g2, 0.1) < 1e-4
+
+
+def test_run_ensembles_on_a_synthetic_table():
+    from pinneapple_physics.multiscale.comparison import (
+        EnsembleConfig,
+        markdown_tables,
+        run_ensembles,
+        summarise_runs,
+    )
+
+    X, Y = grid(16)
+    truth = np.stack([2 * np.sin(X) * np.sin(Y)] * 2)
+    names = ["coarse", "dns"]
+    prof = {"coarse": ScaleProfile("coarse", Filter("gaussian", 0.8), 0.4, fidelity=0),
+            "dns": ScaleProfile("dns", Filter("sharp", 0.0), 0.1, fidelity=2)}
+    qs = [{"id": k, "nu": 0.01, "re": 100.0, "width": w, "filter": Filter("gaussian", w * 0.4)}
+          for k, w in enumerate([1, 4, 4, 1])]
+    raw = np.stack([np.stack([apply_filter(truth, prof["coarse"].filter) * 0.9, truth]) for _ in qs])
+    table = {"raw": raw, "secs": np.tile([0.01, 1.0], (4, 1)), "check": np.full((4, 2), np.nan),
+             "reasons": np.empty((4, 2), dtype=object), "names": np.array(names)}
+    refs = [apply_filter(truth, q["filter"]) for q in qs]
+    cfgs = {"blind": EnsembleConfig(False, False, False, tuple(names)),
+            "aware": EnsembleConfig(True, True, False, tuple(names))}
+    res = run_ensembles(qs, refs, table, prof, cfgs, dt=0.01, h=0.4, lookahead=0.0)
+    assert res["aware"]["active"][0] == "dns" and res["aware"]["active"][1] == "coarse"   # ladder by scale
+    rows = summarise_runs({0: (qs, res)}, prof, list(cfgs), (1, 4), solver="dns")
+    assert rows[1]["scale_violations"] == 0
+    assert "| aware |" in markdown_tables(rows, (1, 4))
+
+
+def test_learned_benchmark_models():
+    torch = pytest.importorskip("torch")
+    from pinneapple_physics.multiscale.filters import fourier_basis, low_modes
+    from pinneapple_physics.multiscale.learned import FourierGalerkinPINN, periodic_cnn2d, torus_graph
+
+    assert periodic_cnn2d(2, 3, width=8)(torch.randn(1, 2, 16, 16)).shape == (1, 3, 16, 16)
+    e, a = torus_graph(8, (1, 2))
+    assert e.shape == (2, 8 * 8 * 8) and a.shape == (8 * 8 * 8, 2)
+    pinn = FourierGalerkinPINN(kmax=2, scale=1.0)
+    rng = np.random.default_rng(12)
+    c = rng.standard_normal((1, 2 * len(low_modes(2))))
+    nu = 0.01
+    w = (c @ fourier_basis(low_modes(2), 32)).reshape(32, 32)
+    s = VorticityNS2D(32, nu, dealias=False)
+    expected = apply_filter(-s.advection(w) + nu * s.laplacian(w), Filter("sharp", np.pi / 2))
+    got = (pinn.tendency(torch.tensor(c, dtype=torch.float32), torch.tensor([[nu]])).numpy().astype(float)
+           @ fourier_basis(low_modes(2), 32)).reshape(32, 32)
+    np.testing.assert_allclose(got, expected, atol=1e-4 * np.abs(expected).max())
