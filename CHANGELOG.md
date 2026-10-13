@@ -42,6 +42,35 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   smoke test, and a Docker build. Deploy config: `apps/playground/Dockerfile`, a `playground` service in
   `apps/deploy` (port 8095), and an opt-in GitHub Pages step (`PLAYGROUND_PAGES`) in the docs workflow.
   Guide: `docs/guides/playground.md`.
+- Multiscale adaptive ensembles (`pinneapple_physics.multiscale`, #599-#604). Models declare the scales they resolve;
+  queries declare the scales they need.
+  - Filters: box, Gaussian and sharp spectral, with exact transfer functions. Restriction and prolongation, post-filter
+    realizability, variable-width filters and their commutation error.
+  - 2-D vorticity DNS and LES (pseudo-spectral, ETDRK4).
+  - Closures: Smagorinsky, dynamic Smagorinsky, gradient (Clark). A-priori tests (stress and tendency correlation,
+    energy transfer, backscatter), a-posteriori tests (spectrum, dissipation, long-run stability) and a label-free
+    closure health check (enstrophy growth, spectral pile-up, Germano-identity error).
+  - Multiscale residuals split into subfilter, commutation and model parts.
+  - Cross-scale consistency check, which names the integral that broke.
+  - `ScaleProfile`, `ScaleQuery` and `ScaleAwareRouter`: a fidelity ladder from surrogate to LES with closure to
+    resolved solver, with a "not covered" answer when no model resolves the requested scale.
+  - Scale-linking models (PyTorch): a scale-conditioned FNO with a filtering-consistency loss, a differentiable LES,
+    and a closure trained a posteriori through the solver.
+  - Decaying 2-D turbulence benchmark, ensemble comparison and animation.
+  - Results (180 held-out queries, 256² DNS reference):
+    - The scale-aware ensembles never answer below a model's resolved scale. The scale-blind ensemble, once cost
+      counts, does so on 25-29 queries, with 32-36 % error at the finest width against 3.3 %.
+    - In mean error per unit cost the scale-aware ensembles do not beat the scale-blind one on this small 2-D
+      case, where the 128² DNS costs about as much as the LES.
+    - The closure check flags static Smagorinsky on every query (Germano error 1.35, dissipation 1.5-7.9× too
+      high) and never the dynamic, gradient or learned closures.
+    - The closure trained a posteriori is the best LES: spectrum error 0.008-0.013 against 0.04-0.05.
+    - The scale-conditioned FNO beats the scale-blind network at the held-out width but not fixed-width FNOs
+      post-filtered exactly.
+  - Example `examples/physics_ensemble/multiscale_turbulence.py`; docs page "Multiscale ensembles" and the guide
+    "Choose a model by the scale of the question".
+- `PhysicsEnsemble(prediction_checks=..., error_tolerance=...)`: label-free checks of each prediction, and an error
+  tolerance per context, both escalate through the router's fidelity ladder. A model that fails is still scored.
 - `pinneapple_tools.reporting.paperkit`: the report figure style (`setup_mpl`, `savefig`, `CAT`/`SEQ`/`DIV`
   palettes), `fmt`, `sanitize` and `Paper`, an A4 PDF builder for numbered technical reports (reportlab, from the
   `veriphysics` extra, is imported only when a `Paper` is built). Moved from the benchmark and climate repos.
