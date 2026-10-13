@@ -1,0 +1,64 @@
+<?xml version='1.0'?>
+<!-- patch='sill' time='12' index='11176' -->
+<VTKFile type='PolyData' version='0.1' byte_order='LittleEndian' header_type='UInt64'>
+  <PolyData>
+    <FieldData>
+      <DataArray type='Float32' Name='TimeValue' NumberOfTuples='1' format='ascii'>
+12
+      </DataArray>
+    </FieldData>
+    <Piece NumberOfPoints='18' NumberOfPolys='8'>
+      <Points>
+        <DataArray type='Float32' Name='Points' NumberOfComponents='3' format='ascii'>
+1.2 0 0 1.2 0.01 0
+1.2 0.01 0.01 1.2 0 0.01
+1.2 0.01 0.02 1.2 0 0.02
+1.2 0.01 0.03 1.2 0 0.03
+1.2 0.01 0.04 1.2 0 0.04
+1.2 0.01 0.05 1.2 0 0.05
+1.2 0.01 0.06 1.2 0 0.06
+1.2 0.01 0.07 1.2 0 0.07
+1.2 0.01 0.08 1.2 0 0.08
+        </DataArray>
+      </Points>
+      <Polys>
+        <DataArray type='Int32' Name='connectivity' format='ascii'>
+0 1 2 3 3 2
+4 5 5 4 6 7
+7 6 8 9 9 8
+10 11 11 10 12 13
+13 12 14 15 15 14
+16 17
+        </DataArray>
+        <DataArray type='Int32' Name='offsets' format='ascii'>
+4 8 12 16 20 24
+28 32
+        </DataArray>
+      </Polys>
+      <CellData>
+        <DataArray type='Float32' Name='alpha.water' format='ascii'>
+0.707947 0.658615 0.6585 0.661402 0.757904 0.722547
+0.651009 0.64232
+        </DataArray>
+        <DataArray type='Float32' Name='k' format='ascii'>
+0.0107179 0.0198167 0.0332644 0.0501527 0.075186 0.118717
+0.172596 0.231022
+        </DataArray>
+        <DataArray type='Float32' Name='nut' format='ascii'>
+1.36458e-05 1.81763e-05 2.30895e-05 2.78823e-05 3.3551e-05 4.13348e-05
+4.90323e-05 5.5995e-05
+        </DataArray>
+        <DataArray type='Float32' Name='p_rgh' format='ascii'>
+515.119 545.955 547.973 544.777 513.056 543.286
+578.991 499.798
+        </DataArray>
+        <DataArray type='Float32' Name='U' NumberOfComponents='3' format='ascii'>
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+        </DataArray>
+      </CellData>
+    </Piece>
+  </PolyData>
+</VTKFile>

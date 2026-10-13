@@ -1,0 +1,6 @@
+{
+  "file-series-version" : "1.0",
+  "files" : [
+    { "name" : "NACA4412_a+08_1200.vtm", "time" : 1200 }
+  ]
+}
