@@ -35,11 +35,13 @@ __all__ = ["EnsembleConfig", "DEFAULT_CONFIGS", "evaluate_experts", "adapt_outpu
 class EnsembleConfig:
     """``aware``: scale-aware post-filtering (else blind); ``router``: :class:`~.scales.ScaleAwareRouter` with the
     fidelity ladder; ``checks``: prediction checks and the closed multiscale residual (else the grid-scale residual);
-    ``experts``: the experts it may use."""
+    ``experts``: the experts it may use; ``error_tolerance``: escalate up the fidelity ladder when the awake
+    experts' last error at the requested width is above it (see ``PhysicsEnsemble(error_tolerance=...)``)."""
     aware: bool
     router: bool
     checks: bool
     experts: tuple[str, ...]
+    error_tolerance: float | None = None
 
 
 DEFAULT_CONFIGS = ("A. original (scale-blind)", "B. + scale-aware selection", "C. + closure & consistency checks",
@@ -164,7 +166,8 @@ def run_ensembles(queries: Sequence[dict], references: Sequence[np.ndarray], tab
         else:
             res_fn = lambda p, q: raw_residual(p, q["nu"], dt, length)  # noqa: E731
         ens = PhysicsEnsemble(experts, mode="select", residual_fn=res_fn, residual_lookahead=lookahead,
-                              cost_weight=cost_weight, router=router, prediction_checks=checks)
+                              cost_weight=cost_weight, router=router, prediction_checks=checks,
+                              error_tolerance=cfg.error_tolerance, error_context=lambda q: q["filter"])
         rec: dict[str, list] = {k: [] for k in ("active", "error", "spec_err", "expert_errors", "weights", "awake",
                                                 "failed", "escalated", "policy_cost", "pred")}
         for k, q in enumerate(queries):

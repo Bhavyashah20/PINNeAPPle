@@ -32,7 +32,8 @@ width and filter drawn per query):
 A. original, scale-blind: the nine base experts; past errors + residual look-ahead (as in
    ``five_model_families_gif.py``); every output filtered with the requested filter, whatever it already carries;
 B. + scale-aware selection: :class:`~pinneapple_physics.multiscale.ScaleAwareRouter` (declared scales, filter
-   realizability, Re range, fidelity ladder surrogate -> LES -> DNS); outputs post-filtered only where realizable;
+   realizability, Re range, fidelity ladder surrogate -> LES -> DNS, escalating also when a rung's last error at
+   the requested width exceeds 25 %); outputs post-filtered only where realizable;
 C. + closure and consistency checks: closure health of each LES (enstrophy growth, spectral tail, Germano identity)
    as prediction checks with escalation, and the residual of the filtered equations with the subfilter term removed;
 D. + scale-linking models: SC-FNO and LES-learned.
@@ -95,11 +96,12 @@ SURROGATES = {                                # name: (Re band, filter of its ou
 SC_WIDTHS = (2, 4, 8)                         # trained widths of the scale-linking FNOs (6h is held out)
 BASE = ["FNO", "CNN", "DeepONet", "GNN", "PINN", "LES-Smagorinsky", "LES-dynamic", "LES-gradient", "DNS-128"]
 LINK = ["SC-FNO", "LES-learned"]
+TOLERANCE = 0.25                              # accepted relative error before the ladder escalates
 CONFIGS = dict(zip(DEFAULT_CONFIGS, (
     EnsembleConfig(aware=False, router=False, checks=False, experts=tuple(BASE)),
-    EnsembleConfig(aware=True, router=True, checks=False, experts=tuple(BASE)),
-    EnsembleConfig(aware=True, router=True, checks=True, experts=tuple(BASE)),
-    EnsembleConfig(aware=True, router=True, checks=True, experts=tuple(BASE + LINK)),
+    EnsembleConfig(aware=True, router=True, checks=False, experts=tuple(BASE), error_tolerance=TOLERANCE),
+    EnsembleConfig(aware=True, router=True, checks=True, experts=tuple(BASE), error_tolerance=TOLERANCE),
+    EnsembleConfig(aware=True, router=True, checks=True, experts=tuple(BASE + LINK), error_tolerance=TOLERANCE),
 ), strict=True))
 
 

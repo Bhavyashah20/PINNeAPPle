@@ -160,7 +160,10 @@ class PhysicsEnsemble:
     its weight learns from the failure); the others are tilted by ``score ** check_strength``. When every awake
     expert fails, the router's ``escalate_from(query, names, failed)`` (a fidelity ladder, see
     :class:`pinneapple_physics.multiscale.ScaleAwareRouter`) gives the experts to use instead, which are checked in
-    turn."""
+    turn. ``error_tolerance``: an expert whose last reference error in the same context (``error_context(query)``,
+    e.g. the requested scale; one context if None) is above it fails the checks for this case too, so a fidelity
+    ladder escalates when the cheap rung is not accurate enough; it is still scored and comes back once its error
+    is within the tolerance again."""
 
     def __init__(self, experts: Sequence[Expert] | Mapping[str, Callable], mode: str = "combine",
                  etas: Sequence[float] = (0.5, 2.0, 8.0), alphas: Sequence[float] = (0.0, 0.01, 0.05),
@@ -172,7 +175,8 @@ class PhysicsEnsemble:
                  lookahead_window: int = 10, residual_baseline: Mapping[str, float] | None = None,
                  lookahead_persistence: int = 1, measurement_check: Callable[[Any], bool] | None = None,
                  router: Any = None, prediction_checks: Mapping[str, Callable] | Callable | None = None,
-                 check_threshold: float = 0.5, check_strength: float = 1.0):
+                 check_threshold: float = 0.5, check_strength: float = 1.0, error_tolerance: float | None = None,
+                 error_context: Callable[[Any], Any] | None = None):
         if isinstance(experts, Mapping):
             experts = [from_callable(n, f) for n, f in experts.items()]
         if len(experts) < 2:
@@ -213,6 +217,8 @@ class PhysicsEnsemble:
         self.router = router
         self.prediction_checks = prediction_checks
         self.check_threshold, self.check_strength = float(check_threshold), float(check_strength)
+        self.error_tolerance, self.error_context = error_tolerance, error_context
+        self._ctx_err: dict[tuple, float] = {}                        # (expert, context) -> last reference error
 
     # ------------------------------------------------------------------------------------------ prediction
     def weights(self) -> dict[str, float]:
@@ -269,7 +275,7 @@ class PhysicsEnsemble:
             raise RuntimeError("every expert failed on this query")
         ok = [i for i in ok_all if awake[i]] or ok_all                # asleep experts are run (scored) but not used
         check_out, failed, escalated = {}, [], False
-        if self.prediction_checks is not None:
+        if self.prediction_checks is not None or self.error_tolerance is not None:
             ok, w, awake, check_out, failed, escalated = self._run_checks(query, preds, ok, ok_all, w, w_learned,
                                                                            prior, awake)
         stack = np.stack([preds[i] for i in ok])
@@ -326,7 +332,7 @@ class PhysicsEnsemble:
             out["prior"] = dict(zip(self.names, prior.tolist(), strict=True))
             out["awake"] = dict(zip(self.names, awake.tolist(), strict=True))
             out["escalate"] = bool(self.router.escalate(query, self.names)) if hasattr(self.router, "escalate") else False
-        if self.prediction_checks is not None:
+        if self.prediction_checks is not None or self.error_tolerance is not None:
             out["checks"] = check_out
             out["failed_checks"] = [self.names[i] for i in failed]
             out["escalated_by_checks"] = escalated
@@ -336,8 +342,17 @@ class PhysicsEnsemble:
                       "suspect": suspect, "awake": awake, "failed": set(failed)}
         return out
 
+    def _context(self, query: Any) -> Any:
+        return self.error_context(query) if self.error_context is not None else None
+
     def _check(self, i: int, pred: np.ndarray, query: Any) -> tuple[float, str] | None:
+        if self.error_tolerance is not None:
+            e = self._ctx_err.get((i, self._context(query)))
+            if e is not None and e > self.error_tolerance:
+                return 0.0, f"last error in this context {e:.3g} above the tolerance {self.error_tolerance:.3g}"
         pc = self.prediction_checks
+        if pc is None:
+            return None
         if isinstance(pc, Mapping):
             fn = pc.get(self.names[i])
             r = fn(pred, query) if fn is not None else None
@@ -409,6 +424,10 @@ class PhysicsEnsemble:
             err = np.array([relative_l2(p, ref, self.point_weights) if p is not None else np.inf for p in preds])
             loss += np.minimum(err, self.clip)
             info["errors"] = err
+            if self.error_tolerance is not None:
+                ctx = self._context(query)
+                for i in last["evaluated"]:
+                    self._ctx_err[(i, ctx)] = float(err[i])
             info["ensemble_error"] = relative_l2(last["y"], ref, self.point_weights)
             if self.alpha_t is not None:
                 denom = last["spread"] + 1e-3 * last["scale"]

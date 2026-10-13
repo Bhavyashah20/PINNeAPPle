@@ -245,13 +245,15 @@ def test_router_ladder_escalates_with_scale_and_reports_not_covered():
     names = [p.name for p in PROFILES]
     aw = r.awake(ScaleQuery(Filter("gaussian", 8 * H), re=3e3), names)
     assert aw["surrogate_coarse"] and aw["surrogate_fine"] and not aw["les"] and not aw["dns"]
-    aw = r.awake(ScaleQuery(Filter("sharp", 2.5 * H), re=3e3), names)   # surrogates' Gaussians cannot give this
+    aw = r.awake(ScaleQuery(Filter("sharp", 2.5 * H), re=3e3), names)   # mild deconvolution of the 2h Gaussian
+    assert aw["surrogate_fine"] and not aw["surrogate_coarse"] and not aw["les"]
+    aw = r.awake(ScaleQuery(Filter("sharp", 2.5 * H), re=5e4), names)   # surrogates outside their Re range
     assert aw["les"] and not aw["surrogate_fine"] and not aw["dns"]
     aw = r.awake(ScaleQuery(Filter("sharp", H), re=3e3), names)
     assert aw == {"surrogate_coarse": False, "surrogate_fine": False, "les": False, "dns": True}
     route = r.route(ScaleQuery(Filter("sharp", H / 4), re=3e3), names=names)
     assert route.chosen is None and "not covered" in route.reasons[0]
-    assert r.escalate_from(ScaleQuery(Filter("sharp", 2.5 * H), re=3e3), names, ["les"]) == \
+    assert r.escalate_from(ScaleQuery(Filter("sharp", 2.5 * H), re=5e4), names, ["les"]) == \
         {"surrogate_coarse": False, "surrogate_fine": False, "les": False, "dns": True}
 
 
@@ -262,7 +264,7 @@ def test_ensemble_with_scale_router_and_failing_check_escalates_to_solver():
                for i, n in enumerate(names)]
     ens = PhysicsEnsemble(experts, mode="select", router=ScaleAwareRouter(PROFILES),
                           prediction_checks={"les": lambda p, q: (0.0, "closure check failed")})
-    q = ScaleQuery(Filter("sharp", 2.5 * H), re=3e3)
+    q = ScaleQuery(Filter("sharp", 2.5 * H), re=5e4)
     out = ens.predict(q)
     assert out["active"] == "dns" and out["escalated_by_checks"] and out["failed_checks"] == ["les"]
     ens.update(q, truth(q))
@@ -410,3 +412,22 @@ def test_learned_benchmark_models():
     got = (pinn.tendency(torch.tensor(c, dtype=torch.float32), torch.tensor([[nu]])).numpy().astype(float)
            @ fourier_basis(low_modes(2), 32)).reshape(32, 32)
     np.testing.assert_allclose(got, expected, atol=1e-4 * np.abs(expected).max())
+
+
+def test_error_tolerance_escalates_and_returns():
+    names = [p.name for p in PROFILES]
+    bad = {"v": 0.5}
+    experts = [from_callable(n, (lambda n: lambda q: np.full(4, 1.0) + (bad["v"] if n.startswith("surrogate") else 0.0))(n))
+               for n in names]
+    ens = PhysicsEnsemble(experts, mode="select", router=ScaleAwareRouter(PROFILES), error_tolerance=0.2,
+                          error_context=lambda q: q.filter.delta)
+    q = lambda: ScaleQuery(Filter("gaussian", 8 * H), re=3e3)  # noqa: E731
+    assert ens.predict(q())["active"].startswith("surrogate")      # no error known yet: cheapest rung
+    ens.update(reference=np.ones(4))
+    out = ens.predict(q())
+    assert out["active"] in ("les", "dns") and out["escalated_by_checks"]
+    ens.update(reference=np.ones(4))
+    bad["v"] = 0.0                                                  # surrogates good again: they are still scored
+    ens.predict(q())
+    ens.update(reference=np.ones(4))
+    assert ens.predict(q())["active"].startswith("surrogate")
