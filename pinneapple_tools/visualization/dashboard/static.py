@@ -243,9 +243,10 @@ def write_png(db: Dashboard, path: str, k: int | None = None, size=(1920, 1080),
     return path
 
 
-def write_gif(path: str, frames, fps: float, colors: int = 192, loop: int = 0) -> str:
-    """Animated GIF of RGB ``frames`` with one shared adaptive palette (built from a few frames spread over the
-    clip) and frame differencing: after the first frame, pixels whose palette index did not change are written as
+def write_gif(path: str, frames, fps: float, colors: int = 255, loop: int = 0) -> str:
+    """Animated GIF of RGB ``frames`` with one shared adaptive palette (octree quantisation of a few frames spread
+    over the clip, which keeps small areas of distinct colour -- chart lines, a colour bar -- that a median cut
+    merges away) and frame differencing: after the first frame, pixels whose palette index did not change are written as
     one transparent index, so the static parts of a dashboard (and the still areas of the picture) cost almost
     nothing."""
     from PIL import Image
@@ -253,7 +254,7 @@ def write_gif(path: str, frames, fps: float, colors: int = 192, loop: int = 0) -
     colors = int(np.clip(colors, 2, 255))                 # one index stays free for transparency
     pick = frames[:: max(1, len(frames) // 6)][:6]
     mosaic = Image.fromarray(np.concatenate(pick, 0))
-    pal = mosaic.quantize(colors=colors, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    pal = mosaic.quantize(colors=colors, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
     palette = pal.getpalette()[: 3 * colors] + [0, 0, 0] * (256 - colors)
     clear = colors                                        # the transparent index
     ims, prev = [], None
@@ -271,7 +272,7 @@ def write_gif(path: str, frames, fps: float, colors: int = 192, loop: int = 0) -
 
 def write_video(db: Dashboard, gif: str | None = None, mp4: str | None = None, *, fps: int = 12, size=(1920, 1080),
                 gif_size=(1280, 720), gif_every: int = 1, dpi: int = 100, frames=None, progress=None,
-                gif_font_scale: float | None = None, gif_colors: int = 192, mp4_quality: int = 8) -> dict:
+                gif_font_scale: float | None = None, gif_colors: int = 255, mp4_quality: int = 8) -> dict:
     """GIF and/or MP4 (H.264, ``size``) of the dashboard over ``frames`` (default all). The GIF keeps every
     ``gif_every``-th frame at the same playback speed. With ``gif_font_scale`` the GIF is laid out natively at
     ``gif_size`` with the text scaled by that factor (readable on small screens and social feeds); otherwise its

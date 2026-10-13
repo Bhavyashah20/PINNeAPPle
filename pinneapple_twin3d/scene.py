@@ -11,8 +11,9 @@ Export layout (one folder, static files, served by anything)::
 
 Geometry goes to glTF because it is the interchange format every 3D tool reads; fields stay
 out of the glTF (a transient field is a (time, vertex) array, which glTF has no standard slot
-for) and are addressed per part and per time step in the manifest. OpenUSD export is on the
-roadmap (``ROADMAP.md`` §11) for the CAD -> sim -> twin thread.
+for) and are addressed per part and per time step in the manifest. ``export(usd=True)`` also writes
+OpenUSD (``usd.py``), including UsdPhysics rigid bodies / colliders / materials declared with
+``add_physics`` and ``set_gravity``.
 """
 from __future__ import annotations
 
@@ -36,6 +37,37 @@ class Part:
     color: Sequence[float] = (0.75, 0.77, 0.8)
     fields: dict[str, np.ndarray] = field(default_factory=dict)  # name -> (V,) or (T, V)
     motion: np.ndarray | None = None  # (T, 7): position (3) + quaternion (w, x, y, z) per time step
+    physics: "PhysicsProps | None" = None  # rigid body / collider / material, exported as UsdPhysics
+
+
+@dataclass
+class PhysicsMaterial:
+    """Contact material (UsdPhysics ``PhysicsMaterialAPI``)."""
+    name: str
+    static_friction: float = 0.5
+    dynamic_friction: float = 0.5
+    restitution: float = 0.0
+    density: float | None = None  # kg/m^3; used for mass when the body gives none
+
+
+@dataclass
+class PhysicsProps:
+    """How a part takes part in a physics simulation (OpenUSD ``UsdPhysics``).
+
+    ``rigid_body=False`` with ``collider=True`` is a static collider (floor,
+    wall). ``kinematic=True`` makes the body follow its recorded motion
+    (``Scene.add_motion``) instead of being integrated -- the right choice
+    when a twin replays measured or simulated poses."""
+    rigid_body: bool = True
+    collider: bool = True
+    kinematic: bool = False
+    mass: float | None = None             # kg
+    density: float | None = None          # kg/m^3
+    center_of_mass: Sequence[float] | None = None
+    approximation: str = "convexHull"     # none | convexHull | convexDecomposition | boundingSphere | boundingCube | meshSimplification
+    material: PhysicsMaterial | None = None
+    velocity: Sequence[float] | None = None          # initial linear velocity
+    angular_velocity: Sequence[float] | None = None  # initial angular velocity, deg/s (USD convention)
 
 
 @dataclass
@@ -62,6 +94,7 @@ class Scene:
         self.parts: list[Part] = []
         self.sensors: list[Sensor] = []
         self.field_units: dict[str, str] = {}
+        self.gravity: tuple[float, float, float] | None = None  # m/s^2 vector; None -> no PhysicsScene
 
     # -- building ------------------------------------------------------
     def add_part(self, name: str, vertices, faces, *, group: str = "", color=(0.75, 0.77, 0.8)) -> Part:
@@ -106,6 +139,36 @@ class Scene:
             raise ValueError(f"motion of '{part}': one position and one quaternion per scene time step")
         q = q / np.linalg.norm(q, axis=1, keepdims=True)
         p.motion = np.concatenate([pos, q], 1)
+
+    _APPROX = ("none", "convexHull", "convexDecomposition", "boundingSphere", "boundingCube", "meshSimplification")
+
+    def set_gravity(self, gravity=(0.0, 0.0, -9.81)) -> None:
+        """Declare a physics scene (USD ``PhysicsScene``) with this gravity vector in m/s^2."""
+        g = tuple(float(c) for c in gravity)
+        if len(g) != 3:
+            raise ValueError("gravity must be a 3-vector")
+        self.gravity = g
+
+    def add_physics(self, part: str, *, rigid_body: bool = True, collider: bool = True,
+                    kinematic: bool = False, mass: float | None = None, density: float | None = None,
+                    center_of_mass=None, approximation: str = "convexHull",
+                    material: PhysicsMaterial | None = None, velocity=None,
+                    angular_velocity=None) -> PhysicsProps:
+        """Make a part a rigid body and/or collider for Omniverse / Isaac Sim / any UsdPhysics engine."""
+        p = self._part(part)
+        if approximation not in self._APPROX:
+            raise ValueError(f"approximation must be one of {self._APPROX}")
+        for name, val in (("mass", mass), ("density", density)):
+            if val is not None and val <= 0:
+                raise ValueError(f"{name} must be positive")
+        if kinematic and not rigid_body:
+            raise ValueError("kinematic applies to rigid bodies only")
+        if material is not None and not (0 <= material.restitution <= 1):
+            raise ValueError("restitution must be in [0, 1]")
+        vec = lambda v: None if v is None else tuple(float(c) for c in v)  # noqa: E731
+        p.physics = PhysicsProps(rigid_body, collider, kinematic, mass, density, vec(center_of_mass),
+                                 approximation, material, vec(velocity), vec(angular_velocity))
+        return p.physics
 
     def add_sensor(self, id: str, position, *, label: str = "", unit: str = "", quantity: str = "",
                    series=None, envelope=None) -> Sensor:

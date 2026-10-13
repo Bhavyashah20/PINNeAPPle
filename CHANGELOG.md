@@ -33,6 +33,53 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   - `publish_to_hub.py --staging DIR` and `--verify --allow-unpublished`.
   - A `staging_ref` input in the publish workflow.
   - Hub cards now end with a citation section (PINNeAPPle, Zenodo DOI 10.5281/zenodo.23343062).
+- Rover dashboard with a semi-transparent stress map and the zoo PINN:
+  - `SurfaceView(field_glow=..., far_field=...)`: a field map can sit semi-transparently on the shaded 3-D relief
+    (`field_glow=0` is a pure albedo tint, so rut geometry, grouser marks and Sun shading show through) and continue
+    onto the far grid; `vehicle.viz.frame_view` and `vehicle.dashboard.render_frames` take `field_alpha` and
+    `field_glow`.
+  - `terramechanics.surrogate.ZooContactSurrogate` gives a model-zoo contact model the `ContactSurrogate` interface;
+    `vehicle_dashboard` accepts zoo models directly and lists the model, its held-out error and its error along the
+    run.
+  - `examples/studio/07_lunar_rover_dashboard.py` uses `pp.zoo.load("rover_contact_grc1_viper")` and colours the
+    ruts by normal stress at 0.6 opacity with a kPa colour bar.
+- Colab notebooks in `notebooks/colab/`, each self-contained (the first cell installs `pinneapple>=0.7.0` and picks
+  the GPU, a parameter cell sets the sizes): a first PINN with its physics checks, an airfoil surrogate from
+  `pp.zoo` validated against stored OpenFOAM runs, an equal-budget benchmark, the lunar rover terramechanics
+  dashboard as a GIF, and a "verify a model" notebook where the trust card catches bad predictions. `scripts/run_colab_notebooks.py` runs
+  them headless (`--smoke` for tiny sizes) and checks that the committed copies carry no outputs; a CI job runs them
+  in smoke mode. "Open in Colab" badges in the README and the docs (Guides > Colab notebooks).
+- `pp.trust_card` (`pinneapple_analysis.trust.field_card`): physics checks of any field on a grid with NumPy only
+  (finite values, PDE residual of Laplace / Poisson / heat by finite differences, Dirichlet boundary values per face,
+  conservation by the divergence theorem, maximum principle, reference error, applicability against the training
+  bounds), turned into the deploy decision of `TrustReport` (APPROVED / REVIEW / REJECT) and the six questions of the
+  lab trust card.
+- `AGENTS.md` for coding agents (what the library is, the APIs to use first, how to validate any result, layout,
+  tests, what never to do), with `GEMINI.md` and `CLAUDE.md` pointing to it; `tests/test_agents_md.py` runs every
+  Python block in it.
+- MCP server `pinneapple-mcp` (`pinneapple_mcp`, extra `pinneapple[mcp]`, MCP Python SDK 1.x or 2.x, stdio): tools
+  `capabilities`, `list_methods` / `describe_method` (with the catalog's validation status), `list_presets`,
+  `solve` and `benchmark` (equal training budget) as jobs with a trust card per result, `trust_card` for any field
+  or file, `zoo_list` / `zoo_predict` / `zoo_validate` for the model zoo, and `job_status` / `list_jobs` /
+  `cancel_job`. Problems are JSON (a preset or a box problem whose values are safely parsed expressions);
+  results are saved under a working directory and returned as paths; jobs run in a separate process with a
+  wall-time limit, a memory limit and the network switched off. Added to `.mcp.json`; set-up for Gemini
+  CLI, Claude Code, Cursor, Codex and a Colab cell in `docs/guides/mcp_server.md`.
+- Latent surrogate with a trust card (`pinneapple_neural.architectures.rom.TrustedLatentSurrogate`): wraps a POD
+  latent model (`ParametricPOD`) with three per-query checks calibrated on held-out designs — a normalised
+  split-conformal bound on the relative field error (Gaussian-process spread or a bootstrap ensemble of latent
+  regressors), a conformal p-value of the distance to the training designs (design envelope), and an optional
+  physics residual of the decoded field — and returns the library's `TrustReport` (APPROVED / REVIEW / REJECT).
+  Example `examples/latent/trusted_latent_surrogate.py` (2-D advection-diffusion-reaction, every answer checked
+  against a full solve). Guide: `docs/guides/trusted_latent_surrogate.md`.
+- Physics-residual false-data-injection detection for cyber-physical systems (`pinneapple_security.cps`): grey-box
+  residual components (`MassBalance`, `FlowLaw`) whose constants are identified from trusted data, a per-channel
+  CUSUM detector calibrated to a false-alarm budget, localisation of the broken balance, ROC AUC and episode metrics.
+  Reproducible benchmark `pinneapple_security.cps_bench` (three-tank water network, six attacks, data-driven
+  baselines: autoregressive twin, PCA Q statistic, isolation forest; nominal and shifted operating regimes).
+  Example `examples/security/02_physics_residual_fdi.py`. Guide: `docs/guides/physics_residual_attack_detection.md`.
+- Evaluation of latent-space methods and new cybersecurity applications, ranked, with a roadmap:
+  `docs/dev/LATENT_AND_CYBER_EVALUATION.md`.
 - Geometry library `pp.geometries` (`pinneapple_design.geometry_library`): 17 realistic parametric 3-D geometries
   for Physics-AI, each with the code that regenerates it and ready-made files. Uniform API: `list()`, `info(name)`
   (dimensions, units, parameters with ranges, sources of the real-world numbers with estimates flagged, frame,
@@ -59,6 +106,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   surrogate with conformal bands and a trust verdict; black-hole lensing of the real sky. Validated against USNO NOVAS,
   JPL Horizons, the USNO almanac, NASA eclipse predictions and skyfield (`validation.run_all()`). Extra `sky`.
   Docs: `docs/core_concepts/astro.md`.
+- PINNeAPPle Observatory app (`apps/observatory`): the sky and the solar system now from the visitor's location in
+  3-D (three.js), with satellites, astrophysics analyses, the orbit surrogate with its checks, and the validation table;
+  deploy service `observatory` (`OBS_DOMAIN`). Guide: `docs/guides/observatory.md`.
 - `pinneapple check`, a physics linter for CI (`pinneapple_check`; also `python -m pinneapple.check`): fails when a
   simulation result or a Physics-AI model violates physics. 29 rules with ids, explanations and fix hints
   (`--list-rules`, `--explain PC101`): conservation of mass, energy and momentum, divergence, conserved totals in
@@ -136,6 +186,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   exponent lags the wheel's slip over `sink_length` (0.15 m) of rim travel.
 - **Behavior:** `vehicle.dashboard.render_frames` and `vehicle_dashboard` default to the geometry-only view (no
   stress colour map, no colour bar); pass `field=` / `field_label=` for the overlay.
+
+### Fixed
+- Geometry library: `build()` snaps vertices to a 0.1 um grid, so the files rebuilt on another machine (the Hub
+  publishing job) are bit-identical to the manifest; the publishing job pins the NumPy / SciPy / manifold3d
+  versions the manifest was generated with. All files and the manifest were regenerated. The self-intersection
+  check measures distances about each triangle pair's centre with a size-relative tolerance (no false hits on flat
+  caps far from the origin or on nearly parallel neighbours).
 
 ## [0.7.0] - 2026-10-13
 

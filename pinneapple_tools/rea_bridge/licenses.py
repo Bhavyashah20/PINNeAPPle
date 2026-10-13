@@ -48,6 +48,14 @@ _COPYLEFT = {
 # (SPDX id, regex over the normalised license text). Order matters: the more
 # specific texts (LGPL, AGPL) must be tested before their substrings (GPL).
 _TEXT_RULES: List[Tuple[str, str]] = [
+    # Short "notice" form used at the top of many LICENSE files ("... under the
+    # terms of the GNU Lesser General Public License as published by the Free
+    # Software Foundation, either version 3 ...").
+    ("AGPL-3.0", r"gnu affero general public license as published by the free software foundation,? either version 3"),
+    ("LGPL-3.0", r"gnu lesser general public license as published by the free software foundation,? either version 3"),
+    ("LGPL-2.1", r"gnu lesser general public license as published by the free software foundation,? either version 2\.1"),
+    ("GPL-3.0", r"gnu general public license as published by the free software foundation,? either version 3"),
+    ("GPL-2.0", r"gnu general public license as published by the free software foundation,? either version 2"),
     ("AGPL-3.0", r"gnu affero general public license"),
     ("LGPL-3.0", r"gnu lesser general public license\s+version 3"),
     ("LGPL-2.1", r"gnu lesser general public license\s+version 2\.1"),
@@ -66,7 +74,7 @@ _TEXT_RULES: List[Tuple[str, str]] = [
     ("Unlicense", r"this is free and unencumbered software released into the public domain"),
 ]
 
-_LICENSE_FILES = re.compile(r"^(licen[sc]e|copying|copyright)([._-].*)?$", re.I)
+_LICENSE_FILES = re.compile(r"^((licen[sc]e|copying|copyright)([._-].*)?|[al]?gpl[-_.].*)$", re.I)
 
 
 @dataclass(frozen=True)
@@ -107,13 +115,30 @@ def policy_for(spdx_ids: Iterable[str]) -> LicensePolicy:
     return LicensePolicy(pol, ids, pol != "reference_only", reason)
 
 
+_ALIASES = {
+    "gpl3": "GPL-3.0", "gplv3": "GPL-3.0", "gpl-3": "GPL-3.0", "gpl v3": "GPL-3.0",
+    "gpl2": "GPL-2.0", "gplv2": "GPL-2.0", "lgpl3": "LGPL-3.0", "lgplv3": "LGPL-3.0",
+    "lgpl2.1": "LGPL-2.1", "lgplv2.1": "LGPL-2.1", "mit license": "MIT",
+    "apache 2.0": "Apache-2.0", "apache-2": "Apache-2.0", "apache license 2.0": "Apache-2.0",
+    "bsd-3": "BSD-3-Clause", "bsd 3-clause": "BSD-3-Clause", "bsd-2": "BSD-2-Clause",
+}
+
+
+def _alias(declared: str) -> str:
+    """Map common free-text manifest values to SPDX ids; unknown text is
+    kept as-is (and therefore treated as ``reference_only``)."""
+    s = declared.strip()
+    s2 = re.sub(r"[-_ ](only|or-later)$", "", s, flags=re.I)
+    return _ALIASES.get(s2.lower(), s)
+
+
 def _normalise(text: str) -> str:
     return re.sub(r"\s+", " ", text.lower())
 
 
 def detect_licenses(root: str | Path, *, max_bytes: int = 200_000) -> List[str]:
     """SPDX ids recognised in the license files at the top of ``root``
-    (plus ``package.json``/``pyproject.toml`` declarations)."""
+    (plus ``package.json``/``pyproject.toml``/``setup.py`` declarations)."""
     root = Path(root)
     found: List[str] = []
     _seen_in: dict = {}
@@ -138,12 +163,14 @@ def detect_licenses(root: str | Path, *, max_bytes: int = 200_000) -> List[str]:
     if any(f.startswith("LGPL") for f in found):
         found = [f for f in found if not f.startswith("GPL")]
     for manifest, pattern in (("package.json", r'"license"\s*:\s*"([^"]+)"'),
-                              ("pyproject.toml", r'^license\s*=\s*"([^"]+)"')):
+                              ("pyproject.toml", r'^license\s*=\s*"([^"]+)"'),
+                              ("setup.py", r"""license\s*=\s*["']([^"']+)["']""")):
         f = root / manifest
         if f.is_file():
             m = re.search(pattern, f.read_text(errors="replace"), re.M)
-            if m and m.group(1) not in found:
-                found.append(m.group(1))
+            spdx = _alias(m.group(1)) if m else None
+            if spdx and spdx not in found:
+                found.append(spdx)
     return found
 
 

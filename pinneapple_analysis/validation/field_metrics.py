@@ -10,6 +10,8 @@ model can be compared with published PDEBench numbers:
 ``crmse``     error of the spatial *mean* (conserved-quantity error)
 ``brmse``     RMSE restricted to the boundary faces of the box
 ``frmse``     RMSE split into low / mid / high radial-wavenumber bands
+``vrmse``     RMSE / std(target) -- The Well's headline metric (variance-scaled)
+``pearson``   spatial Pearson correlation between prediction and target
 
 Definitions follow PDEBench (Takamoto et al., NeurIPS 2022 Datasets &
 Benchmarks; code ``pdebench/models/metrics.py``, MIT), adapted:
@@ -26,6 +28,12 @@ Benchmarks; code ``pdebench/models/metrics.py``, MIT), adapted:
   resolutions.
 - **Boundary RMSE** averages over every boundary node once per face, as in
   PDEBench, for any dimension.
+
+``vrmse`` and ``pearson`` follow The Well (Ohana et al., NeurIPS 2024 Datasets &
+Benchmarks; ``the_well/benchmark/metrics/spatial.py``, BSD-2-Clause), so
+numbers can be compared with its leaderboard: VRMSE = sqrt(MSE / Var(target)),
+computed per sample/channel/time and then averaged. Unlike nRMSE it does not
+reward predicting the mean of a field with a large offset.
 
 Layout: arrays are ``(..., *space)`` -- any leading axes (batch, time,
 channel) followed by ``ndim`` spatial axes.
@@ -51,6 +59,8 @@ class FieldErrorReport:
     frmse_mid: float
     frmse_high: float
     bands: Tuple[int, int]
+    vrmse: float = float("nan")
+    pearson: float = float("nan")
 
     def to_dict(self) -> Dict[str, float]:
         return asdict(self)
@@ -122,6 +132,12 @@ def field_error_metrics(pred: np.ndarray, target: np.ndarray, *, ndim: int,
         sel = per_shell[..., a:b]
         return float(sel.mean()) if sel.shape[-1] else 0.0
 
+    var_i = target.var(axis=axes)
+    vrmse_i = np.sqrt(err2.mean(axis=axes) / (var_i + eps))
+    pc = pred - pred.mean(axis=axes, keepdims=True)
+    tc = target - target.mean(axis=axes, keepdims=True)
+    pearson_i = (pc * tc).sum(axis=axes) / np.sqrt((pc ** 2).sum(axis=axes) * (tc ** 2).sum(axis=axes) + eps)
+
     return FieldErrorReport(
         rmse=float(rmse_i.mean()),
         nrmse=float((rmse_i / (nrm_i + eps)).mean()),
@@ -132,4 +148,6 @@ def field_error_metrics(pred: np.ndarray, target: np.ndarray, *, ndim: int,
         frmse_mid=band(i_low, i_high),
         frmse_high=band(i_high, per_shell.shape[-1]),
         bands=(i_low, i_high),
+        vrmse=float(vrmse_i.mean()),
+        pearson=float(pearson_i.mean()),
     )

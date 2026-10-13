@@ -127,3 +127,45 @@ def evaluate_posterior(pred, ref, pred_weights=None, ref_weights=None, *, n_proj
         "swd": sliced_wasserstein(sw_p, sw_r, wp, wr, n_projections=n_projections, seed=seed),
         "spectral_rel_geomean": spectral_relative_geomean(radial_power_spectrum(pred, wp), radial_power_spectrum(ref, wr)),
     }
+
+
+# ---------------------------------------------------------------------------
+# CRPS -- continuous ranked probability score (scoring rule for probabilistic
+# surrogates; the standard ensemble score in Earth-2 Studio / WeatherBench).
+# CRPS(F, y) = integral (F(x) - 1{x >= y})^2 dx; lower is better, it reduces
+# to |x - y| for a deterministic forecast and is in the units of y.
+# ---------------------------------------------------------------------------
+
+def crps_gaussian(mu, sigma, y) -> np.ndarray:
+    """Closed form for a Gaussian predictive N(mu, sigma^2) (Gneiting et al.,
+    Mon. Weather Rev. 133 (2005) 1098-1118, Eq. 5). Elementwise."""
+    from scipy.stats import norm
+    mu, sigma, y = np.broadcast_arrays(np.asarray(mu, float), np.asarray(sigma, float), np.asarray(y, float))
+    shape = mu.shape
+    mu, sigma, y = (np.atleast_1d(a).ravel() for a in (mu, sigma, y))
+    if np.any(sigma < 0):
+        raise ValueError("sigma must be non-negative")
+    out = np.abs(y - mu)
+    pos = sigma > 0
+    z = (y[pos] - mu[pos]) / sigma[pos]
+    out[pos] = sigma[pos] * (z * (2 * norm.cdf(z) - 1) + 2 * norm.pdf(z) - 1 / np.sqrt(np.pi))
+    return out.reshape(shape)
+
+
+def crps_ensemble(samples, y, *, fair: bool = False) -> np.ndarray:
+    """Ensemble CRPS, ``E|X - y| - 0.5 E|X - X'|`` with members on axis 0
+    (Gneiting & Raftery, JASA 102 (2007) 359-378, Eq. 21). ``fair=True``
+    uses the M(M-1) normalisation of the spread term (Ferro, QJRMS 2014),
+    unbiased for the CRPS of the distribution the members are drawn from.
+    Computed in O(M log M) per point through the sorted-member identity."""
+    x = np.sort(np.asarray(samples, float), axis=0)
+    m = x.shape[0]
+    if m < 1 or (fair and m < 2):
+        raise ValueError("not enough ensemble members")
+    y = np.asarray(y, float)
+    skill = np.abs(x - y[None]).mean(axis=0)
+    i = np.arange(1, m + 1).reshape((m,) + (1,) * (x.ndim - 1))
+    # sum_{i,j} |x_i - x_j| = 2 sum_i (2i - m - 1) x_(i)
+    pair_sum = 2 * ((2 * i - m - 1) * x).sum(axis=0)
+    spread = pair_sum / (m * (m - 1) if fair else m * m)
+    return skill - 0.5 * spread
