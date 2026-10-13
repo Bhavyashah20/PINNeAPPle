@@ -184,10 +184,52 @@ def test_zoo_contact_surrogate_adapter():
     assert P.shape == (3, 3)
     np.testing.assert_allclose(P[:, 0], m.predict(np.c_[s, z], warn=False)["Fx_N"])
     assert sur.in_range(s, z).tolist() == [True, True, False]
-    # against the model it was trained on (GRC-1 without slip-sinkage) it is accurate at low slip
+    # against the library's current GRC-1 model (the physics it was trained on) it is accurate, slip included
+    wr = WongReeceModel(get_soil("GRC-1"), viper().wheel)
+    c = compare_on_states(sur, wr, np.linspace(-0.3, 0.9, 40), np.full(40, 0.02))
+    assert c["errors_inside"]["Fx"]["rmse_N"] < 2.0
+
+
+def test_zoo_rover_model_matches_the_library_physics():
+    """Guard: the shipped rover contact model was trained on the library's current physics. A change of GRC-1, of
+    the VIPER wheel or of the Wong-Reece options without retraining (and a new zoo release) fails here."""
+    pytest.importorskip("torch")
+    from pinneapple_hub import zoo
+    from pinneapple_simulation.terramechanics.surrogate import (
+        PhysicsMismatchWarning,
+        ZooContactSurrogate,
+    )
+    from pinneapple_simulation.vehicle import viper
+    sur = ZooContactSurrogate(zoo.load("rover_contact_grc1_viper"))
+    wr = WongReeceModel(get_soil("GRC-1"), viper().wheel)
+    assert sur.physics is not None
+    assert sur.check_physics(wr) == []
+    card = zoo.info("rover_contact_grc1_viper")
+    assert card.data_lineage["physics"]["soil"]["n1"] == pytest.approx(get_soil("GRC-1").n1)
+    # a model of other physics is flagged, with the difference named
     wr0 = WongReeceModel(get_soil("GRC-1").with_(n1=0.0), viper().wheel)
-    c = compare_on_states(sur, wr0, np.linspace(-0.2, 0.3, 30), np.full(30, 0.015))
-    assert c["errors_inside"]["Fx"]["rmse_N"] < 1.0
+    with pytest.warns(PhysicsMismatchWarning, match="soil.n1"):
+        assert sur.check_physics(wr0) == ["soil.n1: 0.8 -> 0"]
+    # the superseded release stays listed, with the reason
+    vs = zoo.versions("rover_contact_grc1_viper")
+    assert vs[0]["status"] == "current" and vs[0]["version"] == card.version
+    old = [v for v in vs if v["version"] == "1.0.0"]
+    assert old and old[0]["status"] == "superseded" and "slip-sinkage" in old[0]["reason"]
+
+
+def test_physics_mismatch_and_superseded_entries():
+    from pinneapple_hub.zoo import _artifacts as art
+    from pinneapple_simulation.terramechanics import physics_mismatch
+    from pinneapple_simulation.vehicle import viper
+    cur = WongReeceModel(get_soil("GRC-1"), viper().wheel).physics_config()
+    assert physics_mismatch(cur, cur) == []
+    assert physics_mismatch(None, cur) == ["physics configuration not recorded"]
+    assert "model (not recorded)" in physics_mismatch({"R_m": 0.25}, cur)
+    e = art.entry("models", "rover_contact_grc1_viper", "1.0.0")
+    assert e["revision"] == "v1.0.0" and e["superseded_by"] and "bundled" not in e["files"]["weights.pt"]
+    assert e["hf_repo"] == art.entry("models", "rover_contact_grc1_viper")["hf_repo"]
+    with pytest.raises(KeyError):
+        art.entry("models", "rover_contact_grc1_viper", "0.0.1")
 
 
 def test_semi_transparent_overlay_keeps_the_shading():
@@ -205,3 +247,12 @@ def test_semi_transparent_overlay_keeps_the_shading():
     assert not np.allclose(plain, tinted)                                # and the map changes the colour
     view.field_glow = 0.55
     assert _field_blend(view, f)[1] is not None
+    # muted colours: saturation 0 leaves only the map's lightness (grey tint)
+    view.field_saturation, view.field_glow = 0.0, 0.0
+    t0, _ = _field_blend(view, f)
+    col = (t0 - (1 - view.field_alpha)) * np.asarray(view.albedo)          # the map colour the tint carries
+    assert np.allclose(col[..., 0], col[..., 1], atol=1e-6) and np.allclose(col[..., 1], col[..., 2], atol=1e-6)
+    from pinneapple_tools.visualization.dashboard import ColorBar
+    cb = ColorBar("x [kPa]", "inferno", 0.0, 1.0, saturation=0.5)
+    c, c1 = cb.colors(9), ColorBar("x", "inferno", 0.0, 1.0).colors(9)
+    assert c.shape == (9, 3) and np.ptp(c, axis=1).mean() < np.ptp(c1, axis=1).mean()

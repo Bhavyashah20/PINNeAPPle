@@ -23,7 +23,8 @@ import hashlib
 import io
 import re
 import zipfile
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 
@@ -39,9 +40,9 @@ FOAM_CONSTANT = {"transportProperties", "physicalProperties", "thermophysicalPro
                  "momentumTransport", "g", "thermophysicalTransport", "radiationProperties"}
 
 
-def read_upload(files: Sequence[Tuple[str, bytes]]) -> Dict[str, bytes]:
+def read_upload(files: Sequence[tuple[str, bytes]]) -> dict[str, bytes]:
     """Turn uploaded files (zips are expanded, with size limits) into {relative path: bytes}."""
-    fs: Dict[str, bytes] = {}
+    fs: dict[str, bytes] = {}
     total = 0
     for name, data in files:
         if name.lower().endswith(".zip") or data[:4] == b"PK\x03\x04":
@@ -75,7 +76,7 @@ def read_upload(files: Sequence[Tuple[str, bytes]]) -> Dict[str, bytes]:
     return fs
 
 
-def _virtual_foam(fs: Dict[str, bytes]) -> Dict[str, bytes]:
+def _virtual_foam(fs: dict[str, bytes]) -> dict[str, bytes]:
     """Loose OpenFOAM files (controlDict, log.simpleFoam, ...) placed into a case layout."""
     out = dict(fs)
     for k, v in fs.items():
@@ -102,11 +103,11 @@ def _sha(b: bytes) -> str:
 _ITER = re.compile(r"^(iter(ation)?s?|inner_iter|outer_iter|time_iter|time|step|it)$", re.I)
 
 
-def parse_residual_table(text: str) -> Optional[Dict[str, Any]]:
-    lines = [l for l in text.splitlines() if l.strip()]
+def parse_residual_table(text: str) -> dict[str, Any] | None:
+    lines = [ln for ln in text.splitlines() if ln.strip()]
     hdr_i = None
-    for i, l in enumerate(lines[:60]):
-        toks = [t.strip().strip('"').strip() for t in re.split(r"[,\t]|\s{2,}|\s(?=\")", l.lstrip("#").strip()) if t.strip()]
+    for i, ln in enumerate(lines[:60]):
+        toks = [t.strip().strip('"').strip() for t in re.split(r"[,\t]|\s{2,}|\s(?=\")", ln.lstrip("#").strip()) if t.strip()]
         if len(toks) >= 2 and any(_ITER.match(t.replace(" ", "_")) for t in toks) and \
                 not all(re.fullmatch(r"[-+.\deE]+", t) for t in toks):
             hdr_i, header = i, toks
@@ -114,8 +115,8 @@ def parse_residual_table(text: str) -> Optional[Dict[str, Any]]:
     if hdr_i is None:
         return None
     rows = []
-    for l in lines[hdr_i + 1:]:
-        p = [t.strip().strip('"') for t in re.split(r"[,\s]+", l.strip()) if t.strip()]
+    for ln in lines[hdr_i + 1:]:
+        p = [t.strip().strip('"') for t in re.split(r"[,\s]+", ln.strip()) if t.strip()]
         try:
             vals = [float(x) for x in p]
         except ValueError:
@@ -145,7 +146,7 @@ def parse_residual_table(text: str) -> Optional[Dict[str, Any]]:
 
 
 # ── main entry ──────────────────────────────────────────────────────────────
-def extract(fs: Dict[str, bytes]) -> Dict[str, Any]:
+def extract(fs: dict[str, bytes]) -> dict[str, Any]:
     if not fs:
         raise ValueError("No files.")
     files = [{"path": k, "bytes": len(v), "sha256": _sha(v) if v else None} for k, v in sorted(fs.items())]
@@ -170,11 +171,11 @@ def extract(fs: Dict[str, bytes]) -> Dict[str, Any]:
     return _clean(rec)
 
 
-def _openfoam_record(fs: Dict[str, bytes], root: str) -> Dict[str, Any]:
+def _openfoam_record(fs: dict[str, bytes], root: str) -> dict[str, Any]:
     case = openfoam.extract_case(fs, root)
     s = openfoam.summarise(case)
     log = s.pop("_log")
-    warnings: List[str] = []
+    warnings: list[str] = []
     if log is None:
         conv = {"status": "unknown", "reasons": ["No solver log in the upload: add log.<solver> to assess convergence."],
                 "recommendations": ["Run the solver with `| tee log.simpleFoam` (or foamJob) and include the log."]}
@@ -210,28 +211,14 @@ def _openfoam_record(fs: Dict[str, bytes], root: str) -> Dict[str, Any]:
             "warnings": warnings, "_used": case["files_used"]}
 
 
-def _monitors(fs: Dict[str, bytes], root: str) -> List[Dict[str, Any]]:
+def _monitors(fs: dict[str, bytes], root: str) -> list[dict[str, Any]]:
     out = []
     for k, v in fs.items():
         if not k.startswith(f"{root}postProcessing/") or not v or not k.endswith(".dat"):
             continue
-        t = v.decode("utf-8", errors="replace")
-        hdr = next((l for l in t.splitlines() if l.startswith("#") and "Time" in l), None)
-        if not hdr:
+        cols, a = openfoam.parse_dat(v.decode("utf-8", errors="replace"))
+        if not cols or cols[0] != "Time" or len(a) < 5:
             continue
-        cols = hdr.lstrip("#").split()
-        rows = []
-        for l in t.splitlines():
-            if l.startswith("#") or not l.strip():
-                continue
-            p = l.replace("(", " ").replace(")", " ").split()
-            try:
-                rows.append([float(x) for x in p[: len(cols)]])
-            except ValueError:
-                continue
-        if len(rows) < 5:
-            continue
-        a = np.array([r for r in rows if len(r) == len(cols)])
         for j, c in enumerate(cols[1:], start=1):
             y = a[:, j]
             tail = y[-max(5, len(y) // 10):]
@@ -242,7 +229,7 @@ def _monitors(fs: Dict[str, bytes], root: str) -> List[Dict[str, Any]]:
     return out[:20]
 
 
-def _calculix_record(fs: Dict[str, bytes], inps: List[str]) -> Dict[str, Any]:
+def _calculix_record(fs: dict[str, bytes], inps: list[str]) -> dict[str, Any]:
     texts = {k.rsplit("/", 1)[-1]: v.decode("utf-8", errors="replace") for k, v in fs.items() if v}
     included = set()
     for k in inps:
@@ -320,7 +307,7 @@ def _calculix_record(fs: Dict[str, bytes], inps: List[str]) -> Dict[str, Any]:
     return rec
 
 
-def _table_record(fs: Dict[str, bytes]) -> Dict[str, Any]:
+def _table_record(fs: dict[str, bytes]) -> dict[str, Any]:
     for k, v in fs.items():
         if not v or not k.lower().endswith((".csv", ".dat", ".out", ".txt", ".trn", ".log", ".tsv")):
             continue

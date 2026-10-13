@@ -134,17 +134,92 @@ MODELS = {
         "acceptance": {"test/R_mean_abs_pct": 2.0, "test/R_p95_abs_pct": 5.0, "test/dP_mean_abs_pct": 3.0},
         "card_tolerance": 1e-3,
     },
-    "rover_contact_grc1_viper": {
+    "heatsink_natural_mlp": {
         "version": "1.0.0",
+        "adapter": "heatsink_natural",
+        "dataset": "heatsink_natural_convection",
+        "task": "Plate-fin heat sink in natural convection (vertical fins, free air): base-to-air thermal resistance",
+        "description": (
+            "PINNeAPPle ModelRegistry 'bench_mlp' (4 x 128, SiLU) on log-scaled geometry, material and operating "
+            "variables, trained on 5000 solves of the HeatSink Sizer physics engine in natural convection (Bar-Cohen "
+            "& Rohsenow composite correlation, 3-D finite-volume base conduction) with monotonicity constraints: a "
+            "hinge penalty keeps d log R / d log k and d log R / d log(source width) negative on the training designs "
+            "and on random in-range designs (pinneapple_design.thermal.heatsink.monotone). Returns the resistance and "
+            "a split-conformal 95 % upper bound."),
+        "architecture": "bench_mlp",
+        "architecture_config": {"in_dim": 12, "out_dim": 1, "width": 128, "depth": 4, "act": "silu",
+                                "targets": ["log R"], "monotone": {"log_k": -1, "log_fw": -1}},
+        "inputs": [
+            {"name": "base_width_mm", "unit": "mm", "description": "base width (across the fins)"},
+            {"name": "base_depth_mm", "unit": "mm", "description": "base depth (fin length)"},
+            {"name": "base_thickness_mm", "unit": "mm", "description": "base plate thickness"},
+            {"name": "n_fins", "unit": "-", "description": "number of fins"},
+            {"name": "fin_thickness_mm", "unit": "mm", "description": "fin thickness"},
+            {"name": "fin_height_mm", "unit": "mm", "description": "fin height"},
+            {"name": "k_w_mk", "unit": "W/(m K)", "description": "material thermal conductivity"},
+            {"name": "source_width_mm", "unit": "mm", "description": "heat-source footprint width"},
+            {"name": "source_depth_mm", "unit": "mm", "description": "heat-source footprint depth"},
+            {"name": "t_ambient_c", "unit": "degC", "description": "ambient air temperature"},
+            {"name": "power_w", "unit": "W", "description": "dissipated power"}],
+        "outputs": [{"name": "r_base_k_w", "unit": "K/W", "description": "thermal resistance, base to ambient air"},
+                    {"name": "r_base_upper95_k_w", "unit": "K/W",
+                     "description": "split-conformal 95 % upper bound on r_base_k_w"}],
+        "validity_range": {"base_width_mm": [30.0, 200.0], "base_depth_mm": [30.0, 200.0],
+                           "base_thickness_mm": [2.0, 15.0], "fin_thickness_mm": [0.6, 4.0],
+                           "fin_height_mm": [8.0, 80.0], "k_w_mk": [150.0, 400.0], "source_frac_w": [0.15, 1.0],
+                           "source_frac_d": [0.15, 1.0], "t_ambient_c": [0.0, 50.0], "fin_gap_mm": [2.2, 30.6],
+                           "fin_gap_note": "gap sampled in 2.5-20 mm, then the fin count is rounded; the realised "
+                                           "gaps of the training designs span 2.2-30.6 mm",
+                           "power_w": [1.0, 80.0],
+                           "regime": "natural convection in free air, vertical fins, no radiation"},
+        "equations": ["Bar-Cohen & Rohsenow (1984) composite natural-convection correlation for vertical "
+                      "parallel plates", "3-D finite-volume conduction in the base (spreading resistance)"],
+        "reference_source": (
+            "750 held-out designs solved by the HeatSink Sizer physics engine (pinneapple_design.thermal.heatsink."
+            "engine). The engine is checked against independent methods: natural h vs Elenbaas (1942) 2 %, Lee et "
+            "al. spreading (1-5 %), FVM grid convergence < 2 %."),
+        "training_config": {"optimizer": "library Trainer, Adam lr 2e-3, batch 128, best-val checkpoint: 50 epochs of "
+                                         "plain regression, then 550 epochs with the hinge penalty (weight 100, "
+                                         "margin 5e-4 in d log R / d log x); then 4 rounds of full-batch L-BFGS on "
+                                         "the same constrained objective",
+                            "split": {"train": 3250, "val": 500, "cal": 500, "test": 750}, "seed": 0,
+                            "script": "scripts/zoo/train_heatsink_natural.py "
+                                      "(pinneapple_design.thermal.heatsink.monotone.train_monotone)"},
+        "data_lineage": {"dataset": "heatsink_natural_convection",
+                         "source": "apps/heatsink_sizer/artifacts/dataset_natural.json.gz"},
+        "known_limitations": [
+            "Natural convection without radiation: at low power, radiation can carry a comparable share of the heat "
+            "for black-anodised sinks; the reference does not model it.",
+            "Correlation-based reference (typical +-15 % against experiments); the surrogate's own error is against "
+            "the engine, not against a measurement.",
+            "The engine's resistance rises with power on 0.5 % of designs (non-monotone correlation blending); the "
+            "power law is checked on the model but not enforced in training.",
+            "Screening tool: re-verify a chosen design with the physics engine."],
+        "license": "apache-2.0",
+        "tags": ["heat transfer", "electronics cooling", "natural convection", "surrogate", "conformal",
+                 "monotone"],
+        "citation": ("PINNeAPPle contributors (2026). HeatSink Sizer natural-convection surrogate (monotone). "
+                     "PINNeAPPle model zoo, https://github.com/PINNeAPPle-Labs/PINNeAPPle"),
+        "guard_metrics": ["test/R_mean_abs_pct"],
+        "acceptance": {"test/R_mean_abs_pct": 2.0, "test/R_p95_abs_pct": 5.0},
+        "card_tolerance": 1e-3,
+    },
+    "rover_contact_grc1_viper": {
+        "version": "1.1.0",
+        "supersedes_reason": ("v1.0.0 was trained on GRC-1 without slip-sinkage (n1 = 0); the library's GRC-1 has "
+                              "n = n0 + n1 s with n1 = 0.8 since the slip-sinkage update, so v1.0.0 is not a surrogate of "
+                              "the current Wong-Reece model at driving slip"),
         "adapter": "rover_contact",
         "dataset": "rover_contact_grc1_viper",
         "task": "Wheel-soil contact forces of a rigid grousered wheel on lunar regolith simulant (terramechanics)",
         "description": (
             "Physics-informed surrogate (random-Fourier-feature residual tanh MLP, 4 blocks x 96) of the Wong-Reece "
             "rigid-wheel model for the NASA VIPER wheel (R 0.25 m, b 0.20 m, 24 grousers, parametric model from "
-            "public figures) on GRC-1 lunar simulant. Inputs slip and sinkage, outputs drawbar pull, normal load and "
-            "driving torque. Trained with soft constraints dFz/dz >= 0, dFx/ds >= 0 (slip <= 0.3), Mohr-Coulomb "
-            "traction limit and My >= R Fx."),
+            "public figures) on GRC-1 lunar simulant, with slip-sinkage (sinkage exponent n = n0 + n1 s, Ding et al. "
+            "2010/2011; GRC-1 n1 = 0.8). Inputs slip and sinkage, outputs drawbar pull, normal load and driving "
+            "torque. Trained with soft constraints dFz/dz >= 0, dFx/ds >= 0 (slip <= 0.3), Mohr-Coulomb traction "
+            "limit and My >= R Fx. The exact physics configuration it was trained on is recorded in data_lineage."
+            "physics and config.json (checked by ZooContactSurrogate.check_physics)."),
         "architecture": "contact_net",
         "architecture_config": {"hidden": 96, "depth": 4, "n_fourier": 16, "scale": 2.0, "seed": 0},
         "inputs": [{"name": "slip", "unit": "-", "description": "longitudinal slip ratio (negative = skid)"},
@@ -154,7 +229,9 @@ MODELS = {
                     {"name": "My_Nm", "unit": "N m", "description": "driving torque"}],
         "validity_range": {"slip": [-0.4, 0.9], "sinkage_m": [0.002, 0.06], "soil": "GRC-1 (pinneapple "
                            "terramechanics soil database)", "wheel": "VIPER wheel, R 0.25 m, b 0.20 m, 24 grousers",
-                           "slip_angle_deg": 0.0},
+                           "slip_angle_deg": 0.0,
+                           "physics": "Wong-Reece with slip-sinkage n = n0 + n1 s on driving slip (GRC-1: n0 0.8, "
+                                      "n1 0.8); steady state, so the slip that sets the exponent equals the slip"},
         "equations": ["Wong-Reece rigid wheel on deformable soil (Bekker pressure-sinkage, Janosi-Hanamoto shear)"],
         "reference_source": (
             "2000 held-out Latin-hypercube states (seed 1000, disjoint from training) of the Wong-Reece model "
@@ -168,8 +245,10 @@ MODELS = {
                                    "pinneapple_simulation.vehicle.viper().wheel)"},
         "known_limitations": [
             "Only as good as the Wong-Reece model: against published single-wheel tests the model's drawbar pull "
-            "RMSE is 4-14 N (digitised data), larger than the surrogate's own error (~0.2 N).",
-            "One soil and one wheel; zero slip angle (no lateral force); steady state."],
+            "RMSE is 4-14 N (digitised data), larger than the surrogate's own error.",
+            "One soil and one wheel; zero slip angle (no lateral force); steady state.",
+            "Slip-sinkage makes the forces kink at zero slip (the exponent grows only with driving slip); the "
+            "network smooths the kink over a small slip interval."],
         "license": "apache-2.0",
         "tags": ["terramechanics", "planetary rover", "PINN", "surrogate"],
         "citation": ("PINNeAPPle contributors (2026). Wheel-soil contact PINN surrogate (Wong-Reece, GRC-1, VIPER "
@@ -261,9 +340,11 @@ DATASETS = {
         "citation": "PINNeAPPle contributors (2026). HeatSink Sizer physics dataset.",
     },
     "rover_contact_grc1_viper": {
-        "version": "1.0.0",
+        "version": "1.1.0",
+        "supersedes_reason": "v1.0.0 was generated without slip-sinkage (GRC-1 n1 = 0); v1.1.0 uses n1 = 0.8",
         "title": "Wong-Reece wheel-soil contact forces, GRC-1 simulant, VIPER wheel",
-        "description": "Drawbar pull, normal load and torque of the Wong-Reece model over slip x sinkage.",
+        "description": ("Drawbar pull, normal load and torque of the Wong-Reece model (with slip-sinkage, GRC-1 "
+                        "n1 = 0.8) over slip x sinkage."),
         "license": "cc-by-4.0",
         "source": "pinneapple_simulation.terramechanics.WongReeceModel (scripts/zoo/build_assets.py)",
         "verification": (

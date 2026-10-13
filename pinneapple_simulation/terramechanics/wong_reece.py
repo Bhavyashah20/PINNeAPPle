@@ -131,6 +131,34 @@ class WongReeceModel:
         self.slip_sinkage = slip_sinkage
         self.n_gl = int(n_gl)
 
+    def physics_config(self) -> dict:
+        """Everything that sets this model's forces, as plain data: the soil (name and every parameter), the wheel,
+        gravity and the model options. A surrogate trained on the model records it (e.g. in a zoo model card), so a
+        later change of the library's physics can be detected with :func:`physics_mismatch`."""
+        S, W = self.soil, self.wheel
+        g = W.grousers
+        soil = {k: (float(v) if isinstance(v, (int, float)) else v) for k, v in
+                (("name", S.name), ("c", S.c), ("phi_deg", S.phi_deg), ("K", S.K), ("Ky", S.Ky), ("k_c", S.k_c),
+                 ("k_phi", S.k_phi), ("n0", S.n0), ("n1", S.n1), ("rho", S.rho), ("a0", S.a0), ("a1", S.a1),
+                 ("c3", S.c3), ("k_u0", S.k_u0), ("A_u", S.A_u))}
+        wheel = {"radius": float(W.radius), "width": float(W.width), "grouser_count": int(g.count),
+                 "grouser_height": float(g.height), "shear_radius_factor": float(g.shear_radius_factor)}
+        return {"model": "Wong-Reece", "soil": soil, "wheel": wheel, "g": self.g, "bulldozing": self.bulldozing,
+                "slip_sinkage": self.slip_sinkage}
+
+    @classmethod
+    def from_physics_config(cls, cfg: dict, n_gl: int = 24) -> WongReeceModel:
+        """The model a :meth:`physics_config` describes (e.g. the one recorded in a zoo model card)."""
+        from .soils import Soil
+        from .wheel import Grousers
+        sp = dict(cfg["soil"])
+        soil = Soil(sp.pop("name"), **sp)
+        w = cfg["wheel"]
+        g = Grousers(count=int(w["grouser_count"]), height=float(w["grouser_height"]),
+                     shear_radius_factor=float(w["shear_radius_factor"]))
+        return cls(soil, Wheel(radius=w["radius"], width=w["width"], grousers=g), g=cfg["g"],
+                   bulldozing=cfg["bulldozing"], slip_sinkage=cfg["slip_sinkage"], n_gl=n_gl)
+
     def sinkage_exponent(self, slip) -> np.ndarray:
         """Exponent of the pressure-sinkage law at ``slip``: ``n0 + n1 s`` (Ding et al. 2010, 2011), see
         ``slip_sinkage``."""
@@ -274,5 +302,30 @@ def slip_angle(v_long, v_lat, v_eps: float = 1e-3):
     return np.arctan2(np.asarray(v_lat, float), np.abs(np.asarray(v_long, float)) + v_eps)
 
 
+def physics_mismatch(recorded: dict | None, current: dict, rtol: float = 1e-9) -> list[str]:
+    """Keys (dotted paths) where a recorded :meth:`WongReeceModel.physics_config` differs from ``current``; a key the
+    recorded configuration lacks counts as a difference ("not recorded"). Empty list: same physics."""
+    if not recorded:
+        return ["physics configuration not recorded"]
+    out = []
+
+    def walk(a, b, path):
+        if isinstance(b, dict):
+            for k, v in b.items():
+                if not isinstance(a, dict) or k not in a:
+                    out.append(f"{path}{k} (not recorded)")
+                else:
+                    walk(a[k], v, f"{path}{k}.")
+            return
+        key = path[:-1]
+        if isinstance(b, (int, float)) and isinstance(a, (int, float)):
+            if not math.isclose(float(a), float(b), rel_tol=rtol, abs_tol=1e-12):
+                out.append(f"{key}: {a:g} -> {b:g}")
+        elif a != b:
+            out.append(f"{key}: {a} -> {b}")
+    walk(recorded, current, "")
+    return out
+
+
 __all__ = ["WongReeceModel", "ContactResult", "bulldozing_resistance", "bearing_capacity_factors", "slip_ratio",
-           "slip_angle"]
+           "slip_angle", "physics_mismatch"]
