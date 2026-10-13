@@ -10,11 +10,11 @@ tags:
   - uncertainty quantification
 authors:
   - name: Yan Barros
-    orcid: 0000-0000-0000-0000 # TODO: replace with the real ORCID
+    orcid: 0009-0001-8507-8602
     corresponding: true
     affiliation: 1
   - name: Enrico Schiassi
-    orcid: 0000-0000-0000-0000 # TODO: replace with the real ORCID
+    orcid: 0000-0002-7882-5913
     affiliation: 2
 affiliations:
   - name: TODO, Country # TODO: affiliation of Yan Barros
@@ -169,13 +169,14 @@ that use PINNeAPPle. JOSS requires evidence of research use at submission. -->
 
 # AI usage disclosure
 
-<!-- TODO (authors): JOSS requires this section. State which generative AI
-tools and versions were used, where (code, documentation, paper text), the
-nature and scope of the assistance, and confirm that the human authors
-reviewed, edited and validated all assisted output and made the core design
-decisions. If no such tools were used, state this explicitly. -->
-
-TODO: to be completed by the authors.
+Generative AI tools were used in the development of PINNeAPPle. Claude Code (Anthropic), an
+agentic coding assistant running Claude models (Opus family), was used to write and refactor
+source code, tests, examples and documentation, to run and analyse simulations and benchmark
+experiments, and to draft parts of this paper. The human authors defined the scope, the
+architecture and the scientific choices of the library, reviewed and edited the assisted
+output, and validated the numerical methods against analytical solutions, independent
+implementations and reference data, as described in the repository's tests and experiments.
+The authors take full responsibility for the content of the software and of this paper.
 
 # Acknowledgements
 
