@@ -226,12 +226,11 @@ def build_scale_linking(data, scale=1.0):
               "FNO-blind": ScaleConditionedFNO2d(conditioned=False, **kw),
               **{f"FNO-{d}h": ScaleConditionedFNO2d(conditioned=False, **kw) for d in SC_WIDTHS}}
     closure = LearnedClosure()
-    path = OUT / "scale_linking.pt"
+    path, cpath = OUT / "scale_linking.pt", OUT / "closure.pt"
     if path.exists():
         st = torch.load(path)
         for k, m in models.items():
             m.load_state_dict(st[k])
-        closure.load_state_dict(st["closure"])
     else:
         w = np.asarray(data["w"][tr], float)
         X = torch.tensor(np.stack([restrict(w[:, 0], N_OUT) / SCALE,
@@ -244,6 +243,11 @@ def build_scale_linking(data, scale=1.0):
             print(f"training {k}", flush=True)
             fit_scale_conditioned(m, X, ys, "gaussian", steps=steps(1200 if len(ys) > 1 else 700), batch=8,
                                   consistency_weight=0.5 if k == "SC-FNO" else 0.0, seed=11, log_every=200)
+        OUT.mkdir(parents=True, exist_ok=True)
+        torch.save({k: m.state_dict() for k, m in models.items()}, path)
+    if cpath.exists():
+        closure.load_state_dict(torch.load(cpath))
+    else:
         les_f = BENCH.les_filter
         sub = tr[:: max(1, len(tr) // 96)]
         ws = np.asarray(data["w"][sub], float)
@@ -252,8 +256,7 @@ def build_scale_linking(data, scale=1.0):
         REF = torch.tensor(BENCH.filtered_input(ws[:, idx], les_f, BENCH.les_n))
         train_closure_aposteriori(closure, TorchVorticityLES2D(BENCH.les_n), W0, torch.tensor(data["nu"][sub]), REF,
                                   1e-2, [10, 20, 30], steps=steps(300), batch=4, lr=1e-3, seed=5, log_every=50)
-        OUT.mkdir(parents=True, exist_ok=True)
-        torch.save({**{k: m.state_dict() for k, m in models.items()}, "closure": closure.state_dict()}, path)
+        torch.save(closure.state_dict(), cpath)
     for m in models.values():
         m.eval()
     closure.eval()
