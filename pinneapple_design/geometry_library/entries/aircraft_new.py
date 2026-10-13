@@ -281,7 +281,7 @@ def _atr(p, res):
     dih = math.radians(2.0)
     y_flap = 0.70 * b2
     ny = _n(5, res, 4)
-    ys = np.unique(np.r_[0.0, 1.0, 2.6, y_brk, np.linspace(y_brk, b2 - 0.35, ny + 2)[1:], y_flap, y_flap + 0.18,
+    ys = np.unique(np.r_[0.0, 1.0, 2.6, y_brk, np.linspace(y_brk, b2 - 0.35, ny + 2)[1:], y_flap, y_flap + 0.2, y_flap + 0.4, y_flap + 0.6,
                          b2 - 0.12, b2])
     st = []
     for yy in np.r_[-ys[::-1], ys[1:]]:
@@ -301,7 +301,8 @@ def _atr(p, res):
             c *= 1 - 0.25 * k
             t *= 1 - 0.55 * k
         tw = 1.0 - 3.0 * min(ay / b2, 1.0)
-        fl = p["flap_deg"] if ay <= y_flap + 1e-6 else 0.0
+        wf = float(np.clip(1 - (ay - y_flap) / 0.6, 0, 1))      # flap side edge blended over 0.6 m
+        fl = p["flap_deg"] * wf * wf * (3 - 2 * wf)
         st.append({"le": (le, yy, z), "chord": c, "twist": tw, "t": t, "m": 0.03, "p": 0.4, "flap": fl})
     Vwg, Fwg, iw, jw = _lifting_surface(st, nsec, frame=((1.0, 0, 0), (0, 0, 1.0)))
     # de-icing boots: dark leading-edge strip on the outer wing
@@ -322,10 +323,10 @@ def _atr(p, res):
                        "fuselage"))
     # ---------------------------------------------------------------- nacelles, spinners, intakes, propellers
     yn, zp, xp = 4.05, 3.40, 8.45
-    xs_n = np.array([8.75, 9.1, 9.6, 10.3, 11.2, 12.4, 13.6, 14.6, 15.4, 16.1, 16.6])
-    hw_n = np.array([0.38, 0.41, 0.45, 0.47, 0.47, 0.46, 0.43, 0.38, 0.30, 0.18, 0.05])
-    zb_n = np.array([3.02, 2.90, 2.80, 2.76, 2.78, 2.86, 2.98, 3.12, 3.27, 3.42, 3.56])
-    zt_n = np.array([3.78, 3.86, 3.95, 4.02, 4.05, 4.05, 3.98, 3.90, 3.84, 3.78, 3.70])
+    xs_n = np.array([8.75, 9.1, 9.6, 10.3, 11.2, 12.4, 13.4, 14.3, 15.0, 15.6, 16.0])
+    hw_n = np.array([0.38, 0.41, 0.45, 0.47, 0.47, 0.46, 0.43, 0.37, 0.29, 0.17, 0.04])
+    zb_n = np.array([3.02, 2.90, 2.80, 2.76, 2.78, 2.86, 2.98, 3.14, 3.30, 3.46, 3.58])
+    zt_n = np.array([3.78, 3.86, 3.95, 4.02, 4.05, 4.05, 4.0, 3.94, 3.88, 3.82, 3.76])
     nr = _n(26, res, 20)
     R = p["prop_diameter"] / 2
     nb = 6
@@ -486,33 +487,31 @@ H145_MATERIALS = {
 
 
 def _h145_pod(res):
-    xk = np.array([0.0, 0.05, 0.25, 0.6, 1.0, 1.5, 2.2, 3.4, 4.4, 5.1, 5.8, 6.4, 6.9])
-    hwk = np.array([0.05, 0.30, 0.55, 0.72, 0.80, 0.85, 0.87, 0.87, 0.86, 0.75, 0.52, 0.36, 0.25])
-    zbk = np.array([0.95, 0.82, 0.70, 0.62, 0.58, 0.56, 0.55, 0.55, 0.58, 0.78, 1.12, 1.33, 1.45])
-    ztk = np.array([1.05, 1.30, 1.55, 1.75, 1.88, 1.97, 2.02, 2.02, 2.00, 1.98, 1.92, 1.83, 1.76])
-    xs = np.unique(np.r_[np.linspace(0, 1, 9) ** 1.7 * 1.6, np.linspace(1.6, 6.9, _n(16, res, 12)), 0.45, 1.25, 1.95,
-                         2.25, 3.95, 4.15])
     from scipy.interpolate import PchipInterpolator
+    xk = np.array([0.0, 0.04, 0.2, 0.5, 0.9, 1.4, 2.0, 2.8, 3.6, 4.4, 5.0, 5.6, 6.2, 6.9])
+    hwk = np.array([0.02, 0.25, 0.50, 0.68, 0.80, 0.86, 0.88, 0.88, 0.88, 0.86, 0.76, 0.58, 0.42, 0.28])
+    zbk = np.array([0.98, 0.86, 0.74, 0.64, 0.58, 0.55, 0.54, 0.54, 0.54, 0.56, 0.70, 1.00, 1.28, 1.45])
+    ztk = np.array([1.12, 1.36, 1.62, 1.85, 2.02, 2.12, 2.16, 2.16, 2.16, 2.14, 2.10, 2.00, 1.88, 1.78])
+    marks = [0.10, 0.95, 1.40, 1.50, 2.0, 2.35, 2.55, 3.85, 4.05, 4.65]
+    xs = np.unique(np.r_[np.linspace(0, 1, _n(8, res, 7)) ** 1.8 * 1.4, np.linspace(1.4, 6.9, _n(12, res, 9)),
+                         marks])
     hw = PchipInterpolator(xk, hwk)(xs)
     zb = PchipInterpolator(xk, zbk)(xs)
     zt = PchipInterpolator(xk, ztk)(xs)
     e = np.interp(xs, [0, 1.5, 5, 6.9], [2.1, 2.6, 2.6, 2.2])
-    th = _angles(_n(44, res, 36), extra_deg=(-34, -20, -6, 8, 14, 22, 30, 44, 52, 62, 76, 84))
+    th = _angles(_n(32, res, 28), extra_deg=(-40, -12, -6, 6, 12, 36, 44, 50, 62, 82))
     V, F, xm, tm = _skin(xs, hw, zb, zt, e, th)
     a = np.where(np.abs(tm) > 90, np.sign(tm) * (180 - np.abs(tm)), tm)
     mats = np.full(len(F), "heli_white", dtype=object)
-    # livery: red lower body with a white cheat line
-    mats[a < -6] = "heli_red"
-    mats[(a >= 8) & (a < 14) & (xm > 0.6)] = "heli_red"
-    # glazing: wrap-around windscreen with chin windows, cockpit door windows, cabin door windows
-    wind = (xm < 1.25) & (xm > 0.05) & (a > -34) & (a < 84)
-    wind &= ~((a > -6) & (a < 8) & (xm > 0.45))           # frame between the chin windows and the windscreen
-    roof = (xm >= 1.25) & (xm < 1.95) & (a > 52) & (a < 84)
-    door1 = (xm > 1.25) & (xm < 2.25) & (a > 14) & (a < 52)
-    door2 = (xm > 2.45) & (xm < 3.95) & (a > 14) & (a < 44)
-    rear = (xm > 4.15) & (xm < 4.9) & (a > 14) & (a < 30)
-    mats[wind | roof | door1 | door2 | rear] = "glass"
-    mats[np.isnan(xm)] = "heli_white"
+    mats[(a < -12) & ((xm > 0.95) | (a < -40))] = "heli_red"
+    glass = ((xm > 0.10) & (xm < 1.40) & (a > 6) & (a < 82))                  # windscreen (centre post above 82)
+    glass |= (xm > 0.10) & (xm < 0.95) & (a > -40) & (a < -6)                 # chin windows
+    glass |= (xm > 1.40) & (xm < 2.0) & (a > 62) & (a < 82)                   # roof windows
+    glass |= (xm > 1.50) & (xm < 2.35) & (a > 12) & (a < 50)                  # cockpit door
+    glass |= (xm > 2.55) & (xm < 3.85) & (a > 12) & (a < 44)                  # sliding cabin door
+    glass |= (xm > 4.05) & (xm < 4.65) & (a > 12) & (a < 36)                  # aft cabin window
+    mats[glass] = "glass"
+    mats[(xm < 0.10) | np.isnan(xm)] = "heli_red"                            # nose cap
     return V, F, mats
 
 
@@ -531,8 +530,8 @@ def _h145(p, res):
     for x, r, z in zip(xb, rb, zb_c):
         rings.append(np.stack([np.full(nt, x), r * np.cos(th), z + 1.08 * r * np.sin(th)], 1))
     Vb, Fb, ib, jb = _loft_ij(rings)
-    cb = Vb[Fb].mean(1)
-    bm = np.where(cb[:, 2] < np.interp(cb[:, 0], xb, zb_c) - 0.05, "heli_red", "heli_white")
+    thm = (np.maximum(jb, 0) + 0.5) * 2 * math.pi / nt
+    bm = np.where((jb >= 0) & (np.sin(thm) < -0.2), "heli_red", "heli_white")
     bodies.append(Body("tail_boom", Vb, Fb, bm, "fuselage"))
     # engine cowling and main-gearbox fairing on the roof
     xc = np.linspace(2.0, 6.6, _n(14, res, 10))
@@ -540,19 +539,24 @@ def _h145(p, res):
     hwc = 0.03 + 0.62 * np.clip(np.sin(math.pi * sc ** 0.75), 0, 1) ** 0.4
     ztc = 1.90 + 0.72 * np.clip(np.sin(math.pi * sc ** 0.7), 0, 1) ** 0.45
     zbc = np.full_like(xc, 1.70)
-    Vc, Fc = kit.body_of_sections(xc, hwc, zbc, ztc, _n(30, res, 22), 3.0)
-    cc = Vc[Fc].mean(1)
-    grille = (cc[:, 0] > 4.4) & (cc[:, 0] < 5.3) & (cc[:, 2] > 2.05) & (cc[:, 2] < 2.35)
-    bodies.append(Body("engine_cowling", Vc, Fc, np.where(grille, "heli_dark", "heli_white").astype(object),
+    xc = np.unique(np.r_[xc, 2.75, 3.25])
+    sc = (xc - xc[0]) / (xc[-1] - xc[0])
+    hwc = 0.03 + 0.62 * np.clip(np.sin(math.pi * sc ** 0.75), 0, 1) ** 0.4
+    ztc = 2.00 + 0.72 * np.clip(np.sin(math.pi * sc ** 0.7), 0, 1) ** 0.45
+    zbc = np.full_like(xc, 1.90)
+    Vc, Fc, xmc, tmc = _skin(xc, hwc, zbc, ztc, 3.0, _angles(_n(28, res, 22), extra_deg=(8, 34)))
+    ac = np.where(np.abs(tmc) > 90, np.sign(tmc) * (180 - np.abs(tmc)), tmc)
+    intake = (xmc > 2.75) & (xmc < 3.25) & (ac > 8) & (ac < 34)
+    bodies.append(Body("engine_cowling", Vc, Fc, np.where(intake, "heli_dark", "heli_white").astype(object),
                        "fuselage"))
     for side in (1, -1):
-        path = np.array([[5.35, side * 0.38, 2.20], [5.75, side * 0.50, 2.28], [6.10, side * 0.62, 2.40]])
+        path = np.array([[5.30, side * 0.36, 2.32], [5.70, side * 0.48, 2.40], [6.05, side * 0.60, 2.52]])
         bodies.append(Body(f"exhaust_{'starboard' if side > 0 else 'port'}", *kit.tube(path, 0.11, _n(14, res, 10)),
                            "anodized_black", "fuselage", aero=False))
     # main rotor: mast, hub, four blades
     xh, zh = 3.50, 3.28
     Rm = p["rotor_diameter"] / 2
-    bodies.append(Body("mast_fairing", *kit.revolve([2.4, 2.75, 3.0, 3.16], [0.42, 0.30, 0.17, 0.0],
+    bodies.append(Body("mast_fairing", *kit.revolve([2.5, 2.8, 3.02, 3.16], [0.42, 0.30, 0.17, 0.0],
                                                     _n(20, res, 16), "z", center=(xh, 0, 0)), "heli_white",
                        "rotor"))
     bodies.append(Body("rotor_hub", *kit.cylinder((xh, 0, 3.12), (xh, 0, 3.40), 0.24, _n(20, res, 16)), "rotor_grey",
@@ -710,7 +714,7 @@ def _quad(p, res):
     Rarm = D / 2
     Rp = p["prop_diameter"] / 2
     P = p["prop_pitch"]
-    z_bot = 0.175                                    # bottom plate underside above the ground
+    z_bot = 0.140                                    # bottom plate underside above the ground
     t_pl = 0.0016
     h_arm = 0.030
     z_top = z_bot + t_pl + h_arm                    # top plate underside
@@ -734,7 +738,7 @@ def _quad(p, res):
     tc = lambda r: 0.30 if r < 0.010 else 0.10 + 0.08 * max(0.0, 1 - r / (0.5 * Rp))
     cam = lambda r: 0.04
     sweep = lambda r: 0.004 * max(r / Rp - 0.6, 0) / 0.4
-    az_off = [0.0, 50.0, 100.0, 150.0]
+    az_off = [0.0, 110.0, 50.0, 150.0]
     for k, ((dx, dy), sn) in enumerate(zip(dirs, sense)):
         u = np.array([dx, dy], float) / math.sqrt(2)
         phi = math.degrees(math.atan2(u[1], u[0]))
@@ -747,14 +751,12 @@ def _quad(p, res):
         f = np.clip((xl - L0) / (L1 - L0), 0, 1)
         zc = z_bot + t_pl + h_arm / 2
         V = V.copy()
-        V[:, 2] = zc + (V[:, 2] - zc) * (1 - 0.45 * f) + 0.0 * f
-        V[:, 2] = np.where(f > 0.5, V[:, 2] + (h_arm * 0.45 / 2) * (f - 0.5) / 0.5 * 0, V[:, 2])
+        V[:, 2] = zc + (V[:, 2] - zc) * (1 - 0.45 * f)          # arm depth tapers toward the motor
         V[:, 1] *= 1 - 0.25 * f
         V = V @ kit.rot((0, 0, 1), phi).T
         bodies.append(Body(f"arm_{k + 1}", V, F, mat, "frame"))
         cx, cy = Rarm * u
-        zt_arm = z_bot + t_pl + h_arm * (1 - 0.45 / 2 * 1.0) + 0.0
-        zt_arm = zc + h_arm / 2 * 0.55
+        zt_arm = zc + h_arm / 2 * 0.55                          # arm top at the motor end
         # motor mount pad and motor (2212 outrunner)
         bodies.append(Body(f"motor_mount_{k + 1}", *kit.cylinder((cx, cy, zt_arm - 0.012), (cx, cy, zt_arm + 0.003),
                                                                 0.019, nt), mat, "frame"))
@@ -783,7 +785,7 @@ def _quad(p, res):
         a_ = np.linspace(0, 1, 7)
         path = np.stack([(r_a + (r_b - r_a) * a_ ** 1.5) * u[0], (r_a + (r_b - r_a) * a_ ** 1.5) * u[1],
                          z_bot + 0.004 - (z_bot - 0.012) * a_], 1)
-        bodies.append(Body(f"leg_{k + 1}", *kit.tube(path, 0.0055, _n(10, res, 8)), "plastic", "landing_gear",
+        bodies.append(Body(f"leg_{k + 1}", *kit.tube(path, 0.0065, _n(10, res, 8)), "plastic", "landing_gear",
                            aero=False))
         bodies.append(Body(f"foot_{k + 1}", *kit.ellipsoid((r_b * u[0], r_b * u[1], 0.011), (0.011, 0.011, 0.011),
                                                             _n(12, res, 10), _n(7, res, 6)), "foam", "landing_gear",
@@ -844,7 +846,7 @@ register(GeometrySpec(
                                                        "atan(P / 2 pi r)"),
         Param("rotor_azimuth_deg", 0.0, "deg", (0.0, 180.0), "azimuth added to every propeller"),
     ],
-    dimensions={"length_x": (0.0, 0.03), "width_y": (0.0, 0.03), "height_z": (0.0, 0.03)},
+    dimensions={"length_x": (0.559, 0.03), "width_y": (0.498, 0.03), "height_z": (0.270, 0.03)},
     frame=("right-handed, metres: x aft (the nose is between the two red arms, at -x), y to starboard, z up; origin "
            "on the ground below the frame centre (feet on z = 0)"),
     sources=[Source("450 mm diagonal wheelbase, 10 x 4.5 in propellers, 2212-class motors", F450_FACTS),

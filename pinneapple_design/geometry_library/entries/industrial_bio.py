@@ -204,7 +204,7 @@ def _impeller_build(p, res):
     sc = R2 / 0.21
     rb = p["bore_diameter"] / 2
     t_back, t_front = 0.008 * sc, 0.006 * sc
-    nphi = _n(72, res, 48)
+    nphi = _n(96, res, 48)
     ne = _n(8, res, 6)
     bodies = []
     # ---------------------------------------------------------------- hub + back shroud (one revolved solid)
@@ -518,6 +518,7 @@ def _resample(C, m):
     return np.stack([np.interp(su, s, C[:, i]) for i in range(3)], 1), su
 
 
+_BIF_OFFSET = 1.2         # daughter vessels start this many trunk radii before the trunk end
 _FLARE = (0.35, 6.0)       # ostium flare: relative radius increase at the aortic wall, decay length [mm]
 
 
@@ -594,11 +595,11 @@ def _aorta_build(p, res):
                 a2 = math.radians(dang)
                 d2 = np.array([math.sin(a2), 0.15 * abs(math.sin(a2)), math.cos(a2)])
                 d2 /= np.linalg.norm(d2)
-                Q0 = P2 - dfin * 0.4 * rr
-                Q1 = Q0 + dfin * (0.9 * rr)
-                Q2 = Q1 + d2 * Ld
-                pth = (1 - t) ** 2 * Q0 + 2 * t * (1 - t) * Q1 + t ** 2 * Q2
                 rd = 0.5 * dd / mm
+                Q0 = P2 - dfin * _BIF_OFFSET * rr          # daughters diverge from the trunk axis
+                Q2 = P2 + d2 * Ld
+                Q1 = 0.5 * (Q0 + Q2) + 0.08 * Ld * dfin
+                pth = (1 - t) ** 2 * Q0 + 2 * t * (1 - t) * Q1 + t ** 2 * Q2
                 tubes.append((dname, _sweep(pth, lambda q, th, rd=rd: np.full_like(th, rd), nbt)))
     tubes = [(nm, (V * mm, F)) for nm, (V, F) in tubes]
     if p["fused"]:
@@ -636,7 +637,7 @@ register(GeometrySpec(
         Param("rcca_diameter", 0.007, "m", (0.004, 0.011), "right common carotid diameter"),
         Param("fused", True, "", None, "one fused lumen (True) or the overlapping closed tubes (False)"),
     ],
-    dimensions={"length_x": (0.0991, 0.02), "width_y": (0.0767, 0.02), "height_z": (0.3426, 0.02)},
+    dimensions={"length_x": (0.1134, 0.02), "width_y": (0.0766, 0.02), "height_z": (0.3114, 0.02)},
     frame=("right-handed patient frame, metres: x towards the patient's left, y posterior, z cranial; origin at the "
            "centre of the aortic-root inlet (annulus plane)"),
     sources=[Source("thoracic aortic diameters by segment (sinus ~33-36 mm, ascending ~29-32 mm, arch ~26-28 mm, "

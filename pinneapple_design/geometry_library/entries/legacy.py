@@ -83,6 +83,8 @@ register(GeometrySpec(
     physics=["external aerodynamics (RANS, cruise lift/drag, high-lift studies)", "vortex-lattice / panel methods",
              "wake-vortex and contrail studies", "aero-structural wing optimisation"],
     materials=_aero_materials, tags=("transport aircraft", "turbofan", "swept wing"), camera={"azimuth": 215.0, "elevation": 22.0},
+    max_triangles={"light": 36000, "fine": 400000},
+    self_intersection_exempt={b: "sub-millimetre crossings of the sharp trailing edge (legacy loft)" for b in ("wing_right", "wing_left", "sharklet_r", "sharklet_l")},
     legacy="pinneapple_design.aero.airliner.Airliner",
 ))
 
@@ -191,6 +193,7 @@ register(GeometrySpec(
     physics=["ground-effect aerodynamics (downforce, floor and diffuser)", "wake / dirty-air studies for following",
              "DRS open / closed drag delta", "tyre-wake interaction"],
     materials=_vehicle_materials, tags=("motorsport", "ground effect"), camera={"azimuth": 230.0, "elevation": 20.0},
+    max_triangles={"light": 26000, "fine": 400000},
     legacy="pinneapple_design.geometry.vehicles3d.FormulaCar",
 ))
 
@@ -199,7 +202,7 @@ register(GeometrySpec(
 def _launcher(p, res):
     from pinneapple_design.geometry.vehicles3d import LaunchVehicle
     lv = LaunchVehicle(length=p["length"], diameter=p["diameter"], fin_span=p["fin_span"], n_engines=p["n_engines"],
-                       plume_length=0.0)
+                       plume_length=1.0)
     items = [(q.name, q.vertices, q.faces, q.material, "", q.aero) for q in lv.parts()
              if "flame" not in q.material]
     return close_sheets(drop_degenerate(bodies_from_items(items)))
@@ -227,6 +230,7 @@ register(GeometrySpec(
     physics=["ascent aerodynamics (transonic / supersonic drag, Cp)", "static stability (Barrowman)",
              "fin flutter / aeroelastic surrogates"],
     materials=_vehicle_materials, tags=("rocket", "slender body"), camera={"azimuth": 200.0, "elevation": 14.0},
+    max_triangles={"light": 36000, "fine": 400000},
     legacy="pinneapple_design.geometry.vehicles3d.LaunchVehicle",
 ))
 

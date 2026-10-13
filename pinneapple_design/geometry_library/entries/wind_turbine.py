@@ -140,7 +140,7 @@ register(GeometrySpec(
         Param("overhang", 5.0, "m", (3.0, 7.0), "rotor centre upwind of the tower axis"),
         Param("nacelle_length", 14.0, "m", (10.0, 18.0), "nacelle length"),
     ],
-    dimensions={"length_x": (19.5, 0.12), "width_y": (125.0, 0.02), "height_z": (153.0, 0.02)},
+    dimensions={"length_x": (24.49, 0.02), "width_y": (109.3, 0.02), "height_z": (152.5, 0.02)},
     frame=("right-handed, metres: x downwind, y lateral, z up; origin at the tower base on the ground; rotor "
            "upwind of the tower (x < 0)"),
     sources=[Source("rotor 126 m, hub 3 m, hub height 90 m, precone 2.5 deg, shaft tilt 5 deg, overhang 5 m, blade "
@@ -148,6 +148,8 @@ register(GeometrySpec(
              Source("airfoil shapes: the DU 40/35/30/25/21 and NACA 64-618 sections are approximated by NACA "
                     "4-digit sections with the same thickness ratio and 2-4 % camber",
                     "approximation (coordinates of the DU sections are not reproduced)", estimate=True),
+             Source("bounding box: 109.3 m wide because at azimuth 0 the blades point up and at +-120 deg "
+                    "(2 R sin 120 deg), 152.5 m high (hub 90 m + R cos(precone))", "model geometry"),
              Source("nacelle 14 x 3.8 x 3.9 m and spinner shape", "estimates from 5-MW-class nacelles",
                     estimate=True)],
     physics=["rotor aerodynamics (BEM, actuator line, blade-resolved CFD)", "wake and wind-farm interaction",
