@@ -99,14 +99,16 @@ nobody has to trust the arithmetic without being able to check it.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any
 
 __all__ = [
     "ConfidenceComponent",
     "CalibrationSummary",
     "PhysicsConfidenceScore",
     "compute_physics_confidence",
+    "score_against_reference",
 ]
 
 # The fixed set of checks this module knows how to aggregate. Used only to
@@ -187,9 +189,39 @@ class CalibrationSummary:
     """
 
     ece: float
-    coverage: Optional[float] = None
-    target_coverage: Optional[float] = None
-    sharpness: Optional[float] = None
+    coverage: float | None = None
+    target_coverage: float | None = None
+    sharpness: float | None = None
+
+    @classmethod
+    def from_predictions(cls, pred, true, sigma, level: float = 0.9) -> CalibrationSummary:
+        """Run ``CalibrationMetrics`` on a Gaussian predictive distribution and bundle the numbers.
+
+        ``ece`` is ``CalibrationMetrics.expected_calibration_error(pred, true, sigma)``, ``coverage`` is
+        ``CalibrationMetrics.coverage_at_level(pred, true, sigma, alpha=1 - level)`` (empirical coverage of the
+        central ``level`` interval ``pred +- z sigma``), ``target_coverage = level`` and ``sharpness`` is
+        ``CalibrationMetrics.sharpness(sigma)`` (mean sigma, in the units of ``pred``).
+
+        Parameters
+        ----------
+        pred, true, sigma : arrays or tensors of the same shape: predictive mean, observation, predictive std.
+        level : nominal coverage of the interval, in (0, 1).
+        """
+        import numpy as np
+        import torch
+
+        from pinneapple_analysis.uncertainty.calibration import CalibrationMetrics
+
+        if not 0.0 < level < 1.0:
+            raise ValueError(f"level must be in (0, 1), got {level}")
+        p, t, s = (torch.as_tensor(np.asarray(a, dtype=np.float64)) if not isinstance(a, torch.Tensor) else a
+                   for a in (pred, true, sigma))
+        if not (p.shape == t.shape == s.shape):
+            raise ValueError(f"pred, true and sigma must have the same shape, got {tuple(p.shape)}, "
+                             f"{tuple(t.shape)}, {tuple(s.shape)}")
+        return cls(ece=CalibrationMetrics.expected_calibration_error(p, t, s),
+                   coverage=CalibrationMetrics.coverage_at_level(p, t, s, alpha=round(1.0 - level, 12)),
+                   target_coverage=level, sharpness=CalibrationMetrics.sharpness(s))
 
 
 # ---------------------------------------------------------------------------
@@ -257,8 +289,8 @@ class PhysicsConfidenceScore:
         numeric value are not equivalent claims).
     """
 
-    overall_score: Optional[float]
-    components: List[ConfidenceComponent]
+    overall_score: float | None
+    components: list[ConfidenceComponent]
     coverage: float
 
     def summary(self) -> str:
@@ -538,7 +570,7 @@ def compute_physics_confidence(
     *,
     guardrail_report=None,
     convergence_result=None,
-    calibration_metrics: Optional[CalibrationSummary] = None,
+    calibration_metrics: CalibrationSummary | None = None,
     benchmark_comparison=None,
     geometry_ood_result=None,
 ) -> PhysicsConfidenceScore:
@@ -590,7 +622,7 @@ def compute_physics_confidence(
     ``PhysicsConfidenceScore(overall_score=None, components=[], coverage=0.0)``
     rather than fabricating a result or raising.
     """
-    components: List[ConfidenceComponent] = []
+    components: list[ConfidenceComponent] = []
 
     if guardrail_report is not None:
         components.append(_component_from_guardrail(guardrail_report))
@@ -608,3 +640,137 @@ def compute_physics_confidence(
         sum(c.score for c in components) / len(components) if components else None
     )
     return PhysicsConfidenceScore(overall_score=overall_score, components=components, coverage=coverage)
+
+
+# ---------------------------------------------------------------------------
+# Convenience: score several models against one held-out reference
+# ---------------------------------------------------------------------------
+
+def _per_model(value, model: str, what: str, models):
+    """``value`` is ``None``, one object shared by every model, or ``{model: object}`` (missing models get None)."""
+    if isinstance(value, dict):
+        unknown = set(value) - set(models)
+        if unknown:
+            raise ValueError(f"score_against_reference: {what} given for unknown model(s) {sorted(unknown)}")
+        return value.get(model)
+    return value
+
+
+def score_against_reference(
+    name: str,
+    x,
+    y_ref,
+    preds: dict[str, Any],
+    *,
+    x_vars: Sequence[str],
+    y_vars: Sequence[str],
+    sigma=None,
+    convergence=None,
+    guardrail=None,
+    geometry_ood=None,
+    not_run: dict[str, str] | None = None,
+    description: str = "",
+    reference_source: str = "",
+    level: float = 0.9,
+    log: Callable[[str], Any] | None = None,
+) -> dict[str, Any]:
+    """Score several models' predictions against one held-out reference dataset.
+
+    Registers the reference as a named benchmark
+    (``pinneapple_pdb.benchmarks.register_benchmark(name)`` with a
+    ``BenchmarkEntry``), then for every model builds a ``PhysicsCase`` from
+    the predictions, runs ``PhysicsCase.validate_against_benchmark()`` and
+    passes that comparison, plus whichever other real checks the caller
+    supplies, to :func:`compute_physics_confidence`. Nothing is run that
+    the caller did not ask for and nothing is filled in for a missing
+    check: the checks that were not run can be documented in ``not_run``.
+
+    Parameters
+    ----------
+    name : benchmark name (registered globally, replacing an earlier one of the same name).
+    x : (N, len(x_vars)) or (N,) reference input coordinates.
+    y_ref : (N, len(y_vars)) or (N,) reference outputs, in the same order as ``x``.
+    preds : ``{model: (N, len(y_vars)) or (N,) predictions at x}``.
+    x_vars, y_vars : names of the input and output columns.
+    sigma : optional per-model calibration, ``{model: CalibrationSummary or predictive std array shaped like the
+        prediction}``. An array is turned into a :class:`CalibrationSummary` with
+        :meth:`CalibrationSummary.from_predictions` against ``y_ref`` at ``level``; build the summary yourself when
+        the calibration is evaluated on other points.
+    convergence, guardrail, geometry_ood : a ``ConvergenceResult``, ``GuardrailReport`` or ``GeometryOODResult``
+        shared by every model, or ``{model: result}`` for some of them.
+    not_run : ``{check: reason}`` for the checks that were not run; stored under ``"not_run"``.
+    description, reference_source : stored in the ``BenchmarkEntry``.
+    level : nominal coverage used when ``sigma`` holds arrays.
+    log : optional callable that receives each model's ``PhysicsConfidenceScore.summary()``.
+
+    Returns
+    -------
+    dict
+        ``{model: {"overall_score", "coverage", "components", "summary", "rel_l2", "rmse", "n_points"}}``, plus
+        ``"guardrail"`` (list of check dicts) and ``"trustworthy"`` when a guardrail report was given and
+        ``"calibration"`` when a calibration was given. A model whose predictions or relative error are not finite
+        gets ``{"overall_score": None, "coverage": 0.0, "note": ...}`` instead of a score. ``"not_run"`` is added
+        when given.
+    """
+    from dataclasses import asdict
+
+    import numpy as np
+
+    from pinneapple_data.physics_case import PhysicsCase
+    from pinneapple_pdb.benchmarks import BenchmarkEntry, register_benchmark
+
+    x_vars, y_vars = tuple(x_vars), tuple(y_vars)
+    x, y_ref = np.asarray(x), np.asarray(y_ref)
+    x, y_ref = x.reshape(len(x), -1), y_ref.reshape(len(y_ref), -1)
+    if x.shape[1] != len(x_vars) or y_ref.shape[1] != len(y_vars) or len(x) != len(y_ref):
+        raise ValueError(f"score_against_reference: x {x.shape} / y_ref {y_ref.shape} do not match "
+                         f"x_vars {x_vars} / y_vars {y_vars}")
+    for what, value in (("sigma", sigma), ("convergence", convergence), ("guardrail", guardrail),
+                        ("geometry_ood", geometry_ood)):
+        _per_model(value, "", what, preds)  # reject unknown model names before any work
+
+    @register_benchmark(name)
+    def _entry():
+        return BenchmarkEntry(name=name, description=description, reference_source=reference_source,
+                              x_vars=x_vars, y_vars=y_vars, reference_x=x, reference_y=y_ref)
+
+    out: dict[str, Any] = {}
+    for model, p in preds.items():
+        p = np.asarray(p)
+        p = p.reshape(len(p), -1)
+        if p.shape != y_ref.shape:
+            raise ValueError(f"score_against_reference: prediction of {model!r} has shape {p.shape}, "
+                             f"reference {y_ref.shape}")
+        if not np.isfinite(p).all():
+            out[model] = {"overall_score": None, "coverage": 0.0, "note": "prediction contains non-finite values"}
+            continue
+        results = {v: x[:, j] for j, v in enumerate(x_vars)}
+        results.update({v: p[:, j] for j, v in enumerate(y_vars)})
+        bench = PhysicsCase(name=model, results=results, reference_benchmark=name).validate_against_benchmark()
+        if not math.isfinite(bench.relative_l2_error):
+            out[model] = {"overall_score": None, "coverage": 0.0,
+                          "note": "relative L2 error against the reference is not finite"}
+            continue
+        cal = _per_model(sigma, model, "sigma", preds)
+        if cal is not None and not isinstance(cal, CalibrationSummary):
+            cal = CalibrationSummary.from_predictions(p, y_ref, np.asarray(cal).reshape(p.shape), level=level)
+        g = _per_model(guardrail, model, "guardrail", preds)
+        sc = compute_physics_confidence(guardrail_report=g,
+                                        convergence_result=_per_model(convergence, model, "convergence", preds),
+                                        calibration_metrics=cal, benchmark_comparison=bench,
+                                        geometry_ood_result=_per_model(geometry_ood, model, "geometry_ood", preds))
+        row: dict[str, Any] = {"overall_score": sc.overall_score, "coverage": sc.coverage,
+                               "components": [dict(c.__dict__) for c in sc.components], "summary": sc.summary(),
+                               "rel_l2": bench.relative_l2_error, "rmse": bench.rmse,
+                               "n_points": bench.n_compared_points}
+        if g is not None:
+            row["guardrail"] = [dict(c.__dict__) for c in g.checks]
+            row["trustworthy"] = g.trustworthy
+        if cal is not None:
+            row["calibration"] = asdict(cal)
+        out[model] = row
+        if log is not None:
+            log(sc.summary())
+    if not_run:
+        out["not_run"] = dict(not_run)
+    return out

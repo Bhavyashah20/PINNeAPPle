@@ -7,9 +7,11 @@ unpacked OpenRadioss release (https://github.com/OpenRadioss/OpenRadioss/release
 from .deck import read_shell_thickness, set_shell_thickness, stage_case, write_engine_anim
 from .runner import OpenRadiossDockerConfig, run_openradioss_case, run_openradioss_cases, docker_available
 from .vtk_reader import RadiossMesh, read_vtk_mesh, read_case_displacements
+from .log_reader import read_energy_error, read_energy_errors
 
 __all__ = [
     "read_shell_thickness", "set_shell_thickness", "stage_case", "write_engine_anim",
     "OpenRadiossDockerConfig", "run_openradioss_case", "run_openradioss_cases", "docker_available",
     "RadiossMesh", "read_vtk_mesh", "read_case_displacements",
+    "read_energy_error", "read_energy_errors",
 ]

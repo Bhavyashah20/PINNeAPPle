@@ -26,8 +26,8 @@ simulations.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence
 
 import torch
 import torch.nn as nn
@@ -89,7 +89,34 @@ class Design:
     normals: torch.Tensor  # (P, d)
     query: torch.Tensor  # (Q, d) where the field is known/predicted
     params: torch.Tensor  # (p,) operating parameters (may be empty)
-    target: Optional[torch.Tensor] = None  # (Q, f)
+    target: torch.Tensor | None = None  # (Q, f)
+
+    @classmethod
+    def ellipse(cls, a: float, b: float, n: int = 128) -> Design:
+        """Ellipse ``x = a cos t, y = b sin t`` (``n`` points) in a uniform stream along x, with its exact Cp.
+
+        Surface speed of potential flow past an ellipse (Milne-Thomson, *Theoretical Hydrodynamics*, 5th ed.,
+        1968, §9.61): ``q / U = (a + b) |sin t| / sqrt(a^2 sin^2 t + b^2 cos^2 t)``; target ``Cp = 1 - (q/U)^2``
+        at the surface points (query = points), no operating parameters, outward unit normals.
+        """
+        th = torch.linspace(0, 2 * math.pi, n + 1)[:-1]
+        pts = torch.stack([a * torch.cos(th), b * torch.sin(th)], 1)
+        nrm = torch.stack([b * torch.cos(th), a * torch.sin(th)], 1)
+        nrm = nrm / nrm.norm(dim=1, keepdim=True)
+        q = (a + b) * torch.sin(th).abs() / torch.sqrt(a ** 2 * torch.sin(th) ** 2 + b ** 2 * torch.cos(th) ** 2)
+        return cls(pts, nrm, pts, torch.zeros(0), (1 - q ** 2)[:, None])
+
+    @classmethod
+    def square(cls, s: float = 1.0, n: int = 128) -> Design:
+        """Square ``[-s, s]^2`` sampled by ``n`` points (counter-clockwise from ``(-s, -s)``), outward normals,
+        no target (an out-of-distribution probe for a smooth-body design space)."""
+        pts, nr = [], []
+        for u in torch.linspace(0, 4, n + 1)[:-1].tolist():
+            k, f = int(u), u - int(u)
+            pts.append([(-s + 2 * s * f, -s), (s, -s + 2 * s * f), (s - 2 * s * f, s), (-s, s - 2 * s * f)][k])
+            nr.append([(0, -1), (1, 0), (0, 1), (-1, 0)][k])
+        P = torch.tensor(pts)
+        return cls(P, torch.tensor(nr, dtype=torch.float32), P, torch.zeros(0), None)
 
 
 class LargePhysicsModel(nn.Module):
@@ -119,13 +146,13 @@ class LargePhysicsModel(nn.Module):
         return self._members(x).mean(0)
 
     @torch.no_grad()
-    def predict(self, x: Design) -> Dict[str, torch.Tensor]:
+    def predict(self, x: Design) -> dict[str, torch.Tensor]:
         """Mean, ensemble std (epistemic spread) and an OOD report for this design."""
         m = self._members(x)
         return {"mean": m.mean(0), "std": m.std(0), **self.ood(x)}
 
     @torch.no_grad()
-    def ood(self, x: Design, factor: float = 1.5) -> Dict[str, object]:
+    def ood(self, x: Design, factor: float = 1.5) -> dict[str, object]:
         """Geometry code distance to the nearest training design vs. the spread seen in training."""
         if len(self.train_codes) < 2:
             return {"ood": False, "ood_score": 0.0, "reasons": ["no training reference stored"]}
@@ -145,15 +172,15 @@ class LargePhysicsModel(nn.Module):
         return {"ood": bool(reasons), "ood_score": score, "reasons": reasons}
 
     @torch.no_grad()
-    def remember_training_set(self, designs: List[Design]) -> None:
+    def remember_training_set(self, designs: list[Design]) -> None:
         self.train_codes = torch.stack([self.geo(d.points, d.normals) for d in designs])
         if designs[0].params.numel():
             P = torch.stack([d.params for d in designs])
             self.param_lo, self.param_hi = P.min(0).values, P.max(0).values
 
 
-def fit(model: LargePhysicsModel, designs: List[Design], *, epochs: int = 2000, lr: float = 2e-3,
-        freeze_geometry: bool = False, seed: int = 0) -> List[float]:
+def fit(model: LargePhysicsModel, designs: list[Design], *, epochs: int = 2000, lr: float = 2e-3,
+        freeze_geometry: bool = False, seed: int = 0) -> list[float]:
     """Train (or fine-tune with ``freeze_geometry=True``) on a list of designs.
 
     Bagging: each ensemble head sees its own bootstrap resample of the designs (fixed per call),
