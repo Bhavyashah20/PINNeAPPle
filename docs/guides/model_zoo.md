@@ -131,6 +131,57 @@ How the fine-tune works:
 The guard is not a formality. Fine-tuning this airfoil model on 36 extra NACA runs makes it worse on the 15 held-out
 shapes, and the guard refuses to save it.
 
+### 7. Check each query, export to ONNX, run in a browser
+
+`validate` judges a model as a whole. `query_checks` judges one input. It answers four questions:
+
+- Is the input inside the validity range?
+- Are the outputs physical?
+- Does the ensemble agree as well as it did on held-out data?
+- Do the model's physics checks hold at this point?
+
+Each check carries the rule ID that `pinneapple check` uses: PC601 (out of range), PC602 (sparse region), PC402 and
+PC403 (unphysical or non-finite output), and PC302 (model residual). The verdict is the worst status among them:
+
+- `fail`: the query is outside the range, so the answer is an extrapolation.
+- `warn`: use the answer with caution.
+- `pass`: every check holds.
+
+Design constraints, such as the airfoil's t/c ≥ 11 % and |Cm| ≤ 0.10, are reported but never change the verdict.
+
+```python
+r = pp.zoo.query_checks("airfoil_cst_rans_mlp", T0=.17, T1=.15, T2=.13, M0=.02, M1=.07, M2=.06, alpha_deg=16)[0]
+r["verdict"]["status"]                                # 'fail': alpha 16 deg is beyond the trained range
+[(c["id"], c["status"], c["detail_text"]) for c in r["checks"] if c["status"] != "pass"]
+pp.zoo.check_spec("airfoil_cst_rans_mlp")             # the declarative spec: values, limits, templates, verdicts
+```
+
+`export_onnx` writes one ONNX graph that takes the card's physical inputs and returns its physical outputs. The
+graph includes the pre-processing (CST encoding, log features, normalisation) and the post-processing (exp,
+ensemble mean and spread, conformal bound).
+
+The export is refused if the graph differs from the PyTorch model by more than 1e-5. The comparison runs on every
+held-out and independent-reference input of the zoo. With `checks=True`, the graph also takes a `query` input and
+returns the values of the query checks, so any ONNX runtime gives the same verdict as Python.
+
+```python
+info = pp.zoo.export_onnx("heatsink_forced_mlp", "heatsink.onnx", checks=True)
+info["parity"]                                        # 1.6e-06, against PyTorch on the 900 held-out designs
+pp.zoo.onnx_parity("heatsink_forced_mlp", "heatsink.onnx")
+```
+
+For the browser, `python -m pinneapple_hub.zoo.web data/web/zoo` writes each model's graph and a JSON file. The JSON
+holds the model card, the check spec and the reference data to plot. The same command writes the CST airfoil
+geometry graphs from `pinneapple_design.aero.geometry_onnx`.
+
+The JS runtime that reads these files ships with the package in `pinneapple_hub/zoo/web/`:
+
+- `onnx.js`, a dependency-free ONNX interpreter;
+- `zoo.js`, with `loadModel`, `loadAirfoilGeometry` and `evaluate`. `evaluate` is the JS twin of
+  `pinneapple_hub.zoo.checks.evaluate`.
+
+`tests/js/zoo_web.test.mjs` checks the runtime against Python. The [Playground](playground.md) is built on it.
+
 ## Datasets
 
 ```python

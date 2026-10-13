@@ -1,0 +1,20 @@
+# Static file server inside the playground container (TLS is terminated by apps/deploy/Caddyfile).
+:8095 {
+	root * /srv
+	encode zstd gzip
+	file_server
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# the page loads nothing from other origins, except onnxruntime-web when engine=ort is asked for
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; connect-src 'self' https://huggingface.co https://*.hf.co https://cdn.jsdelivr.net; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:"
+		-Server
+	}
+	@static path *.js *.css *.onnx *.glb *.jpg *.svg *.json
+	header @static Cache-Control "public, max-age=3600"
+	header /sw.js Cache-Control "no-cache"
+	header /index.html Cache-Control "no-cache"
+	@onnx path *.onnx
+	header @onnx Content-Type "application/octet-stream"
+	respond /health "ok" 200
+}

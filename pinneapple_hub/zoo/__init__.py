@@ -50,9 +50,42 @@ from ._models import (
 )
 
 __all__ = ["list", "info", "load", "versions", "predict", "evaluate", "validate", "benchmark", "finetune", "status",
+           "export_onnx", "onnx_parity", "query_checks", "check_spec", "export_web",
            "load_dir", "datasets", "ZooModel", "FinetuneResult", "FinetuneRejectedError", "OutOfRangeWarning",
            "SupersededModelWarning",
            "ZooError", "ArtifactNotPublishedError", "ArtifactUnavailableError", "ChecksumMismatchError", "cache_dir"]
+
+
+def export_onnx(name: ModelRef, path, *, checks: bool = False, check_parity: bool = True,
+                offline: bool | None = None) -> dict[str, Any]:
+    """Export a model to ONNX (pre/post-processing included; parity with PyTorch checked to 1e-5). See
+    :func:`pinneapple_hub.zoo.export.export_onnx`."""
+    from .export import export_onnx as _export
+    return _export(name, path, checks=checks, check_parity=check_parity, offline=offline)
+
+
+def onnx_parity(name: ModelRef, onnx_model, X=None, *, offline: bool | None = None) -> float:
+    """Largest scaled difference between an ONNX graph and the PyTorch model (:mod:`pinneapple_hub.zoo.export`)."""
+    from .export import onnx_parity as _parity
+    return _parity(name, onnx_model, X, offline=offline)
+
+
+def query_checks(name: ModelRef, inputs=None, *, offline: bool | None = None, **named) -> builtins.list:
+    """Per-query trust checks and verdict for each input row (:mod:`pinneapple_hub.zoo.checks`)."""
+    from .checks import query_checks as _qc
+    return _qc(name, named if inputs is None else inputs, offline=offline)
+
+
+def check_spec(name: ModelRef, *, offline: bool | None = None) -> dict[str, Any]:
+    """The declarative spec of a model's query checks (:func:`pinneapple_hub.zoo.checks.check_spec`)."""
+    from .checks import check_spec as _spec
+    return _spec(_model(name, offline))
+
+
+def export_web(name: str, directory, *, offline: bool | None = None) -> dict[str, Any]:
+    """ONNX graph with query checks + JSON card/spec for the browser (:mod:`pinneapple_hub.zoo.web`)."""
+    from .web import export_web as _web
+    return _web(name, directory, offline=offline)
 
 
 class FinetuneRejectedError(ZooError):

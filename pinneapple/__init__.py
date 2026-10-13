@@ -609,6 +609,8 @@ _SUBMODULES = {
     "loss":       "pinneapple_core.loss",
     "transforms": "pinneapple_core.transforms",
     "func":       "pinneapple_core.func",
+    # positional astronomy, satellites, small bodies, space weather, stellar ML, orbit PINNs (validated vs JPL/USNO)
+    "astro":      "pinneapple_physics.astro",
     # model zoo: pre-trained, verified models (load / predict / evaluate / validate / benchmark / finetune)
     "zoo":        "pinneapple_hub.zoo",
     # dataset hub: verified datasets with schema, splits, checksums, caching and lazy download

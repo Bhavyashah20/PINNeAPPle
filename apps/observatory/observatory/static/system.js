@@ -7,6 +7,7 @@ import { D2R, interp, mul3, radecVec, rotZ, teffToRGB, bvToTeff, toMatrix4 } fro
 import { glowTexture } from "./sky.js";
 
 const RADII = { mercury: 2439.4, venus: 6051.8, earth: 6371.0, mars: 3389.5, jupiter: 69911, saturn: 58232, uranus: 25362, neptune: 24622 };
+const SPRITE_COLORS = { mercury: "#cfc6b8", venus: "#fff1c8", earth: "#8fc0ff", mars: "#ff9a6a", jupiter: "#ffe2b8", saturn: "#f5dc9c", uranus: "#a8e6ee", neptune: "#7ea6ff" };
 const NAMES = { mercury: "Mercury", venus: "Venus", earth: "Earth", mars: "Mars", jupiter: "Jupiter", saturn: "Saturn", uranus: "Uranus", neptune: "Neptune" };
 const T = [[1, 0, 0], [0, 0, 1], [0, -1, 0]];                     // ecliptic (x, y, z) -> three (x, z, -y)
 const tr = (M) => M[0].map((_, j) => M.map((r) => r[j]));
@@ -56,6 +57,10 @@ export class SystemView {
       const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 64, 32), mat);
       mesh.userData.body = b;
       const grp = new THREE.Group(); grp.add(mesh); this.scene.add(grp);
+      // glow sprite: keeps the planet visible as a coloured point when it is a few pixels across
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: SPRITE_COLORS[b], transparent: true,
+        blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.85 }));
+      glow.userData.base = r * 6; glow.scale.setScalar(r * 6); grp.add(glow);
       if (b === "earth") mesh.matrixAutoUpdate = false;
       if (b === "saturn") {
         const rg = new THREE.RingGeometry(r * 1.24, r * 2.27, 128, 1);
@@ -66,7 +71,7 @@ export class SystemView {
         this.saturnPole = radecVec(40.589, 83.537);
         grp.add(ring); this.ring = ring;
       }
-      this.planets[b] = { grp, mesh, r, orbit: null };
+      this.planets[b] = { grp, mesh, r, glow: grp.children[1], orbit: null };
     }
     // Moon
     this.moon = new THREE.Mesh(new THREE.SphereGeometry(0.32 * Math.sqrt(1737.4 / 6371), 48, 24), new THREE.MeshStandardMaterial({ map: tex("moon.jpg"), roughness: 1 }));
@@ -78,6 +83,25 @@ export class SystemView {
     beam.position.y = 0.025; this.pinBeam = beam; this.pinGrp = new THREE.Group(); this.pinGrp.add(this.pin, beam);
     this.scene.add(this.pinGrp);
     this.orbits = new THREE.Group(); this.scene.add(this.orbits);
+  }
+
+  setSizeScale(k) {
+    this.sizeK = k;
+    const f = k / 3;
+    for (const o of Object.values(this.planets)) { o.mesh.scale.setScalar(f); o.glow.scale.setScalar(o.glow.userData.base * f); }
+    if (this.ring) this.ring.scale.setScalar(f);
+    this.moon.scale.setScalar(f);
+  }
+
+  setSmallBody(tr) {
+    if (this.sbLine) { this.scene.remove(this.sbLine); this.scene.remove(this.sbDot); }
+    this.sbTrack = tr;
+    const pts = tr.pos_au.map((v) => this.map(v));
+    this.sbLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color: "#ff5c8a", transparent: true, opacity: 0.8 }));
+    this.sbDot = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture("rgba(255,120,160,1)", "rgba(255,80,140,0.3)", 64), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    this.sbDot.scale.setScalar(1.2);
+    this.scene.add(this.sbLine, this.sbDot);
   }
 
   scaleR(rAU) { return this.logScale ? 30 * Math.log(1 + rAU / 0.4) / Math.log(3.5) : 30 * rAU; }
@@ -128,6 +152,7 @@ export class SystemView {
         new THREE.LineBasicMaterial({ color: colors[b], transparent: true, opacity: 0.38, depthWrite: false }));
       this.orbits.add(line);
     }
+    if (this.sbTrack) this.setSmallBody(this.sbTrack);
     this.moonOrbit = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: "#c8c8d8", transparent: true, opacity: 0.35 }));
     this.orbits.add(this.moonOrbit);
   }
@@ -176,6 +201,10 @@ export class SystemView {
       this.pinUp = up;
       this.pinGrp.position.copy(ep).add(up.clone().multiplyScalar(this.planets.earth.r * 1.005));
       this.pinGrp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
+    }
+    if (this.sbTrack) {
+      const t = this.sbTrack, v = [0, 1, 2].map((k) => interp(t.jd, t.pos_au.map((p) => p[k]), jd));
+      this.sbDot.position.copy(this.map(v));
     }
     if (this.focus && !this.tween) {
       const target = this.focusPos();
@@ -242,6 +271,7 @@ export class SystemView {
     };
     put(new THREE.Vector3(), "Sun", "body", "sun");
     for (const [b, o] of Object.entries(this.planets)) put(o.grp.position, NAMES[b], "body", b);
+    if (this.sbTrack) put(this.sbDot.position, this.sbTrack.name.replace(/\s*\(.*\)/, ""), "sat", "sb");
     if (this.camera.position.distanceTo(this.planets.earth.grp.position) < 12) {
       put(this.moon.position, "Moon", "body", "moon");
       if (this.observer) put(this.pinGrp.position, "You", "you", "you");
