@@ -399,14 +399,28 @@ class RoverContact(ZooModel):
         dfz = np.diff(Fz, axis=0) / span(Fz)
         mfx = s[0] <= 0.3
         dfx = np.diff(Fx[:, mfx], axis=1) / span(Fx)
+        if "soil" in c:
+            # the physics the model was trained on is recorded: with slip-sinkage the soil softens as the slip
+            # grows, so at a fixed sinkage the drawbar pull need not grow with slip -- the model must follow the
+            # sign of dFx/ds of its own reference instead of a blanket dFx/ds >= 0
+            from pinneapple_simulation.terramechanics import WongReeceModel
+            ref = WongReeceModel.from_physics_config(c).forces(s.ravel(), z.ravel()).Fx.reshape(s.shape)
+            dref = np.diff(ref[:, mfx], axis=1) / span(ref)
+            bad = ((dfx < -noise) & (dref > noise)) | ((dfx > noise) & (dref < -noise))
+            fx_check = checagem_erro_relativo("dFx/ds for slip <= 0.3 has the sign of the Wong-Reece reference "
+                                              "(share disagreeing)", float(np.mean(bad)), 0.01,
+                                              fonte="shear mobilisation and slip-sinkage", critica=True)
+        else:
+            fx_check = checagem_erro_relativo("dFx/ds >= 0 for slip <= 0.3 (share violating)",
+                                              float(np.mean(dfx < -noise)), 0.01, fonte="shear mobilisation",
+                                              critica=True)
         theta = np.arccos(np.clip(1 - z / c["R_m"], -1, 1))
         mc = (Fx - (c["c_Pa"] * c["b_m"] * c["R_m"] * theta + Fz * math.tan(math.radians(c["phi_deg"])))) / span(Fx)
         tq = (c["R_m"] * Fx - My) / span(My)
         return [
             checagem_erro_relativo("dFz/dz >= 0 (share of grid steps violating beyond 0.2 % of range)",
                                    float(np.mean(dfz < -noise)), 0.01, fonte="pressure-sinkage", critica=True),
-            checagem_erro_relativo("dFx/ds >= 0 for slip <= 0.3 (share violating)", float(np.mean(dfx < -noise)),
-                                   0.01, fonte="shear mobilisation", critica=True),
+            fx_check,
             checagem_erro_relativo("Mohr-Coulomb limit Fx <= c A + Fz tan(phi) (share violating)",
                                    float(np.mean(mc > noise)), 0.01, fonte="Mohr-Coulomb", critica=True),
             checagem_erro_relativo("torque coupling My >= R Fx (share violating)", float(np.mean(tq > noise)), 0.01,
@@ -428,12 +442,19 @@ def load_dir(directory: str | Path) -> ZooModel:
     return cls(card.name, card, config, state, {})
 
 
-def load_model(name: str, *, offline: bool | None = None) -> ZooModel:
+class SupersededModelWarning(UserWarning):
+    """A superseded release of a zoo model was loaded."""
+
+
+def load_model(name: str, *, offline: bool | None = None, version: str | None = None) -> ZooModel:
     import torch
-    spec = art.entry("models", name)
-    card = ModelCard.load(str(art.fetch("models", name, "model_card.json", offline=offline)))
-    config = json.loads(art.fetch("models", name, "config.json", offline=offline).read_text())
-    state = torch.load(art.fetch("models", name, "weights.pt", offline=offline), map_location="cpu",
+    spec = art.entry("models", name, version)
+    if version is not None and spec.get("superseded_by"):
+        warnings.warn(f"{name} v{version} is superseded by v{spec['superseded_by']}: {spec.get('superseded_reason', '')}",
+                      SupersededModelWarning, stacklevel=3)
+    card = ModelCard.load(str(art.fetch("models", name, "model_card.json", offline=offline, version=version)))
+    config = json.loads(art.fetch("models", name, "config.json", offline=offline, version=version).read_text())
+    state = torch.load(art.fetch("models", name, "weights.pt", offline=offline, version=version), map_location="cpu",
                        weights_only=True)
     return ADAPTERS[spec["adapter"]](name, card, config, state, spec)
 

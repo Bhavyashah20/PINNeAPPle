@@ -18,12 +18,14 @@ from .wong_reece import (
     WongReeceModel,
     bearing_capacity_factors,
     bulldozing_resistance,
+    physics_mismatch,
     slip_angle,
     slip_ratio,
 )
 
 __all__ = ["Soil", "SOILS", "get_soil", "list_soils", "register_soil", "Wheel", "Grousers", "WongReeceModel",
-           "ContactResult", "bulldozing_resistance", "bearing_capacity_factors", "slip_ratio", "slip_angle"]
+           "ContactResult", "bulldozing_resistance", "bearing_capacity_factors", "slip_ratio", "slip_angle",
+           "physics_mismatch"]
 
 
 def __getattr__(name):
