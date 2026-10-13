@@ -178,9 +178,10 @@ MODELS = {
             "750 held-out designs solved by the HeatSink Sizer physics engine (pinneapple_design.thermal.heatsink."
             "engine). The engine is checked against independent methods: natural h vs Elenbaas (1942) 2 %, Lee et "
             "al. spreading (1-5 %), FVM grid convergence < 2 %."),
-        "training_config": {"optimizer": "Adam (600 epochs, lr 2e-3 cosine, batch 128; hinge penalty from epoch 50, "
-                                         "weight 1, margin 3e-4) + 4 rounds of full-batch L-BFGS on the same "
-                                         "constrained objective",
+        "training_config": {"optimizer": "library Trainer, Adam lr 2e-3, batch 128, best-val checkpoint: 50 epochs of "
+                                         "plain regression, then 550 epochs with the hinge penalty (weight 100, "
+                                         "margin 5e-4 in d log R / d log x); then 4 rounds of full-batch L-BFGS on "
+                                         "the same constrained objective",
                             "split": {"train": 3250, "val": 500, "cal": 500, "test": 750}, "seed": 0,
                             "script": "scripts/zoo/train_heatsink_natural.py "
                                       "(pinneapple_design.thermal.heatsink.monotone.train_monotone)"},

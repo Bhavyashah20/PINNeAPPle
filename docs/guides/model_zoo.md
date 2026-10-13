@@ -17,7 +17,7 @@ The candidates that did not pass, and why, are listed in
 |---|---|---|---|
 | `airfoil_cst_rans_mlp` | Cl, Cd, Cm of a CST airfoil, with ensemble uncertainty | Cd 0.54 % and Cl ±0.003 on 15 unseen shapes (OpenFOAM RANS); Cd 2.8 % vs XFOIL | α −2…14°, Re 4·10⁶, CST bounds |
 | `heatsink_forced_mlp` | Plate-fin heat-sink resistance (K/W), pressure drop (Pa), 95 % upper bound | R 0.71 %, ΔP 1.0 % on 900 designs (verified physics engine) | Ducted air, 0.5–6 m/s, 10–400 W |
-| `heatsink_natural_mlp` | Plate-fin heat-sink resistance (K/W) in natural convection, 95 % upper bound; trained with monotonicity constraints | R 0.52 % mean, 1.6 % p95 on 750 designs (verified physics engine) | Free air, vertical fins, 1–80 W |
+| `heatsink_natural_mlp` | Plate-fin heat-sink resistance (K/W) in natural convection, 95 % upper bound; trained with monotonicity constraints | R 0.47 % mean, 1.5 % p95 on 750 designs (verified physics engine) | Free air, vertical fins, 1–80 W |
 | `rover_contact_grc1_viper` | Drawbar pull, normal load, torque of a rover wheel on lunar regolith | Fx 0.21 N, Fz 0.16 N RMSE (ranges 1.6 and 1.4 kN), Wong–Reece | Slip −0.4…0.9, sinkage 2–60 mm |
 
 | Dataset | Content |

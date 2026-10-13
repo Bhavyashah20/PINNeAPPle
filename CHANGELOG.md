@@ -16,14 +16,14 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ### Added
 - Model zoo: `heatsink_natural_mlp`, the natural-convection plate-fin heat-sink surrogate. It is trained with
   monotonicity constraints so that a more conductive material or a wider heat source never raises the resistance.
-  Error against 750 held-out physics-engine designs: R 0.52 % mean, 1.6 % p95. The 95 % conformal bound covers
-  97.2 %. Trust report `APPROVED`: monotonicity violations are 0 % for conductivity, 0.14 % for source width and
-  0 % for power (limit 1 %). The app's unconstrained surrogate had the conductivity sign wrong on 5 % of designs.
+  Error against 750 held-out physics-engine designs: R 0.47 % mean, 1.5 % p95. The 95 % conformal bound covers
+  97.1 %. Trust report `APPROVED`: monotonicity violations are 0 % for conductivity, source width and power (limit
+  1 %). The app's unconstrained surrogate had the conductivity sign wrong on 5 % of designs.
 - `pinneapple_neural.trainer.monotonic`: `monotonicity_penalty` (a hinge on input-output derivatives, in physical
   units, with a margin) and `monotone_violation_share`.
 - `pinneapple_design.thermal.heatsink.monotone.train_monotone`: the training recipe of the constrained heat-sink
-  surrogate. It uses the same data, features and split as the app, Adam with the penalty on training and random
-  in-range designs, then an L-BFGS polish.
+  surrogate. It uses the same data, features and split as the app, the library `Trainer` with the penalty on
+  training and random in-range designs, then an L-BFGS polish.
 - Zoo infrastructure for large datasets:
   - Hub-only datasets: one `<split>.npz` per split, optionally sharded into `<split>-NN.npz`. `pp.datasets.load`
     downloads only the requested split, concatenates the shards and checks every file's SHA-256.

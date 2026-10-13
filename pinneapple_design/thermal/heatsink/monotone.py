@@ -5,8 +5,9 @@ conductivity effect wrong on 5 % of held-out designs: raising k by 5 % lowers th
 (median over 400 designs), below the fit error, so a plain regression does not resolve it. :func:`train_monotone`
 trains the same architecture (``bench_mlp`` 4 x 128 SiLU, same features, same split) with a hinge penalty
 (:func:`pinneapple_neural.trainer.monotonic.monotonicity_penalty`) on d log R / d log k and d log R / d log(source
-width), both required to be <= -``MARGIN``, evaluated on the training designs and on random in-range designs; Adam
-first, then a full-batch L-BFGS polish of the same constrained objective.
+width), both required to be <= -``MARGIN``, evaluated on the training designs and on random in-range designs: the
+library ``Trainer`` (Adam, best-val checkpoint; plain regression for ``WARMUP`` epochs, then the constrained
+objective), then a full-batch L-BFGS polish of the same objective (``multi_round_lbfgs``).
 
 Power is not constrained: the engine's own resistance rises with power on 0.5 % of designs (up to +0.7 % for a +5 %
 step), so "more power, lower resistance" is not a law of the reference.
@@ -16,6 +17,7 @@ from __future__ import annotations
 import gzip
 import json
 import math
+import tempfile
 import time
 
 import numpy as np
@@ -71,6 +73,8 @@ def train_monotone(mode: str = "natural", *, seed: int = 0, epochs: int = 600, l
                    log=print) -> dict:
     """Train the constrained surrogate on the app's dataset; returns the bundle that ``torch.save`` stores (state,
     normalisation, split-conformal quantiles of log R, history, summary metrics)."""
+    from pinneapple_neural.trainer import TrainConfig, Trainer
+    from pinneapple_neural.trainer.checkpoint import load_checkpoint
     from pinneapple_neural.trainer.lbfgs_finetune import multi_round_lbfgs
     from pinneapple_neural.trainer.monotonic import monotonicity_penalty
 
@@ -96,33 +100,35 @@ def train_monotone(mode: str = "natural", *, seed: int = 0, epochs: int = 600, l
 
     rng = np.random.default_rng(seed + 1)
     xtr, ytr, xva, yva = zx(X[tr]), zy(Y[tr]), zx(X[va]), zy(Y[va])
-    opt = torch.optim.Adam(model.parameters(), lr=2e-3)
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, epochs, eta_min=2e-5)
-    best, best_state, hist = math.inf, None, []
+
+    def loader(xs, ys, shuffle):
+        from torch.utils.data import DataLoader, TensorDataset
+        return DataLoader(TensorDataset(xs, ys), batch_size=128, shuffle=shuffle,
+                          collate_fn=lambda b: {"x": torch.stack([i[0] for i in b]),
+                                                "y": torch.stack([i[1] for i in b])})
+
+    def loss_fn(weight):
+        def f(m, y_hat, batch):
+            mse = torch.mean((y_hat - batch["y"]) ** 2)
+            if not weight:
+                return {"total": mse, "mse": mse}
+            mono = pen(batch["x"]) + pen(zx(random_designs(mode, 128, rng)))
+            return {"total": mse + weight * mono, "mse": mse, "mono": mono}
+        return f
+
+    # Adam through the library trainer: plain regression first, then the constrained objective (best-val checkpoint)
     t0 = time.time()
-    for ep in range(epochs):
-        w = lam if ep >= WARMUP else 0.0
-        model.train()
-        perm = torch.randperm(len(xtr))
-        for b in range(0, len(perm), 128):
-            j = perm[b:b + 128]
-            loss = torch.mean((out_of(xtr[j]) - ytr[j]) ** 2)
-            if w:
-                loss = loss + w * (pen(xtr[j]) + pen(zx(random_designs(mode, 128, rng))))
-            opt.zero_grad()
-            loss.backward()
-            opt.step()
-        sched.step()
-        model.eval()
-        with torch.no_grad():
-            v = float(torch.mean((out_of(xva) - yva) ** 2))
-        p = float(pen(xva, False))
-        hist.append({"epoch": ep, "val_mse": v, "val_mono_penalty": p})
-        if w and v + lam * p < best:
-            best, best_state = v + lam * p, {k: t.clone() for k, t in model.state_dict().items()}
-        if ep % 50 == 0:
-            log(f"epoch {ep} val_mse {v:.3e} mono {p:.3e} {time.time() - t0:.0f}s")
-    model.load_state_dict(best_state)
+    hist = []
+    with tempfile.TemporaryDirectory(prefix="hs_mono_") as logs:
+        for phase, (n_ep, weight) in enumerate(((WARMUP, 0.0), (epochs - WARMUP, lam))):
+            fit = Trainer(model, loss_fn(weight)).fit(
+                loader(xtr, ytr, True), loader(xva, yva, False),
+                TrainConfig(epochs=n_ep, lr=2e-3, device="cpu", seed=seed + phase, log_dir=logs,
+                            run_name=f"phase{phase}", physics_aware_validation=bool(weight)))
+            hist += fit["history"]
+            if fit.get("best_path"):
+                model.load_state_dict(load_checkpoint(fit["best_path"]).model_state)
+            log(f"phase {phase}: best val {fit['best_val']:.3e} {time.time() - t0:.0f}s")
 
     # full-batch L-BFGS polish of the constrained objective; fresh random designs every round
     def closure_builder():

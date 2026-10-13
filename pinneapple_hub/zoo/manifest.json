@@ -117,18 +117,18 @@
    "repo_type": "model",
    "files": {
     "weights.pt": {
-     "sha256": "55cfdb251f901ea8aadb31658980d748b055086736e54a29f2a5965bd2e431d7",
+     "sha256": "85fcadf7182e81b58b1926715611fb10a089a515539d52020d72dc089f8abad2",
      "size": 208709,
      "bundled": "models/heatsink_natural_mlp/weights.pt"
     },
     "config.json": {
-     "sha256": "2c4e9f988ea5bbd46884e345a5e96e6bc3436f365ed188f05ce0d454d2f6c65a",
-     "size": 910,
+     "sha256": "b0d10bdf450dd2b5a1f9e3563cc373aa75e09611d1684afb473bc55f24833e19",
+     "size": 908,
      "bundled": "models/heatsink_natural_mlp/config.json"
     },
     "model_card.json": {
-     "sha256": "a60c0a3ca676cda6e14243d03e433f62cf65992c8ac9006209d3427b99b17b5a",
-     "size": 8189,
+     "sha256": "2b22ed77d7e1d74a41498544c76b30495263377b4a07d7ab1f97b26ffc3ac5cf",
+     "size": 8274,
      "bundled": "models/heatsink_natural_mlp/model_card.json"
     }
    }
