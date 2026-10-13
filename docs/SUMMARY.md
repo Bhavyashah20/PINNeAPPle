@@ -53,6 +53,7 @@
     * [Pre-trained models and datasets (pp.zoo)](guides/model_zoo.md)
     * [Colab notebooks](guides/colab_notebooks.md)
     * [PINNeAPPle from coding agents (MCP server)](guides/mcp_server.md)
+    * [Physics checks in CI](guides/physics_checks_in_ci.md)
 * [API Reference](api/index.md)
   * [pinneapple](api/pinneapple/index.md)
   * [pinneapple_physics](api/pinneapple_physics/index.md)

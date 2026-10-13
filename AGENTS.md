@@ -33,6 +33,7 @@ On Colab: the notebooks in [`notebooks/colab/`](notebooks/colab/README.md) insta
 | Which methods are validated | `pinneapple_catalog.validated_methods()`, `pinneapple_catalog.methods.method_status()` |
 | Equal-budget benchmark | `pp.compare` with the same epochs / collocation / seeds per method (below); `pp.benchmark.run(...)` where installed |
 | Animations with synced charts | `pp.dashboard.Dashboard(...)`: `.to_png`, `.to_html`, `.to_video(gif=...)` |
+| Lint results and models for physics in CI | `pinneapple check [paths]` (conservation, BCs, residual, units, OOD, regression; [docs](docs/guides/physics_checks_in_ci.md)) |
 | Everything from an agent tool call | the MCP server `pinneapple-mcp` ([docs](docs/guides/mcp_server.md)) |
 
 Check the zoo before training a surrogate: a zoo model comes with its held-out errors, physics checks and validity
@@ -169,6 +170,7 @@ assert status["S2"]["status"] == "validated"   # linear finite elements: compare
 pytest tests/test_public_api.py tests/test_manufactured_solutions.py -q    # the must-pass core
 pytest tests/test_agents_md.py tests/test_mcp_server.py -q                  # this file and the MCP server
 python scripts/run_colab_notebooks.py --smoke                               # every Colab notebook, tiny sizes
+pinneapple check <result dirs or models>                                    # physics linter (pinneapple_check)
 ruff check <changed files>
 ```
 

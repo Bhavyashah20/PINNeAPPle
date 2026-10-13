@@ -12,11 +12,12 @@ Writes docs/assets/lunar_rover/ (outputs/viper/media with --quick) and outputs/v
     viper_beauty.png, viper_side.png        CAD on regolith, low Sun (lunar_south_pole preset)
     viper.glb / viper.stl                   CAD with PBR materials (glb in docs, stl in outputs)
     testbed_viper.png                       single-wheel curves of the VIPER wheel on GRC-1 and JSC-1A
-    validation_single_wheel.png             model vs published single-wheel tests (cited soils, no fitting)
+    validation_single_wheel.png             model vs published single-wheel tests: cited soils (dashed) and the
+                                            slip-sinkage calibration on every other point (solid), held-out RMSE
     surrogate.png                           PINN vs Wong-Reece on the held-out set
     grade_sweep.png                         slip, speed and torque vs grade (full vehicle)
     crater_series.png, crossslope_series.png  per-wheel time series of the dynamic runs
-    crater_crossing.gif / .mp4              the crater run, ruts coloured by normal stress
+    crater_crossing.gif / .mp4              the crater run, 3-D ruts shaded by the low Sun
     results.json                            every number quoted in docs/core_concepts/lunar_rover_terramechanics.md
 
     python examples/use_cases/terramechanics/lunar_rover_3d.py            # about 25 min on 4 CPU cores
@@ -89,8 +90,11 @@ def main(quick: bool = False):
                     "sources": spec.sources}
     spec.cad.export(str(media / "viper.glb"))
     spec.cad.export(str(OUT / "viper.stl"))
-    viz.beauty(spec, str(media / "viper_beauty.png"), title="NASA VIPER, parametric model from public figures")
-    viz.beauty(spec, str(media / "viper_side.png"), camera=((0.4, -5.6, 1.15), (0.0, 0.0, 1.05)), title="")
+    # front three-quarter view (mast, camera head, TRIDENT drill) and side view, the low Sun turned onto the faces seen
+    viz.beauty(spec, str(media / "viper_beauty.png"), camera=((4.3, -3.9, 1.75), (0.1, 0.0, 0.95)),
+               sun_azimuth_deg=-55.0, title="NASA VIPER, parametric model from public figures")
+    viz.beauty(spec, str(media / "viper_side.png"), camera=((0.4, -5.6, 1.15), (0.0, 0.0, 1.05)),
+               sun_azimuth_deg=-35.0, title="")
     log("CAD:", {k: R["vehicle"][k] for k in ("mass_kg", "track_m", "wheelbase_m", "envelope_m")})
 
     # ------------------------------------------------------------------ single wheel: VIPER wheel and validation
@@ -103,16 +107,26 @@ def main(quick: bool = False):
                      f"VIPER wheel (R 0.25 m, b 0.20 m, 24 grousers), load {W:.0f} N (lunar g)")
     R["testbed_viper"] = {k: {q: np.round(v[q], 4) for q in ("slip", "drawbar_pull", "torque", "sinkage")}
                           for k, v in curves.items()}
-    reps, fits = [], {}
+    reps, cals = [], []
     for ds, wk in testbed.list_datasets():
-        reps.append(testbed.validate(testbed.load_dataset(ds, wk)))
-        fits[f"{ds} {wk}"] = testbed.calibrate(testbed.load_dataset(ds, wk))
+        d = testbed.load_dataset(ds, wk)
+        cals.append(testbed.calibrate_holdout(d))          # n0, n1 (slip-sinkage) and K on every other point
+        reps.append(cals[-1]["report_before"])
     testbed.plot_validation(reps, str(media / "validation_single_wheel.png"),
-                            "Single-wheel tests: published points vs the model with the cited soil parameters")
+                            "Single-wheel tests: slip-sinkage calibrated on every other point, the rest held out",
+                            calibrated=cals)
     R["validation"] = {r.data.label: r.summary() for r in reps}
-    R["calibration"] = {k: {"params": v["params"], "errors": v["report"].errors} for k, v in fits.items()}
-    log("validation (DP rmse / load):", {k: round(v["drawbar_pull_N"]["rmse_rel_scale"], 3)
-                                         for k, v in R["validation"].items()})
+    R["slip_sinkage_calibration"] = {
+        c["dataset"]: {"params": c["params"], "at_bound": c["at_bound"], "train_slips": reps[i].data.slip[c["train"]],
+                       "held_out_slips": reps[i].data.slip[~c["train"]], "held_out_before": c["test_before"],
+                       "held_out_after": c["test_after"], "train_after": c["train_after"]}
+        for i, c in enumerate(cals)}
+    log("held-out sinkage rmse [mm] before -> after:",
+        {c["dataset"]: (round(1e3 * c["test_before"]["sinkage_m"]["rmse"], 2),
+                        round(1e3 * c["test_after"]["sinkage_m"]["rmse"], 2)) for c in cals})
+    log("held-out DP rmse / load before -> after:",
+        {c["dataset"]: (round(c["test_before"]["drawbar_pull_N"]["rmse_rel_scale"], 3),
+                        round(c["test_after"]["drawbar_pull_N"]["rmse_rel_scale"], 3)) for c in cals})
 
     # ------------------------------------------------------------------ PINN surrogate for the VIPER wheel
     wr = WongReeceModel(get_soil("GRC-1"), spec.wheel)
@@ -153,7 +167,7 @@ def main(quick: bool = False):
     # ------------------------------------------------------------------ animation
     log("animation ...")
     viz.animate(run_c, site, str(media / "crater_crossing.gif"), mp4=str(media / "crater_crossing.mp4"),
-                field="normal_stress", frames=50 if quick else 150, fps=15, size=(960, 540),
+                field=None, frames=50 if quick else 150, fps=15, size=(960, 540),
                 progress=lambda j, n: log(f"  frame {j}/{n}") if j % 25 == 0 else None)
     R["wall_time_s"] = time.time() - t0
     with open(media / "results.json", "w") as f:
@@ -171,7 +185,7 @@ def _plot_grades(rows, path):
     fig, ax = plt.subplots(1, 3, figsize=(13, 3.6))
     ax[0].plot(g, [r["slip_mean"] for r in rows], "o-", color="#2a78d6")
     ax[0].axhline(0.4, color="#9a9893", lw=0.8, ls="--")
-    ax[0].text(0.3, 0.42, "40 % slip, VIPER requirement at 15 deg", fontsize=7.5, color="#52514e")
+    ax[0].text(0.3, 0.385, "40 % slip, VIPER requirement at 15 deg", fontsize=7.5, color="#52514e", va="top")
     ax[1].plot(g, [r["speed_m_s"] for r in rows], "o-", color="#eb6834")
     ax[2].plot(g, [r["drive_torque_Nm"] for r in rows], "o-", color="#1baf7a", label="mean")
     ax[2].plot(g, [r["max_drive_torque_Nm"] for r in rows], "s--", color="#1baf7a", ms=4, label="peak")

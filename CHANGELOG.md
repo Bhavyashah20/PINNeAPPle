@@ -32,10 +32,51 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `capabilities`, `list_methods` / `describe_method` (with the catalog's validation status), `list_presets`,
   `solve` and `benchmark` (equal training budget) as jobs with a trust card per result, `trust_card` for any field
   or file, `zoo_list` / `zoo_predict` / `zoo_validate` for the model zoo, and `job_status` / `list_jobs` /
-  `cancel_job`. Problems are JSON (a preset or a box problem whose values
-  are safely parsed expressions); results are saved under a working directory and returned as paths; jobs run in a
-  separate process with a wall-time limit, a memory limit and the network switched off. Added to `.mcp.json`; set-up
+  `cancel_job`. Problems are JSON (a preset or a box problem whose values are safely parsed expressions);
+  results are saved under a working directory and returned as paths; jobs run in a separate process with a wall-time limit, a memory limit and the network switched off. Added to `.mcp.json`; set-up
   for Gemini CLI, Claude Code, Cursor, Codex and a Colab cell in `docs/guides/mcp_server.md`.
+- `pinneapple check`, a physics linter for CI (`pinneapple_check`; also `python -m pinneapple.check`): fails when a
+  simulation result or a Physics-AI model violates physics. 29 rules with ids, explanations and fix hints
+  (`--list-rules`, `--explain PC101`): conservation of mass, energy and momentum, divergence, conserved totals in
+  time (PC1xx), boundary and initial conditions, wall velocity (PC2xx), PDE residual of stored fields and of a
+  model's predictions (PC3xx), declared bounds, physical admissibility, non-finite values (PC4xx), units and
+  parameter dimensions (PC5xx), queries outside a model's training range or in a gap of its data (PC6xx), field
+  and quantity-of-interest regression against a reference (PC7xx), hashes, signatures, unsafe checkpoints and
+  untracked artefacts (PC8xx), method status in the catalog (PC9xx).
+  - Reads OpenFOAM cases (with `phi`, so continuity is checked on the solver's own flux), VTK/VTU, NPZ/HDF5 grids
+    and point tables, CSV of quantities of interest; models as a `file.py:function`, a PINNeAPPle checkpoint with
+    its architecture name (scanned before loading; training range from its metadata), a `pp.zoo` model (range from
+    its card) or a hub model. Physics:
+    incompressible flow, heat, linear elasticity, generic conservation law.
+  - `pinneapple-check.toml` or `[tool.pinneapple.check]` in `pyproject.toml`, zero-config discovery, `--select` /
+    `--ignore` prefixes, `--format text|json|sarif|junit|github|summary`, a baseline to adopt it gradually, exit
+    codes 0/1/2. The JSON report carries the trust card of each target and feeds the veriphysics applicability map.
+  - Reuses `pinneapple_data` readers and units, the `physics_audit` training envelope, field metrics, the method
+    catalog and `pinneapple_security`, without importing torch.
+  - `action.yml`: a composite GitHub Action (pinned to its own ref or a PyPI version, pip cache, SARIF upload to
+    code scanning, annotations, job summary); example workflow in `examples/physics_check/workflow.yml`.
+  - `examples/physics_check/`: a passing and a failing fixture for every rule (real icoFoam runs among them), used
+    by `tests/test_physics_check.py` and by `.github/workflows/physics-check.yml`. Docs:
+    `docs/guides/physics_checks_in_ci.md`.
+  - New extra `check` (meshio, h5py, cryptography) and the `pinneapple` command (`pinneapple check ...`; it also
+    forwards `pinneapple benchmark ...` to `pinneapple_analysis.benchmark` when installed).
+- Rover realism (`pinneapple_simulation.terramechanics`, `.vehicle`, `pinneapple_tools.visualization.studio`,
+  `pinneapple_design.geometry.vehicle_cad`):
+  - Slip-sinkage calibration with held-out points: `testbed.calibrate_holdout` fits the slip-dependent sinkage
+    exponent `n = n0 + n1 s` (Ding et al. 2010, 2011) and K on every other published single-wheel point and reports
+    the errors on the held-out points before and after (`testbed.holdout_split`, `plot_validation(calibrated=...)`).
+    `WongReeceModel(slip_sinkage="drive" | "both" | "none")`, `sinkage_exponent()`, `forces(..., sinkage_slip=...)`.
+  - 3-D ruts: `DeformableTerrain` rut walls at the angle of repose (`wall_angle_deg`) and rounded berms holding the
+    displaced soil (`berm`), as separate layers; the default renders show ruts by their geometry, the stress map
+    is an option (`overlay=`).
+  - Ground to the horizon: `SurfaceView(horizon=..., far_fn=...)` adds a curved annulus past the lunar horizon;
+    `studio.planetary.border_visibility` checks that no mesh border is visible from a camera.
+  - Dashboard exports at small sizes: `font_scale` with text-aware gaps, `write_video(gif_font_scale=...)` lays the
+    GIF out natively at its size, `dashboard.static.write_gif` writes a palette-optimised GIF.
+  - VIPER CAD from public NASA figures: chamfered body, radiator and MLI front, pan-tilt mast head, box-beam
+    suspension arms with actuators, the TRIDENT drill (`vehicle_cad.drill_assembly`) and new primitives
+    (`loft`, `extrude_polygon`, `chamfered_box`, `box_beam`, `ladder_rail`, `helix_sweep`, `mli_blanket`,
+    `actuator`, `pan_tilt_head`); sources and estimates in `VIPER_SOURCES`.
 - Model zoo `pp.zoo` and dataset hub `pp.datasets` (`pinneapple_hub.zoo`): pre-trained models and ready-made
   datasets you can load in one line. Only items that passed a quality gate ship (an independent reference, physics
   checks, a recorded validity range; for datasets, a verified solver or a public source with a compatible licence).
@@ -64,6 +105,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   2-D airfoil, OpenFOAM simpleFoam k-omega SST, CST geometry, the 436-run campaign, baseline against XFOIL, a
   surrogate optimum checked in CFD) and `free_surface_trough` (water jet into an open trough, interFoam VOF via
   `pp.cfd.FreeSurfaceFlow`, two meshes with mass balance, impingement, splash, floor shear and mean k).
+
+### Changed
+- **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their
+  sinkage grows with driving slip. The validation soils keep n1 = 0. In `VehicleSimulator` the slip that sets the
+  exponent lags the wheel's slip over `sink_length` (0.15 m) of rim travel.
+- **Behavior:** `vehicle.dashboard.render_frames` and `vehicle_dashboard` default to the geometry-only view (no
+  stress colour map, no colour bar); pass `field=` / `field_label=` for the overlay.
 
 ## [0.7.0] - 2026-10-13
 
