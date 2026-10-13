@@ -26,8 +26,11 @@ DATA_FILES = [
     "pinneapple_tools/visualization/studio/web/viewer.js",
     "pinneapple_tools/visualization/studio/web/studio-core.js",
     "pinneapple_tools/visualization/studio/web/vendor/three/three.module.min.js",
+    "pinneapple_tools/visualization/studio/web/vendor/three/OrbitControls.js",
+    "pinneapple_simulation/terramechanics/data/single_wheel_tests.csv",
     "pinneapple_twin3d/viewer/index.html",
     "pinneapple_twin3d/viewer/viewer.js",
+    "pinneapple_design/geometry_library/manifest.json",
 ]
 
 

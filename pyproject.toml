@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pinneapple"
-version = "0.6.3"
+version = "0.7.0"
 description = "PINNeAPPle: Physics-Informed Neural Networks platform — PDE problem design, PINN/operator/GNN models, UQ, digital twins, meta-learning, active learning, validation, and REST serving."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -42,16 +42,25 @@ dependencies = [
   "matplotlib>=3.8",
   "torch>=2.2",
   "xarray",
-  "zarr"
+  "zarr",
+  "tomli>=2.0; python_version < '3.11'",
 ]
 
 [project.scripts]
 # Drop-in CalculiX executable backed by a PINN/surrogate (falls back to ccx outside its envelope)
 pinneapple-ccx = "pinneapple_simulation.external_solvers.calculix.virtual_ccx:main"
+# pinneapple check [paths]: physics linter for CI (and `pinneapple benchmark ...` when that package is present)
+pinneapple = "pinneapple_check.cli:main"
 
 [project.optional-dependencies]
 # Ed25519 signatures and AES-GCM encryption in pinneapple_security (the rest of the module needs only NumPy)
 security = [
+  "cryptography>=41",
+]
+# pinneapple check: VTK/VTU results (meshio), HDF5 fields (h5py), artefact signatures (cryptography)
+check = [
+  "meshio>=5.3",
+  "h5py>=3.8",
   "cryptography>=41",
 ]
 # Evidence Report PDF in pinneapple_veriphysics (the Decision Record itself needs only the standard library)
@@ -73,6 +82,11 @@ twin = [
   "asyncua>=1.1",
 ]
 # FMI: simulate FMUs (FMI 1.0 / 2.0 / 3.0) through fmpy; pythonfmu builds the test FMU
+# Geometry library (pp.geometries): boolean union of the bodies (Geometry.solid), Hub downloads, STEP read-back
+geometry = [
+  "manifold3d>=2.4",
+  "huggingface_hub>=0.20",
+]
 # Problem -> CAD -> fit-for-purpose meshes (pinneapple_design.fitmesh); OpenFOAM is a separate install
 fitmesh = [
   "cadquery>=2.4",
@@ -82,6 +96,13 @@ fitmesh = [
 # NVIDIA Newton rigid-body solvers (pinneapple_simulation.external_solvers.newton_physics)
 newton = [
   "newton>=1.6",
+]
+# Positional astronomy (pinneapple_physics.astro): SGP4 satellites, the public-domain JPL DE421 kernel, and skyfield
+# as an independent cross-check in the validation suite
+sky = [
+  "sgp4>=2.22",
+  "skyfield-data>=6.0",
+  "skyfield>=1.48",
 ]
 # astroML periodograms, extreme deconvolution, fits with errors (pde_environment.presets.astroml_bridge)
 astroml = [
@@ -390,6 +411,7 @@ packages = [
   "pinneapple_blender",      # Blender export/render bridge
   "pinneapple_perception",   # extract physics from images/video/audio
   "pinneapple_security",     # integrity, signatures, provenance, audit trail, privacy/DP, model scanning, OT anomaly detection
+  "pinneapple_check",       # physics linter for CI: pinneapple check (conservation, units, BCs, residual, OOD, regression, integrity)
   "pinneapple_veriphysics",  # Decision Record, evidence report, applicability map, robustness and recommendation (verification layer)
 
   # ── arena + compatibility shims ───────────────────────────────────────────
@@ -440,6 +462,7 @@ include = [
   "pinneapple_blender/**",
   "pinneapple_perception/**",
   "pinneapple_security/**",
+  "pinneapple_check/**",
   "pinneapple_veriphysics/**",
   "pinneapple_arena/**",
   "pinneapple_models/**",

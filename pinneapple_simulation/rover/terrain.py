@@ -183,4 +183,24 @@ def random_rocks(rng: np.random.Generator, n: int, x_range, y_range, radius_rang
     return rocks
 
 
-__all__ = ["LunarTerrain", "Crater", "Rock", "SoilRegion", "random_rocks", "PIKE_1977_DEPTH_RATIO"]
+def random_craters(rng: np.random.Generator, n: int, x_range, y_range, diameter_range, depth_ratio_range=(0.05, 0.15),
+                   rim_ratio: float = 0.01, keep_out=None, slope: float = 2.0) -> list[Crater]:
+    """``n`` small degraded craters (scenery): positions uniform, diameters from a power law ``N(>D) ~ D^-slope``
+    truncated to ``diameter_range``, depth/diameter uniform in ``depth_ratio_range`` (below Pike's 0.2 for fresh
+    craters, since small lunar craters are mostly degraded). ``keep_out(x, y, D)`` rejects a crater."""
+    out: list[Crater] = []
+    d0, d1 = diameter_range
+    tries = 0
+    while len(out) < n and tries < 50 * n:
+        tries += 1
+        u = rng.random()
+        D = (d0 ** -slope - u * (d0 ** -slope - d1 ** -slope)) ** (-1.0 / slope)
+        x, y = rng.uniform(*x_range), rng.uniform(*y_range)
+        if keep_out is not None and keep_out(x, y, D):
+            continue
+        out.append(Crater(x, y, D, rim_ratio=rim_ratio, depth_ratio=rng.uniform(*depth_ratio_range),
+                          crest_width=0.15))
+    return out
+
+
+__all__ = ["LunarTerrain", "Crater", "Rock", "SoilRegion", "random_rocks", "random_craters", "PIKE_1977_DEPTH_RATIO"]

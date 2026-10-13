@@ -20,7 +20,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xe9edf2);
 scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
 const sun = new THREE.DirectionalLight(0xffffff, 1.6); scene.add(sun);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 0.6));
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8899aa, 0.6); scene.add(hemi);
 const camera = new THREE.PerspectiveCamera(35, 1, 0.001, 1e6);
 const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
 
@@ -169,6 +169,7 @@ async function main() {
   };
   const box = new THREE.Box3().setFromObject(model); box.getCenter(centre); radius = box.getSize(new THREE.Vector3()).length() / 2;
   ax = AX[META.axes] || AX.z_up;
+  if (META.lighting) applyLighting(META.lighting);
   buildLines(); buildSlices();
   const btn = (m, f, t) => `<button data-m="${m}" ${f ? `data-f="${f}"` : ""}>${t}</button>`;
   $("#modes").innerHTML = btn("real", "", "Realistic") + [...fields].map((f) => btn("field", f, label(f))).join("")
@@ -180,6 +181,16 @@ async function main() {
   setMode(first ? "field" : "real", first);
   $("#load").style.display = "none";
   window.studio = { S, setMode, fit, paint };              // for scripted screenshots and tests
+}
+
+// lighting preset from pinneapple_tools.visualization.studio.lighting (e.g. a black lunar sky and one low Sun)
+function applyLighting(L) {
+  scene.background = new THREE.Color(L.background[1]);
+  const d = ax(L.sun.direction).normalize();
+  sun.position.copy(centre).addScaledVector(d, 4 * radius); sun.target.position.copy(centre); scene.add(sun.target);
+  sun.intensity = 1.2 * L.sun.intensity; sun.color = new THREE.Color(...L.sun.color);
+  hemi.intensity = L.ambient; hemi.groundColor = new THREE.Color(0x222222);
+  if (L.background[1] === "#000000") scene.environment = null;
 }
 
 function resize() { const w = $("#stage").clientWidth, h = $("#stage").clientHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }

@@ -1,0 +1,60 @@
+PIMPLE: iteration 1
+smoothSolver:  Solving for alpha.water, Initial residual = 0.0048023105, Final residual = 1.0450498e-09, No Iterations 4
+Phase-1 volume fraction = 0.1611756  Min(alpha.water) = -9.7246208e-22  Max(alpha.water) = 1
+MULES: Correcting alpha.water
+MULES: Correcting alpha.water
+Phase-1 volume fraction = 0.16117508  Min(alpha.water) = -1.9879487e-05  Max(alpha.water) = 1.0000149
+DICPCG:  Solving for p_rgh, Initial residual = 0.0018952209, Final residual = 6.74334e-05, No Iterations 2
+time step continuity errors : sum local = 4.9580257e-06, global = -7.0471465e-08, cumulative = 0.00016089518
+DICPCG:  Solving for p_rgh, Initial residual = 9.7767478e-05, Final residual = 3.5777991e-06, No Iterations 8
+time step continuity errors : sum local = 2.629886e-07, global = -2.4849546e-08, cumulative = 0.00016087034
+DICPCG:  Solving for p_rgh, Initial residual = 2.2343386e-05, Final residual = 9.956584e-08, No Iterations 89
+time step continuity errors : sum local = 7.3163977e-09, global = -1.1972619e-09, cumulative = 0.00016086914
+smoothSolver:  Solving for omega, Initial residual = 0.00035462223, Final residual = 2.2093719e-07, No Iterations 2
+smoothSolver:  Solving for k, Initial residual = 0.0003057985, Final residual = 8.2311329e-07, No Iterations 2
+ExecutionTime = 720.74 s  ClockTime = 734 s
+
+Courant Number mean: 0.093759581 max: 0.4920597
+Interface Courant Number mean: 0.028310415 max: 0.4920597
+deltaT = 0.00055555556
+Time = 11.999444
+
+PIMPLE: iteration 1
+smoothSolver:  Solving for alpha.water, Initial residual = 0.0047997986, Final residual = 1.045027e-09, No Iterations 4
+Phase-1 volume fraction = 0.16117344  Min(alpha.water) = -9.2632713e-22  Max(alpha.water) = 1
+MULES: Correcting alpha.water
+MULES: Correcting alpha.water
+Phase-1 volume fraction = 0.16117292  Min(alpha.water) = -1.9880548e-05  Max(alpha.water) = 1.0000149
+DICPCG:  Solving for p_rgh, Initial residual = 0.0019350695, Final residual = 7.5004939e-05, No Iterations 2
+time step continuity errors : sum local = 5.5145816e-06, global = -7.2670205e-08, cumulative = 0.00016079647
+DICPCG:  Solving for p_rgh, Initial residual = 0.00010551964, Final residual = 4.8434607e-06, No Iterations 21
+time step continuity errors : sum local = 3.5597983e-07, global = -3.3004606e-08, cumulative = 0.00016076346
+DICPCG:  Solving for p_rgh, Initial residual = 2.4623399e-05, Final residual = 8.6267962e-08, No Iterations 95
+time step continuity errors : sum local = 6.3461574e-09, global = -1.2292359e-09, cumulative = 0.00016076223
+smoothSolver:  Solving for omega, Initial residual = 0.00035479839, Final residual = 2.204479e-07, No Iterations 2
+smoothSolver:  Solving for k, Initial residual = 0.00030589209, Final residual = 8.2125987e-07, No Iterations 2
+ExecutionTime = 720.86 s  ClockTime = 734 s
+
+Courant Number mean: 0.093763565 max: 0.49204705
+Interface Courant Number mean: 0.028307095 max: 0.49204705
+deltaT = 0.00055555556
+Time = 12
+
+PIMPLE: iteration 1
+smoothSolver:  Solving for alpha.water, Initial residual = 0.0047835208, Final residual = 1.0452127e-09, No Iterations 4
+Phase-1 volume fraction = 0.16117101  Min(alpha.water) = -8.8238157e-22  Max(alpha.water) = 1
+MULES: Correcting alpha.water
+MULES: Correcting alpha.water
+Phase-1 volume fraction = 0.16117048  Min(alpha.water) = -1.9880986e-05  Max(alpha.water) = 1.0000149
+DICPCG:  Solving for p_rgh, Initial residual = 0.0019225352, Final residual = 7.2453367e-05, No Iterations 2
+time step continuity errors : sum local = 5.3323236e-06, global = -7.8037963e-08, cumulative = 0.0001606842
+DICPCG:  Solving for p_rgh, Initial residual = 0.00010494354, Final residual = 5.2260493e-06, No Iterations 49
+time step continuity errors : sum local = 3.8451406e-07, global = -5.2364442e-09, cumulative = 0.00016067896
+DICPCG:  Solving for p_rgh, Initial residual = 2.4978183e-05, Final residual = 8.932928e-08, No Iterations 88
+time step continuity errors : sum local = 6.561868e-09, global = -8.2403717e-11, cumulative = 0.00016067888
+smoothSolver:  Solving for omega, Initial residual = 0.0003549726, Final residual = 2.2029616e-07, No Iterations 2
+smoothSolver:  Solving for k, Initial residual = 0.00030452407, Final residual = 8.2151981e-07, No Iterations 2
+ExecutionTime = 721.11 s  ClockTime = 734 s
+
+End
+

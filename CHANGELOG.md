@@ -14,6 +14,162 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Latent surrogate with a trust card (`pinneapple_neural.architectures.rom.TrustedLatentSurrogate`): wraps a POD
+  latent model (`ParametricPOD`) with three per-query checks calibrated on held-out designs — a normalised
+  split-conformal bound on the relative field error (Gaussian-process spread or a bootstrap ensemble of latent
+  regressors), a conformal p-value of the distance to the training designs (design envelope), and an optional
+  physics residual of the decoded field — and returns the library's `TrustReport` (APPROVED / REVIEW / REJECT).
+  Example `examples/latent/trusted_latent_surrogate.py` (2-D advection-diffusion-reaction, every answer checked
+  against a full solve). Guide: `docs/guides/trusted_latent_surrogate.md`.
+- Physics-residual false-data-injection detection for cyber-physical systems (`pinneapple_security.cps`): grey-box
+  residual components (`MassBalance`, `FlowLaw`) whose constants are identified from trusted data, a per-channel
+  CUSUM detector calibrated to a false-alarm budget, localisation of the broken balance, ROC AUC and episode metrics.
+  Reproducible benchmark `pinneapple_security.cps_bench` (three-tank water network, six attacks, data-driven
+  baselines: autoregressive twin, PCA Q statistic, isolation forest; nominal and shifted operating regimes).
+  Example `examples/security/02_physics_residual_fdi.py`. Guide: `docs/guides/physics_residual_attack_detection.md`.
+- Evaluation of latent-space methods and new cybersecurity applications, ranked, with a roadmap:
+  `docs/dev/LATENT_AND_CYBER_EVALUATION.md`.
+- Geometry library `pp.geometries` (`pinneapple_design.geometry_library`): 17 realistic parametric 3-D geometries
+  for Physics-AI, each with the code that regenerates it and ready-made files. Uniform API: `list()`, `info(name)`
+  (dimensions, units, parameters with ranges, sources of the real-world numbers with estimates flagged, frame,
+  physics uses), `build(name, **params)`, `load(name, format, lod)`, `export(...)`, `render(...)`.
+  - First entries wrapped from the existing models (their classes keep working): A320-class airliner, road car,
+    Formula car, two-stage launcher, NASA VIPER.
+  - New: NREL 5-MW wind turbine (published chord / twist table), ATR 72-class turboprop, H145-class helicopter,
+    F450-class quadcopter, KCS-class container ship, Wigley hull, high-speed train, Falcon 9-class launcher,
+    pin-fin heat sink, closed centrifugal impeller, CAARC tall building with an urban block, human aortic arch.
+  - Every body closed and outward (watertight, no self-intersections), metres, documented frame, two levels of
+    detail; `Geometry.solid()` fuses the bodies into one watertight surface (manifold3d).
+  - Formats: binary STL, OBJ, glTF, OpenUSD, STEP (faceted B-rep that OpenCASCADE reads back as solids).
+  - Light files committed in `data/geometries/`; every file of both levels on the Hugging Face Hub
+    (`PINNeAPPle-Labs/geometry-library`) with SHA-256 in a manifest; the loader downloads on demand into a cache
+    and falls back to `build()` offline. The `geometries` job of `publish-zoo.yml` rebuilds, verifies, uploads.
+  - Software renderer (no GPU) for thumbnails, a contact sheet and a turntable GIF; gallery page
+    `docs/guides/geometry_library.md`; examples: CAARC building wind with OpenFOAM through the STL path, BEM power
+    curve of the 5-MW turbine, vortex-lattice and friction drag of the airliner.
+- Positional astronomy and astrophysics (`pinneapple_physics.astro`): JPL SPK reader (DE421), time scales, IAU 2006
+  precession and nutation, apparent places with light time, deflection and aberration, refraction, airmass and
+  extinction; rise/transit/set, twilight, Moon phase, magnitudes, oppositions, elongations, lunar and solar eclipses,
+  transits; SGP4 satellite passes with magnitudes; Yale BSC5 stars with luminosity, radius and HR diagram; Kepler
+  elements, N-body integrators (leapfrog, Yoshida-4, RK4, DOP853) with conservation checks; a physics-informed orbit
+  surrogate with conformal bands and a trust verdict; black-hole lensing of the real sky. Validated against USNO NOVAS,
+  JPL Horizons, the USNO almanac, NASA eclipse predictions and skyfield (`validation.run_all()`). Extra `sky`.
+  Docs: `docs/core_concepts/astro.md`.
+- `pinneapple check`, a physics linter for CI (`pinneapple_check`; also `python -m pinneapple.check`): fails when a
+  simulation result or a Physics-AI model violates physics. 29 rules with ids, explanations and fix hints
+  (`--list-rules`, `--explain PC101`): conservation of mass, energy and momentum, divergence, conserved totals in
+  time (PC1xx), boundary and initial conditions, wall velocity (PC2xx), PDE residual of stored fields and of a
+  model's predictions (PC3xx), declared bounds, physical admissibility, non-finite values (PC4xx), units and
+  parameter dimensions (PC5xx), queries outside a model's training range or in a gap of its data (PC6xx), field
+  and quantity-of-interest regression against a reference (PC7xx), hashes, signatures, unsafe checkpoints and
+  untracked artefacts (PC8xx), method status in the catalog (PC9xx).
+  - Reads OpenFOAM cases (with `phi`, so continuity is checked on the solver's own flux), VTK/VTU, NPZ/HDF5 grids
+    and point tables, CSV of quantities of interest; models as a `file.py:function`, a PINNeAPPle checkpoint with
+    its architecture name (scanned before loading; training range from its metadata), a `pp.zoo` model (range from
+    its card) or a hub model. Physics:
+    incompressible flow, heat, linear elasticity, generic conservation law.
+  - `pinneapple-check.toml` or `[tool.pinneapple.check]` in `pyproject.toml`, zero-config discovery, `--select` /
+    `--ignore` prefixes, `--format text|json|sarif|junit|github|summary`, a baseline to adopt it gradually, exit
+    codes 0/1/2. The JSON report carries the trust card of each target and feeds the veriphysics applicability map.
+  - Reuses `pinneapple_data` readers and units, the `physics_audit` training envelope, field metrics, the method
+    catalog and `pinneapple_security`, without importing torch.
+  - `action.yml`: a composite GitHub Action (pinned to its own ref or a PyPI version, pip cache, SARIF upload to
+    code scanning, annotations, job summary); example workflow in `examples/physics_check/workflow.yml`.
+  - `examples/physics_check/`: a passing and a failing fixture for every rule (real icoFoam runs among them), used
+    by `tests/test_physics_check.py` and by `.github/workflows/physics-check.yml`. Docs:
+    `docs/guides/physics_checks_in_ci.md`.
+  - New extra `check` (meshio, h5py, cryptography) and the `pinneapple` command (`pinneapple check ...`; it also
+    forwards `pinneapple benchmark ...` to `pinneapple_analysis.benchmark` when installed).
+- Rover realism (`pinneapple_simulation.terramechanics`, `.vehicle`, `pinneapple_tools.visualization.studio`,
+  `pinneapple_design.geometry.vehicle_cad`):
+  - Slip-sinkage calibration with held-out points: `testbed.calibrate_holdout` fits the slip-dependent sinkage
+    exponent `n = n0 + n1 s` (Ding et al. 2010, 2011) and K on every other published single-wheel point and reports
+    the errors on the held-out points before and after (`testbed.holdout_split`, `plot_validation(calibrated=...)`).
+    `WongReeceModel(slip_sinkage="drive" | "both" | "none")`, `sinkage_exponent()`, `forces(..., sinkage_slip=...)`.
+  - 3-D ruts: `DeformableTerrain` rut walls at the angle of repose (`wall_angle_deg`) and rounded berms holding the
+    displaced soil (`berm`), as separate layers; the default renders show ruts by their geometry, the stress map
+    is an option (`overlay=`).
+  - Ground to the horizon: `SurfaceView(horizon=..., far_fn=...)` adds a curved annulus past the lunar horizon;
+    `studio.planetary.border_visibility` checks that no mesh border is visible from a camera.
+  - Dashboard exports at small sizes: `font_scale` with text-aware gaps, `write_video(gif_font_scale=...)` lays the
+    GIF out natively at its size, `dashboard.static.write_gif` writes a palette-optimised GIF.
+  - VIPER CAD from public NASA figures: chamfered body, radiator and MLI front, pan-tilt mast head, box-beam
+    suspension arms with actuators, the TRIDENT drill (`vehicle_cad.drill_assembly`) and new primitives
+    (`loft`, `extrude_polygon`, `chamfered_box`, `box_beam`, `ladder_rail`, `helix_sweep`, `mli_blanket`,
+    `actuator`, `pan_tilt_head`); sources and estimates in `VIPER_SOURCES`.
+- Model zoo `pp.zoo` and dataset hub `pp.datasets` (`pinneapple_hub.zoo`): pre-trained models and ready-made
+  datasets you can load in one line. Only items that passed a quality gate ship (an independent reference, physics
+  checks, a recorded validity range; for datasets, a verified solver or a public source with a compatible licence).
+  - Models:
+    - `airfoil_cst_rans_mlp`: CST airfoil Cl/Cd/Cm, Re 4e6 RANS. Cd 0.54 % on unseen shapes, 2.8 % against XFOIL.
+    - `heatsink_forced_mlp`: plate-fin resistance and pressure drop, mean error 0.71 %.
+    - `rover_contact_grc1_viper`: wheel-soil contact PINN, retrained for 16000 epochs; Fx RMSE 0.21 N.
+  - Datasets: the 436-run airfoil RANS campaign with its grid study and XFOIL polar, the forced and natural heat-sink
+    datasets, Wong-Reece contact forces, and published single-wheel tests.
+  - `list`, `info` (a `ModelCard` with task, units, validity range, metrics vs reference, training data, licence,
+    citation, trust report), `load`, `predict` (with an out-of-range warning), `evaluate` (reproduces the card's
+    metrics on the stored reference), `validate` (a `TrustReport` with physics checks), `benchmark` (through
+    `pp.benchmark`, against the same network trained from scratch) and `finetune`. `finetune` refuses to save a
+    model that is worse than the original on the original test set unless `force=True`.
+  - Weights and datasets are listed in `pinneapple_hub/zoo/manifest.json` with SHA-256 and versions. Small files are
+    bundled (2.5 MB); the rest is downloaded lazily from the Hugging Face Hub (`PINNeAPPle-Labs/<name>`) and cached.
+    Errors are explicit for offline use, checksum mismatches and items not published yet.
+  - Workflow "Publish zoo to the Hugging Face Hub": it uploads everything when the `HF_TOKEN` secret is set, and
+    skips with a warning otherwise.
+  - Supporting material: an inventory of every candidate model and dataset and its verdict
+    (`docs/dev/model_dataset_inventory.md`), a guide (`docs/guides/model_zoo.md`) and
+    `examples/model_zoo/quickstart.py`.
+- `ModelCard` has optional `task`, `version`, `inputs`, `outputs`, `validity_range` and `known_limitations` fields,
+  which are rendered in `to_markdown()`.
+- Two engineering hand-off case packages in `examples/handoff_cases/` (each also as a zip): `airfoil_ld` (max L/D of a
+  2-D airfoil, OpenFOAM simpleFoam k-omega SST, CST geometry, the 436-run campaign, baseline against XFOIL, a
+  surrogate optimum checked in CFD) and `free_surface_trough` (water jet into an open trough, interFoam VOF via
+  `pp.cfd.FreeSurfaceFlow`, two meshes with mass balance, impingement, splash, floor shear and mean k).
+
+### Changed
+- **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their
+  sinkage grows with driving slip. The validation soils keep n1 = 0. In `VehicleSimulator` the slip that sets the
+  exponent lags the wheel's slip over `sink_length` (0.15 m) of rim travel.
+- **Behavior:** `vehicle.dashboard.render_frames` and `vehicle_dashboard` default to the geometry-only view (no
+  stress colour map, no colour bar); pass `field=` / `field_label=` for the overlay.
+
+## [0.7.0] - 2026-10-13
+
+### Added
+- Animation-centred dashboards for any simulation (`pinneapple_tools.visualization.dashboard`, `pp.viz.Dashboard`):
+  an animation in the middle, charts synced to its time cursor (time series with a cursor, or fixed curves with
+  markers that move with the frames), KPI tiles, a parameter panel and a colour bar.
+  - Exports: one self-contained interactive HTML file, where scrubbing a chart moves the animation; a static PNG;
+    a dashboard GIF/MP4.
+  - The HTML embeds VP9 WebM and H.264 sources, reuses the studio viewer's `studio-core.js`, and has an optional
+    live three.js view (the studio's vendored three.js, lunar lighting preset).
+  - `pinneapple_simulation.vehicle.dashboard` builds it for vehicle runs: drawbar pull, torque and sinkage versus
+    slip with live wheel operating points; per-wheel sinkage and load along the traverse; speed, slip, and the
+    PINN against Wong-Reece with its error.
+  - Example: `examples/studio/07_lunar_rover_dashboard.py`, which writes `docs/assets/studio/rover-*`. Docs:
+    `docs/core_concepts/dashboard.md`.
+  - Planetary renders: the vehicle's shadow now continues onto the far-field terrain beyond the detailed patch
+    (`studio.shadows.cast_shadow(..., supersample=n)` gives a smooth shadow fraction on coarse grids, and
+    `shade_terrain` accepts it); `vehicle.viz.frame_view(trail=...)` shifts the detailed window back along the path.
+- Realistic planetary rover simulation, as library features (`pp.terramechanics`, `pp.multibody`, `pp.vehicle`):
+  - `pinneapple_simulation.terramechanics`: a soil database where every parameter records its source and how far
+    it was checked (GRC-1, JSC-1A, the soils of three published single-wheel test series); the Wong-Reece wheel
+    (Bekker pressure-sinkage, Janosi-Hanamoto shear) with slip-sinkage, grousers (equivalent shear radius, Ding et
+    al. 2011), multi-pass loading (Wong's unloading-reloading, prior shear), bulldozing and lateral force (Ishigami
+    et al. 2007); a deformable terrain with ruts, grouser marks, contact-stress maps and rigid rocks; a single-wheel
+    testbed with published points bundled; PINN training for wheel-soil contact with a held-out error report.
+  - `pinneapple_simulation.multibody`: floating-base revolute trees with linearly implicit steps (checked against
+    free fall, a pendulum period and momentum and energy conservation).
+  - `pinneapple_simulation.vehicle`: vehicle description, multibody model and simulator (suspension, steering,
+    wheel inertia, motor torque limits, speed control, load-levelling suspension), scenarios, renders and
+    animations; `viper()` is NASA VIPER at real scale from cited public figures, with the estimates listed.
+  - `pinneapple_design.geometry.vehicle_cad`: parametric vehicle CAD (wheels with rims, spokes and grousers or
+    chevrons, panels, radiators, dishes, camera heads), centre of mass and inertia from the meshes, glTF/STL.
+  - Studio: lighting and sky presets for PyVista, Blender and the browser viewer (`studio.lighting`, black lunar
+    sky with a low Sun), heightfield Sun shadows and Lunar-Lambert regolith shading (`studio.shadows`), planetary
+    surface renders with field colour maps (`studio.planetary`), and new PBR materials.
+  - Example: `examples/use_cases/terramechanics/lunar_rover_3d.py` is now a thin script over these features. Docs:
+    `docs/core_concepts/lunar_rover_terramechanics.md`.
 - Lunar rover terramechanics in 3D (`pinneapple_simulation.rover`): a parametric six-wheel rocker-bogie rover
   (glTF/STL export) on lunar terrain (grade, ramp, craters with Pike's 1977 depth ratio, rocks, soil regions) with
   Bekker-Wong wheels. Each step solves a quasi-static equilibrium of body, rockers, bogies and differential, with
@@ -521,6 +677,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   instead of solving again. It validates coordinate and field compatibility and gives duplicate method names unique
   row labels.
 
+### Documentation
+- JOSS paper draft (`paper/paper.md`, `paper/paper.bib`) and a workflow that builds its PDF (`draft-pdf.yml`).
+  `CITATION.cff` lists both authors and points to this repository; the Code of Conduct is now the full Contributor
+  Covenant 2.1; `CONTRIBUTING.md` explains how to report bugs and get help; the README has a statement of need.
+
 ### Known issues
 - The classical reference path for `burgers_1d` (`fdm` solver) overflows and returns a grid over `x` only, without the time
   axis; `pp.solve(..., "reference")` refuses it. Use `"analytic"` for this preset.
@@ -771,7 +932,8 @@ Development before the first PyPI release is not itemized. In short: the initial
 PINN Arena and benchmark suite, the refactor into the current mega-modules (2026-05-06), the rename from `pinneaple` to
 `pinneapple` (2026-05-18), and the Physics Synthetic Data Factory and the 9-stage pipeline (2026-06-04).
 
-[Unreleased]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.6.3...v0.7.0
 [0.6.3]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/PINNeAPPle-Labs/PINNeAPPle/compare/v0.6.0...v0.6.1

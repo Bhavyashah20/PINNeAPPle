@@ -52,7 +52,8 @@ def render(scene, out: str, *, field: Optional[str] = None, field_range: Optiona
 
     field: colour the surfaces by this per-vertex field (surfaces without it are grey). lines: True (all) or the
     name of a Lines set, coloured by their values. slice: name of a Slice. background: "studio" (light gradient,
-    true colours) or "sky" (Nishita sky, filmic). ghost: draw the surfaces translucent (default: when a slice is
+    true colours), "sky" (Nishita sky, filmic) or a lunar preset of :mod:`.lighting` ("lunar_south_pole",
+    "lunar_low_sun", "lunar_day": black sky, one Sun lamp with the Sun's angular size). ghost: draw the surfaces translucent (default: when a slice is
     shown)."""
     import bpy
     from mathutils import Vector
@@ -226,34 +227,11 @@ def render(scene, out: str, *, field: Optional[str] = None, field_range: Optiona
         if bar is None:
             bar = (title or s.label or slice, lo, hi)
 
-    world = bpy.data.worlds.new("world")
-    bs.world = world
-    world.use_nodes = True
-    wn = world.node_tree
-    if studio:
-        grad, tc, mp = wn.nodes.new("ShaderNodeTexGradient"), wn.nodes.new("ShaderNodeTexCoord"), wn.nodes.new("ShaderNodeMapping")
-        mp.inputs["Rotation"].default_value = (0, math.radians(-90), 0)
-        cr = wn.nodes.new("ShaderNodeValToRGB")
-        cr.color_ramp.elements[0].color = (0.62, 0.66, 0.72, 1)
-        cr.color_ramp.elements[1].color = (0.95, 0.96, 0.98, 1)
-        wn.links.new(tc.outputs["Generated"], mp.inputs["Vector"])
-        wn.links.new(mp.outputs["Vector"], grad.inputs["Vector"])
-        wn.links.new(grad.outputs["Fac"], cr.inputs["Fac"])
-        wn.links.new(cr.outputs["Color"], wn.nodes["Background"].inputs["Color"])
-        wn.nodes["Background"].inputs["Strength"].default_value = 0.9
-        sun = bpy.data.lights.new("sun", "SUN")
-        sun.energy, sun.angle = 2.2, math.radians(8)
-        so = bpy.data.objects.new("sun", sun)
-        so.rotation_euler = (math.radians(35), math.radians(-20), math.radians(30))
-        bs.collection.objects.link(so)
+    if background.startswith("lunar"):                  # black sky, one hard Sun (lighting.PRESETS)
+        from .lighting import blender_world
+        blender_world(background, bpy)
     else:
-        sky = wn.nodes.new("ShaderNodeTexSky")
-        sky.sky_type = "NISHITA"
-        sky.sun_elevation, sky.sun_rotation = math.radians(sun_elevation), math.radians(215)
-        sky.altitude = 2000
-        bg = wn.nodes["Background"]
-        bg.inputs["Strength"].default_value = 0.12
-        wn.links.new(sky.outputs["Color"], bg.inputs["Color"])
+        _world(bpy, bs, studio, sun_elevation)
 
     d = _to_blender(np.asarray(VIEWS[view] if isinstance(view, str) else view, float)[None], axes)[0]
     d = d / np.linalg.norm(d)
@@ -304,3 +282,36 @@ def render(scene, out: str, *, field: Optional[str] = None, field_range: Optiona
     if bar and colorbar_on:
         colorbar(out, bar[0], bar[1], bar[2], None, lo_txt, hi_txt)
     return out
+
+
+def _world(bpy, bs, studio, sun_elevation):
+    """Studio gradient or Nishita sky world with a Sun lamp."""
+    import math
+    world = bpy.data.worlds.new("world")
+    bs.world = world
+    world.use_nodes = True
+    wn = world.node_tree
+    if studio:
+        grad, tc, mp = wn.nodes.new("ShaderNodeTexGradient"), wn.nodes.new("ShaderNodeTexCoord"), wn.nodes.new("ShaderNodeMapping")
+        mp.inputs["Rotation"].default_value = (0, math.radians(-90), 0)
+        cr = wn.nodes.new("ShaderNodeValToRGB")
+        cr.color_ramp.elements[0].color = (0.62, 0.66, 0.72, 1)
+        cr.color_ramp.elements[1].color = (0.95, 0.96, 0.98, 1)
+        wn.links.new(tc.outputs["Generated"], mp.inputs["Vector"])
+        wn.links.new(mp.outputs["Vector"], grad.inputs["Vector"])
+        wn.links.new(grad.outputs["Fac"], cr.inputs["Fac"])
+        wn.links.new(cr.outputs["Color"], wn.nodes["Background"].inputs["Color"])
+        wn.nodes["Background"].inputs["Strength"].default_value = 0.9
+        sun = bpy.data.lights.new("sun", "SUN")
+        sun.energy, sun.angle = 2.2, math.radians(8)
+        so = bpy.data.objects.new("sun", sun)
+        so.rotation_euler = (math.radians(35), math.radians(-20), math.radians(30))
+        bs.collection.objects.link(so)
+    else:
+        sky = wn.nodes.new("ShaderNodeTexSky")
+        sky.sky_type = "NISHITA"
+        sky.sun_elevation, sky.sun_rotation = math.radians(sun_elevation), math.radians(215)
+        sky.altitude = 2000
+        bg = wn.nodes["Background"]
+        bg.inputs["Strength"].default_value = 0.12
+        wn.links.new(sky.outputs["Color"], bg.inputs["Color"])

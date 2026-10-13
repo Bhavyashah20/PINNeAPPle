@@ -1,0 +1,49 @@
+FoamFile
+{
+    version 2.0;
+    format ascii;
+    class volScalarField;
+    object omega;
+}
+dimensions [0 0 -1 0 0 0 0];
+internalField uniform 199.6489265624812;
+boundaryField
+{
+    floor
+    {
+        type omegaWallFunction;
+        value uniform 199.6489265624812;
+    }
+    upstreamWall
+    {
+        type omegaWallFunction;
+        value uniform 199.6489265624812;
+    }
+    sill
+    {
+        type omegaWallFunction;
+        value uniform 199.6489265624812;
+    }
+    outlet
+    {
+        type inletOutlet;
+        inletValue uniform 199.6489265624812;
+        value uniform 199.6489265624812;
+    }
+    atmosphere
+    {
+        type inletOutlet;
+        inletValue uniform 199.6489265624812;
+        value uniform 199.6489265624812;
+    }
+    nozzle
+    {
+        type turbulentMixingLengthFrequencyInlet;
+        mixingLength 0.0014000000000000002;
+        value uniform 199.6489265624812;
+    }
+    "(front|back|frontAndBack)"
+    {
+        type empty;
+    }
+}

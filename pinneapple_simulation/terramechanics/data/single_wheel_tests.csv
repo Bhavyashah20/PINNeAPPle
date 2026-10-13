@@ -1,0 +1,41 @@
+# Published single-wheel testbed points (drawbar pull, sinkage and torque versus slip at a fixed vertical load).
+# The values are third-party readings of the figures of the original papers, made and published by RoverDevKit
+# (status "digitised_approx"): https://github.com/Coordinated-Autonomous-Systems-Lab/roverdevkit,
+# data/validation/single_wheel_experiments.csv, commit ec0b198f01bca4c8ce2892577e72e9c9c65914b5.
+# They were not re-read from the original figures here (the papers could not be opened from the build environment).
+# Original sources:
+#   ding2011   Ding, Gao, Deng, Nagatani, Yoshida (2011), J. Terramechanics 48(1):27-45, Figs 8/9, load 80 N
+#   hurrell2025 Hurrell et al. (2025), Space Sci. Rev. 221, art. 37, Figs 5/6 (DP = Fx/Fz x 24.5 N), load 24.5 N
+#   wanghan2016 Wang & Han (2016), J. Korean Geotech. Soc. 32(11):97-108, Fig. 14, load 58.86 N
+# RoverDevKit is MIT licensed: Copyright (c) 2026 Coordinated Autonomous Systems Lab, Duke University. Permission is
+# hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files,
+# to deal in the Software without restriction, subject to including this notice; the software is provided "as is",
+# without warranty of any kind.
+dataset,wheel,radius_m,width_m,grouser_height_m,grouser_count,soil,load_N,slip,drawbar_pull_N,sinkage_m,torque_Nm
+ding2011,smooth,0.15735,0.165,0.0,0,Ding2011-TYII,80.0,0.0,-6.5,0.005,0.0
+ding2011,smooth,0.15735,0.165,0.0,0,Ding2011-TYII,80.0,0.1,11.0,0.0055,3.0
+ding2011,smooth,0.15735,0.165,0.0,0,Ding2011-TYII,80.0,0.2,14.5,0.0075,4.2
+ding2011,smooth,0.15735,0.165,0.0,0,Ding2011-TYII,80.0,0.3,15.0,0.010,4.8
+ding2011,smooth,0.15735,0.165,0.0,0,Ding2011-TYII,80.0,0.4,15.0,0.0125,5.0
+ding2011,smooth,0.15735,0.165,0.0,0,Ding2011-TYII,80.0,0.6,15.0,0.0175,5.3
+ding2011,grousered,0.15735,0.165,0.010,30,Ding2011-TYII,80.0,0.0,-6.5,0.0045,0.0
+ding2011,grousered,0.15735,0.165,0.010,30,Ding2011-TYII,80.0,0.1,14.0,0.005,3.5
+ding2011,grousered,0.15735,0.165,0.010,30,Ding2011-TYII,80.0,0.2,20.0,0.0075,5.0
+ding2011,grousered,0.15735,0.165,0.010,30,Ding2011-TYII,80.0,0.3,22.0,0.0105,5.8
+ding2011,grousered,0.15735,0.165,0.010,30,Ding2011-TYII,80.0,0.4,23.0,0.014,6.3
+ding2011,grousered,0.15735,0.165,0.010,30,Ding2011-TYII,80.0,0.6,24.5,0.027,7.2
+wanghan2016,smooth,0.085,0.080,0.0,0,KLS-1,58.86,0.3,2.0,0.0045,1.9
+wanghan2016,smooth,0.085,0.080,0.0,0,KLS-1,58.86,0.1,-0.5,0.001,1.3
+wanghan2016,smooth,0.085,0.080,0.0,0,KLS-1,58.86,0.2,1.0,0.0043,1.55
+wanghan2016,smooth,0.085,0.080,0.0,0,KLS-1,58.86,0.4,2.5,0.0057,2.05
+wanghan2016,smooth,0.085,0.080,0.0,0,KLS-1,58.86,0.5,0.5,0.008,2.05
+wanghan2016,grousered,0.085,0.080,0.010,16,KLS-1,58.86,0.3,10.0,0.0078,3.05
+wanghan2016,grousered,0.085,0.080,0.010,16,KLS-1,58.86,0.1,7.7,0.0022,2.85
+wanghan2016,grousered,0.085,0.080,0.010,16,KLS-1,58.86,0.2,9.0,0.0043,2.95
+wanghan2016,grousered,0.085,0.080,0.010,16,KLS-1,58.86,0.4,12.7,0.0096,3.1
+wanghan2016,grousered,0.085,0.080,0.010,16,KLS-1,58.86,0.5,6.4,0.0135,2.85
+hurrell2025,grousered,0.100,0.080,0.020,14,FJS-1/Hurrell2025,24.5,0.1,8.1,0.006,
+hurrell2025,grousered,0.100,0.080,0.020,14,FJS-1/Hurrell2025,24.5,0.2,8.6,0.0095,
+hurrell2025,grousered,0.100,0.080,0.020,14,FJS-1/Hurrell2025,24.5,0.3,8.8,0.011,
+hurrell2025,grousered,0.100,0.080,0.020,14,FJS-1/Hurrell2025,24.5,0.4,9.6,0.016,
+hurrell2025,grousered,0.100,0.080,0.020,14,FJS-1/Hurrell2025,24.5,0.5,10.5,0.0195,

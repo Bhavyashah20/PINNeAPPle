@@ -1,0 +1,90 @@
+{
+ "dimensions": {
+  "L": {
+   "value": 1.2,
+   "unit": "m",
+   "description": "inside length of the floor, upstream end wall to overflow sill"
+  },
+  "W": {
+   "value": 0.15,
+   "unit": "m",
+   "description": "inside width"
+  },
+  "H": {
+   "value": 0.25,
+   "unit": "m",
+   "description": "side and upstream end wall height above the floor"
+  },
+  "h_s": {
+   "value": 0.08,
+   "unit": "m",
+   "description": "overflow sill height above the floor (full width, downstream end)"
+  },
+  "t_w": {
+   "value": 0.01,
+   "unit": "m",
+   "description": "wall, floor and sill thickness"
+  },
+  "x_n": {
+   "value": 0.3,
+   "unit": "m",
+   "description": "nozzle exit centre: distance from the upstream end wall"
+  },
+  "y_n": {
+   "value": 0.075,
+   "unit": "m",
+   "description": "nozzle exit centre: distance from the side wall (centre plane)"
+  },
+  "z_n": {
+   "value": 0.4,
+   "unit": "m",
+   "description": "nozzle exit centre: height above the floor"
+  },
+  "d": {
+   "value": 0.02,
+   "unit": "m",
+   "description": "nozzle bore (inner diameter)"
+  },
+  "D_o": {
+   "value": 0.026,
+   "unit": "m",
+   "description": "nozzle outer diameter"
+  },
+  "L_n": {
+   "value": 0.15,
+   "unit": "m",
+   "description": "nozzle straight length (bore length upstream of the exit)"
+  },
+  "theta": {
+   "value": 60.0,
+   "unit": "deg",
+   "description": "jet angle below the horizontal, pointing downstream (+x)"
+  },
+  "h_0": {
+   "value": 0.08,
+   "unit": "m",
+   "description": "initial liquid depth (still liquid up to the sill crest)"
+  }
+ },
+ "files": [
+  "dimensions.csv",
+  "side_view.png",
+  "trough.step",
+  "trough.stl",
+  "nozzle.step",
+  "nozzle.stl",
+  "fluid_region.step",
+  "fluid_region.stl",
+  "assembly.step"
+ ],
+ "trough_bounding_box_m": [
+  -0.01000010000000011,
+  -0.01000010000000011,
+  -0.010000100000000029,
+  1.2100001000000002,
+  0.16000010000000012,
+  0.2500001000000002
+ ],
+ "trough_volume_m3": 0.008669000000000003,
+ "nozzle_volume_m3": 3.251548396465435e-05
+}

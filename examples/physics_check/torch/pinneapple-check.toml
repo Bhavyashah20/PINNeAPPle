@@ -1,0 +1,26 @@
+# A PINNeAPPle checkpoint (needs torch): scanned before loading (PC803), its training range read from the
+# checkpoint metadata (domain_bounds), the queries checked against it (PC601).
+
+[[model]]
+name = "plate-pinn"
+path = "models/plate_pinn.pt"
+architecture = "vanilla_pinn"
+config = { in_dim = 2, out_dim = 1, hidden = [16, 16] }
+inputs = ["x", "y"]
+outputs = ["T"]
+queries = "models/queries.csv"
+
+[[model]]
+name = "plate-pinn-out-of-range"
+path = "models/plate_pinn.pt"
+architecture = "vanilla_pinn"
+config = { in_dim = 2, out_dim = 1, hidden = [16, 16] }
+inputs = ["x", "y"]
+outputs = ["T"]
+queries = "models/queries_out.csv"
+
+[[model]]
+name = "heatsink-zoo"
+zoo = "heatsink_forced_mlp"                 # a pre-trained pp.zoo model: inputs, outputs, range from its card
+queries = "models/heatsink_queries.csv"
+bounds = { r_base_k_w = [0, 10], pressure_drop_pa = [0, 2000] }
