@@ -346,6 +346,61 @@ class HeatsinkForced(ZooModel):
         return out
 
 
+
+# ====================================================================== heat sink (natural)
+class HeatsinkNatural(HeatsinkForced):
+    """Natural convection: no air velocity input and no pressure drop; trained with monotonicity constraints in
+    conductivity and source width (``pinneapple_design.thermal.heatsink.monotone``)."""
+    adapter = "heatsink_natural"
+    reference_outputs = ["r_base_k_w"]
+
+    @staticmethod
+    def _features(X):
+        from pinneapple_design.thermal.heatsink.surrogate import features
+        W, D, tb, N, t, H, k, sw, sd, Ta, Q = X.T
+        return features("natural", W, D, tb, N, t, H, k, sw, sd, Ta, Q)
+
+    def _forward(self, X):
+        r = np.exp(self._log(X)[:, 0])
+        return {"r_base_k_w": r, "r_base_upper95_k_w": r * math.exp(self.config["conformal_log_q"]["95"])}
+
+    def metrics(self, P, Y):
+        e = 100 * np.abs(P["r_base_k_w"] / Y[:, 0] - 1)
+        return {"R_mean_abs_pct": float(e.mean()), "R_p95_abs_pct": float(np.percentile(e, 95)),
+                "R_max_abs_pct": float(e.max()),
+                "R_upper95_coverage_pct": float(100 * np.mean(Y[:, 0] <= P["r_base_upper95_k_w"])),
+                "n": float(len(Y))}
+
+    def train_targets(self, Y):
+        return (np.log(Y[:, :1]) - np.asarray(self.config["y_mean"])) / np.asarray(self.config["y_std"])
+
+    def physics_checks(self):
+        from pinneapple_analysis.trust.trust_report import checagem_booleana, checagem_erro_relativo
+        X, _ = self.reference("test")
+        X = X[self.in_range(X)]
+
+        def frac_sign(col, factor, sign):
+            X2 = X.copy()
+            X2[:, col] *= factor
+            ok = self.in_range(X2)
+            d = np.log(self._forward(X2[ok])["r_base_k_w"]) - np.log(self._forward(X[ok])["r_base_k_w"])
+            return float(np.mean(np.sign(d) == sign)) if ok.any() else None
+
+        ik, isw, iq = (self.input_names.index(n) for n in ("k_w_mk", "source_width_mm", "power_w"))
+        checks = [
+            ("a more conductive material never raises the resistance", frac_sign(ik, 1.05, -1), "conduction"),
+            ("a wider heat source spreads less (lower resistance)", frac_sign(isw, 1.05, -1), "conduction"),
+            ("more power drives more buoyant flow (lower resistance)", frac_sign(iq, 1.05, -1),
+             "natural convection, h ~ dT^(1/4); the engine itself violates it on 0.5 % of designs"),
+        ]
+        out = [checagem_erro_relativo(f"monotonic: {n} (share of held-out designs violating, +5 % step)",
+                                      None if v is None else 1 - v, 0.01, fonte=f, critica=True)
+               for n, v, f in checks]
+        P = self._forward(X)
+        out.append(checagem_booleana("R > 0 on the held-out designs", bool(np.all(P["r_base_k_w"] > 0)),
+                                     fonte="second law", critica=True))
+        return out
+
 # ====================================================================== rover contact
 class RoverContact(ZooModel):
     adapter = "rover_contact"
@@ -399,14 +454,28 @@ class RoverContact(ZooModel):
         dfz = np.diff(Fz, axis=0) / span(Fz)
         mfx = s[0] <= 0.3
         dfx = np.diff(Fx[:, mfx], axis=1) / span(Fx)
+        if "soil" in c:
+            # the physics the model was trained on is recorded: with slip-sinkage the soil softens as the slip
+            # grows, so at a fixed sinkage the drawbar pull need not grow with slip -- the model must follow the
+            # sign of dFx/ds of its own reference instead of a blanket dFx/ds >= 0
+            from pinneapple_simulation.terramechanics import WongReeceModel
+            ref = WongReeceModel.from_physics_config(c).forces(s.ravel(), z.ravel()).Fx.reshape(s.shape)
+            dref = np.diff(ref[:, mfx], axis=1) / span(ref)
+            bad = ((dfx < -noise) & (dref > noise)) | ((dfx > noise) & (dref < -noise))
+            fx_check = checagem_erro_relativo("dFx/ds for slip <= 0.3 has the sign of the Wong-Reece reference "
+                                              "(share disagreeing)", float(np.mean(bad)), 0.01,
+                                              fonte="shear mobilisation and slip-sinkage", critica=True)
+        else:
+            fx_check = checagem_erro_relativo("dFx/ds >= 0 for slip <= 0.3 (share violating)",
+                                              float(np.mean(dfx < -noise)), 0.01, fonte="shear mobilisation",
+                                              critica=True)
         theta = np.arccos(np.clip(1 - z / c["R_m"], -1, 1))
         mc = (Fx - (c["c_Pa"] * c["b_m"] * c["R_m"] * theta + Fz * math.tan(math.radians(c["phi_deg"])))) / span(Fx)
         tq = (c["R_m"] * Fx - My) / span(My)
         return [
             checagem_erro_relativo("dFz/dz >= 0 (share of grid steps violating beyond 0.2 % of range)",
                                    float(np.mean(dfz < -noise)), 0.01, fonte="pressure-sinkage", critica=True),
-            checagem_erro_relativo("dFx/ds >= 0 for slip <= 0.3 (share violating)", float(np.mean(dfx < -noise)),
-                                   0.01, fonte="shear mobilisation", critica=True),
+            fx_check,
             checagem_erro_relativo("Mohr-Coulomb limit Fx <= c A + Fz tan(phi) (share violating)",
                                    float(np.mean(mc > noise)), 0.01, fonte="Mohr-Coulomb", critica=True),
             checagem_erro_relativo("torque coupling My >= R Fx (share violating)", float(np.mean(tq > noise)), 0.01,
@@ -414,7 +483,7 @@ class RoverContact(ZooModel):
         ]
 
 
-ADAPTERS = {c.adapter: c for c in (AirfoilMLP, HeatsinkForced, RoverContact)}
+ADAPTERS = {c.adapter: c for c in (AirfoilMLP, HeatsinkForced, HeatsinkNatural, RoverContact)}
 
 
 def load_dir(directory: str | Path) -> ZooModel:
@@ -428,12 +497,19 @@ def load_dir(directory: str | Path) -> ZooModel:
     return cls(card.name, card, config, state, {})
 
 
-def load_model(name: str, *, offline: bool | None = None) -> ZooModel:
+class SupersededModelWarning(UserWarning):
+    """A superseded release of a zoo model was loaded."""
+
+
+def load_model(name: str, *, offline: bool | None = None, version: str | None = None) -> ZooModel:
     import torch
-    spec = art.entry("models", name)
-    card = ModelCard.load(str(art.fetch("models", name, "model_card.json", offline=offline)))
-    config = json.loads(art.fetch("models", name, "config.json", offline=offline).read_text())
-    state = torch.load(art.fetch("models", name, "weights.pt", offline=offline), map_location="cpu",
+    spec = art.entry("models", name, version)
+    if version is not None and spec.get("superseded_by"):
+        warnings.warn(f"{name} v{version} is superseded by v{spec['superseded_by']}: {spec.get('superseded_reason', '')}",
+                      SupersededModelWarning, stacklevel=3)
+    card = ModelCard.load(str(art.fetch("models", name, "model_card.json", offline=offline, version=version)))
+    config = json.loads(art.fetch("models", name, "config.json", offline=offline, version=version).read_text())
+    state = torch.load(art.fetch("models", name, "weights.pt", offline=offline, version=version), map_location="cpu",
                        weights_only=True)
     return ADAPTERS[spec["adapter"]](name, card, config, state, spec)
 

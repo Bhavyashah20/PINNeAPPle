@@ -17,7 +17,8 @@ The candidates that did not pass, and why, are listed in
 |---|---|---|---|
 | `airfoil_cst_rans_mlp` | Cl, Cd, Cm of a CST airfoil, with ensemble uncertainty | Cd 0.54 % and Cl ±0.003 on 15 unseen shapes (OpenFOAM RANS); Cd 2.8 % vs XFOIL | α −2…14°, Re 4·10⁶, CST bounds |
 | `heatsink_forced_mlp` | Plate-fin heat-sink resistance (K/W), pressure drop (Pa), 95 % upper bound | R 0.71 %, ΔP 1.0 % on 900 designs (verified physics engine) | Ducted air, 0.5–6 m/s, 10–400 W |
-| `rover_contact_grc1_viper` | Drawbar pull, normal load, torque of a rover wheel on lunar regolith | Fx 0.21 N, Fz 0.16 N RMSE (ranges 1.6 and 1.4 kN), Wong–Reece | Slip −0.4…0.9, sinkage 2–60 mm |
+| `heatsink_natural_mlp` | Plate-fin heat-sink resistance (K/W) in natural convection, 95 % upper bound; trained with monotonicity constraints | R 0.47 % mean, 1.5 % p95 on 750 designs (verified physics engine) | Free air, vertical fins, 1–80 W |
+| `rover_contact_grc1_viper` (v1.1.0) | Drawbar pull, normal load, torque of a rover wheel on lunar regolith | Fx 0.22 N, Fz 0.47 N RMSE (ranges 1.4 and 1.4 kN), Wong–Reece with slip-sinkage | Slip −0.4…0.9, sinkage 2–60 mm |
 
 | Dataset | Content |
 |---|---|
@@ -35,7 +36,7 @@ The complete script is `examples/model_zoo/quickstart.py`.
 ```python
 import pinneapple as pp
 
-pp.zoo.list()        # ['airfoil_cst_rans_mlp', 'heatsink_forced_mlp', 'rover_contact_grc1_viper']
+pp.zoo.list()        # ['airfoil_cst_rans_mlp', 'heatsink_forced_mlp', 'heatsink_natural_mlp', ...]
 pp.datasets.list()   # ['airfoil_rans_cst_re4e6', 'heatsink_forced_convection', ...]
 
 card = pp.zoo.info("airfoil_cst_rans_mlp")      # a ModelCard
@@ -148,7 +149,9 @@ The zoo datasets are also registered in `pinneapple_data.datasets.DatasetRegistr
 Every file is listed in `pinneapple_hub/zoo/manifest.json` with its SHA-256, size, version and its Hugging Face Hub
 location (`huggingface.co/PINNeAPPle-Labs/<name>`, tag `v<version>`). A file is resolved in this order:
 
-1. **Bundled with the package.** This applies only to small items; everything shipped today, 2.5 MB in total.
+1. **Bundled with the package.** This applies only to small items (under about 2 MB each). Larger datasets are
+   Hub-only: one `<split>.npz` per split, possibly sharded into `<split>-NN.npz`, and `pp.datasets.load(name,
+   split=...)` downloads only the files of the requested split.
 2. **The cache.** `$PINNEAPPLE_ZOO_CACHE`, by default `~/.cache/pinneapple/zoo`.
 3. **The Hub.** The file is downloaded once with `huggingface_hub` (or plain HTTPS), checked and cached.
 
@@ -162,11 +165,36 @@ Each step can fail with a specific error:
 
 `pp.zoo.status(name)` and `pp.datasets.status(name)` show where each file resolves from, without downloading it.
 
+## Versions and the physics a model was trained on
+
+A new release of a model keeps the old one: the manifest lists it under `superseded`, with its files, their
+SHA-256, its Hub tag and the reason it was superseded. `pp.zoo.versions(name)` lists every release, and
+`pp.zoo.load(name, version="1.0.0")` loads an old one (from the Hub, with a `SupersededModelWarning` that gives the
+reason).
+
+A surrogate is only a surrogate of the physics it was trained on. The rover contact model records that physics in
+its card (`data_lineage.physics`) and its `config.json`: the full `WongReeceModel.physics_config()`, i.e. the soil
+and all its parameters, the wheel, gravity and the model options. `ZooContactSurrogate(pp.zoo.load(...))
+.check_physics(model)` lists what differs from the model it is used with and raises a `PhysicsMismatchWarning`;
+`vehicle.dashboard.vehicle_dashboard` does this and notes any difference on the PINN chart. A test fails when the
+library's GRC-1, the VIPER wheel or the Wong-Reece options change without a new zoo release.
+
+`rover_contact_grc1_viper` v1.0.0 was trained before slip-sinkage was added to GRC-1 (n1 = 0). Against the current
+Wong-Reece model it errs by up to ~200 N at high driving slip. v1.1.0 is trained on the current physics (n1 = 0.8)
+with the same held-out protocol (2000 Latin-hypercube states, seed 1000, disjoint from training). With slip-sinkage
+the pull need not grow with slip at a fixed sinkage, so its gate checks that dFx/ds has the sign of the recorded
+reference instead of dFx/ds ≥ 0.
+
 To publish (maintainers):
 
 1. Add a repository secret `HF_TOKEN` with write access to the PINNeAPPle-Labs organisation.
 2. Run the **Publish zoo to the Hugging Face Hub** workflow. It also runs on every push to `main` that changes the
    zoo.
+
+Hub-only items are not in the repository. To upload them, put their files on a branch as `<name>/<file>` (for
+example the output of `scripts/zoo/operator_data.py generate`) and run the workflow by hand with `staging_ref` set to
+that branch. Every staged file must match the SHA-256 in the manifest. Runs without `staging_ref` upload the bundled
+items and report Hub-only items that are not on the Hub yet, without failing.
 
 Without the secret, the workflow checks the manifest and skips the upload with a warning.
 `python scripts/zoo/publish_to_hub.py --dry-run` lists the uploads.
