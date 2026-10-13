@@ -45,6 +45,7 @@ import torch.nn as nn
 
 from pinneapple_physics.pde_environment.conditions import DirichletBC
 from pinneapple_physics.pde_environment.presets import get_preset
+from pinneapple_neural.architectures.rom.parametric import latin_hypercube
 from pinneapple_neural.architectures.siren import SIREN
 from pinneapple_physics.pinn_solver.compiler import LossWeights, compile_problem
 from pinneapple_tools.visualization import (
@@ -142,19 +143,7 @@ spec = replace(spec, conditions=(bc_fixed,))
 print("[2/6] Sampling collocation and BC points …")
 
 rng = np.random.default_rng(SEED)
-
-
-def lhs_sample(n: int, bounds: list[tuple[float, float]]) -> np.ndarray:
-    """Simple Latin Hypercube Sampling."""
-    d = len(bounds)
-    pts = np.zeros((n, d), dtype=np.float32)
-    for j, (lo, hi) in enumerate(bounds):
-        perm = rng.permutation(n)
-        pts[:, j] = lo + (perm + rng.random(n)) / n * (hi - lo)
-    return pts
-
-
-X_col_np = lhs_sample(N_COL, [X_BOUNDS, Y_BOUNDS, Z_BOUNDS])
+X_col_np = latin_hypercube(N_COL, {"x": X_BOUNDS, "y": Y_BOUNDS, "z": Z_BOUNDS}, seed=SEED)[0].astype(np.float32)
 
 # BC points: rings around each suspension mount
 bc_pts = []

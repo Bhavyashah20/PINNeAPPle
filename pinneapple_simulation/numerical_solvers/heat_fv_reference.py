@@ -16,7 +16,7 @@ import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
-__all__ = ["footprint", "plate_2d", "block_3d"]
+__all__ = ["footprint", "footprint_area", "plate_2d", "block_3d", "interp_grid", "convergence"]
 
 
 def footprint(x, y, xc: float, yc: float, half: float, width: float):
@@ -25,17 +25,26 @@ def footprint(x, y, xc: float, yc: float, half: float, width: float):
     return sig(half - np.abs(x - xc)) * sig(half - np.abs(y - yc))
 
 
-def _footprint_area(xc, yc, half, width, lx, ly, n=2000) -> float:
+def footprint_area(xc, yc, half, width, lx, ly, n=2000) -> float:
+    """Area (m2) of the smooth ``footprint`` over the plate [0, lx] x [0, ly] (all lengths in m).
+
+    Midpoint rule on an n x n grid. Used to scale a device power (W) to a heat flux (W/m2) so that the integral of
+    the flux over the plate is exactly that power. For a footprint far from the edges the area is
+    ``(2 half + width ln(1 + exp(-2 half / width)))**2`` (integral of the logistic edge), i.e. about ``(2 half)**2``.
+    """
     x = (np.arange(n) + 0.5) * lx / n
     y = (np.arange(n) + 0.5) * ly / n
     return float(footprint(x[None, :], y[:, None], xc, yc, half, width).sum() * (lx / n) * (ly / n))
+
+
+_footprint_area = footprint_area      # former private name, kept for existing imports
 
 
 def plate_2d(h: float, *, lx: float, ly: float, t: float, k: float, power: float, t_air: float,
              device: Tuple[float, float, float, float], nx: int = 200, ny: int = 120):
     """Temperature (°C) at the cell centres of an (ny, nx) grid; returns (x, y, T)."""
     xc, yc, half, width = device
-    q_flux = power / _footprint_area(xc, yc, half, width, lx, ly)           # W/m2 so that the total is ``power``
+    q_flux = power / footprint_area(xc, yc, half, width, lx, ly)           # W/m2 so that the total is ``power``
     dx, dy = lx / nx, ly / ny
     x = (np.arange(nx) + 0.5) * dx
     y = (np.arange(ny) + 0.5) * dy
@@ -62,7 +71,7 @@ def block_3d(h: float, *, lx: float, ly: float, lz: float, k: float, power: floa
              device: Tuple[float, float, float, float], nx: int = 40, ny: int = 40, nz: int = 12):
     """Temperature (°C) at the cell centres of an (nz, ny, nx) grid; returns (x, y, z, T)."""
     xc, yc, half, width = device
-    q_flux = power / _footprint_area(xc, yc, half, width, lx, ly)
+    q_flux = power / footprint_area(xc, yc, half, width, lx, ly)
     dx, dy, dz = lx / nx, ly / ny, lz / nz
     x = (np.arange(nx) + 0.5) * dx
     y = (np.arange(ny) + 0.5) * dy
