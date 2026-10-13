@@ -30,6 +30,7 @@ DATA_FILES = [
     "pinneapple_simulation/terramechanics/data/single_wheel_tests.csv",
     "pinneapple_twin3d/viewer/index.html",
     "pinneapple_twin3d/viewer/viewer.js",
+    "pinneapple_design/geometry_library/manifest.json",
 ]
 
 

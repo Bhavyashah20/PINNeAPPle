@@ -1,0 +1,42 @@
+{
+ "source": "NASA Goddard eclipse predictions (F. Espenak, eclipse.gsfc.nasa.gov) and transit predictions: instant of greatest eclipse / transit in UT, and gamma.",
+ "solar_eclipses": [
+  {
+   "utc": "2024-04-08T18:17:20Z",
+   "type": "total",
+   "gamma": 0.3431
+  },
+  {
+   "utc": "2024-10-02T18:45:13Z",
+   "type": "annular",
+   "gamma": -0.3509
+  }
+ ],
+ "lunar_eclipses": [
+  {
+   "utc": "2022-05-16T04:11:28Z",
+   "type": "total",
+   "umbral_magnitude": 1.414
+  },
+  {
+   "utc": "2022-11-08T10:59:11Z",
+   "type": "total",
+   "umbral_magnitude": 1.359
+  }
+ ],
+ "transits": [
+  {
+   "utc": "2012-06-06T01:29:36Z",
+   "body": "venus"
+  },
+  {
+   "utc": "2016-05-09T14:57:26Z",
+   "body": "mercury"
+  },
+  {
+   "utc": "2019-11-11T15:19:48Z",
+   "body": "mercury"
+  }
+ ],
+ "tolerance_s": 120
+}

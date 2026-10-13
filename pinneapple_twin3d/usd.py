@@ -7,6 +7,13 @@ time step), and every sensor a ``Sphere`` with its series, unit and alarm envelo
 attributes. Provenance (title, source, units, real time values) goes into the layer metadata so
 the meaning of the data survives the hand-off.
 
+Physics (``UsdPhysics``): parts given ``Scene.add_physics`` become rigid bodies and/or colliders
+(``PhysicsRigidBodyAPI``, ``PhysicsMassAPI``, ``PhysicsCollisionAPI``, ``PhysicsMeshCollisionAPI``),
+with contact materials (``PhysicsMaterialAPI``) bound through ``material:binding:physics``;
+``Scene.set_gravity`` adds a ``PhysicsScene``. Recorded rigid motion (``Scene.add_motion``) is written
+as time-sampled ``xformOp:translate`` / ``xformOp:orient`` -- with ``kinematic=True`` the body replays
+it, so the same file opens as a playback in usdview and as a live scene in Omniverse / Isaac Sim.
+
 Written as plain text: no ``pxr`` dependency to export. ``usd-core`` (``pip install usd-core``)
 can open the result; the tests use it when available.
 """
@@ -54,6 +61,7 @@ def export_usd(scene: Scene, path: str) -> str:
         "(",
         '    defaultPrim = "Twin"',
         f"    metersPerUnit = {_METERS.get(scene.length_unit, 1.0)}",
+        "    kilogramsPerUnit = 1",
         '    upAxis = "Z"',
         "    startTimeCode = 0",
         f"    endTimeCode = {max(n_steps - 1, 0)}",
@@ -74,11 +82,54 @@ def export_usd(scene: Scene, path: str) -> str:
         "{",
     ]
     used: set = set()
+    used.update({"PhysicsMaterials", "physicsScene"})
+    if getattr(scene, "gravity", None) is not None:
+        g = np.asarray(scene.gravity, float)
+        mag = float(np.linalg.norm(g))
+        d = g / mag if mag > 0 else np.array([0.0, 0.0, -1.0])
+        lines += ['    def PhysicsScene "physicsScene"', "    {",
+                  f"        vector3f physics:gravityDirection = ({_floats(d)})",
+                  f"        float physics:gravityMagnitude = {mag:.7g}", "    }"]
+    materials = {}
+    for part in scene.parts:
+        ph = getattr(part, "physics", None)
+        if ph is not None and ph.material is not None:
+            materials.setdefault(ph.material.name, ph.material)
+    mat_path = {}
+    if materials:
+        lines += ['    def Scope "PhysicsMaterials"', "    {"]
+        mused: set = set()
+        for mname, m in materials.items():
+            ident = _ident(mname, mused)
+            mat_path[mname] = f"/Twin/PhysicsMaterials/{ident}"
+            lines += [f'        def Material "{ident}" (', '            prepend apiSchemas = ["PhysicsMaterialAPI"]',
+                      "        )", "        {",
+                      f"            float physics:staticFriction = {m.static_friction:.7g}",
+                      f"            float physics:dynamicFriction = {m.dynamic_friction:.7g}",
+                      f"            float physics:restitution = {m.restitution:.7g}"]
+            if m.density is not None:
+                lines.append(f"            float physics:density = {m.density:.7g}")
+            lines += ["        }"]
+        lines += ["    }"]
     for part in scene.parts:
         name = _ident(part.name, used)
         counts = ", ".join(["3"] * len(part.faces))
+        ph = getattr(part, "physics", None)
+        schemas = []
+        if ph is not None:
+            if ph.rigid_body:
+                schemas += ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+            if ph.collider:
+                schemas += ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            if ph.material is not None:
+                schemas += ["MaterialBindingAPI"]
+        if schemas:
+            lines += [f'    def Mesh "{name}" (',
+                      "        prepend apiSchemas = [" + ", ".join(_q(x) for x in schemas) + "]",
+                      "    )"]
+        else:
+            lines.append(f'    def Mesh "{name}"')
         lines += [
-            f'    def Mesh "{name}"',
             "    {",
             f"        custom string pinneapple:name = {_q(part.name)}",
             f"        custom string pinneapple:group = {_q(part.group)}",
@@ -88,6 +139,32 @@ def export_usd(scene: Scene, path: str) -> str:
             '        uniform token subdivisionScheme = "none"',
             f"        color3f[] primvars:displayColor = [({_floats(part.color)})]",
         ]
+        if ph is not None:
+            if ph.rigid_body:
+                lines += ["        bool physics:rigidBodyEnabled = 1",
+                          f"        bool physics:kinematicEnabled = {int(ph.kinematic)}"]
+                if ph.velocity is not None:
+                    lines.append(f"        vector3f physics:velocity = ({_floats(ph.velocity)})")
+                if ph.angular_velocity is not None:
+                    lines.append(f"        vector3f physics:angularVelocity = ({_floats(ph.angular_velocity)})")
+                if ph.mass is not None:
+                    lines.append(f"        float physics:mass = {ph.mass:.7g}")
+                if ph.density is not None:
+                    lines.append(f"        float physics:density = {ph.density:.7g}")
+                if ph.center_of_mass is not None:
+                    lines.append(f"        point3f physics:centerOfMass = ({_floats(ph.center_of_mass)})")
+            if ph.collider:
+                lines += ["        bool physics:collisionEnabled = 1",
+                          f"        uniform token physics:approximation = {_q(ph.approximation)}"]
+            if ph.material is not None:
+                lines.append(f"        rel material:binding:physics = <{mat_path[ph.material.name]}>")
+        motion = getattr(part, "motion", None)
+        if motion is not None:
+            lines.append("        double3 xformOp:translate.timeSamples = {")
+            lines += [f"            {k}: ({_floats(motion[k, :3])})," for k in range(len(motion))]
+            lines += ["        }", "        quatf xformOp:orient.timeSamples = {"]
+            lines += [f"            {k}: ({_floats(motion[k, 3:])})," for k in range(len(motion))]
+            lines += ["        }", '        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]']
         for fname, arr in part.fields.items():
             pv = "primvars:" + _ident(fname, set())
             unit = scene.field_units.get(fname, "")
