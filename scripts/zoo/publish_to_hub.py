@@ -2,6 +2,7 @@
 
     HF_TOKEN=... python scripts/zoo/publish_to_hub.py            # create/update repos, upload, tag v<version>
     python scripts/zoo/publish_to_hub.py --dry-run               # list what would be uploaded
+    python scripts/zoo/publish_to_hub.py --verify                # anonymous download + SHA-256 check of every file
 
 One repo per item under the PINNeAPPle-Labs organisation (model repos for models, dataset repos for datasets), the
 files of the manifest plus a README (the model card / dataset card), and a tag ``v<version>`` -- the revision the
@@ -80,11 +81,38 @@ def publish(items: list[dict], token: str) -> None:
               f"{'datasets/' if it['repo_type'] == 'dataset' else ''}{it['repo']} @ {it['revision']}")
 
 
+def verify(items: list[dict]) -> int:
+    """Download every file anonymously (no token) from the tagged revision and compare its SHA-256 with the manifest;
+    returns the number of failures."""
+    import hashlib
+    import urllib.request
+    bad = 0
+    for it in items:
+        prefix = "datasets/" if it["repo_type"] == "dataset" else ""
+        for fn in it["files"]:
+            url = f"{art.HF_ENDPOINT}/{prefix}{it['repo']}/resolve/{it['revision']}/{fn}"
+            want = art.entry(it["kind"], it["name"])["files"][fn]["sha256"]
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "pinneapple-zoo-verify"})
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    got = hashlib.sha256(r.read()).hexdigest()
+                ok = got == want
+            except Exception as e:  # noqa: BLE001 - report every failure, keep going
+                ok, got = False, f"error: {e}"
+            bad += not ok
+            print(f"  {'OK ' if ok else 'BAD'} {url} sha256 {got[:16]}{'' if ok else ' != ' + want[:16]}")
+    print(f"verify: {sum(len(it['files']) for it in items) - bad} OK, {bad} failed")
+    return bad
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--verify", action="store_true", help="only verify the published files (anonymous download)")
     a = ap.parse_args(argv)
     items = plan()
+    if a.verify:
+        return 1 if verify(items) else 0
     size = sum(p.stat().st_size for it in items for p in it["files"].values())
     print(f"{len(items)} items, {sum(len(it['files']) for it in items)} files, {size / 1e6:.2f} MB")
     for it in items:

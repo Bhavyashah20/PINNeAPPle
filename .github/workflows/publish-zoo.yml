@@ -19,6 +19,8 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      HAS_TOKEN: ${{ secrets.HF_TOKEN != '' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -35,3 +37,6 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: python scripts/zoo/publish_to_hub.py
+      - name: Verify the published files (anonymous download, SHA-256 against the manifest)
+        if: ${{ env.HAS_TOKEN == 'true' }}
+        run: python scripts/zoo/publish_to_hub.py --verify
