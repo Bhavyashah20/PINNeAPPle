@@ -24,6 +24,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - `pinneapple_simulation.numerical_solvers.operator_benchmarks` (reference solvers and Gaussian random fields of
   the three standard problems) and `operator_datasets` (the dataset recipes: inputs, solves, convergence study,
   generation). `scripts/zoo/operator_data.py` is the command-line front end.
+- `PhysicsEnsemble.run_delayed(queries, references, available_at, issue_times=None)`: prequential evaluation where
+  each label is used only once it exists (pending updates replayed in order of availability), returning an
+  `EnsembleRun` like `run`; `PhysicsEnsemble.last_state()` and `update(..., state=...)` score a stored prediction
+  when its label arrives later. `hstack_gifs` in `pinneapple_tools.visualization.dashboard.static` stitches
+  animations side by side (replaces the `stitch` helper of the physics-ensemble examples).
 - Surrogate monitoring and sensor design: `pinneapple_analysis.uncertainty.assess_drift` (nRMSE, bias, interval
   coverage, per-feature KS input shift, out-of-range fraction, Mann-Kendall residual trend and an ok / review /
   retrain decision), `uncertainty.propagate` (Monte-Carlo tolerance propagation with Wilson intervals on the
