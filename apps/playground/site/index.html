@@ -13,8 +13,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="css/app.css">
 <link rel="modulepreload" href="js/main.js">
-<link rel="modulepreload" href="js/onnx.js">
-<link rel="modulepreload" href="js/cst.js">
+<link rel="modulepreload" href="lib/onnx.js">
+<link rel="modulepreload" href="lib/zoo.js">
 <script>
   // start fetching the airfoil model with the HTML when the page opens on the airfoil mode (the default)
   if (!/^#\/?(heatsink|rover|gallery)/.test(location.hash)) {
@@ -23,7 +23,7 @@
   }
 </script>
 <script type="importmap">
-{"imports": {"three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/"}}
+{"imports": {"three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/", "pinneapple/": "./lib/"}}
 </script>
 </head>
 <body>

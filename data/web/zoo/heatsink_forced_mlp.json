@@ -162,13 +162,13 @@
    "source": "apps/heatsink_sizer/artifacts/{surrogate_forced.pt,dataset_forced.json.gz}"
   },
   "validation_metrics": {
-   "test/R_mean_abs_pct": 0.711547,
-   "test/R_p95_abs_pct": 2.08609,
-   "test/R_max_abs_pct": 5.88043,
-   "test/dP_mean_abs_pct": 1.04069,
-   "test/dP_p95_abs_pct": 2.69579,
-   "test/dP_max_abs_pct": 10.0045,
-   "test/R_upper95_coverage_pct": 95.7778,
+   "test/R_mean_abs_pct": 0.71154669,
+   "test/R_p95_abs_pct": 2.0860917,
+   "test/R_max_abs_pct": 5.880426,
+   "test/dP_mean_abs_pct": 1.0406857,
+   "test/dP_p95_abs_pct": 2.6957943,
+   "test/dP_max_abs_pct": 10.004468,
+   "test/R_upper95_coverage_pct": 95.777778,
    "test/n": 900.0
   },
   "reference_source": "900 held-out designs solved by the HeatSink Sizer physics engine (pinneapple_design.thermal.heatsink.engine). The engine is checked against independent methods: Lee et al. spreading (1-5 %), Stephan developing-flow Nu + e-NTU (0-5 %), fully developed friction (2-4 %), FVM grid convergence < 2 %.",
@@ -196,7 +196,7 @@
      "status": "supports",
      "critical": true,
      "weight": 1.0,
-     "value": 0.711547,
+     "value": 0.71154669,
      "limit": 2.0,
      "source": "independent reference",
      "reason": ""
@@ -206,7 +206,7 @@
      "status": "supports",
      "critical": true,
      "weight": 1.0,
-     "value": 2.08609,
+     "value": 2.0860917,
      "limit": 5.0,
      "source": "independent reference",
      "reason": ""
@@ -216,7 +216,7 @@
      "status": "supports",
      "critical": true,
      "weight": 1.0,
-     "value": 1.04069,
+     "value": 1.0406857,
      "limit": 3.0,
      "source": "independent reference",
      "reason": ""
@@ -236,7 +236,7 @@
      "status": "supports",
      "critical": true,
      "weight": 1.0,
-     "value": 0.00348837,
+     "value": 0.0034883721,
      "limit": 0.01,
      "source": "physics of convection/conduction",
      "reason": ""
@@ -246,7 +246,7 @@
      "status": "supports",
      "critical": true,
      "weight": 1.0,
-     "value": 0.00228833,
+     "value": 0.0022883295,
      "limit": 0.01,
      "source": "physics of convection/conduction",
      "reason": ""
@@ -278,9 +278,14 @@
  },
  "onnx": {
   "file": "heatsink_forced_mlp.onnx",
-  "bytes": 217325,
-  "sha256": "9258a78fd11f7843597f8a61c32909f86d8d17ac1a0c32eb658589d88cb52d1c",
+  "bytes": 270292,
+  "sha256": "38bb41109c3d9d23575566134ec35fe5ae0c565ab8feb034a6a36e1e42c24841",
+  "opset": 17,
   "inputs": [
+   "x",
+   "query"
+  ],
+  "input_columns": [
    "base_width_mm",
    "base_depth_mm",
    "base_thickness_mm",
@@ -294,21 +299,333 @@
    "air_velocity_m_s",
    "power_w"
   ],
-  "outputs": [
-   "y"
-  ],
-  "opset": 17
+  "outputs": {
+   "y": [
+    "r_base_k_w",
+    "pressure_drop_pa",
+    "r_base_upper95_k_w"
+   ],
+   "checks": "query checks",
+   "aux": "check details"
+  },
+  "parity": 1.5896984e-06,
+  "checks_parity": {
+   "max_value_diff": 1.4305115e-06,
+   "status_flips": 0
+  }
  },
+ "checks": {
+  "checks": [
+   {
+    "id": "range:base_width_mm",
+    "rule": "PC601",
+    "name": "base_width_mm inside 30 … 200",
+    "op": "in",
+    "limit": [
+     30.0,
+     200.0
+    ],
+    "bounds": [
+     30.0,
+     200.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "box",
+    "detail": "base_width_mm = {value:.4g} (range 30 … 200)"
+   },
+   {
+    "id": "range:base_depth_mm",
+    "rule": "PC601",
+    "name": "base_depth_mm inside 30 … 200",
+    "op": "in",
+    "limit": [
+     30.0,
+     200.0
+    ],
+    "bounds": [
+     30.0,
+     200.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "box",
+    "detail": "base_depth_mm = {value:.4g} (range 30 … 200)"
+   },
+   {
+    "id": "range:base_thickness_mm",
+    "rule": "PC601",
+    "name": "base_thickness_mm inside 2 … 15",
+    "op": "in",
+    "limit": [
+     2.0,
+     15.0
+    ],
+    "bounds": [
+     2.0,
+     15.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "box",
+    "detail": "base_thickness_mm = {value:.4g} (range 2 … 15)"
+   },
+   {
+    "id": "range:fin_thickness_mm",
+    "rule": "PC601",
+    "name": "fin_thickness_mm inside 0.6 … 4",
+    "op": "in",
+    "limit": [
+     0.6,
+     4.0
+    ],
+    "bounds": [
+     0.6,
+     4.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "box",
+    "detail": "fin_thickness_mm = {value:.4g} (range 0.6 … 4)"
+   },
+   {
+    "id": "range:fin_height_mm",
+    "rule": "PC601",
+    "name": "fin_height_mm inside 8 … 80",
+    "op": "in",
+    "limit": [
+     7.9999999,
+     80.0
+    ],
+    "bounds": [
+     8.0,
+     80.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "box",
+    "detail": "fin_height_mm = {value:.4g} (range 8 … 80)"
+   },
+   {
+    "id": "range:k_w_mk",
+    "rule": "PC601",
+    "name": "k_w_mk inside 150 … 400",
+    "op": "in",
+    "limit": [
+     150.0,
+     400.0
+    ],
+    "bounds": [
+     150.0,
+     400.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "box",
+    "detail": "k_w_mk = {value:.4g} (range 150 … 400)"
+   },
+   {
+    "id": "range:t_ambient_c",
+    "rule": "PC601",
+    "name": "t_ambient_c inside 0 … 50",
+    "op": "in",
+    "limit": [
+     -5e-08,
+     50.0
+    ],
+    "bounds": [
+     0.0,
+     50.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "box",
+    "detail": "t_ambient_c = {value:.4g} (range 0 … 50)"
+   },
+   {
+    "id": "range:air_velocity_m_s",
+    "rule": "PC601",
+    "name": "air_velocity_m_s inside 0.5 … 6",
+    "op": "in",
+    "limit": [
+     0.49999999,
+     6.0
+    ],
+    "bounds": [
+     0.5,
+     6.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "box",
+    "detail": "air_velocity_m_s = {value:.4g} (range 0.5 … 6)"
+   },
+   {
+    "id": "range:power_w",
+    "rule": "PC601",
+    "name": "power_w inside 10 … 400",
+    "op": "in",
+    "limit": [
+     9.9999996,
+     400.0
+    ],
+    "bounds": [
+     10.0,
+     400.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "box",
+    "detail": "power_w = {value:.4g} (range 10 … 400)"
+   },
+   {
+    "id": "range:fin_gap_mm",
+    "rule": "PC601",
+    "name": "Fin gap inside 0.6…12 mm",
+    "op": "in",
+    "limit": [
+     0.59999999,
+     12.0
+    ],
+    "bounds": [
+     0.6,
+     12.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": null,
+    "detail": "fin_gap_mm = {value:.4g} (range 0.6 … 12)"
+   },
+   {
+    "id": "range:source_frac_w",
+    "rule": "PC601",
+    "name": "source width / base width",
+    "op": "in",
+    "limit": [
+     0.15,
+     1.0
+    ],
+    "bounds": [
+     0.15,
+     1.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "source",
+    "detail": "source_frac_w = {value:.4g} (range 0.15 … 1)"
+   },
+   {
+    "id": "range:source_frac_d",
+    "rule": "PC601",
+    "name": "source depth / base depth",
+    "op": "in",
+    "limit": [
+     0.15,
+     1.0
+    ],
+    "bounds": [
+     0.15,
+     1.0
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "source",
+    "detail": "source_frac_d = {value:.4g} (range 0.15 … 1)"
+   },
+   {
+    "id": "fins",
+    "rule": "PC601",
+    "name": "At least two fins",
+    "op": ">=",
+    "limit": 2.0,
+    "severity": "fail",
+    "kind": "trust",
+    "group": null,
+    "detail": "{value:.0f} fins"
+   },
+   {
+    "id": "positive",
+    "rule": "PC403",
+    "name": "R > 0 and ΔP > 0, finite",
+    "op": ">",
+    "limit": 0.0,
+    "severity": "fail",
+    "kind": "trust",
+    "group": null,
+    "detail": "min(R, ΔP) = {value:.4g}"
+   },
+   {
+    "id": "mono:V",
+    "rule": "PC302",
+    "name": "More airflow lowers R here (+5 % speed)",
+    "op": "<",
+    "limit": 0.0,
+    "severity": "warn",
+    "kind": "trust",
+    "group": null,
+    "detail": "R {R:.4g} → {R_v:.4g} K/W"
+   },
+   {
+    "id": "mono:dP",
+    "rule": "PC302",
+    "name": "Pressure drop rises with air speed here",
+    "op": ">",
+    "limit": 0.0,
+    "severity": "warn",
+    "kind": "trust",
+    "group": null,
+    "detail": "ΔP {dP:.4g} → {dP_v:.4g} Pa"
+   },
+   {
+    "id": "mono:k",
+    "rule": "PC302",
+    "name": "A more conductive material lowers R here (+5 % k)",
+    "op": "<",
+    "limit": 0.0,
+    "severity": "warn",
+    "kind": "trust",
+    "group": null,
+    "detail": "R {R:.4g} → {R_k:.4g} K/W"
+   }
+  ],
+  "aux": [
+   "R",
+   "R_v",
+   "R_k",
+   "dP",
+   "dP_v"
+  ],
+  "groups": {
+   "box": {
+    "name": "Inputs inside the validity range",
+    "rule": "PC601"
+   },
+   "source": {
+    "name": "Heat source covers 15–100 % of the base",
+    "rule": "PC601"
+   }
+  },
+  "verdicts": {
+   "pass": {
+    "title": "Trusted for this query",
+    "text": "Inside the validity range; every live check passes."
+   },
+   "warn": {
+    "title": "Use with caution",
+    "text": "Inside the range, but a check flags this query."
+   },
+   "fail": {
+    "title": "Outside the validity range",
+    "text": "This is an extrapolation: the number is not backed by the model's evidence."
+   }
+  },
+  "templates": "Python str.format fields {value}, {limit}, and the aux names; formats .Ng .Nf .N%"
+ },
+ "reference": {},
  "hub": "https://huggingface.co/PINNeAPPle-Labs/heatsink_forced_mlp",
  "code": {
   "adapter": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/_models.py",
-  "catalog": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/_catalog.py",
-  "export": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/apps/playground/tools/build_assets.py"
- },
- "live": {
-  "conformal_log_q": {
-   "90": 0.0158292,
-   "95": 0.0205429
-  }
+  "checks": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/checks.py",
+  "export": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/export.py"
  }
 }

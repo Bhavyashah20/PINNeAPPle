@@ -5,8 +5,10 @@
 FROM python:3.11-slim AS build
 WORKDIR /src
 COPY apps/playground apps/playground
+COPY pinneapple_hub/zoo/web pinneapple_hub/zoo/web
 COPY pinneapple_tools/visualization/studio/web/vendor/three pinneapple_tools/visualization/studio/web/vendor/three
 COPY data/geometries data/geometries
+COPY data/web data/web
 RUN python apps/playground/build.py --out /site
 
 FROM caddy:2.8.4-alpine

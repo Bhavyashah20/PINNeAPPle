@@ -1,22 +1,20 @@
-// Rover-wheel mode: the NASA VIPER wheel on GRC-1 lunar simulant. Slip and sinkage drive the zoo's wheel-soil
-// contact PINN; the page shows drawbar pull, load and torque, the physics constraints the model was trained with,
-// and held-out points of the analytic Wong-Reece reference near the current sinkage.
+// Rover-wheel mode (UI only): the NASA VIPER wheel on GRC-1 lunar simulant. The zoo's wheel-soil contact PINN
+// (one graph: forces and query checks, pinneapple_hub.zoo.web) and held-out points of the analytic Wong-Reece model.
 import { LineChart } from "../charts.js";
 import { writeState } from "../main.js";
 import { load } from "../models.js";
-import { tractionLimit } from "../physics.js";
 import { renderModelTrust } from "../trust.js";
 import { clamp, fmt, h, rafThrottle, renderVerdict, segmented, slider, svg, tile } from "../ui.js";
 
 export const title = "Rover wheel";
 const MODEL = "rover_contact_grc1_viper";
-const S_VALID = [-0.4, 0.9], Z_VALID = [2, 60];
 const S_SWEEP = Array.from({ length: 57 }, (_, i) => -0.6 + i * 0.03);
 const GROUSERS = 24;
 
 export async function mount(root, params) {
   const model = await load(MODEL);
-  const phys = model.meta.live.physics, ho = model.meta.live.heldout;
+  const phys = model.meta.reference.physics, ho = model.meta.reference.heldout, vr = model.meta.card.validity_range;
+  const S_VALID = vr.slip, Z_VALID = vr.sinkage_m.map((v) => v * 1000);
   const st = { slip: 0.2, z: 20, chart: "Fx" };
 
   const sS = slider({ label: "Slip ratio", min: -0.6, max: 1.0, step: 0.01, value: st.slip, valid: S_VALID, digits: 2, testid: "slip", onInput: (v) => { st.slip = v; go(); } });
@@ -32,9 +30,9 @@ export async function mount(root, params) {
   cC.append(head);
   const chart = new LineChart(cC, { xLabel: "slip", yLabel: "Fx (N)", testid: "rover-chart" });
 
-  const tFx = tile("Drawbar pull Fx", { hero: true, testid: "Fx" }), tFz = tile("Normal load Fz", { testid: "Fz" }), tMy = tile("Driving torque My", { testid: "My" }), tDp = tile("Drawbar coefficient", { testid: "DP" }), tEta = tile("Tractive efficiency", { testid: "eta" });
+  const tFx = tile("Drawbar pull Fx", { hero: true, testid: "Fx" }), tFz = tile("Normal load Fz", { testid: "Fz" }), tMy = tile("Driving torque My", { testid: "My" });
   const results = h("div", { class: "card" }, h("h3", {}, h("span", {}, "Prediction"), h("span", { class: "hint", style: "margin:0;text-transform:none;letter-spacing:0", "data-testid": "latency" })),
-    h("div", { class: "tiles" }, tFx.el, tFz.el, tMy.el, tDp.el, tEta.el),
+    h("div", { class: "tiles" }, tFx.el, tFz.el, tMy.el),
     h("p", { class: "hint" }, "Held-out error vs the analytic model: Fx RMSE 0.21 N on a 1.6 kN range. The Wong–Reece model itself is 4–14 N from published single-wheel tests."));
   const verdict = h("div");
   const trustCard = h("div", { class: "card" }, h("h3", {}, "Trust verdict"), verdict, h("p", { class: "hint" }, h("a", { href: "#", onclick: (e) => { e.preventDefault(); document.getElementById("trust-open").click(); } }, "Why trust this? Model card and evidence →")));
@@ -115,19 +113,6 @@ export async function mount(root, params) {
   raf = requestAnimationFrame(frame);
 
   // ------------------------------------------------------------------ model + checks
-  function checks(p, dz, ds) {
-    const out = [], sOut = st.slip < S_VALID[0] || st.slip > S_VALID[1], zOut = st.z < Z_VALID[0] || st.z > Z_VALID[1];
-    out.push({ id: "range", rule: "PC601", name: "Slip and sinkage inside the validity range", status: sOut || zOut ? "fail" : "pass",
-      detail: [sOut ? `slip ${st.slip} (range −0.4 … 0.9)` : "", zOut ? `sinkage ${st.z} mm (range 2 … 60 mm)` : ""].filter(Boolean).join("; ") });
-    out.push({ id: "finite", rule: "PC403", name: "Forces finite, soil pushes up (Fz > 0)", status: [p.Fx, p.Fz, p.My].every(Number.isFinite) && p.Fz > 0 ? "pass" : "fail" });
-    const lim = tractionLimit(p.Fz, st.z / 1000, phys), noise = 0.002 * 1667;
-    out.push({ id: "mohr", rule: "PC302", name: "Mohr–Coulomb traction limit Fx ≤ cA + Fz tan φ", status: p.Fx <= lim + noise ? "pass" : "warn", detail: `Fx ${fmt(p.Fx, 0)} N, limit ${fmt(lim, 0)} N` });
-    out.push({ id: "torque", rule: "PC302", name: "Moment balance My ≥ R·Fx", status: phys.R_m * p.Fx - p.My <= 0.002 * 474 ? "pass" : "warn", detail: `My ${fmt(p.My, 1)} N·m, R·Fx ${fmt(phys.R_m * p.Fx, 1)} N·m` });
-    out.push({ id: "dfz", rule: "PC302", name: "Deeper sinkage carries more load (dFz/dz ≥ 0)", status: dz[1] >= p.Fz - 0.002 * 1400 ? "pass" : "warn" });
-    if (st.slip <= 0.3) out.push({ id: "dfx", rule: "PC302", name: "More slip, more pull below s = 0.3 (dFx/ds ≥ 0)", status: ds[0] >= p.Fx - 0.002 * 1667 ? "pass" : "warn" });
-    return out;
-  }
-
   function drawChart() {
     if (!drawChart.sweep) return;
     const k = st.chart, idx = { Fx: 0, Fz: 1, My: 2 }[k], unit = k === "My" ? "N·m" : "N";
@@ -144,22 +129,18 @@ export async function mount(root, params) {
   async function update() {
     writeState("rover", { s: st.slip, z: st.z, ...(st.chart !== "Fx" ? { c: st.chart } : {}) });
     const my = ++seq, z = st.z / 1000;
-    const out = await model.run([[st.slip, z], [st.slip, z + 0.001], [st.slip + 0.01, z], ...S_SWEEP.map((s) => [s, z])]);
+    const out = await model.run([[st.slip, z], ...S_SWEEP.map((s) => [s, z])], [st.slip, z]);
     if (my !== seq) return;
-    const y = out.y, p = { Fx: y[0][0], Fz: y[0][1], My: y[0][2] };
-    pred = p; drawChart.sweep = y.slice(3);
+    const y = out.rows.map((r) => [r.Fx_N, r.Fz_N, r.My_Nm]), p = { Fx: y[0][0], Fz: y[0][1], My: y[0][2] };
+    pred = p; drawChart.sweep = y.slice(1);
     tFx.set(`${fmt(p.Fx, 1)} <small>N</small>`, "", p.Fx);
     tFz.set(`${fmt(p.Fz, 1)} <small>N</small>`, "", p.Fz);
     tMy.set(`${fmt(p.My, 1)} <small>N·m</small>`, "", p.My);
-    tDp.set(fmt(p.Fx / p.Fz, 3), "Fx / Fz", p.Fx / p.Fz);
-    const eta = st.slip > 0 && st.slip < 1 && p.My > 0 && p.Fx > 0 ? (p.Fx * phys.R_m * (1 - st.slip)) / p.My : NaN;
-    tEta.set(Number.isFinite(eta) ? `${(100 * eta).toFixed(0)} <small>%</small>` : "–", "Fx·v / (My·ω)", eta);
     root.querySelector("[data-testid=wheel-state]").textContent = st.slip > 0 ? `driving, slip ${st.slip.toFixed(2)}` : st.slip < 0 ? `skidding, slip ${st.slip.toFixed(2)}` : "free rolling";
     root.querySelector("[data-testid=latency]").textContent = `${y.length} evaluations in ${model.lastMs >= 1 ? model.lastMs.toFixed(0) : "<1"} ms`;
     drawChart();
-    const cks = checks(p, y[1], y[2]);
-    renderVerdict(verdict, cks);
-    renderModelTrust({ meta: model.meta, checks: cks });
+    renderVerdict(verdict, out.query);
+    renderModelTrust({ meta: model.meta, evaluation: out.query });
   }
   const go = rafThrottle(update);
 

@@ -1,7 +1,8 @@
-// A small, dependency-free ONNX interpreter for the zoo's MLP graphs (a few hundred kB of weights, ~20 ops).
-// It reads the .onnx protobuf directly and evaluates the graph in float64. The full runtime (onnxruntime-web) is
-// ~10 MB of WebAssembly; for networks this size it would dominate the page load, so it is an opt-in cross-check
-// (engine=ort in the URL hash) instead of the default. Parity of both against PyTorch is tested in CI.
+// PINNeAPPle web runtime: a small, dependency-free ONNX interpreter for the graphs the library exports
+// (pinneapple_hub.zoo.export, pinneapple_design.aero.geometry_onnx): MLPs, their pre/post-processing and query checks,
+// a few hundred kB of weights and ~30 operators. It reads the .onnx protobuf directly and evaluates in float64.
+// onnxruntime-web runs the same files (zoo.js, engine "ort") but is ~10 MB of WebAssembly, too much for a page that
+// should load in a second. Parity with onnxruntime is tested in tests/js/zoo_web.test.mjs.
 
 // ------------------------------------------------------------------ protobuf (wire format)
 class Reader {
@@ -91,19 +92,28 @@ function parseNode(r) {
   return n;
 }
 
-function parseValueInfoName(r) {
-  let name = "";
-  for (const [no, wt] of r.fields()) { if (no === 1) name = str(r); else r.skip(wt); }
-  return name;
+function parseValueInfo(r) {
+  let name = "", elem = 1;
+  for (const [no, wt] of r.fields()) {
+    if (no === 1) name = str(r);
+    else if (no === 2) {                                      // TypeProto.tensor_type.elem_type
+      const t = sub(r);
+      for (const [n2, w2] of t.fields()) {
+        if (n2 === 1) { const tt = sub(t); for (const [n3, w3] of tt.fields()) { if (n3 === 1) elem = tt.varint(); else tt.skip(w3); } }
+        else t.skip(w2);
+      }
+    } else r.skip(wt);
+  }
+  return { name, dtype: DT[elem] || "float32" };
 }
 
 function parseGraph(r) {
-  const g = { nodes: [], init: {}, inputs: [], outputs: [] };
+  const g = { nodes: [], init: {}, inputs: [], outputs: [], inputTypes: {} };
   for (const [no, wt] of r.fields()) {
     if (no === 1) g.nodes.push(parseNode(sub(r)));
     else if (no === 5) { const t = parseTensor(sub(r)); g.init[t.name] = t; }
-    else if (no === 11) g.inputs.push(parseValueInfoName(sub(r)));
-    else if (no === 12) g.outputs.push(parseValueInfoName(sub(r)));
+    else if (no === 11) { const v = parseValueInfo(sub(r)); g.inputs.push(v.name); g.inputTypes[v.name] = v.dtype; }
+    else if (no === 12) g.outputs.push(parseValueInfo(sub(r)).name);
     else r.skip(wt);
   }
   g.inputs = g.inputs.filter((n) => !(n in g.init));
@@ -317,6 +327,58 @@ const OPS = {
     if (s) return [slice(x, ints(s), ints(e), a && ints(a), st && ints(st))];
     return [slice(x, listAttr(n, "starts"), listAttr(n, "ends"), listAttr(n, "axes"))];
   },
+  ReduceMin: (n, [x, a]) => [reduce(x, a ? ints(a) : listAttr(n, "axes"), attr(n, "keepdims", 1), Math.min, Infinity)],
+  ReduceMax: (n, [x, a]) => [reduce(x, a ? ints(a) : listAttr(n, "axes"), attr(n, "keepdims", 1), Math.max, -Infinity)],
+  ArgMax(n, [x]) {                                            // first maximum, as numpy / torch
+    const r = x.dims.length, ax = normAxis(attr(n, "axis", 0), r), keep = attr(n, "keepdims", 1);
+    if (attr(n, "select_last_index", 0)) throw new Error("ArgMax: select_last_index is not supported");
+    const outer = size(x.dims.slice(0, ax)), len = x.dims[ax], inner = size(x.dims.slice(ax + 1));
+    const out = new Float64Array(outer * inner);
+    for (let o = 0; o < outer; o++) for (let i = 0; i < inner; i++) {
+      let best = 0, bv = -Infinity;
+      for (let k = 0; k < len; k++) { const v = x.data[(o * len + k) * inner + i]; if (v > bv) { bv = v; best = k; } }
+      out[o * inner + i] = best;
+    }
+    const d = [...x.dims]; if (keep) d[ax] = 1; else d.splice(ax, 1);
+    return [tensor(d, out, "int64")];
+  },
+  GatherElements(n, [x, idx]) {
+    const r = x.dims.length, ax = normAxis(attr(n, "axis", 0), r), si = strides(x.dims), so = strides(idx.dims);
+    const out = new Float64Array(idx.data.length);
+    for (let k = 0; k < out.length; k++) {
+      let rem = k, src = 0;
+      for (let d = 0; d < r; d++) {
+        const c = Math.floor(rem / so[d]); rem -= c * so[d];
+        let j = d === ax ? idx.data[k] : c; if (j < 0) j += x.dims[d];
+        src += j * si[d];
+      }
+      out[k] = x.data[src];
+    }
+    return [tensor(idx.dims, out, x.dtype)];
+  },
+  Acos: unary(Math.acos),
+  ConstantOfShape(n, [shp]) {
+    const v = attr(n, "value"), d = ints(shp);
+    return [tensor(d, new Float64Array(size(d)).fill(v ? v.data[0] : 0), v ? v.dtype : "float32")];
+  },
+  Expand(n, [x, shp]) {
+    const d = ints(shp), r = Math.max(d.length, x.dims.length), pad = (v) => [...Array(r - v.length).fill(1), ...v];
+    const xd = pad(x.dims), od = pad(d).map((v, i) => Math.max(v, xd[i]));
+    return [broadcast(tensor(od, new Float64Array(size(od)), x.dtype), tensor(xd, x.data, x.dtype), (p, q) => q)];
+  },
+  Range(n, [s, l, dl]) {
+    const a = s.data[0], b = l.data[0], st = dl.data[0], k = Math.max(Math.ceil((b - a) / st), 0);
+    return [tensor([k], Float64Array.from({ length: k }, (_, i) => a + i * st), s.dtype)];
+  },
+  Where(n, [c, a, b]) {
+    const r = Math.max(c.dims.length, a.dims.length, b.dims.length);
+    const pad = (d) => [...Array(r - d.length).fill(1), ...d], dc = pad(c.dims), da = pad(a.dims), db = pad(b.dims);
+    const od = dc.map((v, i) => Math.max(v, da[i], db[i])), so = strides(od), out = new Float64Array(size(od));
+    const at = (t, d, k) => { let rem = k, idx = 0; const st = strides(d); for (let i = 0; i < r; i++) { const q = Math.floor(rem / so[i]); rem -= q * so[i]; if (d[i] !== 1) idx += q * st[i]; } return t.data[idx]; };
+    for (let k = 0; k < out.length; k++) out[k] = at(c, dc, k) ? at(a, da, k) : at(b, db, k);
+    return [tensor(od, out, a.dtype)];
+  },
+  Equal: binary((a, b) => (a === b ? 1 : 0)), Less: binary((a, b) => (a < b ? 1 : 0)), Greater: binary((a, b) => (a > b ? 1 : 0)),
   ReduceMean: (n, [x, a]) => [reduce(x, a ? ints(a) : listAttr(n, "axes"), attr(n, "keepdims", 1), (p, q) => p + q, 0, (v, c) => v / c)],
   ReduceSum: (n, [x, a]) => [reduce(x, a ? ints(a) : listAttr(n, "axes"), attr(n, "keepdims", 1), (p, q) => p + q, 0)],
 };
@@ -330,7 +392,7 @@ export class Session {
     this.graph = graph; this.opset = opset;
     const missing = [...new Set(graph.nodes.map((n) => n.op))].filter((op) => !OPS[op]);
     if (missing.length) throw new Error(`unsupported ONNX ops: ${missing.join(", ")}`);
-    this.inputNames = graph.inputs; this.outputNames = graph.outputs;
+    this.inputNames = graph.inputs; this.outputNames = graph.outputs; this.inputTypes = graph.inputTypes;
   }
   static async fromUrl(url) {
     const r = await fetch(url);
@@ -341,11 +403,8 @@ export class Session {
   run(feeds) {
     const env = { ...this.graph.init };
     for (const [k, v] of Object.entries(feeds)) env[k] = tensor(v.dims, Float64Array.from(v.data));
-    const prof = this.profile;
     for (const n of this.graph.nodes) {
-      const t0 = prof ? performance.now() : 0;
       const outs = OPS[n.op](n, n.inputs.map((i) => (i === "" ? undefined : env[i])));
-      if (prof) prof[n.op] = (prof[n.op] || 0) + performance.now() - t0;
       n.outputs.forEach((o, i) => { env[o] = outs[i]; });
     }
     return Object.fromEntries(this.outputNames.map((o) => [o, env[o]]));

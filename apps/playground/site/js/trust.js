@@ -29,11 +29,11 @@ function reportTable(tr) {
   return h("table", { class: "t" }, h("thead", {}, h("tr", {}, h("th", {}, "Check"), h("th", {}, "Value"), h("th", {}, "Limit"), h("th", {}, ""))), h("tbody", {}, rows));
 }
 
-export function renderModelTrust({ meta, checks, extra }) {
+export function renderModelTrust({ meta, evaluation, extra }) {
   const c = meta.card, tr = c.trust_report || {}, body = document.getElementById("trust-body");
   body.innerHTML = "";
   const live = h("div");
-  renderVerdict(live, checks, {}, "verdict-drawer");
+  renderVerdict(live, evaluation, "verdict-drawer");
   body.append(
     h("h4", {}, "This query"), live,
     h("p", { class: "hint" }, "These checks run in your browser on every change. Rule IDs match ", h("code", {}, "pinneapple check"), "."),
@@ -55,11 +55,12 @@ export function renderModelTrust({ meta, checks, extra }) {
     h("h4", {}, "Known limitations"), h("ul", {}, (c.known_limitations || []).map((k) => h("li", {}, k))),
     extra || null,
     h("h4", {}, "What runs in your browser"),
-    h("p", {}, `The zoo model exported to ONNX (${(meta.onnx.bytes / 1024).toFixed(0)} kB, opset ${meta.onnx.opset}), pre- and post-processing included. `,
-      "CI checks that its outputs match the PyTorch model to 1e-5 on the zoo's held-out and independent test sets."),
+    h("p", {}, `The zoo model exported by pp.zoo.export_web (ONNX, ${(meta.onnx.bytes / 1024).toFixed(0)} kB, opset ${meta.onnx.opset}): pre- and post-processing and these query checks are inside the graph. `,
+      `Its outputs match the PyTorch model to ${meta.onnx.parity.toExponential(1)} (limit 1e-5) on the zoo's held-out and independent test sets.`),
     h("p", { class: "hint" }, "SHA-256 ", h("code", { style: "word-break:break-all" }, meta.onnx.sha256)),
     h("p", {}, h("a", { href: meta.hub, target: "_blank", rel: "noopener" }, "Model on the Hugging Face Hub"), " · ",
       h("a", { href: meta.code.adapter, target: "_blank", rel: "noopener" }, "adapter and physics checks"), " · ",
+      h("a", { href: meta.code.checks, target: "_blank", rel: "noopener" }, "query checks"), " · ",
       h("a", { href: meta.code.export, target: "_blank", rel: "noopener" }, "ONNX export")),
   );
 }

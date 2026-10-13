@@ -4,11 +4,16 @@
     python apps/playground/build.py --out site/playground
     python apps/playground/build.py --serve            # build, then serve on http://localhost:8765/
 
-The committed sources are ``apps/playground/site/`` (HTML, JS, CSS, ONNX models, JSON). The build adds the files
-that already live elsewhere in the repository instead of copying them into git twice:
+The app itself is UI only (``apps/playground/site/``: HTML, CSS, the modes' JS). Everything else comes from the
+library and is assembled here:
 
-* three.js r169 (MIT), vendored in ``pinneapple_tools/visualization/studio/web/vendor/three``;
-* the light glTF files of the geometry library, ``data/geometries/<name>/<name>.light.glb``;
+* ``lib/``: the zoo's browser runtime, ``pinneapple_hub/zoo/web/{onnx,zoo}.js``;
+* ``models/``: the browser bundle written by ``python -m pinneapple_hub.zoo.web data/web/zoo`` (each zoo model as an
+  ONNX graph with its query checks, the model cards, the CST airfoil geometry graphs);
+* ``data/``: the geometry gallery index and thumbnails, ``python -m pinneapple_design.geometry_library.web
+  data/web/geometries``;
+* ``geometries/``: the light glTF files of the geometry library, ``data/geometries/<name>/<name>.light.glb``;
+* ``vendor/three``: three.js r169 (MIT), vendored in ``pinneapple_tools/visualization/studio/web/vendor/three``;
 * ``sw.js`` with the offline pre-cache list and a content version.
 
 Everything is relative, so the output works under any path (a subdomain, ``/playground/`` on GitHub Pages, or a
@@ -31,6 +36,9 @@ THREE = ROOT / "pinneapple_tools" / "visualization" / "studio" / "web" / "vendor
 THREE_FILES = ["three.module.min.js", "OrbitControls.js", "loaders/GLTFLoader.js", "utils/BufferGeometryUtils.js",
                "environments/RoomEnvironment.js", "LICENSE"]
 GEOMETRIES = ROOT / "data" / "geometries"
+RUNTIME = ROOT / "pinneapple_hub" / "zoo" / "web"
+BUNDLE = ROOT / "data" / "web" / "zoo"
+GALLERY = ROOT / "data" / "web" / "geometries"
 
 
 def build(out: Path) -> dict:
@@ -41,7 +49,14 @@ def build(out: Path) -> dict:
     for f in THREE_FILES:
         (out / "vendor" / "three" / f).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(THREE / f, out / "vendor" / "three" / f)
-    index = json.loads((SITE / "data" / "geometries.json").read_text())
+    (out / "lib").mkdir()
+    for f in ("onnx.js", "zoo.js"):
+        shutil.copy2(RUNTIME / f, out / "lib" / f)
+    shutil.copytree(BUNDLE, out / "models", ignore=shutil.ignore_patterns("fixtures.json"))
+    (out / "data").mkdir(exist_ok=True)
+    shutil.copy2(GALLERY / "index.json", out / "data" / "geometries.json")
+    shutil.copytree(GALLERY / "thumbs", out / "data" / "thumbs")
+    index = json.loads((GALLERY / "index.json").read_text())
     (out / "geometries").mkdir()
     missing = []
     for g in index["geometries"]:
@@ -62,9 +77,10 @@ def build(out: Path) -> dict:
     sw = sw.replace("__VERSION__", digest.hexdigest()[:12]).replace("__PRECACHE__", json.dumps(pre))
     (out / "sw.js").write_text(sw)
     size = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
-    first = ["index.html", "css/app.css", "js/main.js", "js/models.js", "js/onnx.js", "js/ui.js", "js/trust.js",
-             "js/charts.js", "js/cst.js", "js/modes/airfoil.js", "models/airfoil_cst_rans_mlp.onnx",
-             "models/airfoil_cst_rans_mlp.json", "icon.svg"]
+    first = ["index.html", "css/app.css", "js/main.js", "js/models.js", "lib/onnx.js", "lib/zoo.js", "js/ui.js",
+             "js/trust.js", "js/charts.js", "js/modes/airfoil.js", "models/airfoil_cst_rans_mlp.onnx",
+             "models/airfoil_cst_rans_mlp.json", "models/cst_geometry.onnx", "models/cst_geometry.json",
+             "models/cst_from_handles.onnx", "icon.svg"]
     first_bytes = sum((out / f).stat().st_size for f in first)
     return {"out": str(out), "files": len(files) + 1, "bytes": size, "first_load_bytes": first_bytes,
             "geometries_missing": missing, "version": digest.hexdigest()[:12]}

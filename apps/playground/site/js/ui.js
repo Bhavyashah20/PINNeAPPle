@@ -60,30 +60,20 @@ const ICONS = {
 };
 export const icon = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>`;
 
-/** Overall verdict from a list of checks: any failing check -> fail, any warning -> warn, else pass. */
-export function verdictOf(checks) {
-  if (checks.some((c) => c.status === "fail")) return "fail";
-  if (checks.some((c) => c.status === "warn")) return "warn";
-  return "pass";
-}
-
-const VERDICT_TEXT = {
-  pass: ["Trusted for this query", "Inside the validity range; every live check passes."],
-  warn: ["Use with caution", "Inside the range, but a check flags this query."],
-  fail: ["Outside the validity range", "This is an extrapolation: the number is not backed by the model's evidence."],
-};
-
-export function renderVerdict(el, checks, text = {}, testid = "verdict") {
-  const v = verdictOf(checks), [title, sub] = text[v] || VERDICT_TEXT[v];
+/** Render a query evaluation of the library's runtime ({verdict, groups}: pinneapple_hub/zoo/web/zoo.js). */
+export function renderVerdict(el, ev, testid = "verdict", kind = "trust") {
+  const v = ev.verdict.status;
   el.innerHTML = "";
-  el.append(h("div", { class: `verdict ${v}`, role: "status", "data-testid": testid, "data-verdict": v, html: icon(v === "pass" ? "pass" : v) },
-    h("div", {}, h("b", {}, title), h("span", {}, sub))));
+  if (kind === "trust") {
+    el.append(h("div", { class: `verdict ${v}`, role: "status", "data-testid": testid, "data-verdict": v, html: icon(v) },
+      h("div", {}, h("b", {}, ev.verdict.title), h("span", {}, ev.verdict.text))));
+  }
   const ul = h("ul", { class: "checks" });
-  for (const c of checks) {
+  for (const c of ev.groups.filter((g) => (g.kind || "trust") === kind)) {
     ul.append(h("li", { class: c.status, "data-check": c.id },
       h("span", { class: "ico", html: icon(c.status) }),
       h("span", {}, c.name, c.rule ? h("span", { class: "rule", title: "pinneapple check rule" }, c.rule) : null,
-        c.detail ? h("span", { class: "det" }, c.detail) : null)));
+        c.detail_text ? h("span", { class: "det" }, c.detail_text) : null)));
   }
   el.append(ul);
   return v;

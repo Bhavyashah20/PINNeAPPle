@@ -183,8 +183,9 @@ class AirfoilMLP(ZooModel):
         with torch.no_grad():
             y = self.module(torch.from_numpy(self._enc(X))).numpy() * s + m       # (K, n, 3)
         cl, cd, cm = y[..., 0], np.exp(y[..., 1]), y[..., 2]
+        ld = cl / cd                                                          # L/D per member: its spread is honest
         return {"Cl": cl.mean(0), "Cd": cd.mean(0), "Cm": cm.mean(0),
-                "Cl_std": cl.std(0), "Cd_std": cd.std(0), "Cm_std": cm.std(0)}
+                "Cl_std": cl.std(0), "Cd_std": cd.std(0), "Cm_std": cm.std(0), "LD": ld.mean(0), "LD_std": ld.std(0)}
 
     def metrics(self, P, Y):
         out = {}

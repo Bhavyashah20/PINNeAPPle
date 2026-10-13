@@ -16,18 +16,18 @@ the whole state, so a link opens exactly what you were looking at.
 
 ## The trust verdict
 
-Every change re-runs the live checks. Their rule IDs are the ones [`pinneapple check`](physics_checks_in_ci.md)
-uses:
+The checks are the library's per-query checks, `pp.zoo.query_checks` (see
+[the zoo guide](model_zoo.md#7-check-each-query-export-to-onnx-run-in-a-browser)). They are evaluated inside the
+model's ONNX graph on every change. Their rule IDs are the ones [`pinneapple check`](physics_checks_in_ci.md) uses:
 
 - **PC601, out-of-range query.** Is every input inside the model card's validity range? This includes the derived
-  limits: the fin gap for the heat sink, and the six CST weights and the angle of attack for the airfoil. The page
-  uses the same rule as `ZooModel.in_range`. A query that fails it is labelled an extrapolation, in red.
+  limits: the fin gap and the source fraction of the heat sink. It is the same rule as `ZooModel.in_range`, tested
+  on thousands of inputs. A query that fails it is labelled an extrapolation, in red.
 - **PC403 / PC402, non-finite or unphysical output.** For example, a negative drag, or airfoil surfaces that cross.
-- **PC602, sparse training region.** The ensemble spread is compared with the 99th percentile of the spread on the
-  held-out shapes. A larger spread means the members disagree more than they ever did on the test set.
-- **PC302, model residual.** The physics checks of the zoo gate, evaluated at the current query:
+- **PC602, sparse training region.** The ensemble spread is compared with its 99th percentile on the held-out shapes.
+- **PC302, model residual.** The zoo gate's physics checks, evaluated at the query:
   - the lift slope against thin-airfoil theory, and Cl rising with α;
-  - more airflow, or a more conductive material, never raising the resistance;
+  - more airflow or a more conductive material lowering the resistance;
   - the Mohr–Coulomb traction limit, My ≥ R·Fx, and the monotonic trends of the wheel.
 
 The **Why trust this?** panel shows the full model card:
@@ -36,10 +36,11 @@ The **Why trust this?** panel shows the full model card:
 - the held-out metrics against the independent reference, next to the zoo's acceptance limits;
 - the physics checks of the stored trust report;
 - data provenance and known limitations;
-- the SHA-256 of the ONNX file the page runs.
+- the SHA-256 and the measured parity of the ONNX file the page runs.
 
-The airfoil design constraints (t/c ≥ 11 %, |Cm| ≤ 0.10, the defaults of `pinneapple_design.aero.aircraft`) are
-shown separately. They say whether a design is acceptable, not whether the model can be trusted.
+The airfoil design constraints are shown separately: t/c ≥ 11 % and |Cm| ≤ 0.10, the defaults of
+`pinneapple_design.aero.aircraft.Requirements`. They say whether a design is acceptable, not whether the model can
+be trusted.
 
 Note that the NACA 4412 and 4415 presets sit just outside the model's CST box: M1 0.142 > 0.14 and M2 0.123 > 0.12.
 `pp.zoo` raises an `OutOfRangeWarning` for them, and the page marks them red. Their OpenFOAM reference runs, which
@@ -49,40 +50,57 @@ There is no pressure or velocity field yet. The zoo's airfoil model predicts int
 field model (MeshGraphNet) is waiting for its training fields to be regenerated and published. The page says so in
 place of a field view.
 
-## How it runs in the browser
+## How it is built: the library does the work, the app draws
 
-Each zoo model is exported to one ONNX graph, from the card's physical inputs to its physical outputs. The graph
-includes the CST and log-feature pre-processing, the normalisation, the ensemble mean and spread, and the
-conformal bound. The three files total 0.95 MB, and the airfoil mode loads 0.52 MB before compression.
+The app (`apps/playground/site/`) is UI code only. Everything it computes comes from library artefacts.
 
-The page evaluates the graph with a small built-in ONNX interpreter (`js/onnx.js`, about 350 lines). It reads the
-protobuf directly and supports the ~20 operators these MLPs use. A 50-point polar sweep takes 10–30 ms on a laptop.
+**The zoo models.** `pp.zoo.export_web` writes each model as one ONNX graph (`pinneapple_hub.zoo.export`):
 
-onnxruntime-web runs the same files, but it is about 10 MB of WebAssembly, which would dominate the page load. It
-is therefore opt-in: add `&engine=ort` to the URL hash. It loads `onnxruntime-web@1.22.0` from jsDelivr.
+- input `x`, for the predictions, and input `query`, for the query checks;
+- pre- and post-processing included: CST encoding, log features, normalisation, ensemble mean and spread, L/D per
+  member, and the conformal bound;
+- a JSON file next to it with the model card, the check spec (limits, templates, verdict texts) and the reference
+  points to overlay.
 
-The small geometry pieces (CST surfaces, NACA 4-digit fits, thickness and camber) are ported to JavaScript
-(`js/cst.js`) instead of loading Pyodide. Pyodide would add about 10 MB for a few dozen lines of NumPy.
+**The airfoil geometry.** `pinneapple_design.aero.geometry_onnx` exports the CST geometry as two float64 graphs.
+They reproduce `pinneapple_design.aero.geometry` to round-off:
+
+- the outline, thickness and camber, the two validity quantities, and the positions of the drag handles;
+- handle heights back to CST weights, via `geometry.shape_from_handles`.
+
+**The gallery.** `pp.geometries.export_web` writes an index and thumbnails.
+
+**The runtime.** `pinneapple_hub/zoo/web/onnx.js` and `zoo.js` ship with the package. They contain:
+
+- a ~400-line ONNX interpreter that reads the protobuf directly;
+- `loadModel`, `loadAirfoilGeometry`, and `evaluate`, which turns the check values into statuses and a verdict
+  exactly like `pinneapple_hub.zoo.checks.evaluate`.
+
+`engine=ort` in the URL hash runs the same files in onnxruntime-web 1.22.0, loaded from jsDelivr. It is about 10 MB
+of WebAssembly, so it is opt-in. Pyodide is not used: there is no Python left to run in the browser.
+
+Sizes: the airfoil mode loads 0.67 MB before compression. A 50-point polar with its checks takes 10–60 ms.
 
 What is tested, in CI (`.github/workflows/playground.yml`):
 
-- **Python** (`tests/test_playground.py`):
-  - The committed ONNX files and a fresh export both reproduce the zoo's PyTorch models within 1e-5. The inputs
-    are every held-out and independent-reference input of the zoo plus 500 random in-range points. The error is
-    measured relative to the output scale; measured: 7e-7 airfoil, 1.6e-6 heat sink, 6e-7 rover.
-  - The page's model cards, fixtures and gallery index are current.
-- **JavaScript** (`node --test`):
-  - The geometry, the network-input encoding and the heat-sink validity mask match the Python fixtures.
-  - The ONNX interpreter matches onnxruntime within 1e-5.
-- **Browser** (Playwright, Chromium):
+- **Library, Python** (`tests/test_zoo_web.py`):
+  - The ONNX export of each model matches PyTorch to 1e-5 on every held-out and independent-reference input.
+    Measured: 5.7e-6 airfoil (L/D included), 1.6e-6 heat sink, 5.7e-7 rover.
+  - The query checks never change status away from a limit.
+  - Range checks fail exactly where `ZooModel.in_range` is False.
+  - Held-out inputs are trusted.
+  - The geometry graphs match NumPy to 1e-10.
+  - The committed bundle in `data/web` is current.
+- **Library, JavaScript** (`tests/js/zoo_web.test.mjs`): the interpreter, `evaluate` (statuses and detail texts)
+  and the geometry graphs, compared with Python fixtures.
+- **App** (`tests/test_playground.py` and the Playwright test in `apps/playground/tests/e2e`):
   - Every mode loads.
-  - The numbers on the page match the Python model for fixed inputs.
-  - Leaving the range turns the verdict red, and dragging a handle changes the answer and the URL.
-  - A shared link reproduces the state.
+  - The numbers and verdicts on the page match Python for fixed inputs, in and out of range.
+  - Dragging changes the answer and the URL, and a shared link reproduces the state.
   - The trust panel shows the evidence.
-  - The page works offline after one visit.
-  - The mobile layout has no horizontal scroll.
+  - The page works offline, and the mobile layout has no horizontal scroll.
   - onnxruntime-web gives the same numbers as the built-in interpreter.
+  - The app holds no model, geometry or check code.
 
 ## Run it locally
 
@@ -90,15 +108,20 @@ What is tested, in CI (`.github/workflows/playground.yml`):
 python apps/playground/build.py --serve          # http://localhost:8765/
 ```
 
-The build uses only the standard library. It assembles `apps/playground/site/` together with three.js, which is
-vendored in `pinneapple_tools`, and the light glTF files from `data/geometries/`. The output is self-contained and
-uses only relative paths, so it works under any URL prefix.
+The build uses only the standard library. It assembles the UI from three sources:
 
-The ONNX files, model cards and fixtures are generated from the zoo. Regenerate them when a zoo model changes:
+- the library's runtime and its browser bundles (`data/web/zoo`, `data/web/geometries`);
+- three.js, vendored in `pinneapple_tools`;
+- the light glTF files from `data/geometries/`.
+
+The output uses relative paths only, so it works under any URL prefix.
+
+When a zoo model or the geometry library changes, regenerate the bundles with the library:
 
 ```bash
-python apps/playground/tools/build_assets.py     # needs torch, onnx, onnxruntime
-cd apps/playground && npm ci && npm test         # JS unit tests + Playwright smoke test
+python -m pinneapple_hub.zoo.web data/web/zoo                      # needs torch, onnx, onnxruntime
+python -m pinneapple_design.geometry_library.web data/web/geometries
+cd apps/playground && npm ci && npm test                           # JS runtime tests + Playwright smoke test
 ```
 
 ## Deploying

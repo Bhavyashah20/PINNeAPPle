@@ -14,20 +14,32 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Zoo models as ONNX, with per-query trust checks:
+  - `pp.zoo.export_onnx` / `onnx_parity` (`pinneapple_hub.zoo.export`): one graph from the card's physical inputs
+    to its physical outputs, with pre- and post-processing included. The export is refused above 1e-5 difference
+    from PyTorch on the zoo's held-out inputs.
+  - `pp.zoo.query_checks` / `check_spec` (`pinneapple_hub.zoo.checks`): range (PC601), physical output (PC402/403),
+    ensemble spread (PC602) and the gate's physics checks at the query (PC302), plus a verdict (pass / warn / fail).
+    Design constraints are reported apart.
+  - `pp.zoo.export_web` and `python -m pinneapple_hub.zoo.web DIR`: a browser bundle (graph with checks, card, spec,
+    reference data). The JS runtime `pinneapple_hub/zoo/web/{onnx,zoo}.js` ships with it.
+  - The airfoil predictor also returns `LD` and `LD_std` (L/D per ensemble member).
+- CST airfoil geometry:
+  - `pinneapple_design.aero.geometry`: `handles`, `shape_from_handles`, `out_of_bounds`.
+  - `pinneapple_design.aero.geometry_onnx`: the geometry and the handle solve as ONNX graphs.
+- `pp.geometries.export_web`: gallery index and thumbnails for the browser.
 - PINNeAPPle Playground (`apps/playground`): a static web page in which the zoo models answer live in the browser,
-  with the physics checks and the trust verdict next to every number. It has four modes:
-  - airfoil: drag the CST shape or pick a NACA preset; Cl/Cd/Cm/L-D with the ensemble spread, and the polar
-    against held-out OpenFOAM and XFOIL;
-  - heat sink: resistance with the conformal 95 % bound, and the pressure drop;
-  - rover wheel: the VIPER wheel on GRC-1;
+  with the trust verdict next to every number. It has four modes:
+  - airfoil: drag the CST shape or pick a NACA preset; the polar against held-out OpenFOAM and XFOIL;
+  - heat sink: R with its conformal 95 % bound, and ΔP;
+  - VIPER rover wheel;
   - the geometry library in 3-D.
 
-  The models are exported to ONNX (`apps/playground/tools/build_assets.py`), with pre- and post-processing
-  included, and run in a built-in interpreter, or in onnxruntime-web with `engine=ort`. The state lives in the URL,
-  the page works offline, and the mobile layout is supported. CI (`.github/workflows/playground.yml`) checks ONNX
-  parity with PyTorch to 1e-5 on the zoo test sets, runs JS unit tests against Python fixtures and a Playwright
-  smoke test, and builds the Docker image. Deploy config: `apps/playground/Dockerfile`, a `playground` service in
-  `apps/deploy`, and an opt-in GitHub Pages step (`PLAYGROUND_PAGES`) in the docs workflow.
+  The app is UI code only, built on the library features above. The state lives in the URL, the page works offline,
+  and the mobile layout is supported. `engine=ort` runs onnxruntime-web instead of the built-in interpreter. CI
+  (`.github/workflows/playground.yml`) runs the Python and JS tests of the export and the runtime, a Playwright
+  smoke test, and a Docker build. Deploy config: `apps/playground/Dockerfile`, a `playground` service in
+  `apps/deploy` (port 8095), and an opt-in GitHub Pages step (`PLAYGROUND_PAGES`) in the docs workflow.
   Guide: `docs/guides/playground.md`.
 - Colab notebooks in `notebooks/colab/`, each self-contained (the first cell installs `pinneapple>=0.7.0` and picks
   the GPU, a parameter cell sets the sizes): a first PINN with its physics checks, an airfoil surrogate from

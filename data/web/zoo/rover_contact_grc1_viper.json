@@ -69,15 +69,15 @@
    "source": "pinneapple_simulation.terramechanics.WongReeceModel(get_soil('GRC-1'), pinneapple_simulation.vehicle.viper().wheel)"
   },
   "validation_metrics": {
-   "test/Fx_rmse_N": 0.207366,
-   "test/Fx_max_abs_N": 1.0792,
-   "test/Fx_r2": 1.0,
-   "test/Fz_rmse_N": 0.156821,
-   "test/Fz_max_abs_N": 0.664009,
-   "test/Fz_r2": 1.0,
-   "test/My_rmse_Nm": 0.0553083,
-   "test/My_max_abs_Nm": 0.238725,
-   "test/My_r2": 1.0,
+   "test/Fx_rmse_N": 0.20736593,
+   "test/Fx_max_abs_N": 1.0792021,
+   "test/Fx_r2": 0.99999957,
+   "test/Fz_rmse_N": 0.15682101,
+   "test/Fz_max_abs_N": 0.66400897,
+   "test/Fz_r2": 0.99999984,
+   "test/My_rmse_Nm": 0.055308257,
+   "test/My_max_abs_Nm": 0.23872462,
+   "test/My_r2": 0.99999967,
    "test/n": 2000.0
   },
   "reference_source": "2000 held-out Latin-hypercube states (seed 1000, disjoint from training) of the Wong-Reece model evaluated by adaptive quadrature (analytic reference). The Wong-Reece implementation is compared with published single-wheel tests (Ding et al. 2011; Wang & Han 2016; dataset single_wheel_tests).",
@@ -105,7 +105,7 @@
      "status": "supports",
      "critical": true,
      "weight": 1.0,
-     "value": 0.207366,
+     "value": 0.20736593,
      "limit": 5.0,
      "source": "independent reference",
      "reason": ""
@@ -115,7 +115,7 @@
      "status": "supports",
      "critical": true,
      "weight": 1.0,
-     "value": 0.156821,
+     "value": 0.15682101,
      "limit": 5.0,
      "source": "independent reference",
      "reason": ""
@@ -125,7 +125,7 @@
      "status": "supports",
      "critical": true,
      "weight": 1.0,
-     "value": 0.0553083,
+     "value": 0.055308257,
      "limit": 2.0,
      "source": "independent reference",
      "reason": ""
@@ -177,30 +177,155 @@
  },
  "onnx": {
   "file": "rover_contact_grc1_viper.onnx",
-  "bytes": 317817,
-  "sha256": "3a9e1615ed25ef1ee970576d0e88712f8e4b5452cdd980459bf5ab5e7c5845f4",
+  "bytes": 341981,
+  "sha256": "3bf54621aafccceca0ac6e24f64087280f75e796be97fa04cde9a375138ae264",
+  "opset": 17,
   "inputs": [
+   "x",
+   "query"
+  ],
+  "input_columns": [
    "slip",
    "sinkage_m"
   ],
-  "outputs": [
-   "y"
-  ],
-  "opset": 17
- },
- "hub": "https://huggingface.co/PINNeAPPle-Labs/rover_contact_grc1_viper",
- "code": {
-  "adapter": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/_models.py",
-  "catalog": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/_catalog.py",
-  "export": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/apps/playground/tools/build_assets.py"
- },
- "live": {
-  "physics": {
-   "R_m": 0.25,
-   "b_m": 0.2,
-   "c_Pa": 250.0,
-   "phi_deg": 38.0
+  "outputs": {
+   "y": [
+    "Fx_N",
+    "Fz_N",
+    "My_Nm"
+   ],
+   "checks": "query checks",
+   "aux": "check details"
   },
+  "parity": 5.7172224e-07,
+  "checks_parity": {
+   "max_value_diff": 0.00017921147,
+   "status_flips": 0
+  }
+ },
+ "checks": {
+  "checks": [
+   {
+    "id": "range:slip",
+    "rule": "PC601",
+    "name": "slip inside -0.4 … 0.9",
+    "op": "in",
+    "limit": [
+     -0.4,
+     0.9
+    ],
+    "bounds": [
+     -0.4,
+     0.9
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "range",
+    "detail": "slip = {value:.4g} (range -0.4 … 0.9)"
+   },
+   {
+    "id": "range:sinkage_m",
+    "rule": "PC601",
+    "name": "sinkage_m inside 0.002 … 0.06",
+    "op": "in",
+    "limit": [
+     0.001999999,
+     0.060000001
+    ],
+    "bounds": [
+     0.002,
+     0.06
+    ],
+    "severity": "fail",
+    "kind": "trust",
+    "group": "range",
+    "detail": "sinkage_m = {value:.4g} (range 0.002 … 0.06)"
+   },
+   {
+    "id": "finite",
+    "rule": "PC403",
+    "name": "Forces finite, soil pushes up (Fz > 0)",
+    "op": ">",
+    "limit": 0.0,
+    "severity": "fail",
+    "kind": "trust",
+    "group": null,
+    "detail": "Fz = {value:.1f} N"
+   },
+   {
+    "id": "mohr",
+    "rule": "PC302",
+    "name": "Mohr–Coulomb traction limit Fx ≤ cA + Fz tan φ",
+    "op": "<=",
+    "limit": 0.002,
+    "severity": "warn",
+    "kind": "trust",
+    "group": null,
+    "detail": "Fx {Fx:.0f} N, limit {limit_N:.0f} N"
+   },
+   {
+    "id": "torque",
+    "rule": "PC302",
+    "name": "Moment balance My ≥ R·Fx",
+    "op": "<=",
+    "limit": 0.002,
+    "severity": "warn",
+    "kind": "trust",
+    "group": null,
+    "detail": "My {My:.1f} N·m, R·Fx {RFx:.1f} N·m"
+   },
+   {
+    "id": "dFz",
+    "rule": "PC302",
+    "name": "Deeper sinkage carries more load (dFz/dz ≥ 0)",
+    "op": ">=",
+    "limit": -0.002,
+    "severity": "warn",
+    "kind": "trust",
+    "group": null,
+    "detail": "ΔFz over +1 mm: {value:.2%} of the range"
+   },
+   {
+    "id": "dFx",
+    "rule": "PC302",
+    "name": "More slip, more pull below s = 0.3 (dFx/ds ≥ 0)",
+    "op": ">=",
+    "limit": -0.002,
+    "severity": "warn",
+    "kind": "trust",
+    "group": null,
+    "detail": "ΔFx over +0.01 slip: {value:.2%} of the range (not tested above s = 0.3)"
+   }
+  ],
+  "aux": [
+   "Fx",
+   "limit_N",
+   "My",
+   "RFx"
+  ],
+  "groups": {
+   "range": {
+    "name": "Slip and sinkage inside the validity range",
+    "rule": "PC601"
+   }
+  },
+  "verdicts": {
+   "pass": {
+    "title": "Trusted for this query",
+    "text": "Inside the validity range; every live check passes."
+   },
+   "warn": {
+    "title": "Use with caution",
+    "text": "Inside the range, but a check flags this query."
+   },
+   "fail": {
+    "title": "Outside the validity range",
+    "text": "This is an extrapolation: the number is not backed by the model's evidence."
+   }
+  },
+  "templates": "Python str.format fields {value}, {limit}, and the aux names; formats .Ng .Nf .N%"
+ },
+ "reference": {
   "heldout": {
    "slip": [
     -0.0024,
@@ -10212,6 +10337,18 @@
     56.6,
     -6.11
    ]
+  },
+  "physics": {
+   "R_m": 0.25,
+   "b_m": 0.2,
+   "c_Pa": 250.0,
+   "phi_deg": 38.0
   }
+ },
+ "hub": "https://huggingface.co/PINNeAPPle-Labs/rover_contact_grc1_viper",
+ "code": {
+  "adapter": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/_models.py",
+  "checks": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/checks.py",
+  "export": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/export.py"
  }
 }

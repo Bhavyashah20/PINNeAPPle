@@ -1,5 +1,5 @@
-// Heat-sink mode: plate-fin heat sink in ducted forced air. Fin count / height / thickness and air speed drive the
-// zoo surrogate; the page shows the thermal resistance with its split-conformal 95 % bound and the pressure drop.
+// Heat-sink mode (UI only): plate-fin heat sink in ducted forced air. The zoo model's graph returns the resistance,
+// its split-conformal 95 % bound, the pressure drop and the query checks (pinneapple_hub.zoo.checks).
 import { LineChart } from "../charts.js";
 import { writeState } from "../main.js";
 import { load } from "../models.js";
@@ -49,8 +49,8 @@ export async function mount(root, params) {
   const cP = h("div", { class: "card" }, h("h3", {}, "Pressure drop vs air speed"));
   const chartP = new LineChart(cP, { xLabel: "air speed (m/s)", yLabel: "ΔP (Pa)", testid: "dp-chart", height: 200 });
 
-  const tR = tile("Thermal resistance, base to air", { hero: true, testid: "R" }), tT = tile("Base temperature", { testid: "Tbase" }), tP = tile("Pressure drop", { testid: "dP" }), tW = tile("Ideal fan power", { testid: "fan" }), tG = tile("Fin gap", { testid: "fingap" });
-  const results = h("div", { class: "card" }, h("h3", {}, "Prediction"), h("div", { class: "tiles" }, tR.el, tT.el, tP.el, tW.el, tG.el),
+  const tR = tile("Thermal resistance, base to air", { hero: true, testid: "R" }), tT = tile("Base temperature", { testid: "Tbase" }), tP = tile("Pressure drop", { testid: "dP" }), tG = tile("Fin gap", { testid: "fingap" });
+  const results = h("div", { class: "card" }, h("h3", {}, "Prediction"), h("div", { class: "tiles" }, tR.el, tT.el, tP.el, tG.el),
     h("p", { class: "hint" }, "The 95 % bound is split-conformal: on 900 held-out designs the true resistance was below it 95.8 % of the time."));
   const verdict = h("div");
   const trustCard = h("div", { class: "card" }, h("h3", {}, "Trust verdict"), verdict, h("p", { class: "hint" }, h("a", { href: "#", onclick: (e) => { e.preventDefault(); document.getElementById("trust-open").click(); } }, "Why trust this? Model card and evidence →")));
@@ -59,10 +59,9 @@ export async function mount(root, params) {
   stage.classList.add("o1"); results.classList.add("o2"); controls.classList.add("o3"); trustCard.classList.add("o4"); cR.classList.add("o5"); cP.classList.add("o6");
 
   const row = (o) => KEYS.map((k) => o[k]);
-  const gapOf = (o) => (o.base_width_mm - o.n_fins * o.fin_thickness_mm) / Math.max(o.n_fins - 1, 1);
   let pred = null;
 
-  function draw(Tb) {
+  function draw(Tb, gap) {
     drawing.innerHTML = "";
     const W = st.base_width_mm, H = st.fin_height_mm, tb = st.base_thickness_mm, n = st.n_fins, t = st.fin_thickness_mm;
     const sc = Math.min(560 / Math.max(W, 60), 230 / Math.max(H + tb + 10, 40)), x0 = 410 - (W * sc) / 2, yb = 300;
@@ -71,7 +70,7 @@ export async function mount(root, params) {
     const gid = "hsg";
     drawing.append(svg("defs", {}, svg("linearGradient", { id: gid, x1: 0, y1: 1, x2: 0, y2: 0 }, svg("stop", { offset: 0, "stop-color": hot }), svg("stop", { offset: 1, "stop-color": "var(--metal)" }))));
     drawing.append(svg("rect", { x: x0, y: yb - tb * sc, width: W * sc, height: tb * sc, fill: hot, rx: 2 }));
-    const gap = gapOf(st), pitch = t + gap;
+    const pitch = t + gap;
     for (let i = 0; i < n; i++) {
       const fx = x0 + i * pitch * sc;
       if (fx + t * sc > x0 + W * sc + 0.5) break;
@@ -91,48 +90,27 @@ export async function mount(root, params) {
     if (Tb !== undefined) drawing.append(svg("text", { x: x0 + W * sc + 10, y: yb - tb * sc / 2 + 4, fill: "var(--ink)", "font-size": 13, "font-weight": 600 }, `${fmt(Tb, 1)} °C`));
   }
 
-  function checks(p, d) {
-    const out = [], bad = [];
-    for (const k of KEYS) if (vr[k] && (st[k] < vr[k][0] || st[k] > vr[k][1])) bad.push(`${k.replace(/_/g, " ")} = ${st[k]} (range ${vr[k][0]} … ${vr[k][1]})`);
-    out.push({ id: "box", rule: "PC601", name: "Inputs inside the validity range", status: bad.length ? "fail" : "pass", detail: bad.join("; ") || "geometry, material, air and power in range" });
-    const gap = gapOf(st), fw = st.source_width_mm / st.base_width_mm, fd = st.source_depth_mm / st.base_depth_mm;
-    const gOk = gap >= vr.fin_gap_mm[0] && gap <= vr.fin_gap_mm[1] && st.n_fins >= 2;
-    out.push({ id: "gap", rule: "PC601", name: `Fin gap inside ${vr.fin_gap_mm[0]}…${vr.fin_gap_mm[1]} mm`, status: gOk ? "pass" : "fail", detail: gap > 0 ? `gap = ${fmt(gap, 2)} mm` : "the fins do not fit on the base" });
-    const sOk = fw >= vr.source_frac_w[0] && fw <= vr.source_frac_w[1] && fd >= vr.source_frac_d[0] && fd <= vr.source_frac_d[1];
-    out.push({ id: "source", rule: "PC601", name: "Heat source covers 15–100 % of the base", status: sOk ? "pass" : "fail", detail: `${(100 * fw).toFixed(0)} % × ${(100 * fd).toFixed(0)} % of the base` });
-    const fin = [p[0], p[1], p[2]].every((v) => Number.isFinite(v) && v > 0);
-    out.push({ id: "positive", rule: "PC403", name: "R > 0 and ΔP > 0, finite", status: fin ? "pass" : "fail" });
-    out.push({ id: "mono-v", rule: "PC302", name: "More airflow lowers R here (+5 % speed)", status: d.v[0] < p[0] ? "pass" : "warn", detail: `R ${fmt(p[0], 4)} → ${fmt(d.v[0], 4)} K/W` });
-    out.push({ id: "mono-dp", rule: "PC302", name: "Pressure drop rises with air speed here", status: d.v[1] > p[1] ? "pass" : "warn" });
-    out.push({ id: "mono-k", rule: "PC302", name: "A more conductive material lowers R here (+5 % k)", status: d.k[0] <= p[0] ? "pass" : "warn", detail: `R ${fmt(p[0], 4)} → ${fmt(d.k[0], 4)} K/W` });
-    return out;
-  }
-
   let seq = 0;
   async function update() {
     writeState("heatsink", Object.fromEntries(KEYS.map((k) => [SHORT[k], st[k]])));
-    const my = ++seq;
-    const base = row(st), dv = row({ ...st, air_velocity_m_s: st.air_velocity_m_s * 1.05 }), dk = row({ ...st, k_w_mk: st.k_w_mk * 1.05 });
-    const out = await model.run([base, dv, dk, ...V_SWEEP.map((v) => row({ ...st, air_velocity_m_s: v }))]);
+    const my = ++seq, base = row(st);
+    const out = await model.run([base, ...V_SWEEP.map((v) => row({ ...st, air_velocity_m_s: v }))], base);
     if (my !== seq) return;
-    const y = out.y, p = y[0];
+    const y = out.rows.map((r) => [r.r_base_k_w, r.pressure_drop_pa, r.r_base_upper95_k_w]), p = y[0];
     pred = { R: p[0], dP: p[1], R95: p[2] };
     const Tb = st.t_ambient_c + st.power_w * p[0], Tb95 = st.t_ambient_c + st.power_w * p[2];
     tR.set(`${fmt(p[0], 3)} <small>K/W</small>`, `95 % upper bound ${fmt(p[2], 3)} K/W`, p[0]);
     tT.set(`${fmt(Tb, 1)} <small>°C</small>`, `≤ ${fmt(Tb95, 1)} °C (95 %)`, Tb);
     tP.set(`${fmt(p[1], 1)} <small>Pa</small>`, "", p[1]);
-    const area = Math.max(st.base_width_mm - st.n_fins * st.fin_thickness_mm, 0) * st.fin_height_mm * 1e-6;
-    tW.set(`${fmt(p[1] * st.air_velocity_m_s * area * 1000, 1)} <small>mW</small>`, "ΔP × V × flow area", p[1] * st.air_velocity_m_s * area);
-    const gap = gapOf(st);
+    const gap = out.query.checks.find((c) => c.id === "range:fin_gap_mm").value;   // as computed by the model's checks
     tG.set(`${fmt(gap, 2)} <small>mm</small>`, "", gap);
-    root.querySelector("[data-testid=gap]").textContent = `${out.y.length} evaluations in ${model.lastMs >= 1 ? model.lastMs.toFixed(0) : "<1"} ms`;
-    draw(Tb);
-    const sw = y.slice(3);
+    root.querySelector("[data-testid=gap]").textContent = `${y.length} evaluations in ${model.lastMs >= 1 ? model.lastMs.toFixed(0) : "<1"} ms`;
+    draw(Tb, gap);
+    const sw = y.slice(1);
     chartR.update({ series: [{ name: "R (model)", x: V_SWEEP, y: sw.map((r) => r[0]), color: "var(--series-1)" }, { name: "95 % upper bound", x: V_SWEEP, y: sw.map((r) => r[2]), color: "var(--series-1)", dash: "5 4" }], marker: { x: st.air_velocity_m_s, y: p[0] }, xValid: vr.air_velocity_m_s, yZero: true, ariaLabel: "Thermal resistance against air speed" });
     chartP.update({ series: [{ name: "", x: V_SWEEP, y: sw.map((r) => r[1]), color: "var(--series-2)" }], marker: { x: st.air_velocity_m_s, y: p[1] }, xValid: vr.air_velocity_m_s, yZero: true, ariaLabel: "Pressure drop against air speed" });
-    const cks = checks(p, { v: y[1], k: y[2] });
-    renderVerdict(verdict, cks);
-    renderModelTrust({ meta: model.meta, checks: cks });
+    renderVerdict(verdict, out.query);
+    renderModelTrust({ meta: model.meta, evaluation: out.query });
   }
   const go = rafThrottle(update);
 

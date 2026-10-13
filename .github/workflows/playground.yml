@@ -1,10 +1,13 @@
-name: Playground (ONNX parity, JS unit tests, browser smoke test)
+name: Zoo web export and Playground (ONNX parity, JS runtime, browser smoke test)
 
 on:
   push:
     branches: ["main"]
     paths:
       - "apps/playground/**"
+      - "data/web/**"
+      - "tests/test_zoo_web.py"
+      - "tests/js/zoo_web.test.mjs"
       - "pinneapple_hub/zoo/**"
       - "pinneapple_design/aero/**"
       - "pinneapple_design/geometry_library/**"
@@ -14,6 +17,9 @@ on:
   pull_request:
     paths:
       - "apps/playground/**"
+      - "data/web/**"
+      - "tests/test_zoo_web.py"
+      - "tests/js/zoo_web.test.mjs"
       - "pinneapple_hub/zoo/**"
       - "pinneapple_design/aero/**"
       - "pinneapple_design/geometry_library/**"
@@ -24,7 +30,8 @@ on:
 
 jobs:
   onnx-parity:
-    # The ONNX files the browser runs reproduce the zoo's PyTorch models to 1e-5 on the zoo test sets.
+    # pp.zoo ONNX export: parity with PyTorch to 1e-5 on the zoo test sets, query checks, CST geometry graphs,
+    # and the committed browser bundle (data/web) being current.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -37,8 +44,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -e ".[export]" pytest
-      - name: ONNX parity and stale-asset checks
-        run: pytest tests/test_playground.py -q -p no:warnings
+      - name: ONNX parity, query checks, stale-bundle checks
+        run: pytest tests/test_zoo_web.py tests/test_playground.py -q -p no:warnings
 
   browser:
     runs-on: ubuntu-latest
@@ -58,8 +65,8 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium
-      - name: JS unit tests (geometry, preprocessing and the ONNX interpreter vs Python fixtures)
-        run: node --test tests/unit/*.test.mjs
+      - name: JS runtime of the zoo (ONNX interpreter, query checks, CST geometry) vs Python
+        run: node --test ../../tests/js/zoo_web.test.mjs
       - name: Browser smoke test (every mode, numbers vs the Python model; onnxruntime-web cross-check)
         run: npx playwright test
       - name: Size of the static build

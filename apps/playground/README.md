@@ -10,22 +10,29 @@ and no server runs any code. The state lives in the URL.
 python apps/playground/build.py --serve          # build into apps/playground/dist and serve on :8765
 ```
 
+The app is UI code only. The models, query checks, geometry and their runtime are library features:
+
+| Library | What the Playground uses |
+|---|---|
+| `pp.zoo.export_web`, `python -m pinneapple_hub.zoo.web data/web/zoo` | Each zoo model as one ONNX graph (predictions + query checks, parity with PyTorch ≤ 1e-5), its card and check spec |
+| `pp.zoo.query_checks`, `pinneapple_hub.zoo.checks` | The per-query trust checks and the verdict (rule IDs of `pinneapple check`) |
+| `pinneapple_design.aero.geometry_onnx` | The CST airfoil geometry and the drag handles as ONNX graphs |
+| `pp.geometries.export_web`, `python -m pinneapple_design.geometry_library.web data/web/geometries` | Gallery index and thumbnails |
+| `pinneapple_hub/zoo/web/onnx.js`, `zoo.js` | The browser runtime: ONNX interpreter, `loadModel`, `loadAirfoilGeometry`, `evaluate` |
+
 | Path | What |
 |---|---|
-| `site/` | The page: plain ES modules, no bundler. It holds the ONNX models and their cards (`models/`) and the gallery index (`data/`). |
-| `site/js/onnx.js` | The built-in ONNX interpreter. `engine=ort` in the hash switches to onnxruntime-web. |
-| `site/js/cst.js` | The CST airfoil geometry, ported from `pinneapple_design.aero.geometry`. |
-| `tools/build_assets.py` | Exports the zoo models to ONNX, checks parity with PyTorch (≤ 1e-5), and writes the cards, fixtures and gallery index. |
+| `site/` | The page: HTML, CSS and the modes' JS (plain ES modules, no bundler). |
+| `build.py` | Assembles the static site from the UI and the library's artefacts, adds three.js and the light glTF files, and writes the offline service worker. |
 | `tools/record_demo.mjs` | Records the demo video. |
-| `build.py` | Assembles the static site. It adds three.js and the light glTF files, and writes the offline service worker. |
-| `tests/` | `unit/` (node --test, against Python fixtures) and `e2e/` (Playwright smoke test). The Python parity test is `tests/test_playground.py`. |
+| `tests/e2e/` | Playwright smoke test of every mode against Python. Library tests: `tests/test_zoo_web.py`, `tests/js/zoo_web.test.mjs`. |
 | `Dockerfile`, `Caddyfile` | Static image for `apps/deploy` (service `playground`, port 8095). |
 
 Tests:
 
 ```bash
-pytest tests/test_playground.py                                  # ONNX vs PyTorch, stale assets
-cd apps/playground && npm ci && npm test                         # JS unit tests + browser smoke test
+pytest tests/test_zoo_web.py tests/test_playground.py            # ONNX parity, query checks, bundle current
+cd apps/playground && npm ci && npm test                         # JS runtime tests + browser smoke test
 ```
 
 Third-party code: three.js r169 (MIT; vendored in `pinneapple_tools`). The tests also use onnxruntime-web 1.22.0
