@@ -3,11 +3,16 @@
     HF_TOKEN=... python scripts/zoo/publish_to_hub.py            # create/update repos, upload, tag v<version>
     python scripts/zoo/publish_to_hub.py --dry-run               # list what would be uploaded
     python scripts/zoo/publish_to_hub.py --verify                # anonymous download + SHA-256 check of every file
+    python scripts/zoo/publish_to_hub.py --staging dist/zoo-staging   # also upload the Hub-only files staged there
 
 One repo per item under the PINNeAPPle-Labs organisation (model repos for models, dataset repos for datasets), the
 files of the manifest plus a README (the model card / dataset card), and a tag ``v<version>`` -- the revision the
 loaders download. Each file's SHA-256 is checked against the manifest before upload, so what is published is
-exactly what the loaders accept. Without a token the script prints a warning and exits 0 (the CI workflow relies on
+exactly what the loaders accept. Files too large to bundle are Hub-only: their manifest entry has ``staging`` (a
+path under ``--staging``, which the workflow checks out from the ``zoo-assets`` branch) instead of ``bundled``; a file
+over GitHub's 100 MB limit may be staged as ``<file>.part000``, ``<file>.part001``, ... and is joined here. A Hub-only
+item whose files are not staged is skipped by the upload (it must already be published) but still verified.
+Without a token the script prints a warning and exits 0 (the CI workflow relies on
 that to skip cleanly when the HF_TOKEN secret is not set).
 """
 from __future__ import annotations
@@ -26,24 +31,46 @@ from pinneapple_hub.zoo import _artifacts as art  # noqa: E402
 from pinneapple_hub.zoo import datasets as zds  # noqa: E402
 
 
-def _local(spec: dict) -> Path:
-    p = art.ASSETS / spec["bundled"] if spec.get("bundled") else None
-    if p is None or not p.exists():
-        raise FileNotFoundError(f"{spec} is not bundled; place it under {art.ASSETS} before publishing")
-    return p
+def _local(spec: dict, staging: Path | None) -> Path | None:
+    """Local copy of a manifest file: the bundled asset, or the staged Hub-only file (None if not staged)."""
+    if spec.get("bundled"):
+        p = art.ASSETS / spec["bundled"]
+        if not p.exists():
+            raise FileNotFoundError(f"{spec} is not bundled; place it under {art.ASSETS} before publishing")
+        return p
+    if not spec.get("staging"):
+        raise ValueError(f"{spec}: neither 'bundled' nor 'staging'")
+    if staging is None:
+        return None
+    p = staging / spec["staging"]
+    parts = sorted(p.parent.glob(p.name + ".part[0-9][0-9][0-9]"))
+    if not p.exists() and parts:
+        joined = Path(tempfile.mkdtemp()) / p.name
+        with open(joined, "wb") as f:
+            for q in parts:
+                f.write(q.read_bytes())
+        return joined
+    return p if p.exists() else None
 
 
-def plan() -> list[dict]:
+def plan(staging: Path | None = None) -> list[dict]:
     items = []
     for kind in ("models", "datasets"):
         for name, e in art.manifest()[kind].items():
-            files = {}
+            files, unstaged = {}, []
             for fn, spec in e["files"].items():
-                p = _local(spec)
+                p = _local(spec, staging)
+                if p is None:
+                    unstaged.append(fn)
+                    continue
                 got = art.sha256_file(p)
                 if got != spec["sha256"]:
                     raise SystemExit(f"{kind}/{name}/{fn}: SHA-256 {got} != manifest {spec['sha256']}; rebuild first")
                 files[fn] = p
+            if unstaged:                       # Hub-only and not staged here: verify only, never upload a partial item
+                items.append({"kind": kind, "name": name, "repo": e["hf_repo"], "repo_type": e["repo_type"],
+                              "revision": e["revision"], "files": {fn: None for fn in e["files"]}, "staged": False})
+                continue
             if kind == "models":
                 readme = ModelCard.load(str(files["model_card.json"])).to_markdown()
                 meta = f"---\nlicense: {e.get('license', 'apache-2.0')}\nlibrary_name: pinneapple\ntags:\n" + \
@@ -56,7 +83,7 @@ def plan() -> list[dict]:
                      (f"m = pp.zoo.load(\"{name}\")\npp.zoo.evaluate(\"{name}\")\n" if kind == "models" else
                       f"d = pp.datasets.load(\"{name}\", split=\"test\")\n") + "```\n")
             items.append({"kind": kind, "name": name, "repo": e["hf_repo"], "repo_type": e["repo_type"],
-                          "revision": e["revision"], "files": files, "readme": meta + readme + usage})
+                          "revision": e["revision"], "files": files, "readme": meta + readme + usage, "staged": True})
     return items
 
 
@@ -64,6 +91,9 @@ def publish(items: list[dict], token: str) -> None:
     from huggingface_hub import HfApi
     api = HfApi(token=token)
     for it in items:
+        if not it["staged"]:
+            print(f"  {it['repo']}: Hub-only files not staged; skipped (pass --staging to upload them)")
+            continue
         api.create_repo(it["repo"], repo_type=it["repo_type"], exist_ok=True)
         with tempfile.TemporaryDirectory() as tmp:
             for fn, p in it["files"].items():
@@ -109,14 +139,16 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--verify", action="store_true", help="only verify the published files (anonymous download)")
+    ap.add_argument("--staging", type=Path, default=None, help="directory holding the Hub-only files (zoo-assets branch)")
     a = ap.parse_args(argv)
-    items = plan()
+    items = plan(a.staging)
     if a.verify:
         return 1 if verify(items) else 0
-    size = sum(p.stat().st_size for it in items for p in it["files"].values())
+    size = sum(p.stat().st_size for it in items for p in it["files"].values() if p is not None)
     print(f"{len(items)} items, {sum(len(it['files']) for it in items)} files, {size / 1e6:.2f} MB")
     for it in items:
-        print(f"  {it['repo_type']:7s} {it['repo']} @ {it['revision']}: {', '.join(it['files'])}")
+        note = "" if it["staged"] else "  (Hub-only, not staged: verify only)"
+        print(f"  {it['repo_type']:7s} {it['repo']} @ {it['revision']}: {', '.join(it['files'])}{note}")
     if a.dry_run:
         return 0
     token = os.environ.get("HF_TOKEN", "").strip()

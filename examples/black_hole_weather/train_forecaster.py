@@ -9,6 +9,12 @@ Two set-ups, as in the paper:
     python examples/black_hole_weather/train_forecaster.py --runs data/bh --train PL0SS0.1 --out runs/bh_one
     python examples/black_hole_weather/train_forecaster.py --runs data/bh --train PL0SS0.1 PL0ST0.01 PL0.2SS0.1 \\
         --out runs/bh_multi
+
+From the zoo dataset (whole trajectories: train seeds 0-3, validation seed 4; frames are already 20 M apart and
+cropped to the forecast window), with the PINNeAPPle additions (rollout loss, input noise, mass penalty):
+
+    python examples/black_hole_weather/train_forecaster.py --dataset blackhole_riaf_density_256 --out runs/bh256 \\
+        --filters 16 --residual --rollout-blocks 3 --noise 0.002 --mass-weight 0.1
 """
 from __future__ import annotations
 
@@ -38,8 +44,9 @@ def split_one(n: int):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--runs", required=True)
-    ap.add_argument("--train", nargs="+", required=True)
+    ap.add_argument("--runs")
+    ap.add_argument("--train", nargs="+")
+    ap.add_argument("--dataset", help="zoo dataset name or path to its data.npz (instead of --runs/--train)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--stride", type=int, default=2, help="use every n-th saved frame (10 M -> 20 M)")
     ap.add_argument("--r-cells", type=int, default=96)
@@ -55,8 +62,17 @@ def main(argv=None):
     ap.add_argument("--clip", type=float, default=1.0, help="gradient clipping (0: off, as in the paper)")
     ap.add_argument("--max-minutes", type=float, default=1e9)
     ap.add_argument("--threads", type=int, default=4)
+    ap.add_argument("--rollout-blocks", type=int, default=1, help="unroll this many blocks in the loss")
+    ap.add_argument("--val-blocks", type=int, default=1, help="select the checkpoint on this many unrolled blocks")
+    ap.add_argument("--noise", type=float, default=0.0, help="input noise std (normalised units)")
+    ap.add_argument("--mass-weight", type=float, default=0.0, help="weight of the window-mass consistency penalty")
+    ap.add_argument("--bf16", action="store_true", help="bfloat16 autocast (fast on CPUs with AMX)")
+    ap.add_argument("--init", help="start from this forecaster.pt (fine-tuning)")
+    ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args(argv)
     torch.set_num_threads(a.threads)
+    if a.dataset:
+        return main_dataset(a)
 
     runs = {name: load_run(os.path.join(a.runs, name)) for name in a.train}
     rho = {k: v["frames"][::a.stride, 0] for k, v in runs.items()}
@@ -80,6 +96,37 @@ def main(argv=None):
         json.dump({"train": a.train, "stride": a.stride, "frame_dt": float(np.diff(runs[a.train[0]]["t"][::a.stride]).mean()),
                    "one_sim": one, "n_train": int(len(X)), "n_val": int(len(Xv))}, f, indent=1)
     train_forecaster(X, Y, Xv, Yv, cfg, codec, a.out, log=lambda s: print(s, flush=True))
+
+
+def main_dataset(a):
+    from zoo_data import load_trajectories, window_volumes
+    path = a.dataset if a.dataset.endswith(".npz") else None
+    tr, va = load_trajectories("train", path), load_trajectories("val", path)
+    lg_all = np.concatenate([v["log10_rho"] for v in tr.values()])
+    codec = DensityCodec(float(lg_all.min()), float(lg_all.max()), lg_all.shape[1], 0)
+    init = None
+    if a.init:                                  # fine-tune: keep the normalisation the weights were trained with
+        from pinneapple_physics.blackhole.forecast import load_forecaster
+        init, codec, _ = load_forecaster(a.init)
+
+    def enc(v):
+        return ((v["log10_rho"] - codec.log_min) / (codec.log_max - codec.log_min)).astype(np.float32)
+
+    X, Y = zip(*[make_blocks(enc(v), out_blocks=a.rollout_blocks) for v in tr.values()], strict=True)
+    Xv, Yv = zip(*[make_blocks(enc(v), out_blocks=a.val_blocks) for v in va.values()], strict=True)
+    X, Y, Xv, Yv = (np.concatenate(z) for z in (X, Y, Xv, Yv))
+    print(f"train {X.shape} -> {Y.shape}  val {Xv.shape} -> {Yv.shape}  codec {codec}", flush=True)
+    cfg = TrainConfig(filters=a.filters, epochs=a.epochs, batch_size=a.batch_size, alpha=a.alpha, lr=a.lr,
+                      residual=a.residual, loss=a.loss, clip=a.clip, max_minutes=a.max_minutes, seed=a.seed,
+                      rollout_blocks=a.rollout_blocks, noise=a.noise, mass_weight=a.mass_weight, bf16=a.bf16)
+    os.makedirs(a.out, exist_ok=True)
+    frame_dt = float(np.diff(next(iter(tr.values()))["t"]).mean())
+    with open(os.path.join(a.out, "setup.json"), "w") as f:
+        json.dump({"dataset": a.dataset, "train_seeds": sorted(tr), "val_seeds": sorted(va), "frame_dt": frame_dt,
+                   "stride": 1, "one_sim": False, "n_train": int(len(X)), "n_val": int(len(Xv)),
+                   "args": vars(a)}, f, indent=1)
+    train_forecaster(X, Y, Xv, Yv, cfg, codec, a.out, log=lambda s: print(s, flush=True),
+                     cell_volume=window_volumes(path), init=init)
 
 
 if __name__ == "__main__":

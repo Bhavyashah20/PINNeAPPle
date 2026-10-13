@@ -172,3 +172,42 @@ def test_numba_backend_matches_the_torch_reference():
     for q in range(5):
         assert np.max(np.abs(a[0][q] - b[0][q])) <= 1e-10 * (np.abs(a[0][q]).max() + 1e-30)
     assert abs(a[2] - b[2]) <= 1e-10 * abs(a[2])
+
+
+def test_mode_perturbation_is_the_same_field_on_every_grid():
+    """The resolution study needs one initial perturbation for all grids: the 'modes' field sampled on two grids
+    agrees where the cells coincide in physical position, the per-cell white noise does not."""
+    fields = {}
+    for nr in (32, 64):
+        cfg = RIAFConfig(nr=nr, ntheta=nr // 2, perturbation_kind="modes", seed=3, perturbation=0.05)
+        flow = AccretionFlow(cfg)
+        base = torus_state(AccretionFlow(RIAFConfig(nr=nr, ntheta=nr // 2, perturbation=0.0)))[0]
+        fields[nr] = (torus_state(flow)[0], base)
+    (pc, bc), (pf, bf) = fields[32], fields[64]
+    torus = (bc > 1e-2)
+    noise_c = np.where(torus, pc / np.where(torus, bc, 1) - 1, 0)
+    torus_f = (bf > 1e-2)
+    noise_f = np.where(torus_f, pf / np.where(torus_f, bf, 1) - 1, 0)
+    # average 2 x 2 fine cells onto the coarse grid: a smooth field agrees to the averaging error
+    avg = noise_f.reshape(32, 2, 16, 2).mean((1, 3))
+    both = torus & (torus_f.reshape(32, 2, 16, 2).all((1, 3)))
+    assert both.sum() > 20
+    assert np.abs(avg[both] - noise_c[both]).max() < 0.25 * 0.05
+    assert np.abs(noise_c[torus]).max() <= 0.05 + 1e-12
+
+
+def test_rollout_loss_noise_and_mass_penalty_train(tmp_path):
+    from pinneapple_physics.blackhole.forecast import TrainConfig, load_forecaster, train_forecaster
+    rng = np.random.default_rng(0)
+    x = (0.5 + 0.05 * np.cumsum(rng.normal(size=(40, 16, 16)), 0) / 10).astype(np.float32)
+    X, Y = make_blocks(x, 5, out_blocks=2)
+    assert Y.shape[1] == 10 and np.array_equal(Y[0], x[5:15])
+    codec = DensityCodec(-6.0, 0.0, 16, 0)
+    cfg = TrainConfig(filters=2, epochs=2, residual=True, rollout_blocks=2, noise=0.01, mass_weight=0.1)
+    hist = train_forecaster(X, Y, X[:4], Y[:4], cfg, codec, str(tmp_path), log=lambda s: None,
+                            cell_volume=np.ones((16, 16)))
+    assert len(hist["val"]) == 2 and all(np.isfinite(hist["val"]))
+    model, c2, ck = load_forecaster(str(tmp_path / "forecaster.pt"))
+    assert ck["train"]["rollout_blocks"] == 2 and c2 == codec
+    with pytest.raises(ValueError, match="cell_volume"):
+        train_forecaster(X, Y, X[:4], Y[:4], cfg, codec, str(tmp_path), log=lambda s: None)

@@ -67,11 +67,12 @@ class DensityCodec:
         return 10.0 ** (np.asarray(x, np.float64) * (self.log_max - self.log_min) + self.log_min)
 
 
-def make_blocks(x: np.ndarray, k: int = 5, stride: int = 1) -> tuple[np.ndarray, np.ndarray]:
-    """Frames (T, H, W) -> inputs (N, k, H, W) = frames i..i+k-1 and targets = frames i+k..i+2k-1."""
-    idx = np.arange(0, len(x) - 2 * k + 1, stride)
+def make_blocks(x: np.ndarray, k: int = 5, stride: int = 1, out_blocks: int = 1) -> tuple[np.ndarray, np.ndarray]:
+    """Frames (T, H, W) -> inputs (N, k, H, W) = frames i..i+k-1 and targets = frames i+k..i+(1+out_blocks)k-1
+    (``out_blocks`` > 1 gives the targets of a multi-step rollout loss)."""
+    idx = np.arange(0, len(x) - (1 + out_blocks) * k + 1, stride)
     X = np.stack([x[i:i + k] for i in idx])
-    Y = np.stack([x[i + k:i + 2 * k] for i in idx])
+    Y = np.stack([x[i + k:i + (1 + out_blocks) * k] for i in idx])
     return X, Y
 
 
@@ -171,17 +172,46 @@ class TrainConfig:
     alpha: float = 8.0
     clip: float = 1.0                  # gradient-norm clipping (not in the paper; keeps the deep U-Net stable)
     loss: str = "multi"                # "multi": MAE + alpha MAE(y > 0.5) (paper, multi-sim); "regional": paper one-sim
+    rollout_blocks: int = 1            # > 1: unroll the model this many blocks and score every block (rollout loss)
+    noise: float = 0.0                 # std of Gaussian noise added to the inputs in training (normalised units)
+    mass_weight: float = 0.0           # weight of the mass-consistency penalty |ln M_pred - ln M_true| per frame
     bf16: bool = False                 # CPU autocast (helps only on CPUs with AMX)
     seed: int = 0
     max_minutes: float = 1e9
 
 
+def _log_mass(x: torch.Tensor, codec: DensityCodec, log_vol: torch.Tensor) -> torch.Tensor:
+    """ln of the window mass of normalised frames (..., H, W), differentiable."""
+    ln10 = math.log(10.0)
+    lg = (x * (codec.log_max - codec.log_min) + codec.log_min) * ln10
+    return torch.logsumexp((lg + log_vol).flatten(-2), -1)
+
+
+def _unrolled(model, xb: torch.Tensor, n_blocks: int, k: int) -> torch.Tensor:
+    outs, x = [], xb
+    for _ in range(n_blocks):
+        x = model(x)
+        outs.append(x)
+    return torch.cat(outs, 1)
+
+
 def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarray, cfg: TrainConfig,
-                     codec: DensityCodec, out_dir: str, *, log=print) -> dict[str, list]:
-    """Adam + the Duarte loss; keeps the weights with the best validation loss in ``out_dir/forecaster.pt``."""
+                     codec: DensityCodec, out_dir: str, *, log=print, cell_volume: np.ndarray | None = None,
+                     init: nn.Module | None = None) -> dict[str, list]:
+    """Adam + the Duarte loss; keeps the weights with the best validation loss in ``out_dir/forecaster.pt``.
+
+    ``Y`` holds ``cfg.rollout_blocks`` blocks of targets (``make_blocks(..., out_blocks=...)``); with more than one
+    the model is unrolled on its own output and every block is scored. ``Yv`` may hold several blocks too: the
+    validation loss is then the loss of the unrolled forecast over all of them (selects for rollout skill). ``cell_volume`` (window cell volumes) is needed
+    for ``cfg.mass_weight`` > 0."""
     torch.manual_seed(cfg.seed)
+    log_vol = torch.from_numpy(np.log(cell_volume)).float() if cell_volume is not None else None
+    if cfg.mass_weight > 0 and log_vol is None:
+        raise ValueError("mass_weight > 0 needs cell_volume")
     os.makedirs(out_dir, exist_ok=True)
     model = DuarteUNet(cfg.filters, cfg.frames, cfg.residual)
+    if init is not None:                                # fine-tune from given weights
+        model.load_state_dict(init.state_dict())
     opt = torch.optim.Adam(model.parameters(), lr=cfg.lr)
     Xt, Yt = torch.from_numpy(X), torch.from_numpy(Y)
     Xvt, Yvt = torch.from_numpy(Xv), torch.from_numpy(Yv)
@@ -194,9 +224,16 @@ def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarra
         tot = 0.0
         for i in range(0, len(perm), cfg.batch_size):
             b = perm[i:i + cfg.batch_size]
+            xb = Xt[b]
+            if cfg.noise > 0:
+                xb = xb + cfg.noise * torch.randn_like(xb)
             with torch.autocast("cpu", dtype=torch.bfloat16, enabled=cfg.bf16):
-                pred = model(Xt[b])
-            loss = _loss(pred.float(), Yt[b], cfg)
+                pred = _unrolled(model, xb, cfg.rollout_blocks, cfg.frames).float()
+            yb = Yt[b]
+            loss = sum(_loss(pred[:, j * cfg.frames:(j + 1) * cfg.frames], yb[:, j * cfg.frames:(j + 1) * cfg.frames], cfg)
+                       for j in range(cfg.rollout_blocks)) / cfg.rollout_blocks
+            if cfg.mass_weight > 0:
+                loss = loss + cfg.mass_weight * (_log_mass(pred, codec, log_vol) - _log_mass(yb, codec, log_vol)).abs().mean()
             opt.zero_grad()
             loss.backward()
             if cfg.clip:
@@ -225,12 +262,16 @@ def _loss(pred, target, cfg):
 
 @torch.no_grad()
 def evaluate_loss(model, X, Y, cfg, batch=32) -> float:
+    """Loss of the forecast unrolled over all the target blocks in ``Y`` (one block: the plain loss)."""
     model.eval()
+    k = cfg.frames
+    nb = Y.shape[1] // k
     tot = 0.0
     for i in range(0, len(X), batch):
         with torch.autocast("cpu", dtype=torch.bfloat16, enabled=cfg.bf16):
-            pred = model(X[i:i + batch])
-        tot += float(_loss(pred.float(), Y[i:i + batch], cfg)) * len(X[i:i + batch])
+            pred = _unrolled(model, X[i:i + batch], nb, k).float()
+        y = Y[i:i + batch]
+        tot += float(sum(_loss(pred[:, j * k:(j + 1) * k], y[:, j * k:(j + 1) * k], cfg) for j in range(nb)) / nb) * len(y)
     return tot / len(X)
 
 

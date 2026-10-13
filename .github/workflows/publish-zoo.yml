@@ -2,7 +2,8 @@ name: Publish zoo to the Hugging Face Hub
 
 # Uploads every model and dataset of pinneapple_hub/zoo/manifest.json to huggingface.co/PINNeAPPle-Labs (one repo per
 # item, tagged v<version>). Needs the repository secret HF_TOKEN (write access to the organisation); without it the
-# job verifies the manifest, prints a warning and succeeds without uploading.
+# job verifies the manifest, prints a warning and succeeds without uploading. Files too large to bundle (Hub-only) are
+# read from the zoo-assets branch, checked out into dist/zoo-staging.
 # The second job publishes the geometry library (pp.geometries): it rebuilds every file of both levels of detail,
 # checks each against pinneapple_design/geometry_library/manifest.json, uploads them to the dataset
 # PINNeAPPle-Labs/geometry-library and verifies the published files by anonymous download.
@@ -30,6 +31,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Check out the Hub-only files (branch zoo-assets; too large for the package)
+        uses: actions/checkout@v4
+        with:
+          ref: zoo-assets
+          path: dist/zoo-staging
+        continue-on-error: true
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -38,11 +45,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install numpy "huggingface_hub>=0.24"
       - name: Check the manifest (SHA-256 of every file) and list the uploads
-        run: python scripts/zoo/publish_to_hub.py --dry-run
+        run: python scripts/zoo/publish_to_hub.py --dry-run --staging dist/zoo-staging
       - name: Upload (skipped with a warning when HF_TOKEN is not set)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: python scripts/zoo/publish_to_hub.py
+        run: python scripts/zoo/publish_to_hub.py --staging dist/zoo-staging
       - name: Verify the published files (anonymous download, SHA-256 against the manifest)
         if: ${{ env.HAS_TOKEN == 'true' }}
         run: python scripts/zoo/publish_to_hub.py --verify
