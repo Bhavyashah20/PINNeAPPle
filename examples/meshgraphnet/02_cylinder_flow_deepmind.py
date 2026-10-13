@@ -21,17 +21,19 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 import torch
-from _common import (
+
+from pinneapple_data.datasets.deepmind_mgn import (
     CYLINDER_TYPE_MAP,
     cylinder_flow_to_tensors,
     download_prefix,
-    eval_rollout,
-    pick_device,
     read_trajectories,
+)
+from pinneapple_neural.architectures.graphnn.mgn_dynamics import (
+    MeshDynamicsMGN,
+    eval_rollout,
     train_dynamics,
 )
-
-from pinneapple_neural.architectures.graphnn.mgn_dynamics import MeshDynamicsMGN
+from pinneapple_neural.trainer.parallel import best_device
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--data", default="examples/meshgraphnet/_data/cylinder_flow")
@@ -49,7 +51,7 @@ ap.add_argument("--seed", type=int, default=0)
 a = ap.parse_args()
 
 torch.manual_seed(a.seed)
-dev = pick_device()
+dev = best_device(allow_mps=False)  # tiny graphs: MPS launch latency dominates
 data_dir, out = Path(a.data), Path(a.out)
 out.mkdir(parents=True, exist_ok=True)
 print(f"device={dev}")

@@ -14,6 +14,15 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Library homes for helpers that lived in examples: `pinneapple_neural.utils.as_tensor` (model output ->
+  prediction Tensor); `pinneapple_data.datasets.deepmind_mgn` (DeepMind meshgraphnets partial download over HTTP
+  Range, TFRecord reader, `cylinder_flow` conversion) and `train_dynamics` / `eval_rollout` in
+  `graphnn.mgn_dynamics`; `pinneapple_systems.excitation` (step, ramp, sinusoid, PRBS, chirp, ... actuator signals and
+  rate limit); `NASAPowerClient` and `OpenMeteoClient` in `pinneapple_data.datasets.external_sources`;
+  `pinneapple_physics.solid.axisymmetric` (strains, stresses, equilibrium residual and von Mises in (r, z) with
+  optional torsion, tested against the Lame cylinder); `burgers_periodic_solve` / `burgers_periodic_pairs` in
+  `pinneapple_data.datasets.physics` (pseudo-spectral, checked against Cole-Hopf). The examples import them.
+  `best_device(allow_mps=False)` skips Apple MPS.
 - Helpers that lived inside the apps are now library API, and the apps call them: `pinneapple_core.jsonable.to_jsonable`
   (one JSON sanitiser instead of six private copies), `pinneapple_data.cae.dataset.preview` / `field_scalar`,
   `cae.report.worst_cells`, `cae.compare.tolerance_verdicts`, `Lineage.report` / `flags` / `Artifact.verified`,

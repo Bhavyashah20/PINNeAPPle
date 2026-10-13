@@ -51,6 +51,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
@@ -61,6 +62,11 @@ import torch.nn as nn
 # ── PINNeAPPle ─────────────────────────────────────────────────────────────
 from pinneapple_physics.pde_environment import get_preset
 from pinneapple_physics.pde_environment.presets.solid_mechanics import lame_analytical
+from pinneapple_physics.solid.axisymmetric import (
+    equilibrium_residual_rz,
+    lame_parameters,
+    von_mises_rz,
+)
 
 OUTPUT_DIR = Path(__file__).parent / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
@@ -165,107 +171,31 @@ def meridional_residual(
     Resíduo do equilíbrio axissimétrico em (u_r, u_z).
     Retorna (R1² + R2²).mean().
 
-    Formulação via derivadas de segunda ordem DIRETAS de u (não via ∂σ/∂x).
-    Evita o "backward through graph a second time": cada _g() é chamado
-    exatamente UMA VEZ sobre um tensor diferente — sem nós duplicados no grafo.
-
     R1 = ∂σ_rr/∂r + ∂σ_rz/∂z + (σ_rr − σ_θθ)/r = 0
     R2 = ∂σ_rz/∂r + ∂σ_zz/∂z + σ_rz/r          = 0
 
-    Expandindo σ em termos de u:
-      ∂σ_rr/∂r = (λ+2μ)u_r_rr + λu_z_zr + λu_r_r/r − λu_r/r²
-      ∂σ_rz/∂z = μ(u_r_zz + u_z_rz)
-      (σ_rr−σ_θθ)/r = 2μ(u_r_r − u_r/r)/r
-      ∂σ_rz/∂r = μ(u_r_rz + u_z_rr)
-      ∂σ_zz/∂z = (λ+2μ)u_z_zz + λu_r_rz + λu_r_z/r
-      σ_rz/r   = μ(u_r_z + u_z_r)/r
+    (pinneapple_physics.solid.axisymmetric.equilibrium_residual_rz)
     """
-    lam = E * nu / ((1 + nu) * (1 - 2 * nu))
-    mu  = E / (2 * (1 + nu))
-
     # Folha independente — desacopla o grafo de xb externo
     x = x.detach().requires_grad_(True)
-    u = model(x)
-    r = x[:, 0:1].clamp(min=1e-3)
-    u_r = u[:, 0:1]
-    u_z = u[:, 1:2]
-
-    def _g(s, retain=True):
-        return torch.autograd.grad(
-            s.sum(), x, create_graph=True, retain_graph=retain
-        )[0]
-
-    # ── Derivadas de primeira ordem (cada _g chamado UMA VEZ) ────────────
-    du_r = _g(u_r)        # [∂u_r/∂r, ∂u_r/∂z]
-    du_z = _g(u_z)        # [∂u_z/∂r, ∂u_z/∂z]
-
-    u_r_r = du_r[:, 0:1]   # ∂u_r/∂r
-    u_r_z = du_r[:, 1:2]   # ∂u_r/∂z
-    u_z_r = du_z[:, 0:1]   # ∂u_z/∂r
-    u_z_z = du_z[:, 1:2]   # ∂u_z/∂z
-
-    # ── Derivadas de segunda ordem (cada _g chamado UMA VEZ) ─────────────
-    d2u_r_r = _g(u_r_r)          # [∂²u_r/∂r², ∂²u_r/∂r∂z]
-    d2u_r_z = _g(u_r_z)          # [∂²u_r/∂z∂r, ∂²u_r/∂z²]
-    d2u_z_r = _g(u_z_r)          # [∂²u_z/∂r², ∂²u_z/∂r∂z]
-    d2u_z_z = _g(u_z_z)                  # [∂²u_z/∂z∂r, ∂²u_z/∂z²]
-
-    u_r_rr = d2u_r_r[:, 0:1]   # ∂²u_r/∂r²
-    u_r_rz = d2u_r_r[:, 1:2]   # ∂²u_r/∂r∂z
-    u_r_zz = d2u_r_z[:, 1:2]   # ∂²u_r/∂z²
-    u_z_rr = d2u_z_r[:, 0:1]   # ∂²u_z/∂r²
-    u_z_rz = d2u_z_r[:, 1:2]   # ∂²u_z/∂r∂z  (= ∂²u_z/∂z∂r por simetria)
-    u_z_zr = d2u_z_z[:, 0:1]   # ∂²u_z/∂z∂r
-    u_z_zz = d2u_z_z[:, 1:2]   # ∂²u_z/∂z²
-
-    # ── Resíduos de equilíbrio ────────────────────────────────────────────
-    R1 = ((lam + 2 * mu) * u_r_rr + lam * u_z_zr
-          + lam * u_r_r / r - lam * u_r / r ** 2
-          + mu * (u_r_zz + u_z_rz)
-          + 2 * mu * (u_r_r - u_r / r) / r)
-
-    R2 = (mu * (u_r_rz + u_z_rr)
-          + (lam + 2 * mu) * u_z_zz + lam * u_r_rz
-          + lam * u_r_z / r
-          + mu * (u_r_z + u_z_r) / r)
-
-    return (R1 ** 2).mean() + (R2 ** 2).mean()
+    R = equilibrium_residual_rz(model(x)[:, :2], x, E, nu, r_min=1e-3)
+    return (R ** 2).mean(dim=0).sum()
 
 
 def torsional_residual(
     model: nn.Module,
     x: torch.Tensor,
+    E: float = 1.0,
+    nu: float = 0.3,
 ) -> torch.Tensor:
     """
     Resíduo da equação de torção:
         ∂²u_θ/∂r² + (1/r)∂u_θ/∂r − u_θ/r² + ∂²u_θ/∂z² = 0
+    = R_θ / μ de equilibrium_residual_rz (independe de E e ν).
     """
-    # Folha independente — mesmo motivo que meridional_residual
     x = x.detach().requires_grad_(True)
-    u = model(x)
-    u_th = u[:, 2:3]
-    r = x[:, 0:1].clamp(min=1e-3)
-
-    def _g(s, retain=True):
-        return torch.autograd.grad(
-            s.sum(), x, create_graph=True, retain_graph=retain
-        )[0]
-
-    # Primeira ordem — UMA VEZ
-    d1  = _g(u_th)
-    d_r = d1[:, 0:1]   # ∂u_θ/∂r
-    d_z = d1[:, 1:2]   # ∂u_θ/∂z
-
-    # Segunda ordem — cada _g UMA VEZ, retain=True em AMBAS.
-    # d_r e d_z compartilham o grafo de d1; se a segunda _g usar retain=False,
-    # libera d1's graph antes de o outer backward processar a primeira.
-    d2_r = _g(d_r)        # [∂²u_θ/∂r², ∂²u_θ/∂r∂z]
-    d2_z = _g(d_z)        # [∂²u_θ/∂z∂r, ∂²u_θ/∂z²]
-
-    u_th_rr = d2_r[:, 0:1]   # ∂²u_θ/∂r²
-    u_th_zz = d2_z[:, 1:2]   # ∂²u_θ/∂z²
-
-    R = u_th_rr + d_r / r - u_th / r ** 2 + u_th_zz
+    _, mu = lame_parameters(E, nu)
+    R = equilibrium_residual_rz(model(x), x, E, nu, r_min=1e-3)[:, 2:3] / mu
     return (R ** 2).mean()
 
 
@@ -279,48 +209,15 @@ def full_von_mises(
     Von Mises com todos os 6 componentes de tensão:
         σ_vm = √(½ [(σ_rr−σ_zz)²+(σ_zz−σ_θθ)²+(σ_θθ−σ_rr)²
                    + 6(τ_rz²+τ_rθ²+τ_θz²)])
+    (pinneapple_physics.solid.axisymmetric.von_mises_rz)
     """
-    lam = E * nu / ((1 + nu) * (1 - 2 * nu))
-    mu  = E / (2 * (1 + nu))
     model.eval()
     device = next(model.parameters()).device
     results = []
 
     for i in range(0, len(x), 2048):
         xb = x[i:i + 2048].to(device).detach().requires_grad_(True)
-        u  = model(xb)
-        r  = xb[:, 0:1].clamp(min=1e-3)
-
-        def _g(s, xb=xb):
-            return torch.autograd.grad(
-                s.sum(), xb, create_graph=False, retain_graph=True
-            )[0]
-
-        du_r = _g(u[:, 0:1])
-        du_z = _g(u[:, 1:2])
-        du_t = _g(u[:, 2:3])
-
-        e_rr = du_r[:, 0:1]
-        e_zz = du_z[:, 1:2]
-        e_tt = u[:, 0:1] / r
-        e_rz = 0.5 * (du_r[:, 1:2] + du_z[:, 0:1])
-        tr   = e_rr + e_zz + e_tt
-
-        s_rr = lam * tr + 2 * mu * e_rr
-        s_zz = lam * tr + 2 * mu * e_zz
-        s_tt = lam * tr + 2 * mu * e_tt
-        t_rz = 2 * mu * e_rz
-
-        # Torsional shear stresses
-        t_rt = mu * (du_t[:, 0:1] - u[:, 2:3] / r)   # τ_rθ
-        t_tz = mu * du_t[:, 1:2]                        # τ_θz
-
-        vm = torch.sqrt(
-            0.5 * (
-                (s_rr - s_zz) ** 2 + (s_zz - s_tt) ** 2 + (s_tt - s_rr) ** 2
-                + 6 * (t_rz ** 2 + t_rt ** 2 + t_tz ** 2)
-            )
-        )
+        vm = von_mises_rz(model(xb), xb, E, nu, r_min=1e-3)
         results.append(vm.detach().cpu().numpy().ravel())
 
     return np.concatenate(results)

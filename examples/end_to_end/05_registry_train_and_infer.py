@@ -10,6 +10,7 @@ from pinneapple_neural.trainer.checkpoint import load_checkpoint
 
 from pinneapple_neural.architectures.register_all import register_all
 from pinneapple_neural.architectures.registry import ModelRegistry
+from pinneapple_neural.utils import as_tensor
 
 # ----------------------------
 # Helpers
@@ -20,8 +21,7 @@ def unwrap_pred(y_hat, *, batch=None):
 
     Preference:
       - AEOutput: choose z if it matches y, else x_hat if it matches y, else x_hat
-      - otherwise: try attributes in common order
-      - fallback: return y_hat if it's already a tensor
+      - otherwise: pinneapple_neural.utils.as_tensor
     """
     if isinstance(y_hat, torch.Tensor):
         return y_hat
@@ -49,14 +49,8 @@ def unwrap_pred(y_hat, *, batch=None):
 
         return x_hat  # default
 
-    # Generic model outputs
-    for attr in ("y", "pred", "logits", "x_hat", "recon", "z"):
-        if hasattr(y_hat, attr):
-            v = getattr(y_hat, attr)
-            if isinstance(v, torch.Tensor):
-                return v
-
-    raise TypeError(f"Cannot unwrap prediction from type: {type(y_hat)}")
+    # Generic model outputs (ModelOutput, PINNOutput, dict, tuple)
+    return as_tensor(y_hat)
 
 def _with_default(d: dict, k: str, v):
     if k in d:

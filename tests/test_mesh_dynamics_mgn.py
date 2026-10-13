@@ -84,12 +84,12 @@ def test_reduced_synthetic_diffusion_beats_frozen_baseline():
 
 
 def test_tfrecord_reader_on_a_generated_file(tmp_path):
-    """examples/meshgraphnet/_common.py reads DeepMind meshgraphnets records (here a tiny file written by the test)."""
+    """pinneapple_data.datasets.deepmind_mgn reads DeepMind meshgraphnets records (a tiny file written by the test)."""
     import json
 
     import numpy as np
     tfw = pytest.importorskip("tfrecord.writer")
-    common = _load_example("_common")
+    from pinneapple_data.datasets import deepmind_mgn as common
     T, N = 3, 4
     traj = {"mesh_pos": np.random.rand(1, N, 2).astype("float32"),
             "cells": np.array([[[0, 1, 2], [1, 2, 3]]], dtype="int32"),
