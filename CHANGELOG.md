@@ -14,6 +14,24 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Geometry library `pp.geometries` (`pinneapple_design.geometry_library`): 17 realistic parametric 3-D geometries
+  for Physics-AI, each with the code that regenerates it and ready-made files. Uniform API: `list()`, `info(name)`
+  (dimensions, units, parameters with ranges, sources of the real-world numbers with estimates flagged, frame,
+  physics uses), `build(name, **params)`, `load(name, format, lod)`, `export(...)`, `render(...)`.
+  - First entries wrapped from the existing models (their classes keep working): A320-class airliner, road car,
+    Formula car, two-stage launcher, NASA VIPER.
+  - New: NREL 5-MW wind turbine (published chord / twist table), ATR 72-class turboprop, H145-class helicopter,
+    F450-class quadcopter, KCS-class container ship, Wigley hull, high-speed train, Falcon 9-class launcher,
+    pin-fin heat sink, closed centrifugal impeller, CAARC tall building with an urban block, human aortic arch.
+  - Every body closed and outward (watertight, no self-intersections), metres, documented frame, two levels of
+    detail; `Geometry.solid()` fuses the bodies into one watertight surface (manifold3d).
+  - Formats: binary STL, OBJ, glTF, OpenUSD, STEP (faceted B-rep that OpenCASCADE reads back as solids).
+  - Light files committed in `data/geometries/`; every file of both levels on the Hugging Face Hub
+    (`PINNeAPPle-Labs/geometry-library`) with SHA-256 in a manifest; the loader downloads on demand into a cache
+    and falls back to `build()` offline. The `geometries` job of `publish-zoo.yml` rebuilds, verifies, uploads.
+  - Software renderer (no GPU) for thumbnails, a contact sheet and a turntable GIF; gallery page
+    `docs/guides/geometry_library.md`; examples: CAARC building wind with OpenFOAM through the STL path, BEM power
+    curve of the 5-MW turbine, vortex-lattice and friction drag of the airliner.
 - Positional astronomy and astrophysics (`pinneapple_physics.astro`): JPL SPK reader (DE421), time scales, IAU 2006
   precession and nutation, apparent places with light time, deflection and aberration, refraction, airmass and
   extinction; rise/transit/set, twilight, Moon phase, magnitudes, oppositions, elongations, lunar and solar eclipses,
