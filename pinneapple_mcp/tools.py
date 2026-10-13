@@ -9,7 +9,6 @@ from __future__ import annotations
 import importlib.util
 import inspect
 import json
-import math
 import time
 import uuid
 from collections.abc import Mapping, Sequence
@@ -17,6 +16,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+from pinneapple_core.jsonable import to_jsonable
 
 from . import jobs
 from .config import Config, get_config
@@ -30,19 +31,7 @@ _SCALARS = (str, int, float, bool, type(None))
 # ---------------------------------------------------------------------- helpers
 def _clean(obj: Any) -> Any:
     """JSON-safe copy: NumPy scalars to numbers, NaN/Inf to None, unknown objects to their repr."""
-    if isinstance(obj, Mapping):
-        return {str(k): _clean(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_clean(v) for v in obj]
-    if isinstance(obj, np.ndarray):
-        return _clean(obj.tolist())
-    if isinstance(obj, np.generic):
-        obj = obj.item()
-    if isinstance(obj, float):
-        return obj if math.isfinite(obj) else None
-    if isinstance(obj, _SCALARS):
-        return obj
-    return repr(obj)
+    return to_jsonable(obj, unknown="repr")
 
 
 def _options(options: Mapping[str, Any] | None, cfg: Config) -> dict[str, Any]:

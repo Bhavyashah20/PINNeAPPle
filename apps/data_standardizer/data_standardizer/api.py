@@ -15,7 +15,6 @@ import os
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
@@ -23,7 +22,8 @@ from fastapi.staticfiles import StaticFiles
 
 from pinneapple_data.data_health import load_table
 from pinneapple_data.physical_units import QUANTITIES, UnitError
-from pinneapple_data.unified import (EXAMPLE_TIMEZONES, UNIT_CHOICES, UNIT_SYSTEMS, conversion_text, example_sources,
+from pinneapple_data.unified import (EXAMPLE_TIMEZONES, UNIT_CHOICES, UNIT_SYSTEMS, before_after_series,
+                                     conversion_text, example_sources,
                                      make_recipe, propose_mapping, standardize, write)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "_shared"))
@@ -126,37 +126,6 @@ def _inspect(files: List[Tuple[str, bytes]], system: str, tz: Dict[str, str]) ->
     return {"sources": out, "recipe": make_recipe([s["mapping"] for s in out], system=system), "scope": scope()}
 
 
-def _down(x: pd.Series, y: pd.Series, k: int = 500) -> Dict[str, list]:
-    n = len(x)
-    if n == 0:
-        return {"x": [], "y": []}
-    idx = np.linspace(0, n - 1, min(k, n)).astype(int)
-    return {"x": [pd.Timestamp(v).strftime("%Y-%m-%d %H:%M") for v in x.iloc[idx]],
-            "y": [None if not np.isfinite(v) else float(v) for v in y.iloc[idx].to_numpy(dtype=float)]}
-
-
-def _charts(res: Dict[str, Any]) -> Dict[str, Any]:
-    """Per variable: raw values per source (original units) and standardized values on one time axis."""
-    out = {}
-    wide, raw = res["wide"], res["raw"]
-    grid = wide["time_utc"]
-    for v in res["manifest"]["variables"]:
-        name = v["name"]
-        before, after = [], []
-        for s in v["sources"]:
-            r = raw[(raw["variable"] == name) & (raw["source"] == s["tag"])].sort_values("time_utc")
-            # project raw values on the common grid (nearest earlier sample) so both charts share the axis
-            rr = pd.merge_asof(pd.DataFrame({"time_utc": grid}), r[["time_utc", "value"]], on="time_utc",
-                               direction="nearest", tolerance=pd.Timedelta("1h"))
-            col = f"{name}@{s['tag']}" if f"{name}@{s['tag']}" in wide.columns else name
-            mask = wide[col].isna().to_numpy()
-            yb = rr["value"].where(~mask)
-            before.append({"name": f"{s['tag']} [{s['unit']}]", "y": _down(grid, yb)["y"]})
-            after.append({"name": f"{s['tag']} [{v['unit']}]", "y": _down(grid, wide[col])["y"]})
-        out[name] = {"x": _down(grid, wide[wide.columns[1]])["x"], "unit": v["unit"], "before": before, "after": after}
-    return out
-
-
 def _standardize(files: List[Tuple[str, bytes]], recipe_text: str, fmt: str, layout: str):
     _check_sizes(files)
     try:
@@ -177,7 +146,7 @@ def _standardize(files: List[Tuple[str, bytes]], recipe_text: str, fmt: str, lay
             return {"manifest": res["manifest"], "agreement": res["agreement"], "notes": res["notes"],
                     "resample": res["resample"], "rows": int(len(res["wide"])), "columns": list(res["wide"].columns),
                     "head": json.loads(head.to_json(orient="values")), "long_rows": int(len(res["long"])),
-                    "charts": _charts(res), "scope": scope()}
+                    "charts": before_after_series(res), "scope": scope()}
         data, media, name = write(res, fmt, layout)
         return Response(data, media_type=media, headers={"Content-Disposition": f'attachment; filename="{name}"'})
 

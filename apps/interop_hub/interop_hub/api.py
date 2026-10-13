@@ -27,8 +27,14 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from pinneapple_data.cae import FormatError, read_any
-from pinneapple_data.cae.compare import surface
-from pinneapple_data.cae.dataset import SCHEMA, UNIT_SYSTEMS, build_dataset, describe, export
+from pinneapple_data.cae.dataset import (
+    SCHEMA,
+    UNIT_SYSTEMS,
+    build_dataset,
+    describe,
+    export,
+    preview,
+)
 from pinneapple_data.cae.upload import expand
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "_shared"))
@@ -136,7 +142,7 @@ def _convert(files: List[Tuple[str, bytes]], time_: str, unit_system: str, to_si
             with open(os.path.join(CACHE, f"{sid}.pkl"), "wb") as fh:
                 pickle.dump(ds, fh, protocol=pickle.HIGHEST_PROTOCOL)
             d = describe(ds)
-            prev = _preview(ds)
+            prev = preview(ds)
     except HTTPException:
         raise
     except (FormatError, ValueError, KeyError) as e:
@@ -146,43 +152,6 @@ def _convert(files: List[Tuple[str, bytes]], time_: str, unit_system: str, to_si
     return {"id": sid, "dataset": d, "preview": prev, "formats": FORMATS, "scope": scope(),
             "usage": {"bytes_in": sum(len(b) for _, b in files)},
             "options": {"time": time_, "unit_system": unit_system, "to_si": to_si, "rho": rho, "location": location}}
-
-
-def _preview(ds: dict) -> dict:
-    """Boundary surface (always, so a bare mesh shows too) coloured by the first 6 fields: magnitude of vectors,
-    von Mises of stresses."""
-    import numpy as np
-    from pinneapple_data.cae.compare import _round
-    m = ds["_mesh"]
-    if not m.n_cells:
-        return {}
-    try:
-        s = surface(m, max_tris=200_000)
-    except Exception:
-        return {}
-    if s is None:
-        return {}
-    out = {"points": s["points"], "tris": s["tris"], "tri_cell": s["tri_cell"], "fields": {}}
-    k = 0
-    for name, f in ds["fields"].items():
-        v = f["values"]
-        if v.ndim == 2 and v.shape[1] == 6:                             # stress: von Mises
-            xx, yy, zz, xy, yz, zx = v.T
-            mag = np.sqrt(0.5 * ((xx - yy) ** 2 + (yy - zz) ** 2 + (zz - xx) ** 2) + 3 * (xy ** 2 + yz ** 2 + zx ** 2))
-        else:
-            mag = np.linalg.norm(v, axis=1) if v.ndim == 2 else v
-        if f["location"] == "cell" and len(mag) == m.n_cells:
-            out["fields"][name] = {"where": "cell", "values": _round(mag[s["cells"]])}
-        elif f["location"] == "point" and len(mag) == m.n_points:
-            out["fields"][name] = {"where": "point", "values": _round(mag[s["vertex_index"]])}
-        if name in out["fields"]:
-            out["fields"][name]["kind"] = "von Mises" if v.ndim == 2 and v.shape[1] == 6 else "magnitude" if v.ndim == 2 else "value"
-        else:
-            continue
-        k += 1
-        if k >= 6:
-            break
-    return out
 
 
 @app.get("/health")
