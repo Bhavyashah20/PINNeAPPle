@@ -14,6 +14,16 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Rover dashboard with a semi-transparent stress map and the zoo PINN:
+  - `SurfaceView(field_glow=..., far_field=...)`: a field map can sit semi-transparently on the shaded 3-D relief
+    (`field_glow=0` is a pure albedo tint, so rut geometry, grouser marks and Sun shading show through) and continue
+    onto the far grid; `vehicle.viz.frame_view` and `vehicle.dashboard.render_frames` take `field_alpha` and
+    `field_glow`.
+  - `terramechanics.surrogate.ZooContactSurrogate` gives a model-zoo contact model the `ContactSurrogate` interface;
+    `vehicle_dashboard` accepts zoo models directly and lists the model, its held-out error and its error along the
+    run.
+  - `examples/studio/07_lunar_rover_dashboard.py` uses `pp.zoo.load("rover_contact_grc1_viper")` and colours the
+    ruts by normal stress at 0.6 opacity with a kPa colour bar.
 - `pinneapple check`, a physics linter for CI (`pinneapple_check`; also `python -m pinneapple.check`): fails when a
   simulation result or a Physics-AI model violates physics. 29 rules with ids, explanations and fix hints
   (`--list-rules`, `--explain PC101`): conservation of mass, energy and momentum, divergence, conserved totals in
