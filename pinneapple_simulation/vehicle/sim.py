@@ -5,7 +5,10 @@ Per step (``dt``, linearly implicit Euler, :meth:`MultibodyTree.step`):
 1. Wheel geometry on the undisturbed surface: lowest rim point, terrain normal in the wheel plane, rolling
    direction, sinkage below the undisturbed surface; the soil memory ahead of the wheel gives its prior sinkage
    (multi-pass).
-2. Slip from the wheel's angular velocity and its centre velocity, slip angle from the lateral velocity.
+2. Slip from the wheel's angular velocity and its centre velocity, slip angle from the lateral velocity. The slip
+   that sets the slip-sinkage exponent is the slip lagged over ``sink_length`` metres of rim travel: slip-sinkage
+   builds up as the wheel turns and digs, a stopped wheel neither builds nor loses it, and the slip ratio of a
+   nearly stopped wheel (a ratio of noise) cannot feed back into the sinkage (a model setting).
 3. Wong-Reece forces (:class:`~pinneapple_simulation.terramechanics.WongReeceModel`): drawbar pull and normal force in
    the wheel plane, lateral force along the axle, soil torque about it; their derivatives with respect to the wheel
    velocities enter the implicit step, so millisecond steps stay stable while the wheels slip.
@@ -111,7 +114,8 @@ class VehicleSimulator:
     def __init__(self, model: VehicleModel, terrain: DeformableTerrain, soil: Soil, g: float = 1.62,
                  soil_damping: float = 0.7, rock_stiffness: float = 3e5, rock_damping: float = 4e3,
                  rock_friction: float = 0.6, stamp_every: int = 5, imprint_ratio: float = 0.6, n_gl: int = 16,
-                 level_gain: float = 0.6, v_eps: float = 0.02, multipass_shear: bool = True):
+                 level_gain: float = 0.6, v_eps: float = 0.02, multipass_shear: bool = True,
+                 sink_length: float = 0.15):
         self.m = model
         self.spec = model.spec
         self.tree = model.tree
@@ -126,6 +130,8 @@ class VehicleSimulator:
         self.imprint_ratio = imprint_ratio
         self.level_gain = level_gain
         self.v_eps = float(v_eps)              # slip regularisation near standstill [m/s]
+        self.sink_length = float(sink_length)  # rim travel over which slip-sinkage follows the slip [m]
+        self.s_sink = np.zeros(len(self.spec.corners))
         self.multipass_shear = bool(multipass_shear)
         self.nw = len(self.spec.corners)
         self._rim = np.linspace(0, 2 * np.pi, 48, endpoint=False)
@@ -174,7 +180,8 @@ class VehicleSimulator:
         Us = np.concatenate([U] + [U + du[k] * np.eye(3)[k] for k in range(3)])
         s_all = slip_ratio(Us[:, 0], Us[:, 2], R, self.v_eps)
         b_all = slip_angle(Us[:, 0], Us[:, 1], self.v_eps)
-        res = self.wr.forces(s_all, np.tile(z, 4), b_all, np.tile(zu, 4), np.tile(j0, 4))
+        s_sink = np.tile(self.s_sink, 4)                       # lagged state: no derivative w.r.t. the velocities
+        res = self.wr.forces(s_all, np.tile(z, 4), b_all, np.tile(zu, 4), np.tile(j0, 4), sinkage_slip=s_sink)
         F0 = np.stack([res.Fx, res.Fy, res.Fz, res.My], 1).reshape(4, self.nw, 4)
         base = F0[0]
         dF = np.stack([(F0[k + 1] - base) / du[k] for k in range(3)], -1)        # (w, 4 quantities, 3 inputs)
@@ -191,7 +198,7 @@ class VehicleSimulator:
             dFw = np.outer(t[i], dF[i, 0] @ Ju) + np.outer(a[i], dF[i, 1] @ Ju) + np.outer(nw[i], dF[i, 2] @ Ju)
             D += Jc[i].T @ dFw - Jw[i].T @ np.outer(a[i], dF[i, 3] @ Ju)
             if on[i]:
-                n_exp = self.soil.n0 + self.soil.n1 * abs(s_all[i])
+                n_exp = float(self.wr.sinkage_exponent(s_sink[i]))
                 k = (n_exp + 0.5) * max(Fz, 0.0) / max(res.z_eff[i], 2e-3)
                 cz = self.zeta * 2.0 * math.sqrt(max(k, 0.0) * mshare)
                 Jn = nw[i] @ Jc[i]
@@ -233,7 +240,7 @@ class VehicleSimulator:
                 rock_f[i] = fn
         if rec is not None:
             rec.update(z=z, P=P, nw=nw, t=t, a=a, c=c, zu=zu, j0=j0, j_exit=res.j_exit[: self.nw],
-                       slip=s_all[: self.nw], beta=b_all[: self.nw],
+                       slip=s_all[: self.nw], s_sink=s_sink[: self.nw], beta=b_all[: self.nw],
                        F=base, z_eff=res.z_eff[: self.nw], om=om, rock=rock_f, v_long=v_long, damp=ndamp)
         return Q, D
 
@@ -327,6 +334,7 @@ class VehicleSimulator:
             q, v = self.initial_state(start[0], start[1], yaw_deg, lift=0.002)
         else:
             q, v = q0.copy(), v0.copy()
+        self.s_sink = np.zeros(self.nw)
         state = {"I": np.zeros(self.nw), "lev": np.zeros(self.nw), "susp_cmd": np.zeros(self.nw),
                  "spin": None, "energy": 0.0}
         heading = math.radians(yaw_deg) if heading_hold else None
@@ -412,12 +420,16 @@ class VehicleSimulator:
                 C["speed"].append(float(v[:2] @ hd + (cross(v[3:6], kin.c[0] - kin.p[0])[:2] @ hd)))
                 C["com"].append(kin.c[0].copy())
                 if record_stresses:
-                    r = self.wr.forces(info["slip"], info["z"], info["beta"], info["zu"], info["j0"], stresses=True)
+                    r = self.wr.forces(info["slip"], info["z"], info["beta"], info["zu"], info["j0"], stresses=True,
+                                       sinkage_slip=info["s_sink"])
                     S["theta"].append(r.theta)
                     S["sigma"].append(r.sigma)
                     S["tau_x"].append(r.tau_x)
                 if progress:
                     progress(tt - settle, duration)
+            # slip-sinkage state: first-order lag over the rim travel of this step
+            a = np.clip(np.abs(info["om"]) * self.spec.wheel.radius * dt / max(self.sink_length, 1e-9), 0.0, 1.0)
+            self.s_sink = self.s_sink + a * (np.clip(info["slip"], -0.99, 0.99) - self.s_sink)
             q, v = q_new, v_new
         arr = lambda d: {kk: np.array(vv) for kk, vv in d.items()}  # noqa: E731
         return VehicleRun(self.m, np.array(rec_all["t"]), np.array(rec_all["q"]), np.array(rec_all["v"]), arr(W),
@@ -429,7 +441,7 @@ class VehicleSimulator:
 def _peak_stress(wr, info, i):
     """Peak normal and shear stress of wheel ``i`` [Pa] (for the terrain contact maps)."""
     r = wr.forces(info["slip"][i:i + 1], info["z"][i:i + 1], info["beta"][i:i + 1], info["zu"][i:i + 1],
-                  info["j0"][i:i + 1], stresses=True)
+                  info["j0"][i:i + 1], stresses=True, sinkage_slip=info["s_sink"][i:i + 1])
     return float(r.sigma.max()), float(np.abs(r.tau_x).max())
 
 
