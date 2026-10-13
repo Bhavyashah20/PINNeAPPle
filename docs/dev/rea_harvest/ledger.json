@@ -370,7 +370,7 @@
       "evidence_id": "ev_8a2fd8a1e70abda04b1f0b74919433677fd7c7f0caa8d38038c187dcde0d7c61",
       "subject_sha256": "f5f6eb7bfb94523eb8b7e98fd5f1c9e46faf7efd543d80f476be5026bb1c6e3c",
       "studied_on": "2026-10-12",
-      "note": "Built locally (FMI 2 + FMI 3, 15 FMUs). REA inspect-artifact on VanDerPol.so; deep analysis needs a native provider (Ghidra download blocked in the sandbox)."
+      "note": "Built locally (FMI 2 + FMI 3, 15 FMUs). REA inspect-artifact on VanDerPol.so; deep analysis needs a native provider (Ghidra download blocked in the sandbox). inspect-binary-layout evidence ev_14dd031686922159402f2a24ea7cc29af14c3d9c5e2d763fb619627fd4254ad5 (VanDerPol.so); REA and fmu_inspect agree on the exported set for all 15 binaries."
     },
     {
       "project": "NVIDIA Warp",

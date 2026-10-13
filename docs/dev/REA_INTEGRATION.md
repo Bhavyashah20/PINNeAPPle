@@ -20,7 +20,7 @@ memória de um LLM.
 | Alvo | REA faz | Neste repo |
 |---|---|---|
 | JavaScript/Electron, bundles web | grafo semântico estático: funções, call graph, linhas exatas | `rea_bridge.evidence` (`summarize_js_evidence`, `locate`) |
-| Binários nativos (.so/.dll/.exe, FMUs compiladas) | pseudocódigo/assembly via Hopper, Ghidra ou IDA | só com um provider instalado (`rea setup`) |
+| Binários nativos (.so/.dll/.exe, FMUs compiladas) | layout ELF (seções, símbolos, relocações) via pwntools sem provider pesado; pseudocódigo/assembly só com Hopper, Ghidra ou IDA | `ReaClient.inspect_binary_layout` + `exported_functions_from_layout` (precisa de `REA_PWNTOOLS_PYTHON`); decompilação depende de `rea setup` com Ghidra |
 | Python/C++/Julia com fonte | **não analisa semântica**; `import-reference-source` só fixa inventário, linguagens, git HEAD e SHA-256 | proveniência; estudo é leitura direta (`Finding.method="manual"`) |
 | Software comercial | tecnicamente possível em binários, mas **as EULAs proíbem engenharia reversa** | não usar; só material público (`reference_only`) |
 
@@ -80,6 +80,26 @@ Implementado (todos com testes contra solução exata, closed form ou identidade
 Ideias registradas (não implementadas nesta rodada): iFNO, MultiAdam, modelos PhysicsNeMo ausentes,
 ShardTensor, leitor `.rst` do MAPDL, PyFluent, `UsdPhysics` no export USD, simulador no navegador
 estilo VisualPDE no `pinneapple_app`.
+
+### FMUs compiladas (rodada 2026-10-12)
+
+- As 15 Modelica Reference-FMUs (FMI 2 e 3, BSD-2) foram compiladas localmente e passaram por
+  `rea inspect-artifact` e `rea inspect-binary-layout`.
+- `pinneapple_simulation/external_solvers/modelica/fmu_inspect.py` faz o preflight estático: checa
+  se a FMU exporta todas as funções exigidas pelo padrão para as interfaces declaradas (44 no FMI 2,
+  75 no FMI 3) e roda checagens básicas do `modelDescription.xml`.
+- Três parsers independentes concordam nos 15 binários: o do `fmu_inspect`, o `nm -D` e o
+  REA/pwntools.
+- **Limitação:** a decompilação (ex.: localizar o integrador dentro de `fmi2DoStep`) precisa do
+  provider Ghidra. O download dele (GitHub Releases) é bloqueado neste sandbox, então ficou como a
+  issue `018-rea-native-ghidra`.
+
+### Validação cruzada do ETDRK4
+
+O ETDRK4 bate com o do Exponax (implementação JAX independente, MIT) a **4,5e-14** em
+Kuramoto–Sivashinsky caótico (t = 30), desde que a convenção de dealiasing seja a mesma: manter
+|m| < int(2/3 · N/2). Um erro de um modo na máscara gera uma diferença de ~1e-3 que não depende do
+passo de tempo, e foi assim que a convenção foi identificada.
 
 ## 5. Mapa das ferramentas grandes
 

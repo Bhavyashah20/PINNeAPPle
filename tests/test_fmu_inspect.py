@@ -99,3 +99,21 @@ def test_modelica_reference_fmus_are_clean():
         rep = inspect_fmu(f)
         assert rep.ok, rep.summary()
         assert all(b.status == "ok" for b in rep.binaries), rep.summary()
+
+
+@pytest.mark.skipif(not (os.environ.get("PINNEAPPLE_REFERENCE_FMUS") and os.environ.get("REA_PWNTOOLS_PYTHON")
+                         and (os.environ.get("PINNEAPPLE_REA_BIN") or shutil.which("rea"))),
+                    reason="needs built Reference-FMUs, an installed REA and REA_PWNTOOLS_PYTHON")
+def test_exported_symbols_agree_with_rea(tmp_path):
+    """Independent cross-check: REA's ELF layout (pwntools/pyelftools) must
+    report the same exported function set as fmu_inspect's own parser."""
+    from pinneapple_tools.rea_bridge import ReaClient, exported_functions_from_layout
+    client = ReaClient()
+    fmus = sorted(glob.glob(os.path.join(os.environ["PINNEAPPLE_REFERENCE_FMUS"], "**", "*.fmu"), recursive=True))
+    for f in fmus:
+        for b in inspect_fmu(f).binaries:
+            if b.exported is None:
+                continue
+            so = zipfile.ZipFile(f).extract(b.path, tmp_path / Path(f).stem)
+            rea = exported_functions_from_layout(client.inspect_binary_layout(so).payload)
+            assert rea == b.exported, f

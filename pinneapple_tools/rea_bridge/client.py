@@ -204,6 +204,12 @@ class ReaClient:
         a direct reading of the source (``Finding.method="manual"``)."""
         return self.run("import-reference-source", str(Path(root).resolve()))
 
+    def inspect_binary_layout(self, path: str | os.PathLike) -> ReaResult:
+        """ELF sections, segments, symbols and relocations, without executing
+        the object. REA delegates to pwntools: set ``REA_PWNTOOLS_PYTHON`` to a
+        Python with pwntools 4.15 / pyelftools 0.33 / Unicorn 2.1.2."""
+        return self.run("inspect-binary-layout", str(Path(path).resolve()))
+
     def inspect_artifact(self, path: str | os.PathLike) -> ReaResult:
         """Identify one artifact (binary, archive, package) and list next probes."""
         return self.run("inspect-artifact", str(Path(path).resolve()))
