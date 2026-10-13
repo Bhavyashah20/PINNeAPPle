@@ -33,7 +33,7 @@ BURGERS = dict(n=1024, nu=0.1, t_end=1.0, alpha=2.0, tau=5.0, sigma=25.0, dt=1e-
 # Darcy: a = psi(g), g ~ N(0, (-lap + 9 I)^-2), psi = 12 on g >= 0 else 3; f = 1; u = 0 on the boundary (5.2)
 DARCY = dict(n=128, refine=4, alpha=2.0, tau=3.0, high=12.0, low=3.0, f=1.0, seed=20212, n_train=1000, n_test=200)
 # Navier-Stokes: w0 ~ N(0, 7^(3/2) (-lap + 49 I)^-2.5), Li forcing, nu = 1e-3, t in [0, 50] (5.3)
-NS = dict(n_solve=128, n_store=64, nu=1e-3, t_end=50.0, n_save=50, dt=1e-2, alpha=2.5, tau=7.0, seed=20213,
+NS = dict(n_solve=128, n_store=64, nu=1e-3, t_end=50.0, n_save=50, dt=5e-2, alpha=2.5, tau=7.0, seed=20213,
           n_train=1000, n_test=200)
 
 
@@ -216,25 +216,44 @@ def _darcy_job(args):
     return solve_darcy(a, refine=r)
 
 
-def convergence(out: Path, workers: int = 1, n_samples: int = 4) -> dict:
+def convergence(out: Path, workers: int = 1, n_samples: int = 4, only: str | None = None) -> dict:
     """Resolution and time-step study on held-aside inputs (seed + 7): each setting is compared with a finer
     reference at the stored nodes, all saved times; the dataset setting must be converged to well below the error
-    level operator-learning methods reach on these problems (FNO: 3e-3 to 1e-2 rel. L2)."""
-    rep: dict = {}
+    level operator-learning methods reach on these problems (FNO: 3e-3 to 1e-2 rel. L2). ``only``: one of
+    "burgers", "darcy", "ns"; the report is merged into an existing ``out/convergence.json``."""
+    f = out / "convergence.json"
+    rep: dict = json.loads(f.read_text()) if f.exists() else {}
     t0 = time.time()
-    # Burgers
+    if only in (None, "burgers"):
+        rep["burgers_1d"] = _convergence_burgers(n_samples, workers)
+        print("burgers", json.dumps(rep["burgers_1d"]), f"{time.time() - t0:.0f}s", flush=True)
+    if only in (None, "darcy"):
+        rep["darcy_2d"] = _convergence_darcy(n_samples, workers)
+        print("darcy", json.dumps(rep["darcy_2d"]), f"{time.time() - t0:.0f}s", flush=True)
+    if only in (None, "ns"):
+        rep["navier_stokes_2d"] = _convergence_ns(n_samples, workers)
+        print("ns", json.dumps(rep["navier_stokes_2d"]), f"{time.time() - t0:.0f}s", flush=True)
+    rep["n_samples"] = n_samples
+    out.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(rep, indent=1) + "\n")
+    return rep
+
+
+def _convergence_burgers(n_samples: int, workers: int) -> dict:
     p = BURGERS
     u0 = burgers_inputs(n_samples, p["n"], p["seed"] + 7)
     cases = {"dataset (n 1024, dt 1e-4)": (p["n"], p["dt"]), "n 1024, dt 5e-5": (p["n"], p["dt"] / 2),
              "n 2048, dt 1e-4": (2 * p["n"], p["dt"]), "reference (n 4096, dt 2.5e-5)": (4 * p["n"], p["dt"] / 4)}
     res = dict(zip(cases, _pmap(_burgers_job, [(u0, n, dt) for n, dt in cases.values()], workers), strict=True))
     ref = res.pop("reference (n 4096, dt 2.5e-5)")
-    rep["burgers_1d"] = {k: {"rel_l2_max": float(rel_l2(v[:, 1:], ref[:, 1:]).max()),
-                             "max_abs": float(np.abs(v - ref).max())} for k, v in res.items()}
-    rep["burgers_1d"]["mean_conservation_max_abs"] = float(np.abs(res["dataset (n 1024, dt 1e-4)"].mean(-1)
-                                                                 - u0.mean(-1)[:, None]).max())
-    print("burgers", json.dumps(rep["burgers_1d"]), f"{time.time() - t0:.0f}s", flush=True)
-    # Darcy
+    out = {k: {"rel_l2_max": float(rel_l2(v[:, 1:], ref[:, 1:]).max()), "max_abs": float(np.abs(v - ref).max())}
+           for k, v in res.items()}
+    out["mean_conservation_max_abs"] = float(np.abs(res["dataset (n 1024, dt 1e-4)"].mean(-1)
+                                                    - u0.mean(-1)[:, None]).max())
+    return out
+
+
+def _convergence_darcy(n_samples: int, workers: int) -> dict:
     p = DARCY
     a = darcy_inputs(n_samples, p["n"], p["seed"] + 7)
     rs = (1, 2, 4, 8)
@@ -245,25 +264,21 @@ def convergence(out: Path, workers: int = 1, n_samples: int = 4) -> dict:
     e48 = np.abs(sols[4] - sols[8]).max()
     d["observed_order"] = [float(np.log2(e12 / e24)), float(np.log2(e24 / e48))]
     d["reference"] = f"refine 8 ({p['n'] * 8}^2 cells)"
-    rep["darcy_2d"] = d
-    print("darcy", json.dumps(d), f"{time.time() - t0:.0f}s", flush=True)
-    # Navier-Stokes
+    return d
+
+
+def _convergence_ns(n_samples: int, workers: int) -> dict:
     p = NS
     w0 = ns_inputs(n_samples, p["n_solve"], p["seed"] + 7)
-    cases = {"dataset (n 128, dt 1e-2)": (128, p["dt"]), "n 128, dt 5e-3": (128, p["dt"] / 2),
-             "n 64, dt 1e-2": (64, p["dt"]), "reference (n 256, dt 5e-3)": (256, p["dt"] / 2)}
+    cases = {"dataset (n 128, dt 5e-2)": (128, p["dt"]), "n 128, dt 2.5e-2": (128, p["dt"] / 2),
+             "n 128, dt 1e-2": (128, 1e-2), "n 64, dt 5e-2": (64, p["dt"]),
+             "reference (n 256, dt 5e-3)": (256, 5e-3)}
     jobs = [(w0[i:i + 1], n, dt) for n, dt in cases.values() for i in range(n_samples)]
     flat = _pmap(_ns_job, [(j[0] if j[1] >= 128 else ob.spectral_downsample(j[0], 2, (1, 2)), j[1], j[2])
                            for j in jobs], workers)
     res = {k: np.concatenate(flat[i * n_samples:(i + 1) * n_samples]) for i, k in enumerate(cases)}
     ref = res.pop("reference (n 256, dt 5e-3)")
-    rep["navier_stokes_2d"] = {k: {"rel_l2_max": float(rel_l2(v[:, 1:], ref[:, 1:]).max()),
-                                   "rel_l2_final_max": float(rel_l2(v[:, -1], ref[:, -1]).max())}
-                               for k, v in res.items()}
-    rep["navier_stokes_2d"]["note"] = ("the n 64 run starts from the n 128 input sampled on 64^2 (its Fourier modes "
-                                       "|k| >= 32 dropped)")
-    print("ns", json.dumps(rep["navier_stokes_2d"]), f"{time.time() - t0:.0f}s", flush=True)
-    rep["n_samples"] = n_samples
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "convergence.json").write_text(json.dumps(rep, indent=1) + "\n")
-    return rep
+    out = {k: {"rel_l2_max": float(rel_l2(v[:, 1:], ref[:, 1:]).max()),
+               "rel_l2_final_max": float(rel_l2(v[:, -1], ref[:, -1]).max())} for k, v in res.items()}
+    out["note"] = "the n 64 run starts from the n 128 input sampled on 64^2 (its Fourier modes |k| >= 32 dropped)"
+    return out

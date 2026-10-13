@@ -31,7 +31,7 @@ def main(argv=None) -> None:
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 1)
     a = ap.parse_args(argv)
     if a.command == "convergence":
-        convergence(a.out, a.workers)
+        convergence(a.out, a.workers, only=a.only)
     else:
         generate(a.out, a.workers, a.only)
 
