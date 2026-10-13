@@ -54,6 +54,12 @@ def test_wall_and_box_shadows_have_the_right_length():
     F = np.array([[4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5], [2, 3, 7], [2, 7, 6]])
     cs = cast_shadow([(V, F)], X, Y, flat, sun)
     assert cs.any() and X[cs].max() == pytest.approx(0.5 + 1 / math.tan(math.radians(20)), abs=0.15)
+    soft = cast_shadow([(V, F)], X, Y, flat, sun, supersample=4)     # shadow fraction on the same grid
+    assert soft.dtype.kind == "f" and 0.0 <= soft.min() and soft.max() == 1.0
+    area = 0.25 + 0.5 / math.tan(math.radians(20))                  # the box's shadow: base + swept top edge
+    cell2 = (X[0, 1] - X[0, 0]) ** 2
+    assert ((soft > 0) & (soft < 1)).any()
+    assert soft.sum() * cell2 == pytest.approx(area, rel=0.12) and cs.sum() * cell2 == pytest.approx(area, rel=0.12)
     pts = np.array([[1.0, 0.0, 0.1], [-1.0, 0.0, 0.1]])
     np.testing.assert_array_equal(points_in_terrain_shadow(pts, X, Y, Z, sun), [True, False])
 
@@ -70,6 +76,8 @@ def test_lunar_lambert_and_shading():
     rgb = shade_terrain(X, Y, np.zeros_like(X), s, (0, -5, 3), shadow=np.zeros(X.shape, bool))
     dark = shade_terrain(X, Y, np.zeros_like(X), s, (0, -5, 3), shadow=np.ones(X.shape, bool))
     assert rgb.shape == (21, 21, 3) and (rgb > dark).all() and rgb.max() <= 1.0
+    half = shade_terrain(X, Y, np.zeros_like(X), s, (0, -5, 3), shadow=np.full(X.shape, 0.5))   # partial shadow
+    assert (half < rgb).all() and (half > dark).all()
 
 
 def test_blender_world_with_a_stub_bpy():

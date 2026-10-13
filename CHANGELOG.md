@@ -14,6 +14,21 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Animation-centred dashboards for any simulation (`pinneapple_tools.visualization.dashboard`, `pp.viz.Dashboard`):
+  an animation in the middle, charts synced to its time cursor (time series with a cursor, or fixed curves with
+  markers that move with the frames), KPI tiles, a parameter panel and a colour bar.
+  - Exports: one self-contained interactive HTML file, where scrubbing a chart moves the animation; a static PNG;
+    a dashboard GIF/MP4.
+  - The HTML embeds VP9 WebM and H.264 sources, reuses the studio viewer's `studio-core.js`, and has an optional
+    live three.js view (the studio's vendored three.js, lunar lighting preset).
+  - `pinneapple_simulation.vehicle.dashboard` builds it for vehicle runs: drawbar pull, torque and sinkage versus
+    slip with live wheel operating points; per-wheel sinkage and load along the traverse; speed, slip, and the
+    PINN against Wong-Reece with its error.
+  - Example: `examples/studio/07_lunar_rover_dashboard.py`, which writes `docs/assets/studio/rover-*`. Docs:
+    `docs/core_concepts/dashboard.md`.
+  - Planetary renders: the vehicle's shadow now continues onto the far-field terrain beyond the detailed patch
+    (`studio.shadows.cast_shadow(..., supersample=n)` gives a smooth shadow fraction on coarse grids, and
+    `shade_terrain` accepts it); `vehicle.viz.frame_view(trail=...)` shifts the detailed window back along the path.
 - Realistic planetary rover simulation, as library features (`pp.terramechanics`, `pp.multibody`, `pp.vehicle`):
   - `pinneapple_simulation.terramechanics`: a soil database where every parameter records its source and how far
     it was checked (GRC-1, JSC-1A, the soils of three published single-wheel test series); the Wong-Reece wheel

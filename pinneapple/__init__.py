@@ -599,6 +599,8 @@ _SUBMODULES = {
     "multibody":  "pinneapple_simulation.multibody",
     # wheeled planetary vehicles: spec + CAD + multibody + terramechanics simulator; NASA VIPER from public figures
     "vehicle":    "pinneapple_simulation.vehicle",
+    # animation-centred dashboards: animation + synced charts + KPI tiles + parameters -> HTML, PNG, GIF/MP4
+    "dashboard":  "pinneapple_tools.visualization.dashboard",
     # Field, Mesh, Domain, Geometry primitives
     "core":       "pinneapple_core",
     "loss":       "pinneapple_core.loss",

@@ -1198,6 +1198,7 @@ SUBMODULE_NOTES = {
     "pinneapple_systems.time_series.validation": "Rolling and expanding-window backtests.",
     "pinneapple_systems.time_series.viz": "Forecast plots and animations: horizons, parity, residuals, backtests.",
     "pinneapple_tools.visualization.studio": "3D studio: scenes with materials and fields (glTF/USD/STL), Blender and PyVista renders, the browser viewer, lighting presets (studio, lunar), Sun shadows on heightfields and planetary-surface renders.",
+    "pinneapple_tools.visualization.dashboard": "Animation-centred dashboards for any simulation: an animation with charts synced to its time cursor, KPI tiles, parameters and a colour bar; interactive HTML (scrub a chart to move the animation, live 3D view), PNG, GIF/MP4.",
     "pinneapple_tools.benchmark_suite": "Benchmark runner: tasks, back-ends (native, DeepXDE, JAX, PhysicsNeMo), leaderboards and reports.",
     "pinneapple_tools.benchmark_suite.backends": "Back-ends that train the same task with different libraries.",
     "pinneapple_tools.benchmark_suite.bundle": "Load benchmark data bundles and their schemas.",

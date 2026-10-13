@@ -97,7 +97,10 @@ def render_surface(view: SurfaceView, path: str | None, camera, *, size=(1600, 9
     if view.far is not None:
         Xf, Yf, Zf = view.far
         cf = float(Xf[0, 1] - Xf[0, 0])
-        rgb_f = shade_terrain(Xf, Yf, Zf, sun, cam_pos, view.albedo, terrain_self_shadow(Zf, cf, sun),
+        shadow_f = terrain_self_shadow(Zf, cf, sun)
+        if casters:                               # the vehicle's shadow continues past the detailed patch
+            shadow_f = np.maximum(shadow_f, cast_shadow(casters, Xf, Yf, Zf, sun, supersample=4))
+        rgb_f = shade_terrain(Xf, Yf, Zf, sun, cam_pos, view.albedo, shadow_f,
                               exposure=view.exposure * 2.2, fill=0.05 + P.ambient * 0.3,
                               L=view.lunar_lambert_L)
         g = pv.StructuredGrid(Xf, Yf, Zf - 0.004)
