@@ -13,6 +13,7 @@ Optional language-model help (local via Ollama, or hosted) at every step through
 """
 from .catalog import TEMPLATES, Param, Reference, Template
 from .context import ProblemContext, parse
+from .layers import layer_total, size_layers
 from .llm import LLMAssist
 from .mesh_plan import MeshPlan, plan_mesh
 from .report import gci
@@ -20,4 +21,5 @@ from .session import FitMeshSession
 from .suggest import suggest_geometries, suggest_parameters
 
 __all__ = ["FitMeshSession", "LLMAssist", "TEMPLATES", "Template", "Param", "Reference", "ProblemContext", "parse",
-           "MeshPlan", "plan_mesh", "gci", "suggest_geometries", "suggest_parameters"]
+           "MeshPlan", "plan_mesh", "gci", "suggest_geometries", "suggest_parameters",
+           "size_layers", "layer_total"]

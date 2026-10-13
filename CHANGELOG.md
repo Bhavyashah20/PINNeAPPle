@@ -14,6 +14,15 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Closed-form flow and heat helpers moved from benchmarks, lab experiments and examples into the library:
+  `closed_form.pipe_flow` (laminar / Blasius / Colebrook / Haaland friction factors with validity warnings, Darcy and
+  parallel-plate pressure drop, `first_cell_height` for a target y+), `closed_form.compressible` (isentropic ratios,
+  `normal_shock`, Rayleigh `pitot_pressure_ratio`, modified-Newtonian `cp_max_newtonian`),
+  `closed_form.heat.slab_transient` (Fourier series, Carslaw & Jaeger) and `burgers.burgers_sine_inviscid_exact` (entropy solution).
+- `physics_audit.regime.dominant_frequency` (Hann window, rfft, parabolic peak refinement) for Strouhal numbers;
+  `fitmesh.size_layers` (geometric prism-layer stack); `pinneapple_data.cae.courant_number` / `wall_distance` and
+  their `mesh_*` wrappers; `simulation_metadata.openfoam.read_dat` / `parse_dat` for function-object tables;
+  `lpm.Design.ellipse` / `Design.square`.
 - Helpers the experiment repositories used to copy: `pinneapple_analysis.uncertainty.resampling` (`block_bootstrap`,
   moving-block bootstrap after Kunsch 1989; `group_bootstrap`; `skill_score` = 1 - E|model|/E|ref| with a paired
   block, group or iid interval; blocked `jackknife`), `CalibrationSummary.from_predictions` and
@@ -204,6 +213,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `pp.cfd.FreeSurfaceFlow`, two meshes with mass balance, impingement, splash, floor shear and mean k).
 
 ### Changed
+- `compressible_fv.sod_exact` delegates to `astrophysics.sod_exact_solution` (same output to round-off; covers every wave pattern);
+  `internal_flow.colebrook` delegates to `closed_form.pipe_flow.colebrook`; the LBM shedding benchmark, the
+  cylinder / car / ROM lab experiments, the SSQN benchmarks and the missile example use the library functions above.
 - **Behavior:** the zoo gate of `rover_contact_grc1_viper` checks that dFx/ds has the sign of the recorded Wong-Reece
   reference (with slip-sinkage the pull need not grow with slip at a fixed sinkage) instead of dFx/ds >= 0.
 - **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their
