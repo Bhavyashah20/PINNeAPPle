@@ -1,11 +1,30 @@
 cff-version: 1.2.0
 message: "If you use PINNeAPPle in your research, please cite it."
 title: "PINNeAPPle"
+abstract: >-
+  PINNeAPPle is an open-source Python platform for physics-informed machine
+  learning: PINNs, neural operators, graph networks and classical solvers under
+  one problem description, with physics-based checks of every prediction.
 type: software
 authors:
   - family-names: "Barros"
     given-names: "Yan"
+    # TODO: replace the placeholder ORCID with the real one
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+    # TODO: affiliation
+  - family-names: "Schiassi"
+    given-names: "Enrico"
+    # TODO: replace the placeholder ORCID with the real one
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+    # TODO: affiliation
 version: "0.6.3"
 date-released: "2026-10-04"
-repository-code: "https://github.com/barrosyan/PINNeAPPle"
+repository-code: "https://github.com/PINNeAPPle-Labs/PINNeAPPle"
+url: "https://pinneapple-labs.github.io/PINNeAPPle/"
 license: "Apache-2.0"
+keywords:
+  - physics-informed neural networks
+  - neural operators
+  - scientific machine learning
+  - partial differential equations
+  - uncertainty quantification

@@ -521,6 +521,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   instead of solving again. It validates coordinate and field compatibility and gives duplicate method names unique
   row labels.
 
+### Documentation
+- JOSS paper draft (`paper/paper.md`, `paper/paper.bib`) and a workflow that builds its PDF (`draft-pdf.yml`).
+  `CITATION.cff` lists both authors and points to this repository; the Code of Conduct is now the full Contributor
+  Covenant 2.1; `CONTRIBUTING.md` explains how to report bugs and get help; the README has a statement of need.
+
 ### Known issues
 - The classical reference path for `burgers_1d` (`fdm` solver) overflows and returns a grid over `x` only, without the time
   axis; `pp.solve(..., "reference")` refuses it. Use `"analytic"` for this preset.
