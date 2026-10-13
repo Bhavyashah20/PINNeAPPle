@@ -14,6 +14,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- `pinneapple_tools.reporting.paperkit`: the report figure style (`setup_mpl`, `savefig`, `CAT`/`SEQ`/`DIV`
+  palettes), `fmt`, `sanitize` and `Paper`, an A4 PDF builder for numbered technical reports (reportlab, from the
+  `veriphysics` extra, is imported only when a `Paper` is built). Moved from the benchmark and climate repos.
 - Closed-form flow and heat helpers moved from benchmarks, lab experiments and examples into the library:
   `closed_form.pipe_flow` (laminar / Blasius / Colebrook / Haaland friction factors with validity warnings, Darcy and
   parallel-plate pressure drop, `first_cell_height` for a target y+), `closed_form.compressible` (isentropic ratios,
