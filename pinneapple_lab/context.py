@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import contextlib
 import json
-import math
 import os
 import shutil
 import time
@@ -11,21 +10,13 @@ from typing import Any
 
 import numpy as np
 
+from pinneapple_core.jsonable import to_jsonable
+
 from .dataset import DatasetWriter
 
 
 def _jsonable(v: Any) -> Any:
-    if isinstance(v, (np.floating, np.integer)):
-        return v.item()
-    if isinstance(v, np.ndarray):
-        return v.tolist()
-    if isinstance(v, (list, tuple)):
-        return [_jsonable(x) for x in v]
-    if isinstance(v, dict):
-        return {str(k): _jsonable(x) for k, x in v.items()}
-    if isinstance(v, float) and not math.isfinite(v):
-        return str(v)
-    return v
+    return to_jsonable(v, nonfinite="str")
 
 
 class RunContext:

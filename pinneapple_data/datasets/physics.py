@@ -274,6 +274,78 @@ def _load_helmholtz_2d(N: int = 64, k: float = 1.0,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 9. Periodic Burgers 1D: operator-learning pairs u(x, 0) -> u(x, T)
+#    u_t + u·u_x = ν·u_xx  on [0, L), periodic
+# ─────────────────────────────────────────────────────────────────────────────
+
+def burgers_periodic_solve(u0: np.ndarray, T: float, nu: float, *, length: float = 1.0,
+                           refine: int | None = None, cfl: float = 0.5) -> np.ndarray:
+    """Solve periodic viscous Burgers ``u_t + (u^2/2)_x = nu u_xx`` from ``u0`` (``(..., nx)``) to time ``T``.
+
+    Fourier pseudo-spectral in space with 2/3-rule dealiasing (Orszag 1971), integrating-factor fourth-order
+    Runge-Kutta in time (the diffusion is integrated exactly; Kassam & Trefethen, SIAM J. Sci. Comput. 26, 2005,
+    sec. 2). ``u0`` is sampled at ``x_j = j length / nx``. The solve runs on ``refine`` times more points (the
+    initial condition is Fourier-interpolated) and is sampled back on the input grid; ``refine=None`` picks the
+    smallest power of two (at most 16) with cell Reynolds number ``max|u0| dx / nu <= 1``, so viscous shocks are
+    resolved. The time step is ``cfl * dx / max|u0|`` (``max|u|`` does not grow: maximum principle).
+    Returns ``u(x_j, T)`` (float64, same shape as ``u0``).
+    """
+    u0 = np.asarray(u0, dtype=np.float64)
+    nx = u0.shape[-1]
+    umax = max(float(np.abs(u0).max()), 1e-12)
+    if refine is None:
+        refine = 1
+        while refine < 16 and umax * length / (nx * refine) > nu:
+            refine *= 2
+    n = nx * refine
+    dx = length / n
+    # Fourier interpolation of the initial condition onto the fine grid
+    u_hat = np.zeros(u0.shape[:-1] + (n // 2 + 1,), dtype=np.complex128)
+    c = np.fft.rfft(u0, axis=-1)
+    m = min(c.shape[-1], nx // 2)                 # drop the (ambiguous) Nyquist mode of an even grid
+    u_hat[..., :m] = c[..., :m] * refine
+    k = 2.0 * np.pi * np.fft.rfftfreq(n, d=dx)    # angular wavenumbers
+    dealias = np.abs(np.fft.rfftfreq(n, d=1.0 / n)) < n / 3.0
+    if T <= 0:
+        return u0.copy()
+    n_steps = max(1, int(math.ceil(T / (cfl * dx / umax))))
+    dt = T / n_steps
+    E2 = np.exp(-nu * k ** 2 * dt / 2)
+    E = E2 ** 2
+
+    def N(v_hat):
+        u = np.fft.irfft(v_hat * dealias, n=n, axis=-1)
+        return -0.5j * k * np.fft.rfft(u * u, axis=-1) * dealias
+
+    for _ in range(n_steps):                      # integrating-factor RK4 (Lawson)
+        a = N(u_hat)
+        b = N(E2 * (u_hat + 0.5 * dt * a))
+        c_ = N(E2 * u_hat + 0.5 * dt * b)
+        d = N(E * u_hat + dt * E2 * c_)
+        u_hat = E * u_hat + dt / 6.0 * (E * a + 2.0 * E2 * (b + c_) + d)
+    return np.fft.irfft(u_hat, n=n, axis=-1)[..., ::refine]
+
+
+def burgers_periodic_pairs(n: int, nx: int = 128, T: float = 1.0, nu: float = 0.01, seed: int = 0, *,
+                           length: float = 1.0, refine: int | None = None):
+    """``n`` random pairs ``(u(x, 0), u(x, T))`` of periodic viscous Burgers on ``[0, length)`` (operator learning).
+
+    Initial conditions: ``sum_{k=1..K} a_k sin(2 pi k x / length + phi_k)`` with ``K ~ U{3..7}``,
+    ``a_k ~ U(-1, 1)``, ``phi_k ~ U(0, 2 pi)``; solved by :func:`burgers_periodic_solve`.
+    Returns ``(x (nx,), u0 (n, nx), uT (n, nx))`` as float32, ``x_j = j length / nx``.
+    """
+    rng = np.random.default_rng(seed)
+    x = np.arange(nx) * (length / nx)
+    u0 = np.zeros((n, nx))
+    for i in range(n):
+        for k in range(1, int(rng.integers(3, 8)) + 1):
+            a, phi = rng.uniform(-1, 1), rng.uniform(0, 2 * np.pi)
+            u0[i] += a * np.sin(2 * np.pi * k * x / length + phi)
+    uT = burgers_periodic_solve(u0, T, nu, length=length, refine=refine)
+    return x.astype(np.float32), u0.astype(np.float32), uT.astype(np.float32)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Registration
 # ─────────────────────────────────────────────────────────────────────────────
 

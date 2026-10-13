@@ -37,7 +37,7 @@ from .adjoint import (
     DragAdjointObjective,
     naca_parametric,
 )
-from .pareto import ParetoFront, pareto_dominates, compute_pareto_front
+from .pareto import ParetoFront, pareto_dominates, compute_pareto_front, representatives
 from .objective import (
     ObjectiveBase,
     DragObjective,
@@ -73,7 +73,7 @@ __all__ = [
     "DragAdjointObjective",
     "naca_parametric",
     # Pareto / multi-objective
-    "ParetoFront", "pareto_dominates", "compute_pareto_front",
+    "ParetoFront", "pareto_dominates", "compute_pareto_front", "representatives",
     "ObjectiveBase", "DragObjective", "ThermalEfficiencyObjective",
     "StructuralObjective", "WeightMinimizationObjective", "CompositeObjective",
     "ConstraintBase", "BoxConstraint", "MassConservationConstraint",

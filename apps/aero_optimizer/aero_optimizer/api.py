@@ -13,13 +13,10 @@ Environment (all optional):
 from __future__ import annotations
 
 import dataclasses
-import io
 import json
 import math
 import os
 import sys
-import tempfile
-import zipfile
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -31,10 +28,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from pinneapple_design.aero.aircraft import KT, Aircraft, Requirements
-from pinneapple_design.aero.case import write_case
+from pinneapple_design.aero.case import case_zip
 from pinneapple_design.aero.geometry import BOUNDS, LABELS, PARAMS, REFERENCE, outline, properties
 from pinneapple_design.aero.mesh import GridSpec
-from pinneapple_design.aero.optimize import AREA_BOUNDS, Engine, baseline, summarize
+from pinneapple_design.aero.optimize import AREA_BOUNDS, Engine, baseline, infeasibility_reasons, summarize
 from pinneapple_design.aero import vlm as _vlm
 from pinneapple_design.aero.aircraft3d import (BOUNDS3D, LABELS3D, PLAN, Requirements3D, airframe_from,
                                                baseline_x)
@@ -43,6 +40,7 @@ from pinneapple_design.aero.optimize3d import Engine3D, summarize3d
 from pinneapple_design.aero.airliner3d import (BOUNDS_AL, LABELS_AL, PLAN as PLAN_AL, Mission, RequirementsAL,
                                                airliner_from, baseline_x_al)
 from pinneapple_design.aero.optimize_airliner import EngineAL, summarize_al
+from pinneapple_design.design_optimizer.pareto import representatives
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "_shared"))
 from appkit import BusyLimiter, install  # noqa: E402
@@ -147,16 +145,9 @@ def _detail(rec: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _picks(designs, front):
-    if not front:
-        return {}
-    v = np.array([designs[i]["vmax_kt"] for i in front])
-    c = np.array([designs[i]["co2_100km"] for i in front])
-    s = np.array([designs[i]["v_stall_kt"] for i in front])
-    n = lambda a, up: (a - a.min()) / (np.ptp(a) or 1) if up else (a.max() - a) / (np.ptp(a) or 1)  # noqa: E731
     # balanced: closest to the ideal point (fastest and lowest stall at once), CO2 follows speed
-    knee = front[int(np.argmin((1 - n(v, True)) ** 2 + (1 - n(s, False)) ** 2))]
-    return {"fastest": front[int(np.argmax(v))], "greenest": front[int(np.argmin(c))],
-            "safest": front[int(np.argmin(s))], "balanced": knee}
+    F = [[designs[i][k] for k in ("vmax_kt", "co2_100km", "v_stall_kt")] for i in front]
+    return representatives(F, ("max", "min", "min"), ("fastest", "greenest", "safest"), ids=front, weights=(1, 0, 1))
 
 
 def scope() -> dict:
@@ -244,13 +235,7 @@ def optimize(body: OptimizeIn):
     front = res["pareto"]
     picks = _picks(D, front)
     keep = set(front) | set(picks.values())
-    reasons: Dict[str, int] = {}
-    for r in D:
-        if not r.get("feasible"):
-            for v in r.get("violations") or ["no solution"]:
-                reasons[v] = reasons.get(v, 0) + 1
-        elif r.get("trust") == "low":
-            reasons["low surrogate trust"] = reasons.get("low surrogate trust", 0) + 1
+    reasons = infeasibility_reasons(D)
     return _clean({"designs": [summarize(r) for r in D], "pareto": front, "picks": picks,
                    "details": {str(i): _detail(D[i]) for i in keep}, "baseline": _detail(base),
                    "evaluations": res["evaluations"], "seconds": res["seconds"],
@@ -294,46 +279,6 @@ def design(body: DesignIn):
     return _clean(out)
 
 
-COEF_SCRIPT = r'''"""Lift, drag and pitching moment from this case's last time directory (numpy only).
-Run after simpleFoam:  python coefficients.py
-"""
-import glob, json, math, os, re
-import numpy as np
-
-info = json.load(open("grid.json"))
-ni, nj, nu, alpha = info["ni"], info["nj"], info["nu"], math.radians(info["alpha"])
-
-def internal(path):
-    t = open(path).read()
-    m = re.search(r"internalField\s+nonuniform\s+List<(\w+)>\s*(\d+)\s*\(", t)
-    body = t[m.end(): t.index("\n)\n", m.end())]
-    a = np.array(body.replace("(", " ").replace(")", " ").split(), float)
-    return a.reshape(int(m.group(2)), -1)
-
-pts = open("constant/polyMesh/points").read()
-pts = np.array(pts[pts.index("(", pts.index("\n(")) + 1: pts.rindex(")")].replace("(", " ").replace(")", " ").split(), float).reshape(-1, 3)
-P = pts[: len(pts) // 2, :2].reshape(nj + 1, ni, 2)
-last = max((d for d in os.listdir(".") if re.fullmatch(r"[0-9.]+", d) and float(d) > 0), key=float)
-p = internal(os.path.join(last, "p"))[:ni, 0]
-U = internal(os.path.join(last, "U"))[:ni, :2]
-w, w1 = P[0], np.roll(P[0], -1, 0)
-e = w1 - w
-L = np.linalg.norm(e, axis=1)
-n = np.stack([e[:, 1], -e[:, 0]], 1) / L[:, None]                 # into the body
-c = 0.5 * (w + w1)
-q = np.concatenate([P, P[:, :1]], 1)
-cc = 0.25 * (q[0, :-1] + q[0, 1:] + q[1, :-1] + q[1, 1:])
-d = np.abs(((cc - c) * n).sum(1))
-ut = U - (U * n).sum(1, keepdims=True) * n
-f = (p[:, None] * n + nu * ut / d[:, None]) * L[:, None]
-F = f.sum(0)
-drag, lift = np.array([math.cos(alpha), math.sin(alpha)]), np.array([-math.sin(alpha), math.cos(alpha)])
-r = c - [0.25, 0]
-Mz = (r[:, 0] * f[:, 1] - r[:, 1] * f[:, 0]).sum()
-print(f"time {last}:  Cl = {F @ lift / 0.5:.4f}   Cd = {F @ drag / 0.5:.5f}   Cm(c/4, nose-up +) = {-Mz / 0.5:.4f}")
-'''
-
-
 @app.get("/api/openfoam-case")
 def openfoam_case(x: str = Query(..., description="7 comma-separated numbers: T0,T1,T2,M0,M1,M2,wing_area"),
                   alpha: float = Query(4.0, ge=-5, le=20)):
@@ -344,26 +289,8 @@ def openfoam_case(x: str = Query(..., description="7 comma-separated numbers: T0
         raise HTTPException(422, "x: comma-separated numbers")
     if len(v) != 6 or (v < BOUNDS[:, 0] - 1e-9).any() or (v > BOUNDS[:, 1] + 1e-9).any():
         raise HTTPException(422, "x: 6 shape weights inside the trained range (+ wing area)")
-    g = GridSpec()
-    re_ = float(ENGINE.meta.get("reynolds", 4e6))
-    with tempfile.TemporaryDirectory() as tmp:
-        case = os.path.join(tmp, "case")
-        write_case(case, v, alpha, reynolds=re_, iterations=1200, grid=g)
-        with open(os.path.join(case, "grid.json"), "w") as f:
-            json.dump({"ni": g.ni, "nj": g.nj, "nu": 1 / re_, "alpha": alpha, "shape": v.tolist()}, f)
-        with open(os.path.join(case, "coefficients.py"), "w") as f:
-            f.write(COEF_SCRIPT)
-        with open(os.path.join(case, "Allrun"), "w") as f:
-            f.write("#!/bin/sh\n# OpenFOAM v1912 or newer (ESI); about 1 minute on one core\nsimpleFoam > log.simpleFoam 2>&1\n"
-                    "python3 coefficients.py\n")
-        os.chmod(os.path.join(case, "Allrun"), 0o755)
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-            for root, _, files in os.walk(case):
-                for fn in files:
-                    full = os.path.join(root, fn)
-                    z.write(full, os.path.join(f"airfoil_a{alpha:g}", os.path.relpath(full, case)))
-    return Response(buf.getvalue(), media_type="application/zip",
+    data = case_zip(v, alpha, reynolds=float(ENGINE.meta.get("reynolds", 4e6)), iterations=1200, grid=GridSpec())
+    return Response(data, media_type="application/zip",
                     headers={"Content-Disposition": f'attachment; filename="airfoil_a{alpha:g}_openfoam.zip"'})
 
 
@@ -441,14 +368,9 @@ def _detail_al(r: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _picks_al(D, front):
-    if not front:
-        return {}
-    c = np.array([D[i]["co2_pkm"] for i in front])
-    m = np.array([D[i]["mach"] for i in front])
-    v = np.array([D[i]["vref_kt"] for i in front])
-    n = lambda a, up: (a - a.min()) / (np.ptp(a) or 1) if up else (a.max() - a) / (np.ptp(a) or 1)  # noqa: E731
-    return {"greenest": front[int(np.argmin(c))], "fastest": front[int(np.argmax(m))], "shortfield": front[int(np.argmin(v))],
-            "balanced": front[int(np.argmin((1 - n(c, False)) ** 2 + (1 - n(m, True)) ** 2 + 0.5 * (1 - n(v, False)) ** 2))]}
+    F = [[D[i][k] for k in ("co2_pkm", "mach", "vref_kt")] for i in front]
+    return representatives(F, ("min", "max", "min"), ("greenest", "fastest", "shortfield"), ids=front,
+                           weights=(1, 1, 0.5))
 
 
 def run_search3d(body: Optimize3DIn, progress=None) -> Dict[str, Any]:
@@ -460,13 +382,7 @@ def run_search3d(body: Optimize3DIn, progress=None) -> Dict[str, Any]:
     keep = set(picks.values())
     fine = {i: ENGINE_AL.evaluate(np.array(D[i]["x"])[None], mi, req, fine=True)[0] for i in keep}
     base = ENGINE_AL.evaluate(baseline_x_al()[None], mi, req, fine=True)[0]
-    reasons: Dict[str, int] = {}
-    for r in D:
-        if not r.get("feasible"):
-            for v in r.get("violations") or ["no solution"]:
-                reasons[v] = reasons.get(v, 0) + 1
-        elif r.get("trust") == "low":
-            reasons["low surrogate trust"] = reasons.get("low surrogate trust", 0) + 1
+    reasons = infeasibility_reasons(D)
     return _clean({"designs": [summarize_al(r) for r in D], "pareto": front, "picks": picks,
                    "details": {str(i): _detail_al(fine[i]) for i in keep}, "baseline": _detail_al(base),
                    "evaluations": res["evaluations"], "seconds": res["seconds"],

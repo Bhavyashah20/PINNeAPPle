@@ -25,16 +25,15 @@ import os
 import re
 import sys
 import time
-from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from pinneapple_data.formfill import (FormSpec, OllamaClient, check_answer, compile, extract_rules, extract_with_llm,
-                                      fill_pdf, form_values, get_spec, list_specs, ocr_available, parse_value,
-                                      read_document, render_datasheet)
+from pinneapple_data.formfill import (FormSpec, OllamaClient, check_overrides, compile_documents, fill_pdf,
+                                      form_values, get_spec, list_specs, ocr_available, output_filename, parse_value,
+                                      render_datasheet)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "_shared"))
 from appkit import BusyLimiter, install  # noqa: E402
@@ -190,48 +189,16 @@ def _parse_overrides(text: Optional[str], spec: FormSpec) -> Dict[str, Any]:
     if not text:
         return {}
     try:
-        raw = json.loads(text)
+        return check_overrides(spec, json.loads(text))
     except json.JSONDecodeError as exc:
         raise HTTPException(422, f"overrides is not valid JSON: {exc}")
-    out = {}
-    for k, v in raw.items():
-        if k not in spec.by_key:
-            raise HTTPException(422, f"unknown item '{k}'")
-        if v in (None, ""):
-            continue
-        try:
-            out[k] = check_answer(spec[k], v)
-        except ValueError as exc:
-            raise HTTPException(422, str(exc))
-    return out
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
 
 
 def _compile(docs_in: List[Tuple[str, bytes, str]], spec: FormSpec, use_llm: bool, overrides: Dict[str, Any]):
-    docs, cands, rejected = [], [], []
-    client = _llm() if use_llm else None
-    for name, data, role in docs_in:
-        d = read_document(data, name=name, role=role, max_ocr_pages=OCR_MAX_PAGES)
-        docs.append(d)
-        cands.extend(extract_rules(d, spec))
-        if client is not None:
-            try:
-                acc, rej = extract_with_llm(d, spec, client)
-            except Exception as exc:  # noqa: BLE001 - the rule-based result still stands
-                acc, rej = [], [{"reason": f"local LLM extraction failed: {type(exc).__name__}: {exc}"}]
-            cands.extend(acc)
-            rejected.extend({**r, "doc": name} for r in rej)
-    return compile(docs, cands, spec, overrides=overrides), rejected
-
-
-def _spec_meta(spec: FormSpec) -> Dict[str, Any]:
-    return {"id": spec.id, "title": spec.title, "standard": spec.standard, "output": spec.output,
-            "sections": spec.sections, "left_blank": list(spec.left_blank), "notes_field": bool(spec.notes_field),
-            "columns": list(spec.columns),
-            "fields": [{"key": f.key, "label": f.label, "section": f.section, "kind": f.kind,
-                        "options": list(f.options), "required": f.required, "hint": f.source_hint,
-                        "readable": bool(f.patterns), "column": f.column} for f in spec.fields],
-            "tables": [{"key": t.key, "label": t.label, "columns": list(t.output_columns), "rows": len(t.pdf_rows)}
-                       for t in spec.tables]}
+    return compile_documents(docs_in, spec, client=_llm() if use_llm else None, overrides=overrides,
+                             max_ocr_pages=OCR_MAX_PAGES)
 
 
 def _payload(comp, rejected) -> Dict[str, Any]:
@@ -240,18 +207,11 @@ def _payload(comp, rejected) -> Dict[str, Any]:
     out["conflicts"] = [d.key for d in comp.conflicts()]
     out["rejected"] = rejected
     out["scope"] = scope()
-    out["spec"] = _spec_meta(comp.spec)
+    out["spec"] = comp.spec.describe()
     out["record"] = comp.record()
     texts, buttons = form_values(comp)
     out["form_preview"] = {"text_fields": len(texts), "check_boxes": len(buttons)}
     return out
-
-
-def _filename(comp) -> str:
-    spec = comp.spec
-    tag = comp.decisions[spec.filename_key].display if spec.filename_key in comp.decisions else ""
-    base = re.sub(r"[^A-Za-z0-9._-]+", "_", f"{spec.id}_{tag or 'filled'}")
-    return f"{base}_{date.today():%Y%m%d}.pdf"
 
 
 def _pdf(data: bytes, name: str) -> Response:
@@ -284,7 +244,7 @@ def meta():
             "default_template": DEFAULT_TEMPLATE, "llm_available": _llm_available(), "ocr_available": ocr_available(),
             "llm_model": os.environ.get("UDR_OLLAMA_MODEL") or None,
             "form_on_server": bool(os.environ.get("UDR_FORM_PDF") and os.path.exists(os.environ["UDR_FORM_PDF"])),
-            "spec": _spec_meta(get_spec(DEFAULT_TEMPLATE)), "scope": scope()}
+            "spec": get_spec(DEFAULT_TEMPLATE).describe(), "scope": scope()}
 
 
 @app.get("/api/spec")
@@ -345,7 +305,7 @@ async def api_fill(files: List[UploadFile] = File(...), form: Optional[UploadFil
             pdf = fill_pdf(blank, comp)
         except ValueError as exc:
             raise HTTPException(422, str(exc))
-    return _pdf(pdf, _filename(comp))
+    return _pdf(pdf, output_filename(comp))
 
 
 @app.post("/api/datasheet")
@@ -360,7 +320,7 @@ async def api_datasheet(files: List[UploadFile] = File(...), roles: str = Form("
     with _HEAVY:
         comp, _ = _compile(docs, form_spec, use_llm, _parse_overrides(overrides, form_spec))
         pdf = render_datasheet(comp)
-    return _pdf(pdf, "datasheet_" + _filename(comp))
+    return _pdf(pdf, output_filename(comp, prefix="datasheet_"))
 
 
 @app.get("/api/example/compile")
@@ -390,7 +350,7 @@ async def api_example_datasheet(template: str = Form(DEFAULT_TEMPLATE), override
     with _HEAVY:
         comp, _ = _compile(_example_docs(template), spec, False, _parse_overrides(overrides, spec))
         pdf = render_datasheet(comp)
-    return _pdf(pdf, "datasheet_" + _filename(comp))
+    return _pdf(pdf, output_filename(comp, prefix="datasheet_"))
 
 
 @app.get("/api/example/files/{template}/{name}")

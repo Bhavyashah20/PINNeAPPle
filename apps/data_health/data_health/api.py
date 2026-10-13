@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from pinneapple_data.data_health import analyze, example_chiller_plant, load_table
+from pinneapple_core.jsonable import to_jsonable
 from pinneapple_data import process_optimizer as po
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "_shared"))
@@ -201,7 +202,7 @@ def _opt_run(df, report, cfg: dict, extra=None) -> dict:
         raise HTTPException(500, "scikit-learn is not installed on the server.") from e
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
-    out = po._clean_json({k: v for k, v in res.items() if not k.startswith("_")})
+    out = to_jsonable(res, drop_private=True)
     if extra:
         out.update(extra(res))
     out["cleaning"] = log

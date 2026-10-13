@@ -31,11 +31,14 @@ logger = logging.getLogger(__name__)
 # Device utilities
 # ---------------------------------------------------------------------------
 
-def best_device(prefer_cuda: bool = True) -> torch.device:
-    """Return the best available device."""
+def best_device(prefer_cuda: bool = True, allow_mps: bool = True) -> torch.device:
+    """Return the best available device: CUDA, then Apple MPS (unless ``allow_mps=False``), then CPU.
+
+    ``allow_mps=False`` suits many tiny kernels (small graphs), where MPS launch latency dominates.
+    """
     if prefer_cuda and torch.cuda.is_available():
         return torch.device("cuda")
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    if allow_mps and hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return torch.device("mps")
     return torch.device("cpu")
 

@@ -19,8 +19,8 @@ from pydantic import BaseModel, Field, model_validator
 
 from pinneapple_physics.closed_form.pcb_thermal import PACKAGES, Environment
 
-from .engine import H_BAND, calibrate, evaluate, what_if
-from .solver import Board, Component
+from pinneapple_physics.pcb.engine import H_BAND, calibrate, evaluate, what_if
+from pinneapple_physics.pcb.solver import Board, Component
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "_shared"))
 from appkit import BusyLimiter, install  # noqa: E402

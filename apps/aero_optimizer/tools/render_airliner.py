@@ -18,43 +18,13 @@ import numpy as np
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 sys.path.insert(0, ROOT)
-from pinneapple_design.aero.airframe import to_glb                    # noqa: E402
-from pinneapple_design.aero.airliner3d import airliner_from           # noqa: E402
-from pinneapple_design.aero.case3d import surface_scalars             # noqa: E402
-from pinneapple_design.aero.render_blender import jet, render         # noqa: E402
+from pinneapple_design.aero.airframe import to_glb  # noqa: E402
+from pinneapple_design.aero.airliner3d import airliner_from  # noqa: E402
+from pinneapple_design.aero.case3d import surface_scalars  # noqa: E402
+from pinneapple_design.aero.render_blender import render  # noqa: E402
+from pinneapple_tools.visualization.studio.colormap import colorbar  # noqa: E402
 
 MODEL = os.path.join(ROOT, "apps", "aero_optimizer", "model")
-
-
-def colorbar(path, title, lo, hi, nd, lo_txt, hi_txt):
-    """Burn a jet colour bar with ticks into the bottom-right corner of the image."""
-    from PIL import Image, ImageDraw, ImageFont
-    im = Image.open(path).convert("RGB")
-    W, H = im.size
-    s = W / 1920
-    try:
-        f = ImageFont.truetype("DejaVuSans.ttf", int(22 * s))
-        fb = ImageFont.truetype("DejaVuSans-Bold.ttf", int(24 * s))
-    except OSError:
-        f = fb = ImageFont.load_default()
-    d = ImageDraw.Draw(im, "RGBA")
-    bw, bh, pad = int(520 * s), int(22 * s), int(22 * s)
-    box_w = max(bw, int(d.textlength(title, font=fb)))
-    x0, y0 = W - box_w - 3 * pad, H - int(150 * s) - pad
-    d.rounded_rectangle([x0 - pad, y0 - pad, x0 + box_w + pad, H - pad], radius=int(12 * s), fill=(255, 255, 255, 225))
-    d.text((x0, y0), title, fill=(15, 23, 42), font=fb)
-    yb = y0 + int(40 * s)
-    for i in range(bw):
-        c = jet(i / (bw - 1))
-        d.line([(x0 + i, yb), (x0 + i, yb + bh)], fill=tuple(int(255 * v) for v in c))
-    for k in range(5):
-        v = lo + (hi - lo) * k / 4
-        t = f"{v:.{nd}f}"
-        tw = d.textlength(t, font=f)
-        d.text((x0 + bw * k / 4 - tw * k / 4, yb + bh + int(6 * s)), t, fill=(15, 23, 42), font=f)
-    d.text((x0, yb + bh + int(36 * s)), lo_txt, fill=(71, 85, 105), font=f)
-    d.text((x0 + bw - d.textlength(hi_txt, font=f), yb + bh + int(36 * s)), hi_txt, fill=(71, 85, 105), font=f)
-    im.save(path, quality=92)
 
 
 def main():

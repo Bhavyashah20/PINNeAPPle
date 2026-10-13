@@ -218,6 +218,18 @@ def _metrics(r: np.ndarray, c: np.ndarray, w: Optional[np.ndarray]) -> Dict[str,
             "ref_min": float(r.min()) if len(r) else None, "ref_max": float(r.max()) if len(r) else None, "n": int(len(r))}
 
 
+def tolerance_verdicts(result: Dict[str, Any], tolerance: Optional[float]) -> Optional[str]:
+    """Mark every field of a :func:`compare` result ``"pass"`` / ``"fail"`` by its relative L2 error against
+    ``tolerance`` (a fraction, e.g. 0.05 for 5 %), in ``field["verdict"]``. Returns ``"PASS"`` when every judged
+    field passes, ``"FAIL"`` otherwise, ``None`` when nothing was judged (no tolerance or no relative error)."""
+    tol = tolerance if tolerance and tolerance > 0 else None
+    for f in result["fields"]:
+        e = f["summary"]["rel_l2"]
+        f["verdict"] = None if tol is None or e is None else ("pass" if e <= tol else "fail")
+    verdicts = [f["verdict"] for f in result["fields"] if f["verdict"]]
+    return None if not verdicts else ("PASS" if all(v == "pass" for v in verdicts) else "FAIL")
+
+
 def compare(ref: Mesh, cand: Mesh, mapping: Optional[Dict[str, str]] = None, method: str = "auto",
             fields: Optional[List[str]] = None) -> Dict[str, Any]:
     pairs = match_fields(ref, cand, mapping)

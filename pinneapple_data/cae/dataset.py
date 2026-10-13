@@ -124,6 +124,22 @@ def _shape(typ: str, fl: List[np.ndarray]) -> Optional[List[int]]:
 
 
 # ------------------------------------------------------------------------------- the dataset
+def field_scalar(values: np.ndarray) -> Tuple[Optional[np.ndarray], str]:
+    """One scalar per point or cell: the value itself, the magnitude of a vector (up to 3 components) or the von Mises
+    stress of a symmetric tensor in Voigt order ``xx yy zz xy yz zx``. Returns ``(scalar, kind)``; ``scalar`` is
+    ``None`` for other shapes."""
+    v = np.asarray(values, float)
+    if v.ndim == 1:
+        return v, "value"
+    if v.ndim == 2 and v.shape[1] <= 3:
+        return np.linalg.norm(v, axis=1), "magnitude"
+    if v.ndim == 2 and v.shape[1] == 6:
+        xx, yy, zz, xy, yz, zx = v.T
+        return np.sqrt(0.5 * ((xx - yy) ** 2 + (yy - zz) ** 2 + (zz - xx) ** 2) + 3 * (xy ** 2 + yz ** 2 + zx ** 2)), \
+            "von Mises"
+    return None, "value"
+
+
 def build_dataset(m: Mesh, *, unit_system: str = "auto", to_si: bool = False, rho: Optional[float] = None,
                   location: str = "auto", files: Optional[Dict[str, bytes]] = None) -> Dict[str, Any]:
     """Normalise a Mesh into the neutral dataset (a dict holding numpy arrays and metadata)."""
@@ -167,14 +183,7 @@ def build_dataset(m: Mesh, *, unit_system: str = "auto", to_si: bool = False, rh
                             "min": float(np.nanmin(a)) if a.size else None, "max": float(np.nanmax(a)) if a.size else None,
                             "mean": float(np.nanmean(a)) if a.size else None}
             if a.ndim == 2 and a.size:                          # one scalar per point/cell for vectors and stresses
-                if a.shape[1] <= 3:
-                    sc, how = np.linalg.norm(a, axis=1), "magnitude"
-                elif a.shape[1] == 6:                           # xx yy zz xy yz zx
-                    xx, yy, zz, xy, yz, zx = a.T
-                    sc = np.sqrt(0.5 * ((xx - yy) ** 2 + (yy - zz) ** 2 + (zz - xx) ** 2) + 3 * (xy ** 2 + yz ** 2 + zx ** 2))
-                    how = "von Mises"
-                else:
-                    sc = None
+                sc, how = field_scalar(a)
                 if sc is not None:
                     fields[name]["scalar"] = {"kind": how, "min": float(np.nanmin(sc)), "max": float(np.nanmax(sc)),
                                               "mean": float(np.nanmean(sc))}
@@ -437,6 +446,7 @@ def write_pinneapple(ds: Dict[str, Any]) -> bytes:
     import shutil
     import tempfile
     import zipfile
+
     from pinneapple_data.physical_sample import PhysicalSample
     from pinneapple_data.serialization import save_zarr
     loc = ds["location"]
@@ -464,3 +474,33 @@ def write_pinneapple(ds: Dict[str, Any]) -> bytes:
                     z.write(full, os.path.relpath(full, tmp))
         shutil.rmtree(root, ignore_errors=True)
     return bio.getvalue()
+
+
+def preview(ds: Dict[str, Any], max_fields: int = 6, max_tris: int = 200_000) -> Dict[str, Any]:
+    """Display payload of a dataset from :func:`build_dataset`: the boundary surface (always, so a bare mesh shows
+    too) coloured by the first ``max_fields`` fields reduced to one scalar each (:func:`field_scalar`), rounded to
+    5 significant digits. Empty dict when the mesh has no surface."""
+    from .compare import _round, surface
+
+    m = ds["_mesh"]
+    if not m.n_cells:
+        return {}
+    try:
+        s = surface(m, max_tris=max_tris)
+    except Exception:  # noqa: BLE001 -- a preview never fails the conversion
+        return {}
+    if s is None:
+        return {}
+    out: Dict[str, Any] = {"points": s["points"], "tris": s["tris"], "tri_cell": s["tri_cell"], "fields": {}}
+    for name, f in ds["fields"].items():
+        if len(out["fields"]) >= max_fields:
+            break
+        sc, kind = field_scalar(f["values"])
+        if sc is None:                                  # other tensors: Euclidean norm of the components
+            sc, kind = np.linalg.norm(np.asarray(f["values"], float), axis=1), "magnitude"
+        if f["location"] == "cell" and len(sc) == m.n_cells:
+            out["fields"][name] = {"where": "cell", "values": _round(sc[s["cells"]]), "kind": kind}
+        elif f["location"] == "point" and len(sc) == m.n_points:
+            out["fields"][name] = {"where": "point", "values": _round(sc[s["vertex_index"]]), "kind": kind}
+    return out
+

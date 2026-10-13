@@ -345,3 +345,26 @@ def view_payload(mesh: Mesh, rep: Dict[str, Any], max_tris: int = 250_000) -> Di
                            "points": np.round(cents[r["sample_cells"]], 9).ravel().tolist()} for r in rep["regions"]
                           if r.get("sample_cells")]
     return out
+
+
+def worst_cells(mesh: Mesh, rep: Dict[str, Any], n: int = 40) -> List[Dict[str, Any]]:
+    """The ``n`` worst cells of every metric in a report from :func:`build`, worst first.
+
+    "Worst" follows the metric's direction (``METRICS[k]["better"]``: highest value for ``"low"`` metrics such as
+    non-orthogonality, lowest for ``"high"`` ones such as the scaled Jacobian). Each entry has the metric, the cell
+    index and label, the value and the cell centre (``None`` when the report has no centres).
+    """
+    vals, cents = rep["_cell_values"], rep.get("_centres")
+    out: List[Dict[str, Any]] = []
+    for k, v in vals.items():
+        if not np.isfinite(v).any():
+            continue
+        if METRICS[k]["better"] == "low":
+            order = np.argsort(-np.nan_to_num(v, nan=-np.inf))
+        else:
+            order = np.argsort(np.nan_to_num(v, nan=np.inf))
+        for c in order[:n]:
+            out.append({"metric": k, "cell": int(c), "label": mesh.cell_label(int(c)), "value": float(v[c]),
+                        "centre": cents[c].tolist() if cents is not None else None})
+    return out
+
