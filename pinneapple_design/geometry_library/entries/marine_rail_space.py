@@ -433,7 +433,7 @@ def _car(kind, Lcar, Ln, res, th):
     else:
         x_win0 = 2.1
     x_win1 = Lcar - 1.9
-    pitch, ww = 1.95, 1.25
+    pitch, ww = 1.45, 1.0
     nw = int((x_win1 - x_win0 + (pitch - ww)) // pitch)
     x0w = x_win0 + 0.5 * ((x_win1 - x_win0) - (nw * pitch - (pitch - ww)))
     wins = [(x0w + i * pitch, x0w + i * pitch + ww) for i in range(nw)]
@@ -579,7 +579,7 @@ register(GeometrySpec(
                     "bogie-centre distance 17.375 m, wheel diameter 0.92 m", SIEMENS_VELARO),
              Source("top of rail as the aerodynamic reference plane, standard gauge 1.435 m", EN14067),
              Source("rail profile (60E1-like, 172 mm high, 72 mm head, 150 mm foot)", UIC60),
-             Source("nose profile and plan-form curves, windscreen extent, window pitch 1.95 m, inter-car gap 0.6 m, "
+             Source("nose profile and plan-form curves, windscreen extent, window pitch 1.45 m, inter-car gap 0.6 m, "
                     "bogie wheelbase 2.5 m, pantograph geometry, sleeper 2.6 x 0.26 x 0.22 m at 0.6 m",
                     "estimates from photographs of ICE 3 / CRH3 trains", estimate=True)],
     physics=["train aerodynamics: drag, slipstream and the nose pressure pulse (EN 14067)",
