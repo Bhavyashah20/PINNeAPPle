@@ -9,8 +9,10 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 
+import numpy as np
+
 __all__ = ["reynolds", "mach", "peclet", "knudsen", "richardson", "rayleigh", "grashof", "prandtl", "biot", "froude",
-           "strouhal", "damkohler", "roughness_reynolds", "regime_features", "FEATURE_NAMES"]
+           "strouhal", "dominant_frequency", "damkohler", "roughness_reynolds", "regime_features", "FEATURE_NAMES"]
 
 FEATURE_NAMES = {
     "Re": "Reynolds number (inertia / viscosity)",
@@ -91,6 +93,38 @@ def froude(velocity: float, length: float, g: float = 9.81) -> float:
 
 def strouhal(frequency: float, length: float, velocity: float) -> float:
     return frequency * length / abs(velocity)
+
+
+def dominant_frequency(signal, dt: float = 1.0, discard: float = 0.5, window: bool = True, refine: bool = True,
+                       pad: int = 1) -> float:
+    """Frequency (1 / time unit of ``dt``) of the strongest spectral peak of a sampled signal, e.g. the
+    vortex-shedding frequency of a wake probe or a lift history, for :func:`strouhal`.
+
+    The first ``discard`` fraction of the record (start-up transient) is dropped and the mean removed; the rest is
+    optionally multiplied by a Hann window (Harris, Proc. IEEE 66, 1978) and zero-padded to ``pad`` times its
+    length, and the largest non-DC bin of ``|rfft|`` is taken. ``refine`` fits a parabola through the logarithms of
+    the peak bin and its two neighbours (Gaussian interpolation; Smith & Serra, "PARSHL", ICMC 1987), which brings the
+    estimate to a small fraction of a bin for a Hann-windowed sinusoid. Returns 0.0 for records too short to have
+    a non-DC bin.
+    """
+    x = np.asarray(signal).ravel()
+    if not np.issubdtype(x.dtype, np.floating):     # keep float32 records in float32, as numpy's FFT does
+        x = x.astype(np.float64)
+    x = x[int(discard * len(x)):]
+    x = x - x.mean()
+    if window:
+        x = x * np.hanning(len(x))
+    n = max(int(pad), 1) * len(x)
+    spec = np.abs(np.fft.rfft(x, n))
+    if len(spec) <= 2:
+        return 0.0
+    k: float = int(np.argmax(spec[1:]) + 1)
+    if refine and 1 <= k < len(spec) - 1:
+        a, b, g = (np.log(spec[i] + 1e-30) for i in (k - 1, k, k + 1))
+        den = a - 2 * b + g
+        if den != 0:
+            k = k + 0.5 * (a - g) / den
+    return float(k * (1.0 / (n * dt)))  # same arithmetic as k * np.fft.rfftfreq(n, dt)[1]
 
 
 def damkohler(reaction_rate: float, length: float, velocity: float) -> float:

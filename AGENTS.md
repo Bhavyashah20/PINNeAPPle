@@ -171,6 +171,7 @@ pytest tests/test_public_api.py tests/test_manufactured_solutions.py -q    # the
 pytest tests/test_agents_md.py tests/test_mcp_server.py -q                  # this file and the MCP server
 python scripts/run_colab_notebooks.py --smoke                               # every Colab notebook, tiny sizes
 pinneapple check <result dirs or models>                                    # physics linter (pinneapple_check)
+python scripts/check_app_helpers.py                                         # apps/examples only compose library calls
 ruff check <changed files>
 ```
 
@@ -180,6 +181,11 @@ example from a clean wheel, and the Colab notebooks in smoke mode. Changes go un
 
 ## Never do
 
+- Do not put reusable logic (physics, numerics, geometry, data processing, metrics, plotting helpers, trust checks,
+  IO, solvers, training loops) in `apps/`, `examples/`, `scripts/` or notebooks: it goes in a `pinneapple*` package
+  with a public API and tests, and the app or example imports it. Apps keep only glue (routes, schemas, UI, deploy).
+  `python scripts/check_app_helpers.py` flags new local helper modules and copies of library helpers; the inventory is
+  [docs/dev/LIBRARY_CONSOLIDATION.md](docs/dev/LIBRARY_CONSOLIDATION.md).
 - Do not write a raw PyTorch training loop when `pp.solve`, a trainer or a registered model already does the job.
 - Do not report a result (a number, a field, a plot, "it works") without its physics checks: a trust card or the
   equivalent residual, boundary-condition, conservation and reference checks, and say which ones failed.
