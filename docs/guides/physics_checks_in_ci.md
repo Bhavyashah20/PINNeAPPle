@@ -40,6 +40,7 @@ pinneapple check                 # or: python -m pinneapple.check
 | `.csv` of quantities of interest | `name,value[,unit]` rows, or one row with a column per quantity | regression against a reference with relative or absolute tolerances |
 | Model: `file.py:function` | any framework behind a NumPy function `(N, n_inputs) -> (N, n_outputs)` | PDE residual and divergence by central differences at sampled points, balances on a grid over its domain, boundary and initial conditions, bounds, training range of the queries, reference points |
 | Model: `.pt` checkpoint + `architecture` (a `pp.list_models()` name) | scanned first, then `torch.load(weights_only=True)`; training range from `metadata.domain_bounds` | the same, plus PC803 |
+| Model: `zoo = "name"` (a `pp.zoo.list()` name) | the pre-trained, verified model; inputs, outputs and validity range from its model card | the same; without a full `domain`, predictions are checked at the queries |
 | Model: `hub = "org/name"` | `pinneapple_hub.from_pretrained`; training range from the model card | the same |
 | Artefacts | `[integrity]`: manifest, public key, signed globs; `sha256 = ...` on a target | hashes, signatures, untracked files |
 

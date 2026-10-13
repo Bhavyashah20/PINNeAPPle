@@ -395,7 +395,6 @@ def torch_fixture() -> None:
     import sys
     sys.path.insert(0, str(HERE.parents[1]))
     import torch
-
     from pinneapple_neural.architectures.registry import ModelRegistry
     torch.manual_seed(0)
     d = HERE / "torch"
@@ -404,6 +403,12 @@ def torch_fixture() -> None:
     m.save_checkpoint(str(d / "models/plate_pinn.pt"), metadata={"domain_bounds": {"x": [0.0, 1.0], "y": [0.0, 0.5]}})
     (d / "models/queries.csv").write_text("x,y\n0.1,0.1\n0.5,0.25\n0.9,0.45\n")
     (d / "models/queries_out.csv").write_text("x,y\n0.5,0.25\n1.2,0.25\n")
+    # a pre-trained pp.zoo model queried inside the validity range of its card
+    (d / "models/heatsink_queries.csv").write_text(
+        "base_width_mm,base_depth_mm,base_thickness_mm,n_fins,fin_thickness_mm,fin_height_mm,k_w_mk,"
+        "source_width_mm,source_depth_mm,t_ambient_c,air_velocity_m_s,power_w\n"
+        "80,80,6,15,1.5,35,200,30,30,25,2.5,80\n"
+        "120,100,8,20,1.2,40,380,40,40,35,4.0,150\n")
 
 
 def main() -> None:

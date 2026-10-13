@@ -24,7 +24,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   untracked artefacts (PC8xx), method status in the catalog (PC9xx).
   - Reads OpenFOAM cases (with `phi`, so continuity is checked on the solver's own flux), VTK/VTU, NPZ/HDF5 grids
     and point tables, CSV of quantities of interest; models as a `file.py:function`, a PINNeAPPle checkpoint with
-    its zoo name (scanned before loading; training range from its metadata) or a hub model. Physics:
+    its architecture name (scanned before loading; training range from its metadata), a `pp.zoo` model (range from
+    its card) or a hub model. Physics:
     incompressible flow, heat, linear elasticity, generic conservation law.
   - `pinneapple-check.toml` or `[tool.pinneapple.check]` in `pyproject.toml`, zero-config discovery, `--select` /
     `--ignore` prefixes, `--format text|json|sarif|junit|github|summary`, a baseline to adopt it gradually, exit

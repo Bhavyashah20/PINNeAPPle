@@ -57,7 +57,7 @@ def _split(h: str) -> str:
 
 def check_model(ctx: Ctx, t: ModelTarget) -> LoadedModel | None:
     p = Path(str(t.path))
-    if not t.hub and p.suffix.lower() in (".pt", ".pth", ".ckpt", ".bin") and p.is_file():
+    if not t.hub and not t.zoo and p.suffix.lower() in (".pt", ".pth", ".ckpt", ".bin") and p.is_file():
         rep = scan(p)
         ctx.emit("PC803", "checkpoint", rep.safe,
                  f"{p.name}: pickle imports {', '.join(sorted(rep.dangerous)) or 'only allow-listed callables'}"
@@ -71,6 +71,7 @@ def check_model(ctx: Ctx, t: ModelTarget) -> LoadedModel | None:
         ctx.emit("PC001", "load", False, f"cannot load model {t.name}: {e}")
         return None
     ctx.emit("PC001", "load", True, f"loaded model {t.name}")
+    t.inputs, t.outputs = t.inputs or model.inputs, t.outputs or model.outputs
     _method(ctx, t)
     rng_box = {**model.train_range, **t.train_range}
     domain = {**rng_box, **t.domain}
@@ -83,15 +84,24 @@ def check_model(ctx: Ctx, t: ModelTarget) -> LoadedModel | None:
     if t.queries is not None:
         _ood(ctx, t, model, rng_box)
     missing = [a for a in t.inputs if a not in domain]
-    if missing:
+    X = None
+    if not missing:
+        X = _sample(domain, t.inputs, t.n_points, t.seed)
+    elif t.queries is not None:                       # no box to sample: check the predictions at the queries
+        try:
+            cols, _ = read_table(t.queries)
+            if all(a in cols for a in t.inputs):
+                X = np.column_stack([cols[a] for a in t.inputs])
+        except Exception:                             # already reported by the range check
+            X = None
+    if X is None:
         ctx.note(f"no domain for input(s) {', '.join(missing)}: give `domain` or `train-range` to check the "
                  "predictions")
     else:
-        X = _sample(domain, t.inputs, t.n_points, t.seed)
         try:
             P = model(X)
         except Exception as e:
-            ctx.emit("PC001", "predict", False, f"the model failed on {len(X)} sampled inputs: {e}")
+            ctx.emit("PC001", "predict", False, f"the model failed on {len(X)} inputs: {e}")
             return model
         where = lambda i: ", ".join(f"{a}={X[i, k]:.4g}" for k, a in enumerate(t.inputs))   # noqa: E731
         loc = ctx.default_location()
@@ -100,12 +110,16 @@ def check_model(ctx: Ctx, t: ModelTarget) -> LoadedModel | None:
                 check_values(ctx, n, v, t.units.get(n), loc, where)
                 if n in t.units:
                     check_units(ctx, n, None, t.units[n], v, loc, False)
-        if t.physics and t.physics != "none":
-            _physics(ctx, t, model, domain, params, loc)
-        if t.bc:
-            _bc(ctx, t, model, domain, loc)
-        if t.ic:
-            _ic(ctx, t, model, domain, loc)
+        if missing:
+            ctx.note(f"physics, boundary and initial conditions need a `domain` for {', '.join(missing)}; "
+                     "predictions checked at the queries only")
+        else:
+            if t.physics and t.physics != "none":
+                _physics(ctx, t, model, domain, params, loc)
+            if t.bc:
+                _bc(ctx, t, model, domain, loc)
+            if t.ic:
+                _ic(ctx, t, model, domain, loc)
     if t.reference is not None:
         _reference(ctx, t, model)
     substantive = ctx.ran - {"PC001", "PC403", "PC502", "PC504", "PC803"}

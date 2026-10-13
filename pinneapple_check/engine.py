@@ -41,7 +41,9 @@ def run(paths: list[str | Path] | None = None, *, config: Config | str | Path | 
     report = Report(config_file=cfg.rel(cfg.file) if cfg.file else None, root=str(cfg.root))
     targets = cfg.targets
     if targets and roots and not (cfg.file and any(r == cfg.file.resolve() for r in roots)):
-        targets = [t for t in targets if _under(t.path, roots)]
+        here = cfg.file.parent if cfg.file else cfg.root
+        targets = [t for t in targets if _under(t.path, roots)
+                   or ((getattr(t, "zoo", None) or getattr(t, "hub", None)) and _under(here, roots))]
     elif not targets:
         base = cfg.file.parent if cfg.file else Path.cwd()
         targets = discover([r for r in roots] or [base], cfg.exclude, cfg.root)
@@ -56,8 +58,8 @@ def run(paths: list[str | Path] | None = None, *, config: Config | str | Path | 
                     "physics": t.physics, "declared": t.declared}
         else:
             check_model(ctx, t)
-            info = {"name": t.name, "kind": "model", "path": cfg.rel(Path(str(t.path).rsplit(":", 1)[0]))
-                    if not t.hub else t.hub, "physics": t.physics, "declared": True}
+            where = f"zoo:{t.zoo}" if t.zoo else t.hub if t.hub else cfg.rel(Path(str(t.path).rsplit(":", 1)[0]))
+            info = {"name": t.name, "kind": "model", "path": where, "physics": t.physics, "declared": True}
         if t.sha256:
             check_pin(ctx, t.path, t.sha256)
         notes += ctx.notes

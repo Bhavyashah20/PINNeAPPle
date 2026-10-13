@@ -18,3 +18,9 @@ config = { in_dim = 2, out_dim = 1, hidden = [16, 16] }
 inputs = ["x", "y"]
 outputs = ["T"]
 queries = "models/queries_out.csv"
+
+[[model]]
+name = "heatsink-zoo"
+zoo = "heatsink_forced_mlp"                 # a pre-trained pp.zoo model: inputs, outputs, range from its card
+queries = "models/heatsink_queries.csv"
+bounds = { r_base_k_w = [0, 10], pressure_drop_pa = [0, 2000] }

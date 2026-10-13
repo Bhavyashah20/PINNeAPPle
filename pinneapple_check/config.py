@@ -131,6 +131,7 @@ class ModelTarget(_Target):
     architecture: str | None = None     # zoo name of a checkpoint's architecture
     model_config: dict[str, Any] = field(default_factory=dict)
     hub: str | None = None
+    zoo: str | None = None              # a pp.zoo name (pre-trained, verified model)
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
     train_range: dict[str, list[float]] = field(default_factory=dict)
@@ -286,7 +287,7 @@ def load_config(file: Path | None = None, start: Path | None = None, root: Path 
 
 
 def _path_needle(t: dict[str, Any]) -> str:
-    p = t.get("path") or t.get("hub") or ""
+    p = t.get("path") or t.get("hub") or t.get("zoo") or ""
     return f'"{p}"' if p else "path"
 
 
@@ -340,14 +341,14 @@ def _reference(v, base: Path, where: str) -> Reference | None:
 
 
 def _common(r: dict[str, Any], base: Path, where: str) -> dict[str, Any]:
-    if "path" not in r and "hub" not in r:
+    if "path" not in r and "hub" not in r and "zoo" not in r:
         raise ConfigError(f"{where}: missing `path`")
     tol = _keys(r.get("tolerances") or {})
     bad = set(tol) - set(DEFAULT_TOLERANCES)
     if bad:
         raise ConfigError(f"{where}: unknown tolerance(s) {', '.join(sorted(bad))}; "
                           f"known: {', '.join(DEFAULT_TOLERANCES)}")
-    path = r.get("path") or r.get("hub")
+    path = r.get("path") or r.get("hub") or r.get("zoo")
     return dict(
         name=str(r.get("name") or path),
         path=(base / path) if r.get("path") and ":" not in str(r.get("path"))[2:] else Path(str(path)),
@@ -377,7 +378,7 @@ def _result(r: dict[str, Any], base: Path, where: str) -> ResultTarget:
 
 
 def _model(r: dict[str, Any], base: Path, where: str) -> ModelTarget:
-    known = {"name", "path", "hub", "physics", "parameters", "units", "bounds", "bc", "ic", "reference",
+    known = {"name", "path", "hub", "zoo", "physics", "parameters", "units", "bounds", "bc", "ic", "reference",
              "tolerances", "sha256", "architecture", "config", "inputs", "outputs", "train-range", "train-samples",
              "queries", "domain", "method", "n-points", "seed"}
     if set(r) - known:
@@ -387,11 +388,11 @@ def _model(r: dict[str, Any], base: Path, where: str) -> ModelTarget:
     if p and ":" in p[2:]:                                     # "file.py:function" (a drive letter is not a callable)
         f, fn = p.rsplit(":", 1)
         c["path"] = Path(f"{base / f}:{fn}")
-    if not r.get("inputs") or not r.get("outputs"):
+    if not r.get("zoo") and (not r.get("inputs") or not r.get("outputs")):
         raise ConfigError(f"{where}: a model needs `inputs` and `outputs` (names of its columns)")
     return ModelTarget(
         **c, architecture=r.get("architecture"), model_config=dict(r.get("config") or {}), hub=r.get("hub"),
-        inputs=[str(x) for x in r["inputs"]], outputs=[str(x) for x in r["outputs"]],
+        zoo=r.get("zoo"), inputs=[str(x) for x in r.get("inputs", [])], outputs=[str(x) for x in r.get("outputs", [])],
         train_range={k: [float(a) for a in v] for k, v in (r.get("train-range") or {}).items()},
         train_samples=base / r["train-samples"] if r.get("train-samples") else None,
         queries=base / r["queries"] if r.get("queries") else None,

@@ -10,6 +10,8 @@ Supported ``path`` forms:
   (``BaseModel.save_checkpoint`` or a bare ``state_dict``). Its pickle stream is scanned first (rule PC803) and
   it is loaded with ``weights_only=True``. The training range is read from ``metadata.domain_bounds``.
 * ``hub = "org/name"``: ``pinneapple_hub.from_pretrained``; the training range comes from the model card.
+* ``zoo = "name"``: a pre-trained, verified model of ``pp.zoo`` (weights checked against the zoo manifest); inputs,
+  outputs and the training range (the card's validity range) come from its model card.
 """
 from __future__ import annotations
 
@@ -71,6 +73,8 @@ def _to_numpy(y):
 
 
 def load_model(target) -> LoadedModel:
+    if target.zoo:
+        return _from_zoo(target)
     if target.hub:
         return _from_hub(target)
     spec = str(target.path)
@@ -151,7 +155,6 @@ def _from_checkpoint(target, p: Path) -> LoadedModel:
 def _from_hub(target) -> LoadedModel:
     try:
         import torch
-
         from pinneapple_hub import from_pretrained
     except ImportError as e:
         raise ModelLoadError("hub models need torch and huggingface_hub (pip install 'pinneapple[hub]')") from e
@@ -165,3 +168,24 @@ def _from_hub(target) -> LoadedModel:
 
     rng = {k: [float(a) for a in v] for k, v in (getattr(card, "domain_bounds", None) or {}).items()}
     return LoadedModel(fn, target.inputs, target.outputs, rng)
+
+
+def _from_zoo(target) -> LoadedModel:
+    try:
+        from pinneapple_hub import zoo
+    except ImportError as e:
+        raise ModelLoadError("zoo models need torch (pip install torch)") from e
+    try:
+        m = zoo.load(target.zoo)
+    except Exception as e:
+        raise ModelLoadError(f"pp.zoo model {target.zoo!r}: {e}") from e
+    inputs = target.inputs or list(m.input_names)
+    outputs = target.outputs or list(m.output_names)
+    if inputs != list(m.input_names):
+        raise ModelLoadError(f"pp.zoo model {target.zoo!r} takes inputs {m.input_names}, not {inputs}")
+
+    def fn(X):
+        return m.predict(np.asarray(X, float), warn=False)
+
+    rng = {k: [float(a), float(b)] for k, (a, b) in m.bounds().items()}
+    return LoadedModel(fn, inputs, outputs, rng)

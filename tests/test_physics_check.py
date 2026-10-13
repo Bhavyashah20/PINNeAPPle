@@ -94,6 +94,9 @@ def test_torch_checkpoint_range_from_metadata():
     out = [o for o in r.violations]
     assert [(o.target, o.rule) for o in out] == [("plate-pinn-out-of-range", "PC601")]
     assert any(o.rule == "PC803" and o.passed for o in r.outcomes)
+    zoo = [o for o in r.outcomes if o.target == "heatsink-zoo"]
+    assert any(o.rule == "PC601" and o.passed for o in zoo)          # range from the pp.zoo model card
+    assert any(o.rule == "PC401" and o.passed for o in zoo)          # predictions at the queries
 
 
 def test_unsafe_checkpoint_is_never_loaded(fail_report, monkeypatch):
