@@ -76,12 +76,32 @@ def is_offline(offline: bool | None = None) -> bool:
                for k in ("PINNEAPPLE_OFFLINE", "HF_HUB_OFFLINE"))
 
 
-def entry(kind: str, name: str) -> dict[str, Any]:
-    """The manifest entry of a model (``kind="models"``) or dataset (``kind="datasets"``)."""
+def entry(kind: str, name: str, version: str | None = None) -> dict[str, Any]:
+    """The manifest entry of a model (``kind="models"``) or dataset (``kind="datasets"``); with ``version``, the entry
+    of that release -- the current one or one listed under ``superseded`` (its files are on the Hub, under its
+    own tag; the reason it was superseded is in ``superseded_reason``)."""
     items = manifest()[kind]
     if name not in items:
         raise KeyError(f"no {kind[:-1]} named {name!r} in the zoo; available: {sorted(items)}")
-    return items[name]
+    cur = items[name]
+    if version is None or version == cur["version"]:
+        return cur
+    for old in cur.get("superseded", []):
+        if old["version"] == version:
+            base = {k: v for k, v in cur.items() if k not in ("superseded", "files", "version", "revision")}
+            return {**base, **old}
+    raise KeyError(f"{name!r} has no version {version!r}; versions: "
+                   f"{[cur['version']] + [o['version'] for o in cur.get('superseded', [])]}")
+
+
+def versions(kind: str, name: str) -> list[dict[str, str]]:
+    """Every release of an item, newest first: version, revision and, for older ones, why they were superseded."""
+    cur = entry(kind, name)
+    out = [{"version": cur["version"], "revision": cur["revision"], "status": "current"}]
+    for old in cur.get("superseded", []):
+        out.append({"version": old["version"], "revision": old["revision"], "status": "superseded",
+                    "superseded_by": old.get("superseded_by", ""), "reason": old.get("superseded_reason", "")})
+    return out
 
 
 def _check(path: Path, spec: dict[str, Any], what: str) -> None:
@@ -155,9 +175,10 @@ def _bundled(spec: dict[str, Any]) -> Path | None:
     return p if p.exists() else None
 
 
-def fetch(kind: str, name: str, filename: str, *, offline: bool | None = None) -> Path:
-    """Local path of one file of a model or dataset, verified against the manifest's SHA-256."""
-    ent = entry(kind, name)
+def fetch(kind: str, name: str, filename: str, *, offline: bool | None = None, version: str | None = None) -> Path:
+    """Local path of one file of a model or dataset (``version``: a superseded release instead of the current one),
+    verified against the manifest's SHA-256."""
+    ent = entry(kind, name, version)
     if filename not in ent["files"]:
         raise KeyError(f"{name!r} has no file {filename!r}; files: {sorted(ent['files'])}")
     spec = ent["files"][filename]

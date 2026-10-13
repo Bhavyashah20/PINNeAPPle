@@ -356,7 +356,7 @@ const OPS = {
     }
     return [tensor(idx.dims, out, x.dtype)];
   },
-  Acos: unary(Math.acos),
+  Acos: unary(Math.acos), Floor: unary(Math.floor),
   ConstantOfShape(n, [shp]) {
     const v = attr(n, "value"), d = ints(shp);
     return [tensor(d, new Float64Array(size(d)).fill(v ? v.data[0] : 0), v ? v.dtype : "float32")];

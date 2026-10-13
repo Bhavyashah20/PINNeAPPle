@@ -33,7 +33,7 @@ export async function mount(root, params) {
   const tFx = tile("Drawbar pull Fx", { hero: true, testid: "Fx" }), tFz = tile("Normal load Fz", { testid: "Fz" }), tMy = tile("Driving torque My", { testid: "My" });
   const results = h("div", { class: "card" }, h("h3", {}, h("span", {}, "Prediction"), h("span", { class: "hint", style: "margin:0;text-transform:none;letter-spacing:0", "data-testid": "latency" })),
     h("div", { class: "tiles" }, tFx.el, tFz.el, tMy.el),
-    h("p", { class: "hint" }, "Held-out error vs the analytic model: Fx RMSE 0.21 N on a 1.6 kN range. The Wong–Reece model itself is 4–14 N from published single-wheel tests."));
+    h("p", { class: "hint" }, `Held-out error vs the analytic model (v${model.meta.card.version}): Fx RMSE ${fmt(model.meta.card.validation_metrics["test/Fx_rmse_N"], 2)} N, Fz ${fmt(model.meta.card.validation_metrics["test/Fz_rmse_N"], 2)} N. The Wong–Reece model itself is 4–14 N from published single-wheel tests.`));
   const verdict = h("div");
   const trustCard = h("div", { class: "card" }, h("h3", {}, "Trust verdict"), verdict, h("p", { class: "hint" }, h("a", { href: "#", onclick: (e) => { e.preventDefault(); document.getElementById("trust-open").click(); } }, "Why trust this? Model card and evidence →")));
   root.append(h("div", { class: "mode" }, h("div", { class: "col-left stack" }, controls), h("div", { class: "col-center stack" }, stage, cC), h("div", { class: "col-right stack" }, results, trustCard)));

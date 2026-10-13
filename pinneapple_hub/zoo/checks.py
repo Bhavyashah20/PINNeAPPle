@@ -165,23 +165,47 @@ def _heatsink(zm: ZooModel):
 
 
 # ====================================================================== rover
+def _dfx_sign_table(zm: ZooModel):
+    """Sign (+1 / 0 / -1, beyond the noise level) of dFx/ds of the Wong-Reece reference the model was trained on,
+    over +0.01 slip, on a slip x sinkage grid (slip -0.4..0.3 step 0.01, sinkage 2..60 mm step 1 mm): what the zoo
+    gate compares the model with when the training physics is recorded (``config["physics"]["soil"]``)."""
+    from pinneapple_simulation.terramechanics import WongReeceModel
+    c = zm.config["physics"]
+    span = float(zm.config["y_hi"][0] - zm.config["y_lo"][0])
+    s = np.round(np.arange(-0.4, 0.3 + 1e-9, 0.01), 4)
+    z = np.round(np.arange(0.002, 0.060 + 1e-9, 0.001), 4)
+    S, Z = np.meshgrid(s, z, indexing="ij")
+    m = WongReeceModel.from_physics_config(c)
+    f0 = m.forces(S.ravel(), Z.ravel()).Fx.reshape(S.shape)
+    f1 = m.forces(S.ravel() + 0.01, Z.ravel()).Fx.reshape(S.shape)
+    d = (f1 - f0) / span
+    return {"s0": float(s[0]), "ds": 0.01, "ns": len(s), "z0": float(z[0]), "dz": 0.001, "nz": len(z),
+            "sign": np.where(d > NOISE, 1.0, np.where(d < -NOISE, -1.0, 0.0)).ravel()}
+
+
 def _rover(zm: ZooModel):
     c = zm.config["physics"]
     lo, hi = np.asarray(zm.config["y_lo"]), np.asarray(zm.config["y_hi"])
     span = (hi - lo).tolist()
     groups = {"range": {"name": "Slip and sinkage inside the validity range", "rule": "PC601"}}
     spec = [_rng("slip", 0, -0.4, 0.9, group="range"), _rng("sinkage_m", 1, 0.002, 0.06, group="range")]
+    table = _dfx_sign_table(zm) if "soil" in c else None
     spec += [
-        _chk("finite", "PC403", "Forces finite, soil pushes up (Fz > 0)", ">", 0.0, "fail", "Fz = {value:.1f} N"),
+        # Fz near zero load: a negative value within the model's noise is not unphysical
+        _chk("finite", "PC403", "Forces finite, soil load not negative (beyond 0.2 % of its range)", ">=", -NOISE,
+             "fail", "Fz = {Fz:.1f} N"),
         _chk("mohr", "PC302", "Mohr–Coulomb traction limit Fx ≤ cA + Fz tan φ", "<=", NOISE, "warn",
              "Fx {Fx:.0f} N, limit {limit_N:.0f} N"),
         _chk("torque", "PC302", "Moment balance My ≥ R·Fx", "<=", NOISE, "warn", "My {My:.1f} N·m, R·Fx {RFx:.1f} N·m"),
         _chk("dFz", "PC302", "Deeper sinkage carries more load (dFz/dz ≥ 0)", ">=", -NOISE, "warn",
              "ΔFz over +1 mm: {value:.2%} of the range"),
+        _chk("dFx", "PC302", "dFx/ds has the sign of the Wong–Reece reference (slip ≤ 0.3)", ">=", -NOISE, "warn",
+             "ΔFx over +0.01 slip: {dFx:.2%} of the range, reference sign {ref_sign:.0f} (not tested above s = 0.3)")
+        if table else
         _chk("dFx", "PC302", "More slip, more pull below s = 0.3 (dFx/ds ≥ 0)", ">=", -NOISE, "warn",
              "ΔFx over +0.01 slip: {value:.2%} of the range (not tested above s = 0.3)"),
     ]
-    aux = ["Fx", "limit_N", "My", "RFx"]
+    aux = ["Fx", "limit_N", "My", "RFx", "Fz", "dFx", "ref_sign"]
 
     def values(q, predict):
         import torch
@@ -191,10 +215,23 @@ def _rover(zm: ZooModel):
         Fx, Fz, My = y[:, 0], y[:, 1], y[:, 2]
         theta = torch.acos(torch.clamp(1 - q[:, 1] / c["R_m"], -1.0, 1.0))
         lim = c["c_Pa"] * c["b_m"] * c["R_m"] * theta + Fz * math.tan(math.radians(c["phi_deg"]))
-        cols = [q[:, 0], q[:, 1], Fz + 0 * Fx + 0 * My, (Fx - lim) / span[0], (c["R_m"] * Fx - My) / span[2],
-                (yz[:, 1] - Fz) / span[1], (ys[:, 0] - Fx) / span[0] + torch.clamp(q[:, 0] - 0.3, min=0.0) * 1e3]
-        return torch.stack(cols, 1), torch.stack([Fx, lim, My, c["R_m"] * Fx], 1)
-    return spec, aux, groups, values, None
+        dfx = (ys[:, 0] - Fx) / span[0]
+        if table:
+            # nearest cell of the reference's sign table (step 0.01 slip, 1 mm sinkage)
+            i = torch.clamp(torch.floor((q[:, 0] - table["s0"]) / table["ds"] + 0.5), 0, table["ns"] - 1)
+            j = torch.clamp(torch.floor((q[:, 1] - table["z0"]) / table["dz"] + 0.5), 0, table["nz"] - 1)
+            sgn = torch.index_select(values.sign, 0, (i * table["nz"] + j).long())
+        else:
+            sgn = torch.ones_like(dfx)
+        above = torch.clamp(q[:, 0] - 0.3, min=0.0) * 1e3                  # not tested above s = 0.3
+        cols = [q[:, 0], q[:, 1], Fz / span[1] + 0 * Fx + 0 * My, (Fx - lim) / span[0], (c["R_m"] * Fx - My) / span[2],
+                (yz[:, 1] - Fz) / span[1], sgn * dfx + above]
+        return torch.stack(cols, 1), torch.stack([Fx, lim, My, c["R_m"] * Fx, Fz, dfx, sgn], 1)
+
+    def init():
+        import torch
+        values.sign = torch.tensor(table["sign"] if table else [1.0], dtype=torch.float32)
+    return spec, aux, groups, values, init
 
 
 _BUILDERS = {"airfoil_mlp": _airfoil, "heatsink_forced": _heatsink, "rover_contact": _rover}
@@ -233,6 +270,8 @@ def checks_module(zm: ZooModel, predictor=None):
             self.pred = pred
             if hasattr(values, "geo"):
                 self.geo = values.geo
+            if hasattr(values, "sign"):
+                self.register_buffer("sign", values.sign)
 
         def forward(self, q):
             return values(q, self.pred)
