@@ -9,6 +9,11 @@ name: Publish zoo to the Hugging Face Hub
 
 on:
   workflow_dispatch:
+    inputs:
+      staging_ref:
+        description: "Branch holding the files of Hub-only items as <name>/<file> (empty: bundled items only)"
+        required: false
+        default: ""
   push:
     branches: ["main"]
     paths:
