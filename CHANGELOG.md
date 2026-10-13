@@ -14,6 +14,25 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Multiscale adaptive ensembles (`pinneapple_physics.multiscale`, #599-#604). Models declare the scales they resolve;
+  queries declare the scales they need.
+  - Filters: box, Gaussian and sharp spectral, with exact transfer functions. Restriction and prolongation, post-filter
+    realizability, variable-width filters and their commutation error.
+  - 2-D vorticity DNS and LES (pseudo-spectral, ETDRK4).
+  - Closures: Smagorinsky, dynamic Smagorinsky, gradient (Clark). A-priori tests (stress and tendency correlation,
+    energy transfer, backscatter), a-posteriori tests (spectrum, dissipation, long-run stability) and a label-free
+    closure health check (enstrophy growth, spectral pile-up, Germano-identity error).
+  - Multiscale residuals split into subfilter, commutation and model parts.
+  - Cross-scale consistency check, which names the integral that broke.
+  - `ScaleProfile`, `ScaleQuery` and `ScaleAwareRouter`: a fidelity ladder from surrogate to LES with closure to
+    resolved solver, with a "not covered" answer when no model resolves the requested scale.
+  - Scale-linking models (PyTorch): a scale-conditioned FNO with a filtering-consistency loss, a differentiable LES,
+    and a closure trained a posteriori through the solver.
+  - Decaying 2-D turbulence benchmark, ensemble comparison and animation.
+  - Example `examples/physics_ensemble/multiscale_turbulence.py`; docs page "Multiscale ensembles" and the guide
+    "Choose a model by the scale of the question".
+- `PhysicsEnsemble(prediction_checks=..., error_tolerance=...)`: label-free checks of each prediction, and an error
+  tolerance per context, both escalate through the router's fidelity ladder. A model that fails is still scored.
 - Model zoo `pp.zoo` and dataset hub `pp.datasets` (`pinneapple_hub.zoo`): pre-trained models and ready-made
   datasets you can load in one line. Only items that passed a quality gate ship (an independent reference, physics
   checks, a recorded validity range; for datasets, a verified solver or a public source with a compatible licence).
