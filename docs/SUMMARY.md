@@ -22,6 +22,7 @@
   * [Training Pipeline](core_concepts/training_pipeline.md)
   * [Researcher & Benchmarking](core_concepts/researcher_benchmarking.md)
   * [3D Studio & External Flow](core_concepts/studio.md)
+  * [Animation-centred dashboards](core_concepts/dashboard.md)
   * [Free-surface flow: runners, channels, launders](core_concepts/free_surface.md)
   * [OpenFOAM parameter campaigns on several machines](core_concepts/openfoam_campaigns.md)
   * [Faster implicit pressure solves in OpenFOAM](core_concepts/openfoam_acceleration.md)

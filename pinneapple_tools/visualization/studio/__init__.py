@@ -15,7 +15,14 @@ from .lighting import LightingPreset
 from .scene import MATERIALS, Lines, Scene, Slice, Surface, read_obj, read_stl, scalar_of
 
 __all__ = ["Scene", "Surface", "Lines", "Slice", "MATERIALS", "read_stl", "read_obj", "scalar_of", "JET", "jet",
-           "colorbar", "render", "web_viewer", "serve", "LIGHTING_PRESETS", "LightingPreset"]
+           "colorbar", "render", "web_viewer", "serve", "LIGHTING_PRESETS", "LightingPreset", "Dashboard"]
+
+
+def __getattr__(name):
+    if name == "Dashboard":                        # pp.viz.Dashboard: the animation-centred dashboard
+        from ..dashboard import Dashboard
+        return Dashboard
+    raise AttributeError(name)
 
 
 def render(*a, **kw):
