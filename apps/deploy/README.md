@@ -43,6 +43,7 @@ At your DNS provider, create two **A** records (and AAAA records if you use IPv6
 | `aero` | A | `<server IPv4>` |
 | `lab` | A | `<server IPv4>` |
 | `sky` | A | `<server IPv4>` |
+| `playground` | A | `<server IPv4>` |
 
 If the zone is on Cloudflare, set both records to **DNS only** (grey cloud) for the first start, so
 Let's Encrypt can reach Caddy. Check propagation with `dig +short heatsink.example.org`.
@@ -65,7 +66,7 @@ nano .env        # domains, ACME e-mail, logins (use long passwords)
 
 | Variable | Meaning |
 |---|---|
-| `HSS_DOMAIN`, `PCB_DOMAIN`, `EDH_DOMAIN`, `EDS_DOMAIN`, `SMD_DOMAIN`, `UDR_DOMAIN`, `IHL_DOMAIN`, `PFL_DOMAIN`, `MQA_DOMAIN`, `CMP_DOMAIN`, `LIN_DOMAIN`, `IOP_DOMAIN`, `ADO_DOMAIN`, `OBS_DOMAIN` | Public hostnames (must match the DNS records) |
+| `HSS_DOMAIN`, `PCB_DOMAIN`, `EDH_DOMAIN`, `EDS_DOMAIN`, `SMD_DOMAIN`, `UDR_DOMAIN`, `IHL_DOMAIN`, `PFL_DOMAIN`, `MQA_DOMAIN`, `CMP_DOMAIN`, `LIN_DOMAIN`, `IOP_DOMAIN`, `ADO_DOMAIN`, `OBS_DOMAIN`, `PLG_DOMAIN` | Public hostnames (must match the DNS records) |
 | `ACME_EMAIL` | Let's Encrypt account / expiry notices |
 | `<APP>_USER` / `<APP>_PASSWORD` (HSS, PCB, EDH, EDS, SMD, UDR, IHL, PFL, MQA, CMP, LIN, IOP, ADO, OBS) | HTTP Basic login per app. If either is empty, that app is public. `/health` is always public. |
 | `HSS_MAX_SIZING`, `PCB_MAX_HEAVY`, `EDH/EDS/SMD/UDR/PFL/MQA/CMP/LIN/IOP/ADO_MAX_HEAVY` | Concurrent heavy runs per app. Any excess gets HTTP 429. |
@@ -103,7 +104,7 @@ Caddy. Start only the apps, attached to that proxy's Docker network, and add two
 ```bash
 docker inspect <proxy container> --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
 PROXY_NETWORK=<that network> docker compose -f docker-compose.yml -f docker-compose.existing-proxy.yml \
-  up -d --build heatsink pcb datahealth standardizer simmeta udr inverse preflight mesh compare lineage interop aero lab observatory
+  up -d --build heatsink pcb datahealth standardizer simmeta udr inverse preflight mesh compare lineage interop aero lab observatory playground
 ```
 
 Caddyfile blocks for the existing proxy (then `caddy validate` and `caddy reload` inside its container):
@@ -253,6 +254,10 @@ observatory.example.org {
 		}
 	}
 }
+playground.example.org {
+	encode zstd gzip
+	reverse_proxy pinneapple-playground:8095
+}
 ```
 
 ## PINNeAPPle Observatory (`observatory`)
@@ -261,6 +266,14 @@ Needs outbound HTTPS to `celestrak.org` for satellite TLEs (cached in the `obs_c
 it the satellites layer is empty and everything else works). The JPL DE421 ephemeris ships in the image (`skyfield-data`).
 The browser's location and the phone's motion sensors require HTTPS, which Caddy provides. At start-up the app runs its
 validation suite and trains the default Mars surrogate in the background (~1 min of one CPU core).
+
+## PINNeAPPle Playground (`playground`)
+
+A static site: the zoo models run in the visitor's browser (ONNX), so the container only serves files (Caddy,
+128 MB). There is no login and nothing to keep. Build and run it alone with
+`docker build -f apps/playground/Dockerfile -t pinneapple-playground . && docker run -p 8095:8095 pinneapple-playground`.
+The same build can go to GitHub Pages instead: set the repository variable `PLAYGROUND_PAGES=true` and the docs
+workflow publishes it under `<docs site>/playground/` (see `apps/playground/README.md`).
 
 ## PINNeAPPle Lab catalogue (`lab`)
 

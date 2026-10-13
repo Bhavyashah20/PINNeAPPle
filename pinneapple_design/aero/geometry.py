@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import comb
-from typing import Dict, Tuple
 
 import numpy as np
 
@@ -30,7 +29,7 @@ def cst_surface(w: np.ndarray, x: np.ndarray, te: float) -> np.ndarray:
     return np.sqrt(x) * (1 - x) * (_bern(len(w) - 1, x) @ w) + x * te
 
 
-def surfaces(shape: np.ndarray, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def surfaces(shape: np.ndarray, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Upper and lower y at chord stations x (chord 1, leading edge at 0)."""
     s = np.asarray(shape, float)
     T, M = s[:3], s[3:6]
@@ -66,7 +65,7 @@ REFERENCE = {"NACA 2412": naca4("2412"), "NACA 4412": naca4("4412"), "NACA 0012"
              "NACA 4415": naca4("4415")}
 
 
-def properties(shape: np.ndarray) -> Dict[str, float]:
+def properties(shape: np.ndarray) -> dict[str, float]:
     """Max thickness and camber (fraction of chord) and where they are, LE radius, area (fuel/spar volume proxy)."""
     x = np.linspace(0, 1, 401)
     yu, yl = surfaces(shape, x)
@@ -79,7 +78,7 @@ def properties(shape: np.ndarray) -> Dict[str, float]:
             "spar_depth": float(t[(x >= 0.2) & (x <= 0.35)].min())}
 
 
-def valid(shape: np.ndarray) -> Tuple[bool, str]:
+def valid(shape: np.ndarray) -> tuple[bool, str]:
     x = np.linspace(0, 1, 401)
     yu, yl = surfaces(shape, x)
     t = yu - yl
@@ -91,7 +90,7 @@ def valid(shape: np.ndarray) -> Tuple[bool, str]:
     return True, ""
 
 
-def outline(shape: np.ndarray, n: int = 80) -> Dict[str, list]:
+def outline(shape: np.ndarray, n: int = 80) -> dict[str, list]:
     b = np.linspace(0, np.pi, n)
     x = 0.5 * (1 - np.cos(b))
     yu, yl = surfaces(shape, x)
@@ -120,3 +119,34 @@ def wall_loop(shape: np.ndarray, n_surf: int = 80, n_te: int = 4) -> Loop:
     te = np.stack([np.ones(n_te + 1), np.linspace(yu[-1], yl[-1], n_te + 1)], 1)
     xy = np.concatenate([te[:-1], lower[:-1], upper[:-1]])      # closed, no repeated point
     return Loop(xy, n_te)
+
+
+# ---------------------------------------------------------------------------------------------- direct manipulation
+# y at a chord station is linear in the three CST weights of its surface, so three points per surface fix the shape:
+# drag a point, solve a 3x3 system, get the new weights. Used by the Playground and any shape editor.
+HANDLE_X = np.array([0.06, 0.35, 0.75])
+
+
+def _handle_matrix(xh: np.ndarray = HANDLE_X) -> np.ndarray:
+    xh = np.asarray(xh, float)
+    return (np.sqrt(xh) * (1 - xh))[:, None] * _bern(N_CST, xh)
+
+
+def handles(shape: np.ndarray, xh: np.ndarray = HANDLE_X) -> tuple[np.ndarray, np.ndarray]:
+    """Upper and lower y of the shape at the handle stations ``xh`` (three per surface)."""
+    return surfaces(shape, np.asarray(xh, float))
+
+
+def shape_from_handles(y_upper, y_lower, xh: np.ndarray = HANDLE_X) -> np.ndarray:
+    """The shape (T, M) whose upper/lower surfaces pass through ``y_upper`` / ``y_lower`` at the stations ``xh``."""
+    xh = np.asarray(xh, float)
+    A = _handle_matrix(xh)
+    wu = np.linalg.solve(A, np.asarray(y_upper, float) - xh * TE_THICKNESS / 2)
+    wl = np.linalg.solve(A, np.asarray(y_lower, float) + xh * TE_THICKNESS / 2)
+    return np.concatenate([(wu - wl) / 2, (wu + wl) / 2])
+
+
+def out_of_bounds(shape: np.ndarray) -> list:
+    """Names of the CST weights outside ``BOUNDS`` (the surrogates' training box)."""
+    s = np.asarray(shape, float)
+    return [p for i, p in enumerate(PARAMS) if not BOUNDS[i, 0] - 1e-9 <= s[i] <= BOUNDS[i, 1] + 1e-9]

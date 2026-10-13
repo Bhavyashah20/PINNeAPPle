@@ -1,0 +1,89 @@
+name: Zoo web export and Playground (ONNX parity, JS runtime, browser smoke test)
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "apps/playground/**"
+      - "data/web/**"
+      - "tests/test_zoo_web.py"
+      - "tests/js/zoo_web.test.mjs"
+      - "pinneapple_hub/zoo/**"
+      - "pinneapple_design/aero/**"
+      - "pinneapple_design/geometry_library/**"
+      - "data/geometries/**"
+      - "tests/test_playground.py"
+      - ".github/workflows/playground.yml"
+  pull_request:
+    paths:
+      - "apps/playground/**"
+      - "data/web/**"
+      - "tests/test_zoo_web.py"
+      - "tests/js/zoo_web.test.mjs"
+      - "pinneapple_hub/zoo/**"
+      - "pinneapple_design/aero/**"
+      - "pinneapple_design/geometry_library/**"
+      - "data/geometries/**"
+      - "tests/test_playground.py"
+      - ".github/workflows/playground.yml"
+  workflow_dispatch:
+
+jobs:
+  onnx-parity:
+    # pp.zoo ONNX export: parity with PyTorch to 1e-5 on the zoo test sets, query checks, CST geometry graphs,
+    # and the committed browser bundle (data/web) being current.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install (CPU torch)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[export]" pytest
+      - name: ONNX parity, query checks, stale-bundle checks
+        run: pytest tests/test_zoo_web.py tests/test_playground.py -q -p no:warnings
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/playground
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install the test runner
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: JS runtime of the zoo (ONNX interpreter, query checks, CST geometry) vs Python
+        run: node --test ../../tests/js/zoo_web.test.mjs
+      - name: Browser smoke test (every mode, numbers vs the Python model; onnxruntime-web cross-check)
+        run: npx playwright test
+      - name: Size of the static build
+        run: python3 build.py --out /tmp/playground-site
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image (not pushed)
+        run: docker build -f apps/playground/Dockerfile -t pinneapple-playground:ci .
+      - name: Serve and fetch the page
+        run: |
+          docker run -d --name plg -p 8095:8095 pinneapple-playground:ci
+          for i in $(seq 1 20); do curl -fsS http://localhost:8095/health && break; sleep 1; done
+          curl -fsS http://localhost:8095/ | grep -q "PINNeAPPle Playground"
+          curl -fsS -o /dev/null http://localhost:8095/models/airfoil_cst_rans_mlp.onnx
+          curl -fsS -o /dev/null http://localhost:8095/geometries/viper_rover.light.glb
+          docker rm -f plg
