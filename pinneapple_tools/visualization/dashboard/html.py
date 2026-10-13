@@ -33,10 +33,9 @@ def _r(a, nd=5):
     return [None if not np.isfinite(v) else round(float(v), nd) for v in a.ravel()]
 
 
-def _cmap_stops(name: str, n: int = 9):
-    import matplotlib
-    cm = matplotlib.colormaps[name]
-    return [[i / (n - 1), [int(255 * c) for c in cm(i / (n - 1))[:3]]] for i in range(n)]
+def _cmap_stops(cb, n: int = 9):
+    cols = cb.colors(n)
+    return [[i / (n - 1), [int(255 * c) for c in cols[i]]] for i in range(n)]
 
 
 def _media(db: Dashboard, fps: int, max_width: int, quality: int) -> dict:
@@ -104,7 +103,7 @@ def payload(db: Dashboard) -> dict:
             "time_unit": db.time_unit, "charts": charts, "tiles": tiles,
             "params": [{"label": p.label, "text": p.text()} for p in db.params], "footer": db.footer,
             "colorbar": None if cb is None else {"title": cb.title, "lo": cb.lo, "hi": cb.hi,
-                                                 "stops": _cmap_stops(cb.cmap)},
+                                                 "stops": _cmap_stops(cb)},
             "theme": THEME}
 
 

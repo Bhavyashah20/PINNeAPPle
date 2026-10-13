@@ -23,6 +23,16 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   control, Proctor, Brunton & Kutz 2016), `pinneapple_physics.metrics.rollout_relative_l2`,
   `pinneapple_data.datasets.download.fetch_cached` (URL cache with retries and exponential backoff) and
   `openradioss.read_energy_error` (energy-balance error from the engine log).
+- Zoo model `rover_contact_grc1_viper` v1.1.0 (model and dataset), trained on the library's current physics (GRC-1
+  with slip-sinkage, n1 = 0.8): held-out Fx 0.220 N, Fz 0.470 N, My 0.071 N m RMSE. v1.0.0 (trained without
+  slip-sinkage) stays published and listed under `superseded`; `pp.zoo.load(name, version=...)` and
+  `pp.zoo.versions(name)` (with a `SupersededModelWarning`).
+- Physics guard for surrogates: `WongReeceModel.physics_config()` / `from_physics_config()` and
+  `terramechanics.physics_mismatch`; the zoo card records the physics a model was trained on (`data_lineage.physics`),
+  `ZooContactSurrogate.check_physics` raises a `PhysicsMismatchWarning` and the rover dashboard notes any difference.
+- Field overlays: `SurfaceView(field_saturation=...)`, `dashboard.ColorBar(saturation=...)` and
+  `vehicle.dashboard.render_frames(clim_percentiles=...)` (colour range from the stress the ruts actually carry).
+- `scripts/zoo/build_assets.py --only NAME` rebuilds one item and keeps the published files of the others.
 - Rover dashboard with a semi-transparent stress map and the zoo PINN:
   - `SurfaceView(field_glow=..., far_field=...)`: a field map can sit semi-transparently on the shaded 3-D relief
     (`field_glow=0` is a pure albedo tint, so rut geometry, grouser marks and Sun shading show through) and continue
@@ -171,6 +181,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `pp.cfd.FreeSurfaceFlow`, two meshes with mass balance, impingement, splash, floor shear and mean k).
 
 ### Changed
+- **Behavior:** the zoo gate of `rover_contact_grc1_viper` checks that dFx/ds has the sign of the recorded Wong-Reece
+  reference (with slip-sinkage the pull need not grow with slip at a fixed sinkage) instead of dFx/ds >= 0.
 - **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their
   sinkage grows with driving slip. The validation soils keep n1 = 0. In `VehicleSimulator` the slip that sets the
   exponent lags the wheel's slip over `sink_length` (0.15 m) of rim travel.
