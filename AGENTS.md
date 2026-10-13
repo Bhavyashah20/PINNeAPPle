@@ -24,6 +24,7 @@ On Colab: the notebooks in [`notebooks/colab/`](notebooks/colab/README.md) insta
 
 | Task | API |
 |---|---|
+| Use a pre-trained, verified model or a dataset | `pp.zoo.list()`, `pp.zoo.load(name).predict(...)`, `pp.zoo.validate(name, inputs)`, `pp.datasets.load(name, split=...)` |
 | Describe a problem | `pp.PhysicalProblem.from_preset(name)`, `ProblemBuilder(...)...build()` + `pp.PhysicalProblem.from_pde_spec`, `pp.list_presets()` |
 | Solve it | `pp.solve(problem, method, **options)`: `"pinn"`, `"fem"`, `"analytic"`, `"reference"`, `"exact"`, `"external"` (`pp.list_methods()`) |
 | Compare methods on the same points | `pp.compare(problem, methods, reference=...)` |
@@ -34,8 +35,24 @@ On Colab: the notebooks in [`notebooks/colab/`](notebooks/colab/README.md) insta
 | Animations with synced charts | `pp.dashboard.Dashboard(...)`: `.to_png`, `.to_html`, `.to_video(gif=...)` |
 | Everything from an agent tool call | the MCP server `pinneapple-mcp` ([docs](docs/guides/mcp_server.md)) |
 
-Model zoo, datasets and geometry library (`pp.zoo`, `pp.datasets`, `pp.geometries`) are being added; use them in
-preference to hand-built equivalents once `capabilities()` of the MCP server or `hasattr(pp, "zoo")` reports them.
+Check the zoo before training a surrogate: a zoo model comes with its held-out errors, physics checks and validity
+range. The geometry library (`pp.geometries`) is being added; use it once `hasattr(pp, "geometries")` is true.
+
+### Pre-trained models and datasets
+
+```python
+import pinneapple as pp
+
+print(pp.zoo.list(), pp.datasets.list())
+model = pp.zoo.load("airfoil_cst_rans_mlp")           # weights checked against their SHA-256
+naca2412 = dict(T0=0.169591, T1=0.144959, T2=0.131433, M0=0.024922, M1=0.071088, M2=0.058960)
+out = model.predict(**naca2412, alpha_deg=[4.0])
+print(out["Cl"], out["Cl_std"])                         # mean and ensemble spread (OpenFOAM: Cl 0.6625)
+report = pp.zoo.validate("airfoil_cst_rans_mlp", inputs={**naca2412, "alpha_deg": [4.0]})
+assert report.decisao == "APPROVED"                     # card metrics reproduced, physics checks, validity range
+test = pp.datasets.load("airfoil_rans_cst_re4e6", split="test")
+print(test.n_rows, test.columns[:4])
+```
 
 ### Solve and compare
 

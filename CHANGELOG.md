@@ -15,9 +15,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 
 ### Added
 - Colab notebooks in `notebooks/colab/`, each self-contained (the first cell installs `pinneapple>=0.7.0` and picks
-  the GPU, a parameter cell sets the sizes): a first PINN with its physics checks, an airfoil surrogate validated
-  against stored OpenFOAM runs, an equal-budget benchmark, the lunar rover terramechanics dashboard as a GIF, and a
-  "verify a model" notebook where the trust card catches bad predictions. `scripts/run_colab_notebooks.py` runs
+  the GPU, a parameter cell sets the sizes): a first PINN with its physics checks, an airfoil surrogate from
+  `pp.zoo` validated against stored OpenFOAM runs, an equal-budget benchmark, the lunar rover terramechanics
+  dashboard as a GIF, and a "verify a model" notebook where the trust card catches bad predictions. `scripts/run_colab_notebooks.py` runs
   them headless (`--smoke` for tiny sizes) and checks that the committed copies carry no outputs; a CI job runs them
   in smoke mode. "Open in Colab" badges in the README and the docs (Guides > Colab notebooks).
 - `pp.trust_card` (`pinneapple_analysis.trust.field_card`): physics checks of any field on a grid with NumPy only
@@ -31,7 +31,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - MCP server `pinneapple-mcp` (`pinneapple_mcp`, extra `pinneapple[mcp]`, MCP Python SDK 1.x or 2.x, stdio): tools
   `capabilities`, `list_methods` / `describe_method` (with the catalog's validation status), `list_presets`,
   `solve` and `benchmark` (equal training budget) as jobs with a trust card per result, `trust_card` for any field
-  or file, and `job_status` / `list_jobs` / `cancel_job`. Problems are JSON (a preset or a box problem whose values
+  or file, `zoo_list` / `zoo_predict` / `zoo_validate` for the model zoo, and `job_status` / `list_jobs` /
+  `cancel_job`. Problems are JSON (a preset or a box problem whose values
   are safely parsed expressions); results are saved under a working directory and returned as paths; jobs run in a
   separate process with a wall-time limit, a memory limit and the network switched off. Added to `.mcp.json`; set-up
   for Gemini CLI, Claude Code, Cursor, Codex and a Colab cell in `docs/guides/mcp_server.md`.

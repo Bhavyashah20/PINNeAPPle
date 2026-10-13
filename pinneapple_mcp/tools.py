@@ -134,8 +134,8 @@ def capabilities() -> dict[str, Any]:
     import pinneapple as pp
     cfg = get_config()
     opt = {}
-    for name, mod in (("benchmark", "pinneapple_analysis.benchmark"), ("zoo", "pinneapple_zoo"),
-                      ("datasets", "pinneapple_datasets"), ("geometries", "pinneapple_geometries")):
+    for name, mod in (("benchmark", "pinneapple_analysis.benchmark"), ("zoo", "pinneapple_hub.zoo"),
+                      ("datasets", "pinneapple_hub.zoo.datasets"), ("geometries", "pinneapple_geometries")):
         try:
             opt[name] = importlib.util.find_spec(mod) is not None
         except (ImportError, ValueError):
@@ -148,7 +148,8 @@ def capabilities() -> dict[str, Any]:
     return _clean({"pinneapple_version": pp.__version__, "device": device, "optional_apis": opt,
                    "limits": cfg.to_dict(), "jobs_running": jobs.running(),
                    "tools": ["capabilities", "list_methods", "describe_method", "list_presets", "solve",
-                             "trust_card", "benchmark", "job_status", "list_jobs", "cancel_job"]})
+                             "trust_card", "benchmark", "job_status", "list_jobs", "cancel_job"]
+                   + (["zoo_list", "zoo_predict", "zoo_validate"] if opt.get("zoo") else [])})
 
 
 def list_methods(category: str = "all", validated_only: bool = False) -> dict[str, Any]:
@@ -491,6 +492,74 @@ def benchmark(problem: Mapping[str, Any], methods: Sequence[str] = ("pinn", "fem
             "grid_points_per_axis": int(grid_points_per_axis)}
     jid = jobs.submit("benchmark", args, cfg, max_seconds)
     return jobs.status(jid, cfg, wait_seconds)
+
+
+# ---------------------------------------------------------------------- model zoo and datasets
+def _zoo():
+    try:
+        from pinneapple_hub import zoo
+    except ImportError as exc:
+        raise RuntimeError("the model zoo (pp.zoo) is not in this PINNeAPPle installation; upgrade it") from exc
+    return zoo
+
+
+def _offline() -> bool:
+    return not get_config().allow_network
+
+
+def zoo_list(task: str | None = None) -> dict[str, Any]:
+    """Pre-trained, verified models of the zoo (with what they predict, their validity range and held-out errors)
+    and the datasets of the dataset hub."""
+    zoo = _zoo()
+    models = []
+    for name in zoo.list(task):
+        c = zoo.info(name, offline=_offline())
+        models.append({"name": name, "task": c.task, "inputs": c.inputs, "outputs": c.outputs,
+                       "validity_range": c.validity_range, "validation_metrics": c.validation_metrics,
+                       "reference_source": c.reference_source, "license": c.license, "version": c.version})
+    from pinneapple_hub.zoo import datasets
+    data = []
+    for name in datasets.list():
+        i = datasets.info(name)
+        data.append({"name": name, "title": i.title, "splits": i.splits, "columns": i.columns, "license": i.license})
+    return _clean({"models": models, "datasets": data})
+
+
+def zoo_predict(name: str, inputs: Mapping[str, Any]) -> dict[str, Any]:
+    """Predictions of zoo model ``name`` for ``inputs`` ({input name: value or list}), with the mask of rows inside
+    the model's validity range (rows outside it are reported, never silently extrapolated)."""
+    import warnings
+    zoo = _zoo()
+    m = zoo.load(name, offline=_offline())
+    unknown = sorted(set(inputs) - set(m.input_names))
+    missing = sorted(set(m.input_names) - set(inputs))
+    if unknown or missing:
+        raise ValueError(f"model '{name}' takes inputs {m.input_names}; unknown {unknown}, missing {missing}")
+    cols = {k: np.atleast_1d(np.asarray(v, dtype=float)) for k, v in inputs.items()}
+    if max(len(v) for v in cols.values()) > get_config().max_points:
+        raise ValueError(f"more than {get_config().max_points} rows (PINNEAPPLE_MCP_MAX_POINTS)")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        X = m.as_array(cols)
+        out = m.predict(X, warn=False)
+        inside = m.in_range(X)
+    return _clean({"model": name, "outputs": out, "inside_validity_range": inside,
+                   "n_outside": int((~inside).sum()), "validity_range": m.card.validity_range})
+
+
+def zoo_validate(name: str, inputs: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Trust report of zoo model ``name``: its card metrics reproduced on the stored reference, the zoo acceptance
+    limits, the model's physics checks and, with ``inputs``, whether they are inside its validity range."""
+    import warnings
+    zoo = _zoo()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        rep = zoo.validate(name, None if not inputs else {k: np.atleast_1d(np.asarray(v, dtype=float))
+                                                          for k, v in inputs.items()}, offline=_offline())
+    return _clean({"model": name, "decision": rep.decisao, "score": rep.score, "coverage": rep.cobertura,
+                   "checks": [{"name": c.name, "status": c.status, "critical": c.critical, "value": c.value,
+                               "limit": c.limit, "source": c.source} for c in rep.checks],
+                   "details": rep.details})
 
 
 # ---------------------------------------------------------------------- jobs

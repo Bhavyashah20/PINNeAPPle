@@ -86,6 +86,22 @@ def test_catalog_tools(cfg):
     assert cap["limits"]["allow_network"] is False and "solve" in cap["tools"]
 
 
+def test_zoo_tools(cfg):
+    pytest.importorskip("pinneapple_hub.zoo")
+    z = tools.zoo_list()
+    names = {m["name"] for m in z["models"]}
+    assert "airfoil_cst_rans_mlp" in names and z["datasets"]
+    naca2412 = {"T0": 0.169591, "T1": 0.144959, "T2": 0.131433, "M0": 0.024922, "M1": 0.071088, "M2": 0.05896}
+    p = tools.zoo_predict("airfoil_cst_rans_mlp", {**naca2412, "alpha_deg": [4.0, 30.0]})
+    assert abs(p["outputs"]["Cl"][0] - 0.6625) < 0.01                    # OpenFOAM: 0.6625
+    assert p["inside_validity_range"] == [True, False] and p["n_outside"] == 1
+    with pytest.raises(ValueError):
+        tools.zoo_predict("airfoil_cst_rans_mlp", {"alpha_deg": [4.0]})
+    v = tools.zoo_validate("airfoil_cst_rans_mlp", {**naca2412, "alpha_deg": [4.0]})
+    assert v["decision"] == "APPROVED", v["checks"]
+    assert tools.zoo_validate("airfoil_cst_rans_mlp", {**naca2412, "alpha_deg": [30.0]})["decision"] != "APPROVED"
+
+
 # ---------------------------------------------------------------------- jobs
 def test_solve_job_fem_with_checks(cfg):
     st = tools.solve(PLATE, "fem", {"n": 24}, grid_points_per_axis=25, wait_seconds=180)

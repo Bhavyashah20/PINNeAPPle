@@ -27,6 +27,7 @@ The committed notebooks have their outputs cleared; `--clear` strips them after 
 
 ## Coming next
 
-The model zoo, dataset and geometry libraries (`pp.zoo`, `pp.datasets`, `pp.geometries`) and the equal-budget
-benchmark API (`pp.benchmark`) are being merged. The notebooks already contain the cells that switch to them
-(marked **Model zoo** and **Switch to `pp.benchmark`**) and run them only when the API is installed.
+The airfoil and rover notebooks use the model zoo (`pp.zoo`) when it is installed, and fall back to the repository
+files or to training on PINNeAPPle 0.7.0. The equal-budget benchmark API (`pp.benchmark`) and the geometry library
+(`pp.geometries`) are being merged: the benchmark notebook already has the cell that switches to `pp.benchmark`
+(marked **Switch to `pp.benchmark`**) and runs it only when the API is installed.

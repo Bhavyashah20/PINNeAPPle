@@ -15,7 +15,8 @@ from . import tools as T
 from .config import Config, get_config, set_config
 
 INSTRUCTIONS = """PINNeAPPle: solve, benchmark and validate physics problems (PINNs, classical solvers, surrogates).
-Start with capabilities and list_methods. solve and benchmark start a job: poll job_status with the job_id (or pass
+Start with capabilities and list_methods; zoo_list shows pre-trained, verified models (use them before training
+your own). solve and benchmark start a job: poll job_status with the job_id (or pass
 wait_seconds). Never report a result without its trust card: every solve/benchmark result carries the physics checks
 (PDE residual, boundary conditions, conservation, reference error, applicability) and a decision APPROVED / REVIEW /
 REJECT. Use trust_card to check any field you have (a file or inline values). Results are saved under the working
@@ -133,6 +134,31 @@ def _register(server) -> None:
         training time, and a trust card per run; writes table.md. Returns the job status; poll job_status."""
         return T.benchmark(problem, methods, budget, seeds, reference, options, grid_points_per_axis, max_seconds,
                            wait_seconds)
+
+    @server.tool()
+    def zoo_list(task: Annotated[str | None, Field(description="Filter by task")] = None) -> dict[str, Any]:
+        """Pre-trained, verified models of the model zoo (inputs, outputs, validity range, held-out errors, licence)
+        and the datasets of the dataset hub."""
+        return T.zoo_list(task)
+
+    @server.tool()
+    def zoo_predict(
+        name: Annotated[str, Field(description="Zoo model name, e.g. airfoil_cst_rans_mlp")],
+        inputs: Annotated[dict[str, Any], Field(description=(
+            "{input name: value or list of values}, every input of the model (see zoo_list)"))],
+    ) -> dict[str, Any]:
+        """Predictions of a zoo model, with which rows are inside its validity range."""
+        return T.zoo_predict(name, inputs)
+
+    @server.tool()
+    def zoo_validate(
+        name: Annotated[str, Field(description="Zoo model name")],
+        inputs: Annotated[dict[str, Any] | None, Field(description="Optional query inputs to check against the "
+                                                                   "validity range")] = None,
+    ) -> dict[str, Any]:
+        """Trust report of a zoo model: card metrics reproduced, acceptance limits, physics checks, validity range
+        of the query; decision APPROVED / REVIEW / REJECT."""
+        return T.zoo_validate(name, inputs)
 
     @server.tool()
     def job_status(job_id: Annotated[str, Field(description="Job id from solve or benchmark")],
