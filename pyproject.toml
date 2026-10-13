@@ -73,6 +73,11 @@ twin = [
   "asyncua>=1.1",
 ]
 # FMI: simulate FMUs (FMI 1.0 / 2.0 / 3.0) through fmpy; pythonfmu builds the test FMU
+# Geometry library (pp.geometries): boolean union of the bodies (Geometry.solid), Hub downloads, STEP read-back
+geometry = [
+  "manifold3d>=2.4",
+  "huggingface_hub>=0.20",
+]
 # Problem -> CAD -> fit-for-purpose meshes (pinneapple_design.fitmesh); OpenFOAM is a separate install
 fitmesh = [
   "cadquery>=2.4",

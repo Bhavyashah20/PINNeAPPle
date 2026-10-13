@@ -575,6 +575,9 @@ _SUBMODULES = {
     "cae":        "pinneapple_data.cae",
     # closed bodies for flow studies (Ahmed body, sphere, cylinder, box)
     "bodies":     "pinneapple_design.geometry.bodies",
+    # geometry library: realistic parametric 3-D geometries (airliner, F1 car, VIPER, wind turbine, ship, ...)
+    # with the code that regenerates them and ready-made STL / glTF / STEP / USD / OBJ files
+    "geometries": "pinneapple_design.geometry_library",
     # data and process security: manifests, signatures, provenance, audit trail, privacy/DP, model scanning
     "security":   "pinneapple_security",
     # verification layer of Veriphysics: Decision Record, evidence report, applicability map, robustness, recommendation

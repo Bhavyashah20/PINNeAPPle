@@ -50,6 +50,7 @@
 * [Validation status](validation_status.md)
 * Guides
     * [Recreate a 3D wear twin](guides/recreate_a_wear_twin.md)
+    * [Geometry library](guides/geometry_library.md)
 * [API Reference](api/index.md)
   * [pinneapple](api/pinneapple/index.md)
   * [pinneapple_physics](api/pinneapple_physics/index.md)
