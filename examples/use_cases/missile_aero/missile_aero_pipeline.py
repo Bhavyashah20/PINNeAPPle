@@ -202,17 +202,17 @@ def body_angle_distribution(
 # ══════════════════════════════════════════════════════════════════════════════
 
 def pitot_pressure_ratio(M: float, gamma: float = GAMMA) -> float:
-    """p02/p_inf via Rayleigh Pitot formula (normal shock + isentropic compression)."""
-    g = gamma
-    term1 = ((g + 1)**2 * M**2 / (4.0 * g * M**2 - 2.0 * (g - 1.0))) ** (g / (g - 1.0))
-    term2 = (1.0 - g + 2.0 * g * M**2) / (g + 1.0)
-    return term1 * term2
+    """p02/p_inf via Rayleigh Pitot formula (normal shock + isentropic compression): the library function."""
+    from pinneapple_physics.closed_form.compressible import pitot_pressure_ratio as pitot
+
+    return pitot(M, gamma)
 
 
 def cp_max_newtonian(M: float, gamma: float = GAMMA) -> float:
-    """Stagnation Cp using Modified Newtonian (exact shock + Pitot)."""
-    p02_ratio = pitot_pressure_ratio(M, gamma)
-    return (2.0 / (gamma * M**2)) * (p02_ratio - 1.0)
+    """Stagnation Cp using Modified Newtonian (exact shock + Pitot): the library function."""
+    from pinneapple_physics.closed_form.compressible import cp_max_newtonian as cp_max
+
+    return cp_max(M, gamma)
 
 
 def cf_van_driest(M: float, Re_x: float, T_ratio: float = 1.0, gamma: float = GAMMA) -> float:
