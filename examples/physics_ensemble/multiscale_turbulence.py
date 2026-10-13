@@ -430,6 +430,19 @@ def sweep_report(assets="docs/assets/physics_ensemble"):
     frontier_figure(pts, Path(assets) / "multiscale_frontier.png", base,
                     title="Error against cost: cost weight (A) or error tolerance (B-D)")
     (OUT / "sweep.json").write_text(json.dumps(rows, indent=1, default=float))
+    # the default operating points (A: cost weight 0.1; B-D: tolerance 0.25) as the main table and figure
+    main_cfg = {f"A|cost weight {SWEEP_COST[0]:g}": DEFAULT_CONFIGS[0],
+                **{f"{c.split('.')[0]}|tolerance {TOLERANCE:g}": c for c in DEFAULT_CONFIGS[1:]}}
+    main_runs = {s: (qs, {**{v: res[k] for k, v in main_cfg.items()}, "_cost": res["_cost"]})
+                 for s, (qs, res) in runs.items()}
+    main_rows = summarise_runs(main_runs, prof, list(DEFAULT_CONFIGS), BENCH.widths, solver="DNS-128",
+                               target=TOLERANCE)
+    previous = json.loads((OUT / "results.json").read_text())
+    md = markdown_tables(main_rows, BENCH.widths, previous["closure_flags"], previous["scale_conditioning"],
+                         previous["closure_benchmark"])
+    (OUT / "results.md").write_text(md)
+    print(md)
+    summary_figure(main_rows, BENCH.widths, Path(assets) / "multiscale_summary.png", previous["scale_conditioning"])
     return rows
 
 

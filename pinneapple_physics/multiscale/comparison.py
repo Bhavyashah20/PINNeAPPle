@@ -359,11 +359,14 @@ def summary_figure(rows: Sequence[dict], widths: Sequence[int], path: str | Path
         a.scatter(r["cost_chosen"], 100 * r["error"], s=70, color=colors[i % len(colors)], zorder=3)
         a.annotate(r["config"].split(".")[0], (r["cost_chosen"], 100 * r["error"]), textcoords="offset points",
                    xytext=(6, 4), fontsize=9)
+    base: dict[tuple, list[str]] = {}
     for r in rows:
         if r not in cfg:
-            a.scatter(r["cost_chosen"], 100 * r["error"], s=50, marker="s", color="0.45", zorder=3)
-            a.annotate(r["config"], (r["cost_chosen"], 100 * r["error"]), textcoords="offset points",
-                       xytext=(6, -10), fontsize=7, color="0.3")
+            base.setdefault((round(r["cost_chosen"], 6), round(r["error"], 6)), []).append(r["config"])
+    for (x, y), labs in base.items():                                  # coinciding baselines share one label
+        a.scatter(x, 100 * y, s=50, marker="s", color="0.45", zorder=3)
+        a.annotate(" = ".join(labs), (x, 100 * y), textcoords="offset points", xytext=(-6, -12), fontsize=7,
+                   color="0.3", ha="right")
     a.set_xscale("log")
     a.set_xlabel("wall time of the chosen model per query (s, CPU)")
     a.set_ylabel("mean relative L2 error (%)")
@@ -415,9 +418,13 @@ def frontier_figure(points: Mapping[str, Sequence[tuple[float, float, str]]], pa
         a.plot([p[0] for p in pts], [100 * p[1] for p in pts], "-o", color=c, lw=2, ms=6, label=name)
         for x, y, lab in pts:
             a.annotate(lab, (x, 100 * y), textcoords="offset points", xytext=(5, 4), fontsize=7, color="0.3")
+    merged: dict[tuple, list[str]] = {}
     for x, y, lab in baselines:
+        merged.setdefault((round(x, 6), round(y, 6)), []).append(lab)
+    for (x, y), labs in merged.items():
         a.scatter([x], [100 * y], marker="s", s=45, color="0.45", zorder=3)
-        a.annotate(lab, (x, 100 * y), textcoords="offset points", xytext=(5, -10), fontsize=7, color="0.3")
+        a.annotate(" = ".join(labs), (x, 100 * y), textcoords="offset points", xytext=(-6, -12), fontsize=7,
+                   color="0.3", ha="right")
     a.set_xscale("log")
     a.set_xlabel("wall time of the chosen model per query (s, CPU)")
     a.set_ylabel("mean relative L2 error (%)")
