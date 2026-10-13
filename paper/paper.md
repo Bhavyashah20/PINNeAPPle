@@ -17,7 +17,7 @@ authors:
     orcid: 0000-0002-7882-5913
     affiliation: 2
 affiliations:
-  - name: TODO, Country # TODO: affiliation of Yan Barros
+  - name: PINNeAPPle Labs, Brazil
     index: 1
   - name: TODO, Country # TODO: affiliation of Enrico Schiassi
     index: 2
@@ -164,13 +164,22 @@ data, and checking finite-element and OpenFOAM results against analytical
 solutions, engineering correlations and CalculiX. The repository has received issues and pull
 requests from contributors outside the author team.
 
-<!-- TODO (authors): add publications, preprints or external research groups
-that use PINNeAPPle. JOSS requires evidence of research use at submission. -->
+Beyond the Lab, PINNeAPPle is the basis of the PINNeAPPle-Benchmark repository
+(<https://github.com/PINNeAPPle-Labs/PINNeAPPle-Benchmark>), where each research
+experiment ships its code, results and a technical report generated from them:
+a physics-informed digital twin with parameter identification and anomaly
+detection; a crash surrogate for a bumper beam trained on an OpenRadioss
+design of experiments, reproducing and then improving a Transolver baseline;
+constraint-aware terramechanics surrogates; a heated-channel digital twin
+comparing FNO, DeepONet and POD surrogates with ensemble Kalman filtering;
+a reproduction and improvement of a published pedestrian dead-reckoning
+thesis; and a supersonic shock train in a duct. As of October 2026 the
+repository has external contributors and 17 forks.
 
 # AI usage disclosure
 
 Generative AI tools were used in the development of PINNeAPPle. Claude Code (Anthropic), an
-agentic coding assistant running Claude models (Opus family), was used to write and refactor
+agentic coding assistant running Claude models (Opus family), and ChatGPT (OpenAI) were used to write and refactor
 source code, tests, examples and documentation, to run and analyse simulations and benchmark
 experiments, and to draft parts of this paper. The human authors defined the scope, the
 architecture and the scientific choices of the library, reviewed and edited the assisted
@@ -182,8 +191,7 @@ The authors take full responsibility for the content of the software and of this
 
 We thank everyone who has contributed code, issues and reviews to PINNeAPPle.
 
-<!-- TODO (authors): acknowledge all sources of financial support and state
-whether the sponsors had any involvement in the work, or state that the work
-received no specific funding. -->
+This work received no specific grant from any funding agency in the public,
+commercial or not-for-profit sectors.
 
 # References

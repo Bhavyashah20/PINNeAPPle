@@ -10,7 +10,7 @@ authors:
   - family-names: "Barros"
     given-names: "Yan"
     orcid: "https://orcid.org/0009-0001-8507-8602"
-    # TODO: affiliation
+    affiliation: "PINNeAPPle Labs"
   - family-names: "Schiassi"
     given-names: "Enrico"
     orcid: "https://orcid.org/0000-0002-7882-5913"
