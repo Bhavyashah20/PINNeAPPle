@@ -7,25 +7,25 @@ shell becomes one :class:`Body` with one material per face, so the watertight ch
 from __future__ import annotations
 
 from collections import Counter, OrderedDict
-from typing import Iterable, List, Sequence, Tuple
+from collections.abc import Iterable, Sequence
 
 import numpy as np
 
 from ..core import Body
-from ..meshops import components, edge_stats, weld
+from ..meshops import components, edge_stats
 
-Item = Tuple[str, np.ndarray, np.ndarray, str, str, bool]   # name, V, F, material, group, aero
+Item = tuple[str, np.ndarray, np.ndarray, str, str, bool]   # name, V, F, material, group, aero
 
 
-def bodies_from_items(items: Iterable[Item], prefix: str = "") -> List[Body]:
-    pools: "OrderedDict[str, list]" = OrderedDict()
+def bodies_from_items(items: Iterable[Item], prefix: str = "") -> list[Body]:
+    pools: OrderedDict[str, list] = OrderedDict()
     for it in items:
         pools.setdefault(it[4] or base_name(it[0], it[3]), []).append(it)
-    out: List[Body] = []
+    out: list[Body] = []
     for group, its in pools.items():
         V = np.vstack([np.asarray(i[1], float) for i in its])
         offs = np.cumsum([0] + [len(i[1]) for i in its])[:-1]
-        F = np.vstack([np.asarray(i[2], np.int64) + o for i, o in zip(its, offs)])
+        F = np.vstack([np.asarray(i[2], np.int64) + o for i, o in zip(its, offs, strict=False)])
         mats = np.concatenate([np.full(len(i[2]), i[3], dtype=object) for i in its])
         names = np.concatenate([np.full(len(i[2]), i[0], dtype=object) for i in its])
         aero = np.concatenate([np.full(len(i[2]), bool(i[5])) for i in its])
@@ -68,7 +68,7 @@ def _weld_keep(V, F):
     return V[first], inv.ravel()[F]
 
 
-def drop_degenerate(bodies: Sequence[Body]) -> List[Body]:
+def drop_degenerate(bodies: Sequence[Body]) -> list[Body]:
     out = []
     for b in bodies:
         F = b.faces
@@ -80,9 +80,9 @@ def drop_degenerate(bodies: Sequence[Body]) -> List[Body]:
     return out
 
 
-def close_sheets(bodies: Sequence[Body], thickness: float = 0.004) -> List[Body]:
+def close_sheets(bodies: Sequence[Body], thickness: float = 0.004) -> list[Body]:
     """Give the open sheets of the earlier models (rims, decals) a thickness so every body is a closed shell."""
-    from ..meshops import compact, edge_stats, fix_winding, refan_concave_caps, solidify
+    from ..meshops import edge_stats, fix_winding, refan_concave_caps, solidify
     out = []
     for b in bodies:
         V, F, m = refan_concave_caps(b.vertices, b.faces, b.materials)

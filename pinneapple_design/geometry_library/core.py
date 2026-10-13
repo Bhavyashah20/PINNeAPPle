@@ -9,15 +9,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any
 
 import numpy as np
 
 from . import meshops
 
 #: resolution multiplier per level of detail (the builders scale their sampling with it)
-LODS: Dict[str, float] = {"light": 1.0, "fine": 2.5}
+LODS: dict[str, float] = {"light": 1.0, "fine": 2.5}
 
 FRAME_VEHICLE = ("right-handed, metres: x aft from the nose (the free-stream direction), y to starboard (right), "
                  "z up; origin on the centre plane at the nose, z = 0 on the ground for ground vehicles")
@@ -29,9 +30,9 @@ class Param:
     name: str
     default: Any
     unit: str = ""
-    range: Optional[Tuple[float, float]] = None
+    range: tuple[float, float] | None = None
     doc: str = ""
-    choices: Optional[Tuple[Any, ...]] = None
+    choices: tuple[Any, ...] | None = None
 
     def check(self, value):
         if self.choices is not None:
@@ -48,7 +49,7 @@ class Param:
             raise ValueError(f"{self.name}={value} {self.unit} is outside the documented range {self.range}")
         return value
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         d = {"name": self.name, "default": self.default, "unit": self.unit, "doc": self.doc}
         if self.range is not None:
             d["range"] = list(self.range)
@@ -100,26 +101,26 @@ class GeometrySpec:
     title: str
     category: str
     description: str
-    builder: Callable[[Dict[str, Any], float], List[Body]]
+    builder: Callable[[dict[str, Any], float], list[Body]]
     params: Sequence[Param]
-    dimensions: Dict[str, Tuple[float, float]]           # "length_x": (value_m, relative tolerance)
+    dimensions: dict[str, tuple[float, float]]           # "length_x": (value_m, relative tolerance)
     frame: str
     sources: Sequence[Source]
     physics: Sequence[str]
     materials: Any = field(default_factory=dict)          # dict, or a callable returning one (lazy imports)
     tags: Sequence[str] = ()
-    camera: Dict[str, float] = field(default_factory=dict)  # thumbnail view: azimuth, elevation (deg)
-    max_triangles: Dict[str, int] = field(default_factory=lambda: {"light": 20000, "fine": 400000})
+    camera: dict[str, float] = field(default_factory=dict)  # thumbnail view: azimuth, elevation (deg)
+    max_triangles: dict[str, int] = field(default_factory=lambda: {"light": 20000, "fine": 400000})
     legacy: str = ""                                       # the original class / function this entry wraps
-    self_intersection_exempt: Dict[str, str] = field(default_factory=dict)   # body -> why it is tolerated
+    self_intersection_exempt: dict[str, str] = field(default_factory=dict)   # body -> why it is tolerated
 
-    def material_table(self) -> Dict[str, Dict[str, Any]]:
+    def material_table(self) -> dict[str, dict[str, Any]]:
         return dict(self.materials() if callable(self.materials) else self.materials)
 
-    def defaults(self) -> Dict[str, Any]:
+    def defaults(self) -> dict[str, Any]:
         return {p.name: p.default for p in self.params}
 
-    def resolve(self, overrides: Dict[str, Any]) -> Dict[str, Any]:
+    def resolve(self, overrides: dict[str, Any]) -> dict[str, Any]:
         known = {p.name: p for p in self.params}
         bad = sorted(set(overrides) - set(known))
         if bad:
@@ -129,7 +130,7 @@ class GeometrySpec:
             out[k] = known[k].check(v)
         return out
 
-    def info(self) -> Dict[str, Any]:
+    def info(self) -> dict[str, Any]:
         return {
             "name": self.name, "title": self.title, "category": self.category, "description": self.description,
             "units": "m", "frame": self.frame,
@@ -143,7 +144,7 @@ class GeometrySpec:
         }
 
 
-REGISTRY: Dict[str, GeometrySpec] = {}
+REGISTRY: dict[str, GeometrySpec] = {}
 
 
 def register(spec: GeometrySpec) -> GeometrySpec:
@@ -167,7 +168,7 @@ def get_spec(name: str) -> GeometrySpec:
     return REGISTRY[name]
 
 
-def params_hash(name: str, params: Dict[str, Any], lod: str) -> str:
+def params_hash(name: str, params: dict[str, Any], lod: str) -> str:
     blob = json.dumps({"name": name, "lod": lod, "params": params}, sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
@@ -177,8 +178,8 @@ def params_hash(name: str, params: Dict[str, Any], lod: str) -> str:
 class Geometry:
     """A built library geometry: closed bodies with materials, in metres, in the documented frame."""
     name: str
-    bodies: List[Body]
-    params: Dict[str, Any]
+    bodies: list[Body]
+    params: dict[str, Any]
     lod: str
     spec: GeometrySpec
 
@@ -190,16 +191,16 @@ class Geometry:
     def n_triangles(self) -> int:
         return int(sum(len(b.faces) for b in self.bodies))
 
-    def mesh(self, aero_only: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+    def mesh(self, aero_only: bool = False) -> tuple[np.ndarray, np.ndarray]:
         """All bodies concatenated (each stays a separate closed shell): ``(V, F)``."""
         bs = [b for b in self.bodies if b.aero or not aero_only]
         return meshops.concat([(b.vertices, b.faces) for b in bs])
 
-    def bounds(self) -> Tuple[np.ndarray, np.ndarray]:
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
         V = np.vstack([b.vertices for b in self.bodies])
         return V.min(0), V.max(0)
 
-    def dimensions(self) -> Dict[str, float]:
+    def dimensions(self) -> dict[str, float]:
         lo, hi = self.bounds()
         d = hi - lo
         return {"length_x": float(d[0]), "width_y": float(d[1]), "height_z": float(d[2])}
@@ -212,13 +213,13 @@ class Geometry:
     def area(self) -> float:
         return float(sum(meshops.area(b.vertices, b.faces) for b in self.bodies))
 
-    def solid(self, aero_only: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+    def solid(self, aero_only: bool = True) -> tuple[np.ndarray, np.ndarray]:
         """Boolean union of the closed bodies: one watertight, self-intersection-free surface for meshing
         (needs ``manifold3d``)."""
         bs = [(b.vertices, b.faces) for b in self.bodies if b.closed and (b.aero or not aero_only)]
         return meshops.union(bs)
 
-    def check(self) -> Dict[str, Any]:
+    def check(self) -> dict[str, Any]:
         """Quality report: per body watertight / consistently wound / outward, degenerate faces; overall bounds."""
         rep = {"bodies": {}, "n_triangles": self.n_triangles(), "dimensions": self.dimensions()}
         for b in self.bodies:
@@ -251,13 +252,13 @@ class Geometry:
         MATERIALS.update({k: v for k, v in self.spec.material_table().items() if k not in MATERIALS})
         return Scene(self.surfaces(), axes="z_up", title=self.spec.title)
 
-    def export(self, path: str, fmt: Optional[str] = None) -> str:
+    def export(self, path: str, fmt: str | None = None) -> str:
         """Write ``.stl`` (binary), ``.obj``, ``.glb`` (PBR materials), ``.usda`` / ``.usd`` or ``.step`` (faceted
         B-rep, one solid per closed body)."""
         from .exporters import export
         return export(self, path, fmt)
 
-    def render(self, path: Optional[str] = None, size: Tuple[int, int] = (960, 640), **kw):
+    def render(self, path: str | None = None, size: tuple[int, int] = (960, 640), **kw):
         """Software-rendered thumbnail (PNG / JPG); returns the PIL image."""
         from .render import render_geometry
         return render_geometry(self, path, size=size, **kw)
@@ -287,12 +288,12 @@ def build(name: str, lod: str = "light", **params) -> Geometry:
     return Geometry(name, bodies, p, lod, spec)
 
 
-def names() -> List[str]:
+def names() -> list[str]:
     _ensure_loaded()
     return sorted(REGISTRY)
 
 
-def info(name: str) -> Dict[str, Any]:
+def info(name: str) -> dict[str, Any]:
     return get_spec(name).info()
 
 

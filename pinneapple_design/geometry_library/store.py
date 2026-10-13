@@ -22,7 +22,7 @@ import urllib.error
 import urllib.request
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .exporters import normalise_format
 
@@ -52,13 +52,13 @@ def sha256(path) -> str:
     return h.hexdigest()
 
 
-def read_manifest() -> Dict[str, Any]:
+def read_manifest() -> dict[str, Any]:
     if MANIFEST.exists():
         return json.loads(MANIFEST.read_text())
     return {"version": 1, "hub_repo": HUB_REPO, "repo_type": HUB_REPO_TYPE, "geometries": {}}
 
 
-def write_manifest(m: Dict[str, Any]) -> None:
+def write_manifest(m: dict[str, Any]) -> None:
     MANIFEST.write_text(json.dumps(m, indent=1, sort_keys=True) + "\n")
 
 
@@ -76,11 +76,11 @@ def hub_url(name: str, fname: str) -> str:
     return f"https://huggingface.co/datasets/{repo}/resolve/main/{name}/{fname}"
 
 
-def _entry(name: str, fname: str) -> Optional[Dict[str, Any]]:
+def _entry(name: str, fname: str) -> dict[str, Any] | None:
     return read_manifest().get("geometries", {}).get(name, {}).get("files", {}).get(fname)
 
 
-def _verified(path: Path, entry: Optional[Dict[str, Any]]) -> bool:
+def _verified(path: Path, entry: dict[str, Any] | None) -> bool:
     return path.exists() and (entry is None or sha256(path) == entry["sha256"])
 
 
@@ -118,18 +118,18 @@ def load(name: str, format: str = "stl", lod: str = "light", *, allow_build: boo
         if _download(hub_url(name, fname), cached):
             if _verified(cached, entry):
                 return cached
-            warnings.warn(f"{fname}: the downloaded file does not match the manifest SHA-256; rebuilding it")
+            warnings.warn(f"{fname}: the downloaded file does not match the manifest SHA-256; rebuilding it", stacklevel=2)
             cached.unlink(missing_ok=True)
     if not allow_build:
         raise FileNotFoundError(f"{fname} is not available locally or on the Hub ({hub_url(name, fname)})")
     if entry is not None:
-        warnings.warn(f"{fname} could not be fetched; building it from the code (default parameters)")
+        warnings.warn(f"{fname} could not be fetched; building it from the code (default parameters)", stacklevel=2)
     from .core import build
     g = build(name, lod=lod)
     g.export(str(cached), fmt)
     if entry is not None and sha256(cached) != entry["sha256"]:
         warnings.warn(f"{fname}: the rebuilt file differs bitwise from the manifest (platform floating point); "
-                      "the geometry agrees within the tested tolerance")
+                      "the geometry agrees within the tested tolerance", stacklevel=2)
     return cached
 
 

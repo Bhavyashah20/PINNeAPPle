@@ -417,7 +417,7 @@ def _caarc_build(p, res):
             ringc = [(cx - lx / 2, cy - ly / 2), (cx + lx / 2, cy - ly / 2), (cx + lx / 2, cy + ly / 2),
                      (cx - lx / 2, cy + ly / 2)]
 
-            def rmat(i, fac=fac, n=len(zz)):
+            def rmat(i, fac=fac, n=len(zz)):  # noqa: B008
                 return "glass_window" if (i % 3 == 1 and 0 < i < n - 3) else fac
             Vb, Fb, Mb = _banded_prism(ringc, zz, rmat, lambda j: None, "roof")
             bodies.append(Body(f"building_{k + 1:02d}", Vb, Fb, Mb, "surroundings"))

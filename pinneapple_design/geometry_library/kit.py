@@ -7,13 +7,13 @@ rounded boxes, cylinders, frusta, ellipsoids, swept tubes, extruded polygons (ea
 from __future__ import annotations
 
 import math
-from typing import Callable, Iterable, List, Optional, Sequence, Tuple
+from collections.abc import Iterable, Sequence
 
 import numpy as np
 
 from .meshops import concat, orient_outward, volume
 
-Mesh = Tuple[np.ndarray, np.ndarray]
+Mesh = tuple[np.ndarray, np.ndarray]
 
 
 # ============================================================================================ transforms
@@ -40,7 +40,7 @@ def mirror(mesh: Mesh, axis: int = 1) -> Mesh:
     return V, F[:, ::-1].copy()
 
 
-def with_mirror(mesh: Mesh, axis: int = 1) -> List[Mesh]:
+def with_mirror(mesh: Mesh, axis: int = 1) -> list[Mesh]:
     return [mesh, mirror(mesh, axis)]
 
 
@@ -74,7 +74,7 @@ def ear_clip_fast(P2: np.ndarray) -> np.ndarray:
     guard = 0
     while len(idx) > 3 and guard < 4 * len(P2):
         guard += 1
-        I = np.asarray(idx)
+        I = np.asarray(idx)  # noqa: E741
         A, B, C = P2[np.roll(I, 1)], P2[I], P2[np.roll(I, -1)]
         convex = cr(A, B, C) > 1e-14 * max(float(np.abs(P2).max()) ** 2, 1e-300)
         reflex = I[~convex]
@@ -166,7 +166,7 @@ def revolve(x, r, n: int = 48, axis: str = "x", center=(0.0, 0.0, 0.0), phase: f
 
 
 def superellipse(hw: float, hh: float, n: int, e: float = 2.0, zc: float = 0.0, yc: float = 0.0,
-                 top_e: Optional[float] = None) -> np.ndarray:
+                 top_e: float | None = None) -> np.ndarray:
     """Ring of ``n`` (y, z) points: |y/hw|^e + |z/hh|^e = 1 (``top_e``: another exponent for the upper half)."""
     th = np.linspace(0, 2 * math.pi, n, endpoint=False)
     c, s = np.cos(th), np.sin(th)
@@ -276,7 +276,9 @@ def rounded_box(size, center=(0, 0, 0), radius: float = 0.05, n_side: int = 4, R
     az, sx, sy = [], [], []
     for q, (qx, qy) in enumerate(((1, 1), (-1, 1), (-1, -1), (1, -1))):
         for a in np.linspace(90 * q, 90 * (q + 1), n_side + 1):
-            az.append(math.radians(a)); sx.append(qx); sy.append(qy)
+            az.append(math.radians(a))
+            sx.append(qx)
+            sy.append(qy)
     az, sx, sy = np.array(az), np.array(sx), np.array(sy)
     rings = []
     for hemi in (-1, 1):
@@ -292,7 +294,7 @@ def rounded_box(size, center=(0, 0, 0), radius: float = 0.05, n_side: int = 4, R
     return tf(orient_outward(V, F), R, center)
 
 
-def cylinder(p0, p1, radius, n: int = 32, r1: Optional[float] = None) -> Mesh:
+def cylinder(p0, p1, radius, n: int = 32, r1: float | None = None) -> Mesh:
     """Closed cylinder (or frustum with ``r1``) between two points."""
     p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
     d = p1 - p0
@@ -314,7 +316,7 @@ def ellipsoid(center, radii, nu: int = 24, nv: int = 14, R=None) -> Mesh:
     r = np.sin(th)
     rings = []
     ph = np.linspace(0, 2 * math.pi, nu, endpoint=False)
-    for xi, ri in zip(x, r):
+    for xi, ri in zip(x, r, strict=False):
         rings.append(np.stack([np.full(nu, xi), ri * np.cos(ph), ri * np.sin(ph)], 1))
     V, F = loft(rings, "pole", "pole")
     V[-2] = (-1, 0, 0)
@@ -334,7 +336,7 @@ def tube(path, radius, n: int = 16, radii=None) -> Mesh:
     th = np.linspace(0, 2 * math.pi, n, endpoint=False)
     rings = []
     rr = np.full(len(P), radius, float) if radii is None else np.asarray(radii, float)
-    for k, (p, t) in enumerate(zip(P, T)):
+    for k, (p, t) in enumerate(zip(P, T, strict=False)):
         nrm = nrm - np.dot(nrm, t) * t
         nrm /= np.linalg.norm(nrm)
         b = np.cross(t, nrm)
@@ -351,7 +353,7 @@ def tube_loop(path, radius, n: int = 16) -> Mesh:
     c = P.mean(0)
     th = np.linspace(0, 2 * math.pi, n, endpoint=False)
     rings = []
-    for p, t in zip(P, T):
+    for p, t in zip(P, T, strict=False):
         u = p - c
         u = u - np.dot(u, t) * t
         u /= np.linalg.norm(u)
@@ -459,7 +461,7 @@ def sweep_profile(profile2d, path, up=(0, 0, 1)) -> Mesh:
     T /= np.linalg.norm(T, axis=1, keepdims=True)
     up = np.asarray(up, float)
     rings = []
-    for p, t in zip(P, T):
+    for p, t in zip(P, T, strict=False):
         nn = up - np.dot(up, t) * t
         if np.linalg.norm(nn) < 1e-9:
             nn = np.cross(t, [1.0, 0, 0])

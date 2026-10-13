@@ -112,9 +112,14 @@ try:
     fig, ax = plt.subplots(1, 2, figsize=(10, 3.6))
     ax[0].plot(A[:, 0], A[:, 3], "o-", label="BEM on the library blade")
     ax[0].axhline(5.0, color="k", ls="--", lw=1, label="5 MW rated (electrical)")
-    ax[0].set_xlabel("wind speed [m/s]"); ax[0].set_ylabel("power [MW]"); ax[0].legend()
-    ax[1].plot(A[:, 0], A[:, 4], "o-"); ax[1].set_xlabel("wind speed [m/s]"); ax[1].set_ylabel("thrust [kN]")
-    fig.tight_layout(); fig.savefig(os.path.join(OUT, "nrel5mw_bem_power_curve.png"), dpi=130)
+    ax[0].set_xlabel("wind speed [m/s]")
+    ax[0].set_ylabel("power [MW]")
+    ax[0].legend()
+    ax[1].plot(A[:, 0], A[:, 4], "o-")
+    ax[1].set_xlabel("wind speed [m/s]")
+    ax[1].set_ylabel("thrust [kN]")
+    fig.tight_layout()
+    fig.savefig(os.path.join(OUT, "nrel5mw_bem_power_curve.png"), dpi=130)
     print("wrote", os.path.join(OUT, "nrel5mw_bem_power_curve.png"))
 except ImportError:
     pass

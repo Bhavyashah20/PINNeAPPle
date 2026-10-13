@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..core import FRAME_VEHICLE, Param, Source, GeometrySpec, register
-from ._adapt import bodies_from_items, drop_degenerate, close_sheets
+from ..core import FRAME_VEHICLE, GeometrySpec, Param, Source, register
+from ._adapt import bodies_from_items, close_sheets, drop_degenerate
 
 AIRBUS_AC = ("Airbus (2023). A320 Aircraft Characteristics - Airport and Maintenance Planning, Rev. 41, section 2-2 "
              "(general dimensions). https://aircraft.airbus.com/en/customer-care/fleet-wide-care/airport-operations-"

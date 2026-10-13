@@ -10,8 +10,6 @@ Published values for comparison (A320 class): CL_alpha about 5.5-6 /rad, cruise 
 """
 import math
 
-import numpy as np
-
 import pinneapple as pp
 from pinneapple_design.aero.airliner import Airliner
 from pinneapple_design.aero.vlm import solve

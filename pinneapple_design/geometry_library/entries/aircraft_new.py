@@ -47,7 +47,7 @@ def _skin(xs, hw, zb, zt, e, th):
         rings.append(np.stack([np.full_like(th, x), y, z], 1))
     V, F, i, j = _loft_ij(rings)
     xs = np.asarray(xs, float)
-    n = len(th)
+    len(th)
     th2 = np.r_[th, th[0] + 2 * math.pi]
     xm = np.where(i >= 0, 0.5 * (xs[np.maximum(i, 0)] + xs[np.minimum(np.maximum(i, 0) + 1, len(xs) - 1)]), np.nan)
     tm = 0.5 * (th2[np.maximum(j, 0)] + th2[np.maximum(j, 0) + 1])
@@ -177,7 +177,7 @@ def _window_inserts(centres, half_x, half_z, y_out, depth, n=12, side=1):
     px = half_x * np.sign(c) * np.abs(c) ** (2 / ex)
     pz = half_z * np.sign(s) * np.abs(s) ** (2 / ex)
     out = []
-    for (x, z), yo in zip(centres, y_out):
+    for (x, z), yo in zip(centres, y_out, strict=False):
         poly = np.stack([x + px, z + pz], 1)
         y0, y1 = (yo - depth, yo) if side > 0 else (-yo, -yo + depth)
         out.append(kit.extrude(poly, y0, y1, plane="xz"))
@@ -231,7 +231,10 @@ def _atr_fuselage(res):
             zb.append(float(PchipInterpolator(xk, zbk)(x)))
             e.append(2.0 + 0.2 * x / 4.6)
         elif x <= 17.5:
-            hw.append(HW); zt.append(ZT); zb.append(ZB); e.append(2.2)
+            hw.append(HW)
+            zt.append(ZT)
+            zb.append(ZB)
+            e.append(2.2)
         else:
             s = min((x - 17.5) / 9.67, 1.0)
             hw.append(0.10 + (HW - 0.10) * (1 - s ** 1.8) ** 0.9)
@@ -307,7 +310,7 @@ def _atr(p, res):
     Vwg, Fwg, iw, jw = _lifting_surface(st, nsec, frame=((1.0, 0, 0), (0, 0, 1.0)))
     # de-icing boots: dark leading-edge strip on the outer wing
     cen_w = Vwg[Fwg].mean(1)
-    nsec_pts = 2 * nsec - 2
+    2 * nsec - 2
     jj = np.where(jw >= 0, jw, 0)
     le_band = (jw >= 0) & (np.abs(jj - (nsec - 1)) <= 2) & (np.abs(cen_w[:, 1]) > 1.6)
     wm = np.where(le_band, "deice", "wing_grey").astype(object)
@@ -335,11 +338,16 @@ def _atr(p, res):
     rs = R * (0.11 + 0.89 * (1 - np.cos(np.linspace(0, math.pi / 2, ns))) ** 0.8)
     rs = np.unique(np.r_[rs, 0.93 * R])
     b75 = p["blade_pitch_deg"]
-    chord = lambda r: 0.24 + 0.13 * math.sin(math.pi * min(r / R, 1.0) ** 0.8) - 0.16 * max(r / R - 0.85, 0) / 0.15
-    beta = lambda r: math.degrees(math.atan(math.tan(math.radians(b75)) * 0.75 * R / max(r, 0.2)))
-    tc = lambda r: 0.22 - 0.16 * min(r / R, 1.0) ** 0.7
-    cam = lambda r: 0.03
-    sweep = lambda r: 0.10 * max(r / R - 0.6, 0) ** 2 / 0.16
+    def chord(r):
+        return 0.24 + 0.13 * math.sin(math.pi * min(r / R, 1.0) ** 0.8) - 0.16 * max(r / R - 0.85, 0) / 0.15
+    def beta(r):
+        return math.degrees(math.atan(math.tan(math.radians(b75)) * 0.75 * R / max(r, 0.2)))
+    def tc(r):
+        return 0.22 - 0.16 * min(r / R, 1.0) ** 0.7
+    def cam(r):
+        return 0.03
+    def sweep(r):
+        return 0.10 * max(r / R - 0.6, 0) ** 2 / 0.16
     for side, tag in ((1, "starboard"), (-1, "port")):
         yc = side * yn
         Vn, Fn = kit.body_of_sections(xs_n, hw_n, zb_n, zt_n, nr, 2.3)
@@ -527,7 +535,7 @@ def _h145(p, res):
     zb_c = 1.55 + 0.30 * sb
     rings = []
     th = np.linspace(0, 2 * math.pi, nt, endpoint=False)
-    for x, r, z in zip(xb, rb, zb_c):
+    for x, r, z in zip(xb, rb, zb_c, strict=False):
         rings.append(np.stack([np.full(nt, x), r * np.cos(th), z + 1.08 * r * np.sin(th)], 1))
     Vb, Fb, ib, jb = _loft_ij(rings)
     thm = (np.maximum(jb, 0) + 0.5) * 2 * math.pi / nt
@@ -579,10 +587,14 @@ def _h145(p, res):
             return c_bl * (1 - 0.55 * k ** 1.5)
         return c_bl
 
-    beta = lambda r: coll + tw * (r / Rm - 0.75)
-    tc = lambda r: 0.30 if r < 1.6 else 0.12 if r < Rm - 0.35 else 0.12 - 0.03 * (r - (Rm - 0.35)) / 0.35
-    cam = lambda r: 0.0 if r < 1.6 else 0.01
-    sweep = lambda r: 0.10 * max(r - (Rm - 0.35), 0) / 0.35
+    def beta(r):
+        return coll + tw * (r / Rm - 0.75)
+    def tc(r):
+        return 0.30 if r < 1.6 else 0.12 if r < Rm - 0.35 else 0.12 - 0.03 * (r - (Rm - 0.35)) / 0.35
+    def cam(r):
+        return 0.0 if r < 1.6 else 0.01
+    def sweep(r):
+        return 0.10 * max(r - (Rm - 0.35), 0) / 0.35
     cone = p["coning_deg"]
     for k in range(4):
         Vb_, Fb_, ib_, _ = _blade(rs, chord, beta, tc, cam, sweep, nsb, ax=(0, 0, 1.0), sp=(1.0, 0, 0), sense=1,
@@ -732,14 +744,19 @@ def _quad(p, res):
     r_hub = 0.0085
     rs = r_hub + (Rp - r_hub) * (1 - np.cos(np.linspace(0, math.pi / 2, ns))) ** 0.75
     rs = np.unique(np.r_[0.006, rs])
-    chord = lambda r: (0.010 + 0.016 * math.sin(math.pi * min(r / Rp, 1.0) ** 0.8)) * (
-        1 - 0.55 * max(r / Rp - 0.9, 0) / 0.1)
-    beta = lambda r: math.degrees(math.atan(P / (2 * math.pi * max(r, 0.012))))
-    tc = lambda r: 0.30 if r < 0.010 else 0.10 + 0.08 * max(0.0, 1 - r / (0.5 * Rp))
-    cam = lambda r: 0.04
-    sweep = lambda r: 0.004 * max(r / Rp - 0.6, 0) / 0.4
+    def chord(r):
+        return (0.010 + 0.016 * math.sin(math.pi * min(r / Rp, 1.0) ** 0.8)) * (
+            1 - 0.55 * max(r / Rp - 0.9, 0) / 0.1)
+    def beta(r):
+        return math.degrees(math.atan(P / (2 * math.pi * max(r, 0.012))))
+    def tc(r):
+        return 0.30 if r < 0.010 else 0.10 + 0.08 * max(0.0, 1 - r / (0.5 * Rp))
+    def cam(r):
+        return 0.04
+    def sweep(r):
+        return 0.004 * max(r / Rp - 0.6, 0) / 0.4
     az_off = [0.0, 110.0, 50.0, 150.0]
-    for k, ((dx, dy), sn) in enumerate(zip(dirs, sense)):
+    for k, ((dx, dy), sn) in enumerate(zip(dirs, sense, strict=False)):
         u = np.array([dx, dy], float) / math.sqrt(2)
         phi = math.degrees(math.atan2(u[1], u[0]))
         front = dx < 0

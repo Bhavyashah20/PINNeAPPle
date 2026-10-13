@@ -16,15 +16,29 @@ for meshing (``manifold3d``). See ``docs/guides/geometry_library.md``.
 """
 from __future__ import annotations
 
+import builtins
 import builtins as _builtins
-from typing import Any, Dict, List
+from typing import Any
 
-from .core import (FRAME_VEHICLE, LODS, Body, Geometry, GeometrySpec, Param, Source, build, get_spec, info, names,
-                   register, summary_table)
+from .core import (
+    FRAME_VEHICLE,
+    LODS,
+    Body,
+    Geometry,
+    GeometrySpec,
+    Param,
+    Source,
+    build,
+    get_spec,
+    info,
+    names,
+    register,
+    summary_table,
+)
 from .store import HUB_REPO, load
 
 
-def list(category: str | None = None) -> List[str]:  # noqa: A001 - the documented API name
+def list(category: str | None = None) -> builtins.list[str]:  # noqa: A001 - the documented API name
     """Names of the library geometries (optionally of one ``category``: aircraft, ground_vehicle, rotorcraft,
     energy, marine, space, thermal, turbomachinery, civil, biomedical)."""
     out = names()
@@ -33,8 +47,8 @@ def list(category: str | None = None) -> List[str]:  # noqa: A001 - the document
     return out
 
 
-def categories() -> Dict[str, List[str]]:
-    cats: Dict[str, List[str]] = {}
+def categories() -> dict[str, builtins.list[str]]:
+    cats: dict[str, builtins.list[str]] = {}
     for n in names():
         cats.setdefault(get_spec(n).category, []).append(n)
     return cats

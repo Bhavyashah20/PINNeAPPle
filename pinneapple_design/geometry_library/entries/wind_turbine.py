@@ -47,7 +47,7 @@ def _blade_stations(R_tip: float, hub_r: float, n_span: int, n_sec: int, pitch: 
     t = np.interp(rr, r, tc)
     circ = kit.round_section(n_sec)
     out = []
-    for ri, ci, twi, ti in zip(rr, ch, tw, t):
+    for ri, ci, twi, ti in zip(rr, ch, tw, t, strict=False):
         if ti >= 0.999:
             sec = circ
             pivot = 0.5
@@ -114,7 +114,7 @@ def _build(p, res):
     zs = np.unique(np.r_[np.linspace(0.0, zt, max(10, int(round(24 * res)))), 6.0, 10.0])
     rT = 3.0 + (1.935 - 3.0) * zs / 87.6
     ring = np.linspace(0, 2 * math.pi, nt * 2, endpoint=False)
-    rings = [np.stack([r * np.cos(ring), r * np.sin(ring), np.full_like(ring, z)], 1) for z, r in zip(zs, rT)]
+    rings = [np.stack([r * np.cos(ring), r * np.sin(ring), np.full_like(ring, z)], 1) for z, r in zip(zs, rT, strict=False)]
     Vt, Ft = kit.loft(rings)
     zc = Vt[Ft].mean(1)[:, 2]
     mats = np.where((zc > 6.0) & (zc < 10.0), "tower_band", "turbine_grey")

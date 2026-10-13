@@ -4,11 +4,11 @@ NumPy / SciPy only, except :func:`union` (``manifold3d``). Meshes are ``(V (n, 3
 """
 from __future__ import annotations
 
-from typing import Dict, List, Sequence, Tuple
+from collections.abc import Sequence
 
 import numpy as np
 
-Mesh = Tuple[np.ndarray, np.ndarray]
+Mesh = tuple[np.ndarray, np.ndarray]
 
 
 def concat(meshes: Sequence[Mesh]) -> Mesh:
@@ -63,7 +63,7 @@ def _edges(F: np.ndarray):
     return e
 
 
-def edge_stats(V: np.ndarray, F: np.ndarray) -> Dict[str, int]:
+def edge_stats(V: np.ndarray, F: np.ndarray) -> dict[str, int]:
     """Counts after welding: boundary edges (used once), non-manifold edges (> 2), edges whose two faces disagree
     on the winding."""
     Vw, Fw = weld(V, F)
@@ -108,7 +108,7 @@ def orient_outward(V: np.ndarray, F: np.ndarray) -> Mesh:
     return V, F
 
 
-def quality(V: np.ndarray, F: np.ndarray, closed: bool = True) -> Dict[str, float]:
+def quality(V: np.ndarray, F: np.ndarray, closed: bool = True) -> dict[str, float]:
     es = edge_stats(V, F)
     t = V[F]
     a = 0.5 * np.linalg.norm(np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0]), axis=1)
@@ -179,7 +179,7 @@ def self_intersections(V: np.ndarray, F: np.ndarray, max_pairs: int = 20_000_000
     lvl = np.maximum(lvl, -30)
     buckets = [np.where(lvl == k)[0] for k in np.unique(lvl)]
     trees = [(b, cKDTree(c[b]), float(r[b].max())) for b in buckets]
-    I, J = [], []
+    I, J = [], []  # noqa: E741
     total = 0
     for a in range(len(trees)):
         for b in range(a, len(trees)):
@@ -188,12 +188,14 @@ def self_intersections(V: np.ndarray, F: np.ndarray, max_pairs: int = 20_000_000
             if a == b:
                 p = ta.query_pairs(ra + rb, output_type="ndarray")
                 if len(p):
-                    I.append(ia[p[:, 0]]); J.append(ia[p[:, 1]])
+                    I.append(ia[p[:, 0]])
+                    J.append(ia[p[:, 1]])
             else:
                 lst = ta.query_ball_tree(tb, ra + rb)
                 ii = np.repeat(ia, [len(x) for x in lst])
                 jj = ib[np.concatenate([np.asarray(x, np.int64) for x in lst])] if ii.size else np.zeros(0, np.int64)
-                I.append(ii); J.append(jj)
+                I.append(ii)
+                J.append(jj)
             total += len(I[-1]) if I else 0
             if total > max_pairs:
                 raise RuntimeError(f"more than {max_pairs} candidate pairs")
@@ -222,7 +224,7 @@ def union(meshes: Sequence[Mesh]) -> Mesh:
         import manifold3d as m3d
     except ImportError as e:  # pragma: no cover - optional
         raise ImportError("Geometry.solid() needs manifold3d: pip install manifold3d") from e
-    parts: List = []
+    parts: list = []
     for V, F in meshes:
         Vw, Fw = weld(np.asarray(V, float), np.asarray(F, np.int64))
         mesh = m3d.Mesh(vert_properties=np.ascontiguousarray(Vw, np.float32),
@@ -328,7 +330,7 @@ def refan_concave_caps(V: np.ndarray, F: np.ndarray, materials=None, min_valence
     from .kit import _plane_coords, ear_clip_fast
     F = np.asarray(F, np.int64)
     mats = None if materials is None or isinstance(materials, str) else np.asarray(materials, dtype=object)
-    fn = face_normals(V, F)
+    face_normals(V, F)
     order = np.argsort(F.ravel(), kind="stable")
     verts = F.ravel()[order]
     faces_of = order // 3

@@ -11,7 +11,7 @@ For photoreal renders use Blender through ``pinneapple_tools.visualization.studi
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Optional, Sequence, Tuple
+from collections.abc import Sequence
 
 import numpy as np
 
@@ -66,7 +66,7 @@ def rasterize(sx, sy, depth, F, W, H, persp=True, max_frag=3_000_000):
     idx, key = idx[order], key[order]
     starts = np.r_[0, np.where(np.diff(key))[0] + 1, len(key)]
     invd = 1.0 / Z if persp else Z
-    for s, e in zip(starts[:-1], starts[1:]):
+    for s, e in zip(starts[:-1], starts[1:], strict=False):
         w, h = int(key[s] // 65536), int(key[s] % 65536)
         ox, oy = np.meshgrid(np.arange(w), np.arange(h))
         ox, oy = ox.ravel(), oy.ravel()
@@ -114,7 +114,7 @@ def _blur(a, r):
     return a
 
 
-def _materials(geom) -> Dict[str, Dict]:
+def _materials(geom) -> dict[str, dict]:
     from pinneapple_tools.visualization.studio.scene import MATERIALS
     return {**MATERIALS, **geom.spec.material_table()}
 
@@ -153,14 +153,14 @@ def _sky(d):
     return np.where((z >= 0)[..., None], up + soft, down)
 
 
-def render_geometry(geom, path: Optional[str] = None, size: Tuple[int, int] = (960, 640), azimuth: Optional[float] = None,
-                    elevation: Optional[float] = None, ssaa: int = 2, background: str = "studio", fov_deg: float = 28.0,
-                    ground: Optional[bool] = None, margin: float = 0.90, label: Optional[str] = None):
+def render_geometry(geom, path: str | None = None, size: tuple[int, int] = (960, 640), azimuth: float | None = None,
+                    elevation: float | None = None, ssaa: int = 2, background: str = "studio", fov_deg: float = 28.0,
+                    ground: bool | None = None, margin: float = 0.90, label: str | None = None):
     """Render ``geom`` (a library :class:`Geometry`) and return a PIL image (also saved to ``path`` if given).
 
     ``azimuth`` / ``elevation`` (degrees) default to the entry's camera; azimuth 0 looks from +x (behind for
     vehicles, whose x points aft), measured toward +y."""
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw
 
     cam = geom.spec.camera
     az = math.radians(cam.get("azimuth", 215.0) if azimuth is None else azimuth)
@@ -316,7 +316,7 @@ def _font(px: int):
     return ImageFont.load_default()
 
 
-def contact_sheet(geoms: Sequence, path: str, cols: int = 4, tile: Tuple[int, int] = (480, 330), title: str = "") -> str:
+def contact_sheet(geoms: Sequence, path: str, cols: int = 4, tile: tuple[int, int] = (480, 330), title: str = "") -> str:
     """Grid of thumbnails with names (PNG)."""
     from PIL import Image, ImageDraw
     rows = math.ceil(len(geoms) / cols)
@@ -332,7 +332,7 @@ def contact_sheet(geoms: Sequence, path: str, cols: int = 4, tile: Tuple[int, in
     return path
 
 
-def turntable(geoms: Sequence, path: str, frames: int = 24, cols: int = 4, tile: Tuple[int, int] = (240, 165),
+def turntable(geoms: Sequence, path: str, frames: int = 24, cols: int = 4, tile: tuple[int, int] = (240, 165),
               duration_ms: int = 90) -> str:
     """Animated GIF: every geometry spinning once, in a grid."""
     from PIL import Image

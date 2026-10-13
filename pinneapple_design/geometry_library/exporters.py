@@ -10,7 +10,6 @@ from __future__ import annotations
 import io
 import os
 import struct
-from typing import Optional
 
 import numpy as np
 
@@ -39,7 +38,6 @@ def to_stl(geom, aero_only: bool = False) -> bytes:
 
 def to_obj(geom) -> bytes:
     mats = geom.scene().surfaces
-    from pinneapple_tools.visualization.studio.scene import MATERIALS
     out = io.StringIO()
     out.write(f"# PINNeAPPle geometry library: {geom.name} ({geom.lod}), metres, z up\n")
     out.write(f"mtllib {geom.name}.mtl\n")
@@ -112,7 +110,7 @@ def to_step(geom, aero_only: bool = False) -> bytes:
         faces = []
         fn = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])
         fn /= np.linalg.norm(fn, axis=1, keepdims=True) + 1e-300
-        for (a, bb, c), nn in zip(F, fn):
+        for (a, bb, c), nn in zip(F, fn, strict=False):
             loop = ent(f"POLY_LOOP('',(#{pid0 + a},#{pid0 + bb},#{pid0 + c}))")
             bound = ent(f"FACE_OUTER_BOUND('',#{loop},.T.)")
             e1 = V[bb] - V[a]
@@ -146,7 +144,7 @@ def _real(x: float) -> str:
 WRITERS = {"stl": to_stl, "obj": to_obj, "glb": to_glb, "usda": to_usda, "step": to_step}
 
 
-def export(geom, path: str, fmt: Optional[str] = None) -> str:
+def export(geom, path: str, fmt: str | None = None) -> str:
     fmt = normalise_format(fmt or os.path.splitext(path)[1])
     d = os.path.dirname(os.path.abspath(path))
     os.makedirs(d, exist_ok=True)

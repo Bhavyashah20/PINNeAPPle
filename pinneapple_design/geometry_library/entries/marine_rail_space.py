@@ -450,7 +450,7 @@ def _car(kind, Lcar, Ln, res, th):
         hh = 0.5 * (ZT - ZB) * sc
         xs.append(x)
         prm.append((W2 * sc, zc - hh, zc + hh, TR_EB, TR_ET))
-    rings = [_ring(x, *pp, th) for x, pp in zip(xs, prm)]
+    rings = [_ring(x, *pp, th) for x, pp in zip(xs, prm, strict=False)]
     nr, n = len(rings), len(th)
     V, F = kit.loft(np.array(rings))
     if kind == "head":
@@ -730,7 +730,7 @@ def _kcs_propeller(res, nb=5, D=7.9):
     blades = []
     for k in range(nb):
         rings = []
-        for x, r in zip(xr, rr):
+        for x, r in zip(xr, rr, strict=False):
             c = D * (0.21 + 0.17 * math.sin(math.pi * min(x, 0.999) ** 0.75)) * math.sqrt(max(1 - 0.94 * x ** 2.2, 0.02))
             tc = 0.20 - 0.155 * x
             phi = math.atan(0.997 * D / (2 * math.pi * max(r, 1e-6)))
