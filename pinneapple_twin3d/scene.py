@@ -4,7 +4,8 @@ Export layout (one folder, static files, served by anything)::
 
     scene.json      manifest: parts, fields, time steps, sensors, units, provenance
     geometry.glb    all parts as glTF 2.0 binary meshes (opens in Blender, CAD viewers, three.js)
-    fields.bin      float32 field values, offsets listed in scene.json
+    fields.bin      float32 field values and part motions (position + quaternion per step), offsets listed
+                    in scene.json
     index.html,
     viewer.js       the bundled web viewer (see ``viewer/``), added by ``export(with_viewer=True)``
 
@@ -34,6 +35,7 @@ class Part:
     group: str = ""
     color: Sequence[float] = (0.75, 0.77, 0.8)
     fields: dict[str, np.ndarray] = field(default_factory=dict)  # name -> (V,) or (T, V)
+    motion: np.ndarray | None = None  # (T, 7): position (3) + quaternion (w, x, y, z) per time step
 
 
 @dataclass
@@ -94,6 +96,17 @@ class Scene:
         if unit:
             self.field_units[name] = unit
 
+    def add_motion(self, part: str, positions, quaternions) -> None:
+        """Rigid motion of a part over the scene time steps: the part's vertices are in its own frame and are drawn
+        at ``positions[k] + rotate(quaternions[k], v)`` at step k. ``quaternions`` are (w, x, y, z)."""
+        p = self._part(part)
+        pos = np.asarray(positions, dtype=np.float32).reshape(-1, 3)
+        q = np.asarray(quaternions, dtype=np.float32).reshape(-1, 4)
+        if self.times is None or len(pos) != len(self.times) or len(q) != len(self.times):
+            raise ValueError(f"motion of '{part}': one position and one quaternion per scene time step")
+        q = q / np.linalg.norm(q, axis=1, keepdims=True)
+        p.motion = np.concatenate([pos, q], 1)
+
     def add_sensor(self, id: str, position, *, label: str = "", unit: str = "", quantity: str = "",
                    series=None, envelope=None) -> Sensor:
         if any(s.id == id for s in self.sensors):
@@ -151,6 +164,14 @@ class Scene:
         return [self.render_blender(os.path.join(folder, f"frame_{k:04d}.png"), step=s, **kw)
                 for k, s in enumerate(steps)]
 
+    @staticmethod
+    def _extent(p: Part):
+        """Bounds of a part, over its whole motion when it moves."""
+        if p.motion is None:
+            return p.vertices.min(0), p.vertices.max(0)
+        r = float(np.linalg.norm(p.vertices, axis=1).max())
+        return p.motion[:, :3].min(0) - r, p.motion[:, :3].max(0) + r
+
     # -- export --------------------------------------------------------
     def export(self, folder: str, *, with_viewer: bool = True, usd: bool = False) -> str:
         """Write scene.json + geometry.glb + fields.bin (+ viewer, + scene.usda with ``usd=True``).
@@ -176,9 +197,16 @@ class Scene:
                         "max": float(finite.max()) if finite.size else 0.0,
                     })
                     offset += data.nbytes
+            motion_meta = []
+            for p in self.parts:
+                if p.motion is not None:
+                    data = np.ascontiguousarray(p.motion, dtype="<f4")
+                    fb.write(data.tobytes())
+                    motion_meta.append({"part": p.name, "steps": int(len(data)), "offset": offset})
+                    offset += data.nbytes
 
-        lo = np.min([p.vertices.min(0) for p in self.parts], axis=0)
-        hi = np.max([p.vertices.max(0) for p in self.parts], axis=0)
+        lo = np.min([self._extent(p)[0] for p in self.parts], axis=0)
+        hi = np.max([self._extent(p)[1] for p in self.parts], axis=0)
         manifest = {
             "format": "pinneapple-twin3d/1",
             "title": self.title,
@@ -193,6 +221,7 @@ class Scene:
                        "vertices": int(len(p.vertices)), "triangles": int(len(p.faces))}
                       for i, p in enumerate(self.parts)],
             "fields": field_meta,
+            "motions": motion_meta,
             "sensors": [{"id": s.id, "label": s.label, "unit": s.unit, "quantity": s.quantity,
                          "position": list(s.position),
                          "series": None if s.series is None else [float(v) for v in s.series],

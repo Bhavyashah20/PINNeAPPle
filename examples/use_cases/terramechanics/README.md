@@ -169,6 +169,35 @@ def predict_forces(slip: float, sinkage_m: float):
 
 ---
 
+## Full 3D rover: `lunar_rover_3d.py`
+
+The same Bekker-Wong wheel, now on a six-wheel rocker-bogie rover driving over lunar terrain
+(`pinneapple_simulation.rover`). Each wheel's load, sinkage and slip come from the rover state, and a
+quasi-static equilibrium of body, rockers, bogies and differential is solved at every step. The
+scenarios are a level traverse at three speeds, a drawbar-pull test, climbing until traction fails, a
+crater crossing and a 20 kg payload.
+
+```bash
+python examples/use_cases/terramechanics/lunar_rover_3d.py          # ~7 min, writes docs/assets/lunar_rover/
+python examples/use_cases/terramechanics/lunar_rover_3d.py --quick  # shorter, writes outputs/rover3d/media/
+```
+
+Results from the run:
+- Level traverse: 8.69 J/m.
+- Maximum grade: 28.8° (25.7° with the payload). The "drawbar pull = grade resistance" estimate gives 31.5°.
+- Static sinkage: within 0.67 % of Bekker's closed form.
+- Each wheel: within 1e-10 of the standalone solver.
+
+The PINN surrogate of this use case, as trained, is **not accurate enough** at this rover's wheel loads (about
+10 N). Its torque error is about 2 N·m, while the rover needs 0.15–0.19 N·m per wheel. Assumptions, limits and
+all numbers are in
+[docs/core_concepts/lunar_rover_terramechanics.md](../../../docs/core_concepts/lunar_rover_terramechanics.md).
+
+`train(slip_range=..., sinkage_range=...)` in `terramechanics_rover_pinn.py` retrains the surrogate on another
+box. The defaults keep the original box, and `export_surrogate(..., stem=..., meta_name=...)` names the files.
+
+---
+
 ## Prerequisites
 
 ```bash
@@ -196,6 +225,7 @@ pip install matplotlib numpy   # visualization
 examples/use_cases/terramechanics/
 ├── README.md                          ← this file — pipeline description
 ├── terramechanics_rover_pinn.py       ← complete implementation (run this)
+├── lunar_rover_3d.py                  ← six-wheel rover on lunar terrain (scenarios + verification)
 └── outputs/
     ├── 01_traction_curves.png         ← F_x, F_z, M_y vs slip (PINN vs Bekker-Wong)
     ├── 02_force_maps.png              ← 2D (slip, sinkage) force heatmaps

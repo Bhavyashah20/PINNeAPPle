@@ -95,7 +95,7 @@ async function load() {
   const base = new URL(".", sceneUrl);
   const [gltf, buf] = await Promise.all([
     new GLTFLoader().loadAsync(new URL(m.geometry, base).href),
-    m.fields.length ? fetch(new URL(m.fields_file, base)).then((r) => r.arrayBuffer()) : Promise.resolve(new ArrayBuffer(0)),
+    (m.fields.length || (m.motions || []).length) ? fetch(new URL(m.fields_file, base)).then((r) => r.arrayBuffer()) : Promise.resolve(new ArrayBuffer(0)),
   ]);
   state.fields = buf;
 
@@ -115,6 +115,10 @@ async function load() {
   for (const f of m.fields) {
     const part = state.parts.get(f.part);
     if (part) part.fields.set(f.name, new Float32Array(buf, f.offset, f.steps * f.count));
+  }
+  for (const mo of m.motions || []) {          // rigid motion per step: x, y, z, qw, qx, qy, qz
+    const part = state.parts.get(mo.part);
+    if (part) part.motion = new Float32Array(buf, mo.offset, mo.steps * 7);
   }
   buildUi();
   fitCamera();
@@ -281,6 +285,11 @@ function update() {
   const [vmin, vmax] = state.field ? fieldRange(state.field) : [0, 1];
   const span = vmax - vmin || 1;
   for (const p of state.parts.values()) {
+    if (p.motion) {
+      const k = 7 * Math.min(state.step, p.motion.length / 7 - 1), a = p.motion;
+      p.mesh.position.set(a[k], a[k + 1], a[k + 2]);
+      p.mesh.quaternion.set(a[k + 4], a[k + 5], a[k + 6], a[k + 3]);
+    }
     const vals = state.field ? valuesAt(p, state.field, state.step) : null;
     const mat = p.mesh.material;
     if (!vals) { mat.vertexColors = false; mat.color.copy(p.base); mat.needsUpdate = true; continue; }
