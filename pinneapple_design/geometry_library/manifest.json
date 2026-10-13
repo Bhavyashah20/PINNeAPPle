@@ -1,0 +1,1078 @@
+{
+ "geometries": {
+  "airliner_a320": {
+   "category": "aircraft",
+   "dimensions_m": {
+    "height_z": 10.2327,
+    "length_x": 38.7469,
+    "width_y": 35.4256
+   },
+   "files": {
+    "airliner_a320.fine.glb": {
+     "bytes": 3893344,
+     "location": "hub",
+     "sha256": "9f8e2d9a92e402d8edf3438b8f26fab515cbdbd6463c3ec77dc1ff6042036495"
+    },
+    "airliner_a320.fine.obj": {
+     "bytes": 5600253,
+     "location": "hub",
+     "sha256": "13356e6011541174af27e1c2ba43af70a747f5b4234c9d131caea6f381e53b69"
+    },
+    "airliner_a320.fine.stl": {
+     "bytes": 7843284,
+     "location": "hub",
+     "sha256": "c8a8515362f93494c07c9b6940fe276f4093a818aedd5ee547b5dd5fa83f279f"
+    },
+    "airliner_a320.fine.usda": {
+     "bytes": 8203169,
+     "location": "hub",
+     "sha256": "8e43efae9e762381ea53cc5ae23dc063eeadb9ef407340524e47d671ad6e016a"
+    },
+    "airliner_a320.light.glb": {
+     "bytes": 886624,
+     "location": "repo+hub",
+     "sha256": "9497221907e1e5935cf382dbe71a8260f38c81909e6941ad0ef092161d800ece"
+    },
+    "airliner_a320.light.obj": {
+     "bytes": 1203033,
+     "location": "hub",
+     "sha256": "98a689b353a0e3c6187eee81c19d0ca83971712b7ff8d1c6a5c76a1e132c5108"
+    },
+    "airliner_a320.light.step": {
+     "bytes": 12765182,
+     "location": "hub",
+     "sha256": "ed1819a8d772b6028b2b44cecebcf3a842f41e5c1627cbf19c9f699921815192"
+    },
+    "airliner_a320.light.stl": {
+     "bytes": 1728084,
+     "location": "repo+hub",
+     "sha256": "ddb5f200e0745b3844f7d179b1b9bbf454a39b93cf5caf98898def83583bb316"
+    },
+    "airliner_a320.light.usda": {
+     "bytes": 1769487,
+     "location": "hub",
+     "sha256": "89d7d3311497bc953a1c67674122f9d4dc940c901477454bcc5a25ea5a3384e4"
+    }
+   },
+   "n_triangles": {
+    "light": 34560
+   },
+   "params_hash": {
+    "fine": "da7466d1ad42d48e",
+    "light": "96a0d240621c8fe1"
+   },
+   "title": "Single-aisle airliner (A320 class)"
+  },
+  "aortic_arch": {
+   "category": "biomedical",
+   "dimensions_m": {
+    "height_z": 0.3113,
+    "length_x": 0.113,
+    "width_y": 0.0766
+   },
+   "files": {
+    "aortic_arch.fine.glb": {
+     "bytes": 2060520,
+     "location": "hub",
+     "sha256": "8623503589b4f89fde97030c305cca3b1e4aa38809b7d92682f1a2e352966335"
+    },
+    "aortic_arch.fine.obj": {
+     "bytes": 3171550,
+     "location": "hub",
+     "sha256": "9ac35ada36fa8350dec04956f06c23c57004ec350ae375ded80c728c9c74af9a"
+    },
+    "aortic_arch.fine.stl": {
+     "bytes": 4290084,
+     "location": "hub",
+     "sha256": "48c1612055aab1e74204e8645e2fc50f83ce62611e4fb190ba48755087547e1b"
+    },
+    "aortic_arch.fine.usda": {
+     "bytes": 4443765,
+     "location": "hub",
+     "sha256": "30563d29a854e067dc8641b42b80ff0629c96e5b5a37e56da5aef9cd4144d827"
+    },
+    "aortic_arch.light.glb": {
+     "bytes": 345424,
+     "location": "repo+hub",
+     "sha256": "28e00539e6410b3a956b049fbbe219f41e4075bbfb6f425c4cefb213b4fd33cf"
+    },
+    "aortic_arch.light.obj": {
+     "bytes": 491709,
+     "location": "hub",
+     "sha256": "0c04dcac2cd0768e0264f5f17ee2f98dc99f70f069e068daf1c5dea46791e574"
+    },
+    "aortic_arch.light.step": {
+     "bytes": 5272965,
+     "location": "hub",
+     "sha256": "c05a01f38241dd8fb7809263ddfc3998406eb23d242a26535e06a0a7a0acfff5"
+    },
+    "aortic_arch.light.stl": {
+     "bytes": 716984,
+     "location": "repo+hub",
+     "sha256": "a71f3b691fa33ca3c9d54fb27e0cab5abebc3fae991bb501b553dd94b1ee1d87"
+    },
+    "aortic_arch.light.usda": {
+     "bytes": 705029,
+     "location": "hub",
+     "sha256": "1cb1436eb5b1ccb3bd1d7bb8b9076a615c9f2d9cc1777a69088242530f7f6dc4"
+    }
+   },
+   "n_triangles": {
+    "light": 14338
+   },
+   "params_hash": {
+    "fine": "d0fddc42755fd1d0",
+    "light": "b3145897d7dd069d"
+   },
+   "title": "Human thoracic aorta (arch)"
+  },
+  "caarc_building": {
+   "category": "civil",
+   "dimensions_m": {
+    "height_z": 183.88,
+    "length_x": 600.0,
+    "width_y": 600.0
+   },
+   "files": {
+    "caarc_building.fine.glb": {
+     "bytes": 1346716,
+     "location": "hub",
+     "sha256": "b42c19d9bdaf29f7d0592439fadf021f7e23ffcfa31d57e4502c23eabac5b600"
+    },
+    "caarc_building.fine.obj": {
+     "bytes": 1485114,
+     "location": "hub",
+     "sha256": "069867b966e475a6fca6192f6a01a9951799b0d6cefe8302818e2da9a3933a08"
+    },
+    "caarc_building.fine.stl": {
+     "bytes": 1466684,
+     "location": "hub",
+     "sha256": "f392ca6e73f20b229f4fad2455c3936242d027c590ea67b1c9914d494be0e13b"
+    },
+    "caarc_building.fine.usda": {
+     "bytes": 2840353,
+     "location": "hub",
+     "sha256": "f4229ec6486fca2472c82d28e1f49b121105d14fe531007509738548f2353db6"
+    },
+    "caarc_building.light.glb": {
+     "bytes": 752200,
+     "location": "repo+hub",
+     "sha256": "8fd591e8ceafdc6b43dd172568c804a1f75aff9eeb43e980aa878bd5e8d29c7e"
+    },
+    "caarc_building.light.obj": {
+     "bytes": 788515,
+     "location": "hub",
+     "sha256": "a1357a6ff4deb90fe7ac19c6c754b310e42d47ac85d05fa9a60714330c7d8532"
+    },
+    "caarc_building.light.step": {
+     "bytes": 5325997,
+     "location": "hub",
+     "sha256": "1af0cf9778e47aad08a3ae5f5bef73c8d37a80b4bec2f9a9190771e98e877540"
+    },
+    "caarc_building.light.stl": {
+     "bytes": 831884,
+     "location": "repo+hub",
+     "sha256": "30772c5413cddade5b102e2dd6d06308bffe7ae52a3010df137079f777d80f1a"
+    },
+    "caarc_building.light.usda": {
+     "bytes": 1480361,
+     "location": "hub",
+     "sha256": "56547b78182aabcf8ef939903736b451dec397a57b6bf32aff30881ea0466a44"
+    }
+   },
+   "n_triangles": {
+    "light": 16636
+   },
+   "params_hash": {
+    "fine": "196bdb7ed23009de",
+    "light": "da998bb26f5be528"
+   },
+   "title": "CAARC standard tall building"
+  },
+  "centrifugal_impeller": {
+   "category": "turbomachinery",
+   "dimensions_m": {
+    "height_z": 0.166,
+    "length_x": 0.42,
+    "width_y": 0.42
+   },
+   "files": {
+    "centrifugal_impeller.fine.glb": {
+     "bytes": 1670472,
+     "location": "hub",
+     "sha256": "cc005373acbdf7d9e13e258c2157b90819fd7bb0c35717e12d23a4b1920ae63a"
+    },
+    "centrifugal_impeller.fine.obj": {
+     "bytes": 2517323,
+     "location": "hub",
+     "sha256": "9931013c6e12a138451019312a6a0c2ef34461794d3c6551927c8c5e52e384a7"
+    },
+    "centrifugal_impeller.fine.stl": {
+     "bytes": 3465484,
+     "location": "hub",
+     "sha256": "9ec389a5c21562418e150ca53efe3a3db7f24a8c417e4ba2045318aaa0d6288b"
+    },
+    "centrifugal_impeller.fine.usda": {
+     "bytes": 3447588,
+     "location": "hub",
+     "sha256": "6c4f06b4860a7ece42a958a79ba24e1f0e249449e03cce02a4edd6df3e4d752d"
+    },
+    "centrifugal_impeller.light.glb": {
+     "bytes": 336868,
+     "location": "repo+hub",
+     "sha256": "a45936a8290639687b0bbec04b34f37b7a44792175621a06c8ad715aee1fa3a4"
+    },
+    "centrifugal_impeller.light.obj": {
+     "bytes": 459650,
+     "location": "hub",
+     "sha256": "f57d73935e284c2328682f68386630f586e539e057246d3936ee647da67c8f4e"
+    },
+    "centrifugal_impeller.light.step": {
+     "bytes": 4991515,
+     "location": "hub",
+     "sha256": "22c56845a71ef246b989141e6e6d7cf010dde935fd580215ad66d3c93b097125"
+    },
+    "centrifugal_impeller.light.stl": {
+     "bytes": 687284,
+     "location": "repo+hub",
+     "sha256": "7c2c99ba97a2bf9ad8cda4ed21a5b48e70df8cc2d3a9e875eebff2b81c684074"
+    },
+    "centrifugal_impeller.light.usda": {
+     "bytes": 663038,
+     "location": "hub",
+     "sha256": "9002440ddd6a630f2dc82d624af82f457fe17abe47fa8c923156676f6000e11e"
+    }
+   },
+   "n_triangles": {
+    "light": 13744
+   },
+   "params_hash": {
+    "fine": "a7a632f96285b8b5",
+    "light": "133f1dc0289611f6"
+   },
+   "title": "Closed centrifugal pump impeller"
+  },
+  "container_ship_kcs": {
+   "category": "marine",
+   "dimensions_m": {
+    "height_z": 47.0,
+    "length_x": 241.1425,
+    "width_y": 32.2
+   },
+   "files": {
+    "container_ship_kcs.fine.glb": {
+     "bytes": 1409232,
+     "location": "hub",
+     "sha256": "bde64d998de4848bf525ebd320212c429546c4561dfe5615d80ba7f128994213"
+    },
+    "container_ship_kcs.fine.obj": {
+     "bytes": 1873409,
+     "location": "hub",
+     "sha256": "5342e8f456a9f3720a23b8ea5fd65f5caf609106a4725ffd27e9ff3ea5db5d9c"
+    },
+    "container_ship_kcs.fine.stl": {
+     "bytes": 2783584,
+     "location": "hub",
+     "sha256": "84fd3a84acab15395bf6179cbb9656455c07191bd714c8e1e0ddef9e547a2ea0"
+    },
+    "container_ship_kcs.fine.usda": {
+     "bytes": 2891852,
+     "location": "hub",
+     "sha256": "371faf6dafa657b7a3c9fa85ac534d8c07253adfaca47da237b36f478458b36a"
+    },
+    "container_ship_kcs.light.glb": {
+     "bytes": 448440,
+     "location": "repo+hub",
+     "sha256": "e79c4a2f27ba1463579aa8232c5b0ce7a2bab9a7be09e84ea9c4e65aaae2d950"
+    },
+    "container_ship_kcs.light.obj": {
+     "bytes": 506396,
+     "location": "hub",
+     "sha256": "1ee00806366be4a190a5294a31ef193e2cf5bfec54490408d428d8235d3c4019"
+    },
+    "container_ship_kcs.light.step": {
+     "bytes": 5472995,
+     "location": "hub",
+     "sha256": "4f20c23da88ba4322e05a4fe1ee849c7ea38770ce109f9d625a7c1c612df954f"
+    },
+    "container_ship_kcs.light.stl": {
+     "bytes": 803084,
+     "location": "repo+hub",
+     "sha256": "3643f82830042728aa73c1f9c6a1cf745443c12a6a8fd4afb1efc0076d478cc8"
+    },
+    "container_ship_kcs.light.usda": {
+     "bytes": 876480,
+     "location": "hub",
+     "sha256": "a61f7a8ffea95cfaf330e9567cc8ecc91fd3b018768f48461ae6cbff71c452ad"
+    }
+   },
+   "n_triangles": {
+    "light": 16060
+   },
+   "params_hash": {
+    "fine": "05835955c25b9671",
+    "light": "f58063d859916b4a"
+   },
+   "title": "KRISO Container Ship (KCS), full scale"
+  },
+  "f1_car": {
+   "category": "ground_vehicle",
+   "dimensions_m": {
+    "height_z": 1.03,
+    "length_x": 5.57,
+    "width_y": 1.968
+   },
+   "files": {
+    "f1_car.fine.glb": {
+     "bytes": 588984,
+     "location": "hub",
+     "sha256": "561e8029642a09537415bd9312074e761920a5406a95a0b36bb2ae6d28de70af"
+    },
+    "f1_car.fine.obj": {
+     "bytes": 737659,
+     "location": "hub",
+     "sha256": "48b14553a1f18e0cac3167cc7f9a25c9004d32f5b885dc9867adb6e4a0461e8e"
+    },
+    "f1_car.fine.stl": {
+     "bytes": 1180684,
+     "location": "hub",
+     "sha256": "9a9911f0fa80e14561442bfb7d1548ad3e4048e79f5d5fce7ac39fa9b41782cd"
+    },
+    "f1_car.fine.usda": {
+     "bytes": 1140973,
+     "location": "hub",
+     "sha256": "48e1894f71e7176deeaeeb760d0c25aa0447d549309c912c1a21ca6aac01095b"
+    },
+    "f1_car.light.glb": {
+     "bytes": 588984,
+     "location": "repo+hub",
+     "sha256": "561e8029642a09537415bd9312074e761920a5406a95a0b36bb2ae6d28de70af"
+    },
+    "f1_car.light.obj": {
+     "bytes": 737660,
+     "location": "hub",
+     "sha256": "1d4344bc78d76de646bec2a8a2a78dcc902e2e521fe6cb3bd1c66265293409d5"
+    },
+    "f1_car.light.step": {
+     "bytes": 8577142,
+     "location": "hub",
+     "sha256": "fd8acb7dbb6d9000dd765fc2546fec2bc252027ea19f6a7880b5ad6ea2a94c9f"
+    },
+    "f1_car.light.stl": {
+     "bytes": 1180684,
+     "location": "repo+hub",
+     "sha256": "c2f0c1e5f0386a97988f85c95f9a896cf6d581ca9fba3f153c00c6a21d76f1ed"
+    },
+    "f1_car.light.usda": {
+     "bytes": 1140973,
+     "location": "hub",
+     "sha256": "48e1894f71e7176deeaeeb760d0c25aa0447d549309c912c1a21ca6aac01095b"
+    }
+   },
+   "n_triangles": {
+    "light": 23612
+   },
+   "params_hash": {
+    "fine": "a833adfd535b47ff",
+    "light": "26d106749c3b5bf3"
+   },
+   "title": "Open-wheel racing car (Formula 1 style)"
+  },
+  "falcon9_booster": {
+   "category": "space",
+   "dimensions_m": {
+    "height_z": 70.0,
+    "length_x": 5.2,
+    "width_y": 5.2
+   },
+   "files": {
+    "falcon9_booster.fine.glb": {
+     "bytes": 852400,
+     "location": "hub",
+     "sha256": "ef22dfd7bc67b17f14b5934a984854f9cda2d2214a3f65d493d6c00ffdb44178"
+    },
+    "falcon9_booster.fine.obj": {
+     "bytes": 1140250,
+     "location": "hub",
+     "sha256": "4823eda17070434e3838adc7c1b26c559f3f26fee7f89d7255ef37e3b43f615f"
+    },
+    "falcon9_booster.fine.stl": {
+     "bytes": 1746284,
+     "location": "hub",
+     "sha256": "0631d4ccd36fecc2b817892ad8b8fd812f62da8514b6d8d68ba38f97d9b90832"
+    },
+    "falcon9_booster.fine.usda": {
+     "bytes": 1708505,
+     "location": "hub",
+     "sha256": "34a7debd934f32ce4798ee6049ed67e73b9eea8d32d0e69fb54f822c9c9db65a"
+    },
+    "falcon9_booster.light.glb": {
+     "bytes": 281552,
+     "location": "repo+hub",
+     "sha256": "41a7ec0fae4bd245b91d90abf059189446df33740d8377630c9680886db138d9"
+    },
+    "falcon9_booster.light.obj": {
+     "bytes": 342727,
+     "location": "hub",
+     "sha256": "5b88e7e864b11af9a387db218dfd1344954d0dd6bb3c8cb1e7b99b9e21c0688f"
+    },
+    "falcon9_booster.light.step": {
+     "bytes": 3989446,
+     "location": "hub",
+     "sha256": "743ad9e52892eb2f3d84793cc8f3c21e884a37f792b2d2c864df8f2b68649377"
+    },
+    "falcon9_booster.light.stl": {
+     "bytes": 567884,
+     "location": "repo+hub",
+     "sha256": "fcc5f54bc290fcde57383f8951bff0726c53e501d4d15f33494e1bf83199a8ce"
+    },
+    "falcon9_booster.light.usda": {
+     "bytes": 526994,
+     "location": "hub",
+     "sha256": "0c07864f57a0cb2e0985b6c2ef01deacf6decf795a1444734b8ff53d35ddb5ae"
+    }
+   },
+   "n_triangles": {
+    "light": 11356
+   },
+   "params_hash": {
+    "fine": "897505cddf5c9b89",
+    "light": "4d0dcd6479972c79"
+   },
+   "title": "Two-stage launcher (Falcon 9 Block 5 class)"
+  },
+  "helicopter_h145": {
+   "category": "rotorcraft",
+   "dimensions_m": {
+    "height_z": 3.945,
+    "length_x": 13.635,
+    "width_y": 10.99
+   },
+   "files": {
+    "helicopter_h145.fine.glb": {
+     "bytes": 1463248,
+     "location": "hub",
+     "sha256": "51583308dda9da9c3e4801b5ac5c2c73a16a4540bffc246cd4145ee5f29524b4"
+    },
+    "helicopter_h145.fine.obj": {
+     "bytes": 2016841,
+     "location": "hub",
+     "sha256": "4f1bdce736bf00f06415f2012252d72e120c9c084024a9ae75eb69b271334744"
+    },
+    "helicopter_h145.fine.stl": {
+     "bytes": 2913584,
+     "location": "hub",
+     "sha256": "2ec5716aedefaf9f596c386315d3946b8944e7cf5086d8f91bb111f49f1604cf"
+    },
+    "helicopter_h145.fine.usda": {
+     "bytes": 2849291,
+     "location": "hub",
+     "sha256": "807853689d38e3c43b43442c6c911c7729cbe6f6317f7f40d9a022984c37ba50"
+    },
+    "helicopter_h145.light.glb": {
+     "bytes": 338316,
+     "location": "repo+hub",
+     "sha256": "94849639d3d93b129b8ad965a44caff4a9d216cbc1ac008c00f560350ac9020b"
+    },
+    "helicopter_h145.light.obj": {
+     "bytes": 393648,
+     "location": "hub",
+     "sha256": "49843206fe80c0ceafd70a5e5ee8ff40a9983c620cea420b40d2298f8ec2226f"
+    },
+    "helicopter_h145.light.step": {
+     "bytes": 4388624,
+     "location": "hub",
+     "sha256": "b61444b998fb26e6816664e13d8c3851d7aaec743f41cccd3d258a3b036cd9e7"
+    },
+    "helicopter_h145.light.stl": {
+     "bytes": 607484,
+     "location": "repo+hub",
+     "sha256": "1e467bbd76f53b67bd356e8b8fb6b5fbb001f9e1485b6a4f8c68f32fdd583ec8"
+    },
+    "helicopter_h145.light.usda": {
+     "bytes": 601130,
+     "location": "hub",
+     "sha256": "6e1ad6f9555b897084def1f25dfb2c0b057c68e597318ddf1c40e8baf5a9e6fe"
+    }
+   },
+   "n_triangles": {
+    "light": 12148
+   },
+   "params_hash": {
+    "fine": "86ce4f74c393dbb3",
+    "light": "03641d01e14c289a"
+   },
+   "title": "Light twin helicopter (H145 class)"
+  },
+  "high_speed_train": {
+   "category": "rail",
+   "dimensions_m": {
+    "height_z": 5.067,
+    "length_x": 51.95,
+    "width_y": 2.95
+   },
+   "files": {
+    "high_speed_train.fine.glb": {
+     "bytes": 1087888,
+     "location": "hub",
+     "sha256": "65f27a598be604c7e30ff40b00ad6727505c00765ef56ec21e48bb07593174bb"
+    },
+    "high_speed_train.fine.obj": {
+     "bytes": 1451231,
+     "location": "hub",
+     "sha256": "d62c7386da85a0f71d2874b453187aee1f8fa59ca52b594f8e51da70c49d9788"
+    },
+    "high_speed_train.fine.stl": {
+     "bytes": 2138084,
+     "location": "hub",
+     "sha256": "07d7a34eae715753195343004237ed0a5bc3cfa4ff54b1794f36339789d22fb7"
+    },
+    "high_speed_train.fine.usda": {
+     "bytes": 2184166,
+     "location": "hub",
+     "sha256": "7db04b4ae6dd15ec8ce67b11c9b07029df0fa0d369cf03380ab0e68513ebbf25"
+    },
+    "high_speed_train.light.glb": {
+     "bytes": 353884,
+     "location": "repo+hub",
+     "sha256": "92fc14a3a7212c13a42b866f1b448911daba7898b7f0e5f986c27a30b6bdd6db"
+    },
+    "high_speed_train.light.obj": {
+     "bytes": 414234,
+     "location": "hub",
+     "sha256": "e078abcfa08d6f2fda747e31e389ab3275dd446fcd91a9424723ea1f6b333fd7"
+    },
+    "high_speed_train.light.step": {
+     "bytes": 4459450,
+     "location": "hub",
+     "sha256": "af906c054dd7a4f29973f3da235a9d24a06b4ac580600dc85db8e6f49af12b87"
+    },
+    "high_speed_train.light.stl": {
+     "bytes": 645684,
+     "location": "repo+hub",
+     "sha256": "fdac16749b0e17af27bb68bc34b359513ae9529d8abafbe3355f66848ff95a96"
+    },
+    "high_speed_train.light.usda": {
+     "bytes": 675719,
+     "location": "hub",
+     "sha256": "567536cd14e38bf856286be2db499e8ec124e8c06aa5c66336266f19a14be9be"
+    }
+   },
+   "n_triangles": {
+    "light": 12912
+   },
+   "params_hash": {
+    "fine": "8c9974f25285a553",
+    "light": "8ac3fa5ef4831028"
+   },
+   "title": "High-speed train (ICE 3 / CRH3 class)"
+  },
+  "launch_vehicle_two_stage": {
+   "category": "space",
+   "dimensions_m": {
+    "height_z": 7.8,
+    "length_x": 43.5,
+    "width_y": 7.8
+   },
+   "files": {
+    "launch_vehicle_two_stage.fine.glb": {
+     "bytes": 842796,
+     "location": "hub",
+     "sha256": "7e685bd0f9733e4cdde0e4703be754a8fc013fe387e5ba4c1b6a388e4bc307d5"
+    },
+    "launch_vehicle_two_stage.fine.obj": {
+     "bytes": 1151347,
+     "location": "hub",
+     "sha256": "2d6ed1ad6d756f6603ab11c19bcc63266ac683cd7b7db0a6781f5db613bb3c89"
+    },
+    "launch_vehicle_two_stage.fine.stl": {
+     "bytes": 1718484,
+     "location": "hub",
+     "sha256": "63b1831ff0932d1f3728c8b9cd109575928c762f2f1e6fc7765411ee20da1c6f"
+    },
+    "launch_vehicle_two_stage.fine.usda": {
+     "bytes": 1736912,
+     "location": "hub",
+     "sha256": "b1e677d1d419e688248a9ea2ee34d10309b0b76d176ff1c9102188e8625e2372"
+    },
+    "launch_vehicle_two_stage.light.glb": {
+     "bytes": 842796,
+     "location": "repo+hub",
+     "sha256": "7e685bd0f9733e4cdde0e4703be754a8fc013fe387e5ba4c1b6a388e4bc307d5"
+    },
+    "launch_vehicle_two_stage.light.obj": {
+     "bytes": 1151348,
+     "location": "hub",
+     "sha256": "81b8280b0e582cbd1db195a7fbeca5c2974ff0276d2b389b14dfd488a4b2596c"
+    },
+    "launch_vehicle_two_stage.light.step": {
+     "bytes": 12267293,
+     "location": "hub",
+     "sha256": "bfdc227a227a5a97df97a5cc42b3a07b3f8aa8674280bd21eda21a1545056386"
+    },
+    "launch_vehicle_two_stage.light.stl": {
+     "bytes": 1718484,
+     "location": "repo+hub",
+     "sha256": "fc70fef050eaaab617d5b9aa70be15e1d7827c6a53d6a47cd7ec3f08c5ceba16"
+    },
+    "launch_vehicle_two_stage.light.usda": {
+     "bytes": 1736912,
+     "location": "hub",
+     "sha256": "b1e677d1d419e688248a9ea2ee34d10309b0b76d176ff1c9102188e8625e2372"
+    }
+   },
+   "n_triangles": {
+    "light": 34368
+   },
+   "params_hash": {
+    "fine": "4601be3ff9231ad1",
+    "light": "9291c3f4ff415245"
+   },
+   "title": "Two-stage launch vehicle with fins"
+  },
+  "pin_fin_heatsink": {
+   "category": "thermal",
+   "dimensions_m": {
+    "height_z": 0.0265,
+    "length_x": 0.06,
+    "width_y": 0.06
+   },
+   "files": {
+    "pin_fin_heatsink.fine.glb": {
+     "bytes": 2890480,
+     "location": "hub",
+     "sha256": "b48e0aec70c87f47949f1a920024c3fa1f77ccd6e6fbea9c06f4c8e3fb833aaf"
+    },
+    "pin_fin_heatsink.fine.obj": {
+     "bytes": 4231083,
+     "location": "hub",
+     "sha256": "bef78bb377ad94c520552b4a878174658c03aabb77813814642a46235cb0b46a"
+    },
+    "pin_fin_heatsink.fine.stl": {
+     "bytes": 6006284,
+     "location": "hub",
+     "sha256": "a24ad0b522684a0f75e58a37ce5d23ee48d9723dff6dfe48b300dd2d02e8d476"
+    },
+    "pin_fin_heatsink.fine.usda": {
+     "bytes": 6255951,
+     "location": "hub",
+     "sha256": "81f98ef54082166463654126389e91d78f963eaac4f4039b523c633e71de86b1"
+    },
+    "pin_fin_heatsink.light.glb": {
+     "bytes": 317668,
+     "location": "repo+hub",
+     "sha256": "1c5be497ff5f1a9bd516b9ec2c08f909d53fddb5c091cad77654d827e53cb9f3"
+    },
+    "pin_fin_heatsink.light.obj": {
+     "bytes": 412490,
+     "location": "hub",
+     "sha256": "2874083530d1f7e8ace4770d971e7bb86ce43a806f3323d0b03d661f2a02a1fa"
+    },
+    "pin_fin_heatsink.light.step": {
+     "bytes": 4465102,
+     "location": "hub",
+     "sha256": "3e2defcea8d0b6f3e9e039b97fd829e94ad763cc822cc055827860ab092c2638"
+    },
+    "pin_fin_heatsink.light.stl": {
+     "bytes": 646284,
+     "location": "repo+hub",
+     "sha256": "7b42268b91c881cddf334941a69074d2541dae87915ab45a608d11497f3bb29a"
+    },
+    "pin_fin_heatsink.light.usda": {
+     "bytes": 647895,
+     "location": "hub",
+     "sha256": "45c63377e5fcf607012fad1816e8d827cd219fc6bc76f282be30a580f8a11417"
+    }
+   },
+   "n_triangles": {
+    "light": 12924
+   },
+   "params_hash": {
+    "fine": "7c2da06349f0f4fe",
+    "light": "247a3159451fb08d"
+   },
+   "title": "Pin-fin heat sink"
+  },
+  "quadrotor_drone": {
+   "category": "aircraft",
+   "dimensions_m": {
+    "height_z": 0.2699,
+    "length_x": 0.5586,
+    "width_y": 0.4981
+   },
+   "files": {
+    "quadrotor_drone.fine.glb": {
+     "bytes": 891580,
+     "location": "hub",
+     "sha256": "64b5c1e6df5a7dc06164e8535315e6bba43f90e237fbfc6c5bcba5718392cb90"
+    },
+    "quadrotor_drone.fine.obj": {
+     "bytes": 1228183,
+     "location": "hub",
+     "sha256": "88ab894b3f5248763d9c713eaf0d69125484cc6fb1e78fa97bb676b31eb45fff"
+    },
+    "quadrotor_drone.fine.stl": {
+     "bytes": 1743484,
+     "location": "hub",
+     "sha256": "05afb6bbb919c85a541962f13351702cb77f206f08627e754a989e1449a15158"
+    },
+    "quadrotor_drone.fine.usda": {
+     "bytes": 1676901,
+     "location": "hub",
+     "sha256": "25e3e48f81c0a1c18073337105e1a84ea5f64c106f7c959f372938d9060286fe"
+    },
+    "quadrotor_drone.light.glb": {
+     "bytes": 239796,
+     "location": "repo+hub",
+     "sha256": "a208bd57d7163308fb183e5c37157dafc3f177a1c875a069b46da1f50a2e322f"
+    },
+    "quadrotor_drone.light.obj": {
+     "bytes": 266706,
+     "location": "hub",
+     "sha256": "62ef82cf9c25b92bf35d348050cc43e707f8638b2170c988ccd87341a930a765"
+    },
+    "quadrotor_drone.light.step": {
+     "bytes": 2852752,
+     "location": "hub",
+     "sha256": "11cdf007c69f67ff3c14a22badf89daecb50cd34bb9e546294a49c1a3476451d"
+    },
+    "quadrotor_drone.light.stl": {
+     "bytes": 398084,
+     "location": "repo+hub",
+     "sha256": "983cae94802413b69fb218ade19a965907425a7fdbe9fb7682ec56b2ef7c65e2"
+    },
+    "quadrotor_drone.light.usda": {
+     "bytes": 393490,
+     "location": "hub",
+     "sha256": "2b3cb046ec0b2a62ca2a18d4d241a0f4c5aa107ee207770610967f2f2bec0c6e"
+    }
+   },
+   "n_triangles": {
+    "light": 7960
+   },
+   "params_hash": {
+    "fine": "f97122c9cb828c97",
+    "light": "221c50ea09c8ac0d"
+   },
+   "title": "Quadcopter drone (F450 frame class)"
+  },
+  "road_car": {
+   "category": "ground_vehicle",
+   "dimensions_m": {
+    "height_z": 1.392,
+    "length_x": 4.6,
+    "width_y": 1.86
+   },
+   "files": {
+    "road_car.fine.glb": {
+     "bytes": 2843492,
+     "location": "hub",
+     "sha256": "8d22f8dbaa34e752f0f130199aa39d5791913983a4ca59eb74da1f45020b6688"
+    },
+    "road_car.fine.obj": {
+     "bytes": 4132369,
+     "location": "hub",
+     "sha256": "7728681669cb760705447f0cc66a3506c7ea0c34680663286b3e07e2b3d39326"
+    },
+    "road_car.fine.stl": {
+     "bytes": 5792084,
+     "location": "hub",
+     "sha256": "94d4cb2d083e46a76afb42e6adaf504df35a764da4e6b95b115d7db378e7c931"
+    },
+    "road_car.fine.usda": {
+     "bytes": 5984755,
+     "location": "hub",
+     "sha256": "29243568580cf1c361169b391366e5a00f2e3d2e8f9e36fde27bec2596143aea"
+    },
+    "road_car.light.glb": {
+     "bytes": 553280,
+     "location": "repo+hub",
+     "sha256": "acfcde0bef22eb07387239f1e17b9c01b0c0b8835b4521b32dbdf600c4ad64bc"
+    },
+    "road_car.light.obj": {
+     "bytes": 733835,
+     "location": "hub",
+     "sha256": "3da271c7d8ff1b74ac7e0a2475c0b1bcc315d4fff2c15095c0c44671df67f573"
+    },
+    "road_car.light.step": {
+     "bytes": 7970524,
+     "location": "hub",
+     "sha256": "bd859be2d5c1be253dcbf68955a23810d2a098e9ffea6adf72230e7f00a267ff"
+    },
+    "road_car.light.stl": {
+     "bytes": 1088084,
+     "location": "repo+hub",
+     "sha256": "1fe2010bd4eacf54f57112be01bebeff897db98ac2ef1f074c9f622beceae052"
+    },
+    "road_car.light.usda": {
+     "bytes": 1095825,
+     "location": "hub",
+     "sha256": "24853cbf265a35dbf03576457767c239f0bde3b382f0feaa852c01981cc1e096"
+    }
+   },
+   "n_triangles": {
+    "light": 21760
+   },
+   "params_hash": {
+    "fine": "ae8d672e1d8b58be",
+    "light": "bea0593589ea2d85"
+   },
+   "title": "Four-door road car (fastback / notchback)"
+  },
+  "turboprop_atr72": {
+   "category": "aircraft",
+   "dimensions_m": {
+    "height_z": 7.6485,
+    "length_x": 27.17,
+    "width_y": 27.05
+   },
+   "files": {
+    "turboprop_atr72.fine.glb": {
+     "bytes": 2257736,
+     "location": "hub",
+     "sha256": "0cccc8d850a0dd733baf013c1afe9470887693c203fdaf4b9a305b0748858d4b"
+    },
+    "turboprop_atr72.fine.obj": {
+     "bytes": 3096760,
+     "location": "hub",
+     "sha256": "f9eb70927a1350bdccee26f9623a39a45668c667083999cba8e4b3221736612e"
+    },
+    "turboprop_atr72.fine.stl": {
+     "bytes": 4458084,
+     "location": "hub",
+     "sha256": "a52b83a7157bd34a4c5b0b9e1c8e322736a8754a799e7d0356b6d0a447fc91e7"
+    },
+    "turboprop_atr72.fine.usda": {
+     "bytes": 4412164,
+     "location": "hub",
+     "sha256": "df5dddeefe9ea338e517f70e2af368e85f689f5a09749eb324ce804a44721ae6"
+    },
+    "turboprop_atr72.light.glb": {
+     "bytes": 529696,
+     "location": "repo+hub",
+     "sha256": "1b5938e357eaf5def1b1e6727af1e82accc098f310635e4d440ebd50a8f03baa"
+    },
+    "turboprop_atr72.light.obj": {
+     "bytes": 616317,
+     "location": "hub",
+     "sha256": "828ea52ca927e1b1165445a56491d772c4f61e0ab6005a1413c57f0ee63bb2e3"
+    },
+    "turboprop_atr72.light.step": {
+     "bytes": 6829235,
+     "location": "hub",
+     "sha256": "fb4a26259ea57f10d4b3bd0c51cfff5e67eb49f92c0e1c05e1fdca6fade14951"
+    },
+    "turboprop_atr72.light.stl": {
+     "bytes": 938884,
+     "location": "repo+hub",
+     "sha256": "c18a39aa323f6328a56ecd603961ba1a19f67f0434230e7fd28fdfabe3f97dc8"
+    },
+    "turboprop_atr72.light.usda": {
+     "bytes": 958339,
+     "location": "hub",
+     "sha256": "8602160a4048cd267a4901d3daaf6d1d5d1e05ac193b3d65651a7667947e8b76"
+    }
+   },
+   "n_triangles": {
+    "light": 18776
+   },
+   "params_hash": {
+    "fine": "f7f265f803914e45",
+    "light": "e38e14ddd39524e1"
+   },
+   "title": "Regional twin turboprop (ATR 72-600 class)"
+  },
+  "viper_rover": {
+   "category": "space",
+   "dimensions_m": {
+    "height_z": 2.4995,
+    "length_x": 1.6925,
+    "width_y": 1.539
+   },
+   "files": {
+    "viper_rover.fine.glb": {
+     "bytes": 918672,
+     "location": "hub",
+     "sha256": "14f6072bd92e4dedd23b5f13d309eb9b0925bec93e4c1c65abc734a3b8d70c67"
+    },
+    "viper_rover.fine.obj": {
+     "bytes": 810141,
+     "location": "hub",
+     "sha256": "84c7e3110a5221f0d7e38728c37a75efa2282471b4f93e3da81925e3b9817989"
+    },
+    "viper_rover.fine.stl": {
+     "bytes": 1240284,
+     "location": "hub",
+     "sha256": "247c68c9c97dbcf37aa5fc9b74fa9568627da02a75777b758a522443b1cf62c8"
+    },
+    "viper_rover.fine.usda": {
+     "bytes": 1296278,
+     "location": "hub",
+     "sha256": "3211083f95184ad44333d6fd3ac5a4fc9b3efa7e6904782fe498b087055052a1"
+    },
+    "viper_rover.light.glb": {
+     "bytes": 918672,
+     "location": "repo+hub",
+     "sha256": "14f6072bd92e4dedd23b5f13d309eb9b0925bec93e4c1c65abc734a3b8d70c67"
+    },
+    "viper_rover.light.obj": {
+     "bytes": 810142,
+     "location": "hub",
+     "sha256": "ded4a5b9ef23945e18bd5c328a48f9e669f0a62bef2146d67f1124257f107970"
+    },
+    "viper_rover.light.step": {
+     "bytes": 8742490,
+     "location": "hub",
+     "sha256": "93a792858cd9706813d1682d6426f7e97b78e73686ff3a79a30406f343e42b1f"
+    },
+    "viper_rover.light.stl": {
+     "bytes": 1240284,
+     "location": "repo+hub",
+     "sha256": "f24351ead4be54d40bd43d14c587afa1757acc3dd5b0e53e74a10e7f92a2684b"
+    },
+    "viper_rover.light.usda": {
+     "bytes": 1296278,
+     "location": "hub",
+     "sha256": "3211083f95184ad44333d6fd3ac5a4fc9b3efa7e6904782fe498b087055052a1"
+    }
+   },
+   "n_triangles": {
+    "light": 24804
+   },
+   "params_hash": {
+    "fine": "1ddaae8c23961eba",
+    "light": "87e1a717826196a5"
+   },
+   "title": "NASA VIPER lunar rover"
+  },
+  "wigley_hull": {
+   "category": "marine",
+   "dimensions_m": {
+    "height_z": 0.1025,
+    "length_x": 1.0,
+    "width_y": 0.1
+   },
+   "files": {
+    "wigley_hull.fine.glb": {
+     "bytes": 600488,
+     "location": "hub",
+     "sha256": "f69f6658ac41ca821d7491944202449083f6312c0c0dc83ea966c9ece6d692f0"
+    },
+    "wigley_hull.fine.obj": {
+     "bytes": 855115,
+     "location": "hub",
+     "sha256": "14666dbaccb86824ac47991d9054385555629a74c828a57c6f6adfbc7dba1a67"
+    },
+    "wigley_hull.fine.stl": {
+     "bytes": 1214984,
+     "location": "hub",
+     "sha256": "3cdcd6bd20c3dec62fe84b0cb5b8391a42b8121bd698f1467205101f7f72f360"
+    },
+    "wigley_hull.fine.usda": {
+     "bytes": 1243597,
+     "location": "hub",
+     "sha256": "2ee8fa05f54699aa7c7275dff76fc34e037a9adbb622dfd36c8666cb85e4de3e"
+    },
+    "wigley_hull.light.glb": {
+     "bytes": 103668,
+     "location": "repo+hub",
+     "sha256": "25ef4694d8edffbb4e0e7998013d0b65c2c6ed9ff1bddd80260b4d5bbe81a210"
+    },
+    "wigley_hull.light.obj": {
+     "bytes": 133054,
+     "location": "hub",
+     "sha256": "72b17fecadfa3149a5bc62c1c5acd8832319eb1785a3b31ed4be815247b0eab9"
+    },
+    "wigley_hull.light.step": {
+     "bytes": 1376526,
+     "location": "hub",
+     "sha256": "17bddb641daf5b49359fcb31674d0a4637d8330e4a6b3b11268106537e5b132b"
+    },
+    "wigley_hull.light.stl": {
+     "bytes": 197984,
+     "location": "repo+hub",
+     "sha256": "7e393e13616404b21f2dbea21b06f40c33ce4d24ffcd68c8da84637c09a8e6d6"
+    },
+    "wigley_hull.light.usda": {
+     "bytes": 204795,
+     "location": "hub",
+     "sha256": "1fd7f3ba4dcf2fb22345d2ef4fc36b5dff73ca407ad1cd5b39b4850f4ff08d02"
+    }
+   },
+   "n_triangles": {
+    "light": 3958
+   },
+   "params_hash": {
+    "fine": "55544f3824d1c0f9",
+    "light": "60f5388ec4f08b68"
+   },
+   "title": "Wigley parabolic hull"
+  },
+  "wind_turbine_nrel5mw": {
+   "category": "energy",
+   "dimensions_m": {
+    "height_z": 152.465,
+    "length_x": 24.4935,
+    "width_y": 109.2903
+   },
+   "files": {
+    "wind_turbine_nrel5mw.fine.glb": {
+     "bytes": 2420876,
+     "location": "hub",
+     "sha256": "b0bf86cb4c6f7000dddf1d300037706ba7bdc6e142b9ff357d0f270463ca93f5"
+    },
+    "wind_turbine_nrel5mw.fine.obj": {
+     "bytes": 3459646,
+     "location": "hub",
+     "sha256": "21674978c1eb6e3a6f6b1594eefb15c0578c7c76f65c8c5e2cefc2472ff4139e"
+    },
+    "wind_turbine_nrel5mw.fine.stl": {
+     "bytes": 5010084,
+     "location": "hub",
+     "sha256": "4855402f338d7e3ab44b7d014efb744e63329fc04479e14fd45b090f09bb2c75"
+    },
+    "wind_turbine_nrel5mw.fine.usda": {
+     "bytes": 5100251,
+     "location": "hub",
+     "sha256": "e2bc0c4853e39e7e26c223aed079cfb0a701feedd6171273373f8730f58f76ea"
+    },
+    "wind_turbine_nrel5mw.light.glb": {
+     "bytes": 413852,
+     "location": "repo+hub",
+     "sha256": "73dda45dbef18d201f0ccd32197aeb4a2514f813075f492bfdd3cf3101d5df35"
+    },
+    "wind_turbine_nrel5mw.light.obj": {
+     "bytes": 535680,
+     "location": "hub",
+     "sha256": "7386f7813606e09c193cb38b3084089895c77cbf6aa6a7e9c21b4f9ccb93b5a2"
+    },
+    "wind_turbine_nrel5mw.light.step": {
+     "bytes": 6205559,
+     "location": "hub",
+     "sha256": "389655dccda649012d4cfdb00ced69c8c3fac6251098f372605d26496cb02f18"
+    },
+    "wind_turbine_nrel5mw.light.stl": {
+     "bytes": 840884,
+     "location": "repo+hub",
+     "sha256": "b6ee8b36608ecacd27237370a2bb0263f4db59eb171cd0e34b429567faf2b1f5"
+    },
+    "wind_turbine_nrel5mw.light.usda": {
+     "bytes": 832567,
+     "location": "hub",
+     "sha256": "be22c88fe86c2e8fc194b0d01a28580ead8ea641c020c3bb2d07df2c8861f595"
+    }
+   },
+   "n_triangles": {
+    "light": 16816
+   },
+   "params_hash": {
+    "fine": "bba64897894e3ad1",
+    "light": "95b4f5bd2120342c"
+   },
+   "title": "NREL 5-MW reference wind turbine"
+  }
+ },
+ "hub_repo": "PINNeAPPle-Labs/geometry-library",
+ "repo_type": "dataset",
+ "version": 1
+}

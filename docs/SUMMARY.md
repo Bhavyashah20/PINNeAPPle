@@ -52,6 +52,7 @@
 * Guides
     * [Recreate a 3D wear twin](guides/recreate_a_wear_twin.md)
     * [Pre-trained models and datasets (pp.zoo)](guides/model_zoo.md)
+    * [Geometry library](guides/geometry_library.md)
     * [Physics checks in CI](guides/physics_checks_in_ci.md)
     * [A latent surrogate that says when not to trust it](guides/trusted_latent_surrogate.md)
     * [Detect false data injection with physics residuals](guides/physics_residual_attack_detection.md)
