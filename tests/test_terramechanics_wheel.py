@@ -57,8 +57,10 @@ def test_matches_the_standalone_bekker_wong_solver():
 def test_physical_trends():
     m = WongReeceModel(get_soil("GRC-1"), Wheel(0.25, 0.2))
     z = np.full(5, 0.02)
-    r = m.forces(np.linspace(0.0, 0.6, 5), z)
+    r = m.forces(np.linspace(0.0, 0.6, 5), z, sinkage_slip=0.0)    # at a fixed sinkage, without slip-sinkage
     assert np.all(np.diff(r.Fx) > 0) and np.all(np.diff(r.My) > 0)            # pull and torque grow with slip
+    st = m.steady_state(np.full(4, 180.0), np.array([0.0, 0.1, 0.2, 0.3]))   # at the load: slip-sinkage included
+    assert np.all(np.diff(st["drawbar_pull"]) > 0) and np.all(np.diff(st["sinkage"]) > 0)
     assert np.all(np.diff(m.forces(0.2, np.linspace(0.005, 0.05, 6)).Fz) > 0)  # load grows with sinkage
     assert m.forces(0.2, 0.0).Fz == 0.0                                          # no contact, no force
     st = m.steady_state(np.full(3, 180.0), np.array([0.1, 0.3, 0.5]))
@@ -67,6 +69,7 @@ def test_physical_trends():
 
 def test_grousers_slip_sinkage_and_multipass():
     soil = get_soil("GRC-1")
+    soil = soil.with_(n1=0.0)                           # without slip-sinkage, to isolate each effect
     smooth = WongReeceModel(soil, Wheel(0.25, 0.2))
     lugs = WongReeceModel(soil, Wheel(0.25, 0.2, grousers=Grousers(24, 0.025)))
     assert lugs.forces(0.2, 0.015).Fx > smooth.forces(0.2, 0.015).Fx                # R_s = R + lambda h

@@ -14,6 +14,23 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Rover realism (`pinneapple_simulation.terramechanics`, `.vehicle`, `pinneapple_tools.visualization.studio`,
+  `pinneapple_design.geometry.vehicle_cad`):
+  - Slip-sinkage calibration with held-out points: `testbed.calibrate_holdout` fits the slip-dependent sinkage
+    exponent `n = n0 + n1 s` (Ding et al. 2010, 2011) and K on every other published single-wheel point and reports
+    the errors on the held-out points before and after (`testbed.holdout_split`, `plot_validation(calibrated=...)`).
+    `WongReeceModel(slip_sinkage="drive" | "both" | "none")`, `sinkage_exponent()`, `forces(..., sinkage_slip=...)`.
+  - 3-D ruts: `DeformableTerrain` rut walls at the angle of repose (`wall_angle_deg`) and rounded berms holding the
+    displaced soil (`berm`), as separate layers; the default renders show ruts by their geometry, the stress map
+    is an option (`overlay=`).
+  - Ground to the horizon: `SurfaceView(horizon=..., far_fn=...)` adds a curved annulus past the lunar horizon;
+    `studio.planetary.border_visibility` checks that no mesh border is visible from a camera.
+  - Dashboard exports at small sizes: `font_scale` with text-aware gaps, `write_video(gif_font_scale=...)` lays the
+    GIF out natively at its size, `dashboard.static.write_gif` writes a palette-optimised GIF.
+  - VIPER CAD from public NASA figures: chamfered body, radiator and MLI front, pan-tilt mast head, box-beam
+    suspension arms with actuators, the TRIDENT drill (`vehicle_cad.drill_assembly`) and new primitives
+    (`loft`, `extrude_polygon`, `chamfered_box`, `box_beam`, `ladder_rail`, `helix_sweep`, `mli_blanket`,
+    `actuator`, `pan_tilt_head`); sources and estimates in `VIPER_SOURCES`.
 - Model zoo `pp.zoo` and dataset hub `pp.datasets` (`pinneapple_hub.zoo`): pre-trained models and ready-made
   datasets you can load in one line. Only items that passed a quality gate ship (an independent reference, physics
   checks, a recorded validity range; for datasets, a verified solver or a public source with a compatible licence).
@@ -42,6 +59,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   2-D airfoil, OpenFOAM simpleFoam k-omega SST, CST geometry, the 436-run campaign, baseline against XFOIL, a
   surrogate optimum checked in CFD) and `free_surface_trough` (water jet into an open trough, interFoam VOF via
   `pp.cfd.FreeSurfaceFlow`, two meshes with mass balance, impingement, splash, floor shear and mean k).
+
+### Changed
+- **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their
+  sinkage grows with driving slip. The validation soils keep n1 = 0. In `VehicleSimulator` the slip that sets the
+  exponent lags the wheel's slip over `sink_length` (0.15 m) of rim travel.
+- **Behavior:** `vehicle.dashboard.render_frames` and `vehicle_dashboard` default to the geometry-only view (no
+  stress colour map, no colour bar); pass `field=` / `field_label=` for the overlay.
 
 ## [0.7.0] - 2026-10-13
 

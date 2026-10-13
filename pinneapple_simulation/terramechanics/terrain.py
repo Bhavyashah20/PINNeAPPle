@@ -8,6 +8,9 @@ The undisturbed surface is ``base.height(x, y)`` (any object with that method, e
   the soil remembers it; a later wheel reloads it elastically up to that depth, see :mod:`.wong_reece`). The visible
   rut is ``z_max`` minus the elastic rebound.
 * ``imprint`` -- grouser marks stamped where a grouser left the soil (visual layer: depth of the lug trench).
+* ``wall`` / ``berm`` -- the rut walls slumped to the angle of repose and the soil displaced to both sides of the
+  rut (visual layers: depth and height [m]). Together with ``z_max`` they give the rut its cross-section: a flat
+  floor as wide as the wheel, walls at the angle of repose and rounded berms beyond them.
 * ``j_mem`` -- the shear displacement the last wheel left in the soil [m] (multi-pass shear, see :mod:`.wong_reece`).
 * ``sigma`` / ``tau`` -- the largest normal and shear stress the cell has seen [Pa], for contact colour maps.
 
@@ -106,11 +109,12 @@ class DeformableTerrain:
 
     ``rebound(z_max)`` gives the elastic rebound of the soil (use ``WongReeceModel.rebound``); ``relief`` [m] is the RMS
     of a fractal small-scale relief added to the base (0 = none). ``berm`` is the share of the rut cross-section
-    drawn as side berms (visual only).
+    pushed sideways into the two berms (the rest is compaction); ``wall_angle_deg`` is the slope of the rut walls
+    (the angle of repose of the regolith, about 35-40 deg for lunar simulants). Both are visual only.
     """
 
     def __init__(self, base, x_range, y_range, cell: float = 0.01, rebound=None, relief: float = 0.0,
-                 relief_seed: int = 0, berm: float = 0.2):
+                 relief_seed: int = 0, berm: float = 0.3, wall_angle_deg: float = 38.0):
         self.base = base
         self.x0, self.x1 = map(float, x_range)
         self.y0, self.y1 = map(float, y_range)
@@ -122,6 +126,9 @@ class DeformableTerrain:
         self.sigma = np.zeros((self.ny, self.nx), np.float32)
         self.tau = np.zeros((self.ny, self.nx), np.float32)
         self.j_mem = np.zeros((self.ny, self.nx), np.float32)
+        self.wall = np.zeros((self.ny, self.nx), np.float32)
+        self.berm_h = np.zeros((self.ny, self.nx), np.float32)
+        self.wall_angle_deg = float(wall_angle_deg)
         self.relief = (fractal_relief((self.ny, self.nx), cell, relief, relief_seed) if relief > 0
                        else np.zeros((self.ny, self.nx)))
         self.rebound = rebound or (lambda z: np.zeros_like(np.asarray(z, float)))
@@ -173,9 +180,17 @@ class DeformableTerrain:
         zm = self._bilinear(self.z_max, x, y)
         return np.clip(zm - self.rebound(zm), 0.0, None)
 
+    def _visible_offset(self, rut, wall, berm, imprint):
+        """Height change of the visible surface [m]: the deeper of the rut and the slumped wall, the berms where
+        there is no rut, the grouser marks."""
+        return berm * (rut <= 1e-5) - np.maximum(rut, wall) - imprint
+
     def surface(self, x, y):
-        """Visible soil surface: undisturbed surface minus the rut and the grouser imprints (no rocks) [m]."""
-        return self.height0(x, y) - self.rut_depth(x, y) - self._bilinear(self.imprint, x, y)
+        """Visible soil surface: undisturbed surface minus the rut (floor and walls) and the grouser imprints, plus
+        the berms (no rocks) [m]."""
+        return self.height0(x, y) + self._visible_offset(self.rut_depth(x, y), self._bilinear(self.wall, x, y),
+                                                         self._bilinear(self.berm_h, x, y),
+                                                         self._bilinear(self.imprint, x, y))
 
     def add_rock(self, rock: RigidRock) -> RigidRock:
         rock.z0 = float(self.height0(rock.x, rock.y))
@@ -228,7 +243,9 @@ class DeformableTerrain:
         f = f / max(np.linalg.norm(f), 1e-12)
         half_len = math.sqrt(max(2 * radius * sinkage - sinkage ** 2, 0.0)) + self.cell
         hw = 0.5 * width
-        fp = self._footprint(cx, cy, f, half_len, hw + 0.6 * width)
+        run = sinkage / math.tan(math.radians(self.wall_angle_deg))     # horizontal extent of a wall
+        wb = max(0.35 * width, 2 * self.cell)                            # berm width beyond the wall top
+        fp = self._footprint(cx, cy, f, half_len, hw + run + wb + self.cell)
         if fp is None:
             return
         sl, _, al, ac = fp
@@ -239,6 +256,7 @@ class DeformableTerrain:
         self.z_max[sl] = np.maximum(self.z_max[sl], d)
         fresh = inside & (al > 0) & (self.imprint[sl] > 0)        # the wheel ahead flattens older grouser marks
         self.imprint[sl] = np.where(fresh, 0.0, self.imprint[sl])
+        self.berm_h[sl] = np.where(inside & (edge > 0.5), 0.0, self.berm_h[sl])   # a wheel running over a berm
         if j_exit is not None:
             behind = inside & (al <= 0) & (np.abs(ac) <= hw)
             self.j_mem[sl] = np.where(behind, np.float32(j_exit), self.j_mem[sl])
@@ -246,13 +264,18 @@ class DeformableTerrain:
             self.sigma[sl] = np.maximum(self.sigma[sl], np.where(d > 0, sigma_max * edge, 0.0).astype(np.float32))
         if tau_max:
             self.tau[sl] = np.maximum(self.tau[sl], np.where(d > 0, tau_max * edge, 0.0).astype(np.float32))
+        # walls at the angle of repose: the depth falls linearly from the floor edge to the original surface
+        dmax = np.clip(depth, 0.0, None)
+        out = np.abs(ac) - hw
+        w = np.where((out > 0) & (np.abs(al) <= half_len), dmax * np.clip(1.0 - out / max(run, 1e-9), 0.0, 1.0), 0.0)
+        self.wall[sl] = np.maximum(self.wall[sl], w.astype(np.float32))
         if self.berm > 0:
-            wb = 0.35 * width
-            s = (np.abs(ac) - hw) / wb
-            prof = np.where((s > 0) & (s < 1) & (np.abs(al) <= half_len), np.sin(np.pi * s), 0.0)
-            # berm area = berm share x rut area, profile area = wb * 2 / pi
-            h = self.berm * sinkage * width / (2 * wb * 2 / np.pi) * prof
-            self.imprint[sl] = np.where(h > 0, np.minimum(self.imprint[sl], -h.astype(np.float32)), self.imprint[sl])
+            # rounded berm beyond the wall top, holding a share ``berm`` of the rut cross-section on each side
+            s_ = (out - run) / wb
+            prof = np.where((s_ > -0.15) & (s_ < 1) & (np.abs(al) <= half_len),
+                            np.sin(np.pi * np.clip((s_ + 0.15) / 1.15, 0, 1)), 0.0)
+            h = 0.5 * self.berm * dmax * width / (wb * 1.15 * 2 / np.pi) * prof
+            self.berm_h[sl] = np.maximum(self.berm_h[sl], h.astype(np.float32))
 
     def stamp_grouser(self, gx, gy, fwd, width: float, depth: float, thickness: float, shape: str = "straight",
                       chevron_angle_deg: float = 0.0):
@@ -286,13 +309,13 @@ class DeformableTerrain:
         jj, ii = np.meshgrid(j, i, indexing="ij")
         zm = self.z_max[jj, ii].astype(float)
         rut = np.clip(zm - self.rebound(zm), 0, None)
-        Z = self.h0[jj, ii] - rut - self.imprint[jj, ii]
+        Z = self.h0[jj, ii] + self._visible_offset(rut, self.wall[jj, ii], self.berm_h[jj, ii], self.imprint[jj, ii])
         V = np.stack([X.ravel(), Y.ravel(), Z.ravel()], 1)
         nyy, nxx = X.shape
         a, b = np.meshgrid(np.arange(nxx - 1), np.arange(nyy - 1))
         k = (b * nxx + a).ravel()
         F = np.concatenate([np.stack([k, k + 1, k + nxx + 1], 1), np.stack([k, k + nxx + 1, k + nxx], 1)])
-        fields = {"rut_depth": 1e3 * (rut + np.clip(self.imprint[jj, ii], 0, None)).ravel(),
+        fields = {"rut_depth": 1e3 * (np.maximum(rut, self.wall[jj, ii]) + np.clip(self.imprint[jj, ii], 0, None)).ravel(),
                   "normal_stress": 1e-3 * self.sigma[jj, ii].ravel().astype(float),
                   "shear_stress": 1e-3 * self.tau[jj, ii].ravel().astype(float)}
         return V, F, fields
@@ -301,13 +324,13 @@ class DeformableTerrain:
         """Same base, grid, relief and rocks, with no ruts or marks (to replay recorded terrain events)."""
         import copy
         t = copy.copy(self)
-        for k in ("z_max", "imprint", "sigma", "tau", "j_mem"):
+        for k in ("z_max", "imprint", "sigma", "tau", "j_mem", "wall", "berm_h"):
             setattr(t, k, np.zeros_like(getattr(self, k)))
         t.rocks = list(self.rocks)
         return t
 
     def snapshot(self) -> dict:
-        return {k: getattr(self, k).copy() for k in ("z_max", "imprint", "sigma", "tau", "j_mem")}
+        return {k: getattr(self, k).copy() for k in ("z_max", "imprint", "sigma", "tau", "j_mem", "wall", "berm_h")}
 
     def restore(self, snap: dict) -> None:
         for k, v in snap.items():

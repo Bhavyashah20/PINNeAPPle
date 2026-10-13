@@ -12,7 +12,8 @@ cos theta_f)`` with ``theta* = theta`` ahead of ``theta_m`` and, behind it, the 
 the front arc ``theta* = theta_f - (theta - theta_r) / (theta_m - theta_r) (theta_f - theta_m)``.
 
 * Normal stress, Bekker pressure-sinkage: ``sigma = (k_c / b + k_phi) h^n``.
-* Slip-sinkage: the exponent grows with slip, ``n = n0 + n1 |s|`` (Ding et al. 2011).
+* Slip-sinkage: the exponent grows with slip, ``n = n0 + n1 |s|`` (Ding et al. 2010, 2011; calibrated with held-out points in
+  :func:`.testbed.calibrate_holdout`).
 * Shear, Janosi-Hanamoto with Mohr-Coulomb strength: ``tau_x = (c + sigma tan phi) (1 - exp(-j_x / K))`` with the
   shear displacement ``j_x = R_s [(theta_f - theta) - (1 - s)(sin theta_f - sin theta)]``.
 * Grousers: shear displacement on the equivalent radius ``R_s = R + lambda h_g`` (Ding et al. 2011).
@@ -114,15 +115,30 @@ class WongReeceModel:
     >>> r.Fx, r.Fz, r.My
 
     ``bulldozing``: "lateral" (default, side face only), "both", or "none". ``n_gl``: Gauss-Legendre nodes on each of
-    the three smooth pieces of the arc.
+    the three smooth pieces of the arc. ``slip_sinkage``: which slips raise the sinkage exponent ``n = n0 + n1 s``:
+    "drive" (default, driving slip s > 0 only -- the range Ding et al. identified it on), "both" (``n1 |s|``, skid
+    too) or "none".
     """
 
-    def __init__(self, soil: Soil, wheel: Wheel, g: float = 1.62, bulldozing: str = "lateral", n_gl: int = 24):
+    def __init__(self, soil: Soil, wheel: Wheel, g: float = 1.62, bulldozing: str = "lateral", n_gl: int = 24,
+                 slip_sinkage: str = "drive"):
         if bulldozing not in ("lateral", "both", "none"):
             raise ValueError("bulldozing must be 'lateral', 'both' or 'none'")
+        if slip_sinkage not in ("drive", "both", "none"):
+            raise ValueError("slip_sinkage must be 'drive', 'both' or 'none'")
         self.soil, self.wheel, self.g = soil, wheel, float(g)
         self.bulldozing = bulldozing
+        self.slip_sinkage = slip_sinkage
         self.n_gl = int(n_gl)
+
+    def sinkage_exponent(self, slip) -> np.ndarray:
+        """Exponent of the pressure-sinkage law at ``slip``: ``n0 + n1 s`` (Ding et al. 2010, 2011), see
+        ``slip_sinkage``."""
+        s = np.asarray(slip, float)
+        if self.slip_sinkage == "none":
+            return np.full(s.shape, self.soil.n0)
+        s_eff = np.abs(s) if self.slip_sinkage == "both" else np.clip(s, 0.0, None)
+        return self.soil.n0 + self.soil.n1 * s_eff
 
     # ------------------------------------------------------------------ stresses
     def _k(self) -> float:
@@ -149,17 +165,20 @@ class WongReeceModel:
 
     # ------------------------------------------------------------------ forces
     def forces(self, slip, sinkage, slip_angle=0.0, precompaction=0.0, prior_shear=0.0, *,
-               stresses: bool = False) -> ContactResult:
+               stresses: bool = False, sinkage_slip=None) -> ContactResult:
         """Forces for arrays of slip [-], sinkage below the original surface [m], slip angle [rad], prior sinkage [m]
-        and prior shear displacement [m] of the soil ahead (all broadcast to one shape)."""
-        s, z, beta, zu, j0 = (np.asarray(a, float) for a in np.broadcast_arrays(slip, sinkage, slip_angle,
-                                                                                 precompaction, prior_shear))
+        and prior shear displacement [m] of the soil ahead (all broadcast to one shape). ``sinkage_slip`` (default:
+        ``slip``) is the slip that sets the sinkage exponent, e.g. a slip gated by the wheel speed in a dynamic
+        simulation, where the slip ratio of a nearly stopped wheel is not meaningful."""
+        ss = slip if sinkage_slip is None else sinkage_slip
+        s, z, beta, zu, j0, ss = (np.asarray(a, float) for a in np.broadcast_arrays(slip, sinkage, slip_angle,
+                                                                                     precompaction, prior_shear, ss))
         shape = s.shape
         s, z, beta, zu, j0 = s.ravel(), z.ravel(), beta.ravel(), np.clip(zu.ravel(), 0.0, None), j0.ravel()
         S, W = self.soil, self.wheel
         R, b, Rs = W.radius, W.width, W.shear_radius
         s = np.clip(s, -0.99, 0.99)
-        n = S.n0 + S.n1 * np.abs(s)
+        n = self.sinkage_exponent(np.clip(ss.ravel(), -0.99, 0.99))
         offset = np.clip(zu - self.rebound(zu), 0.0, None)            # current surface below the original one
         z_eff = np.clip(z - offset, 0.0, 0.95 * R)
         on = z_eff > 1e-7
