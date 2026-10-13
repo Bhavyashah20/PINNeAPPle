@@ -14,6 +14,28 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Colab notebooks in `notebooks/colab/`, each self-contained (the first cell installs `pinneapple>=0.7.0` and picks
+  the GPU, a parameter cell sets the sizes): a first PINN with its physics checks, an airfoil surrogate from
+  `pp.zoo` validated against stored OpenFOAM runs, an equal-budget benchmark, the lunar rover terramechanics
+  dashboard as a GIF, and a "verify a model" notebook where the trust card catches bad predictions. `scripts/run_colab_notebooks.py` runs
+  them headless (`--smoke` for tiny sizes) and checks that the committed copies carry no outputs; a CI job runs them
+  in smoke mode. "Open in Colab" badges in the README and the docs (Guides > Colab notebooks).
+- `pp.trust_card` (`pinneapple_analysis.trust.field_card`): physics checks of any field on a grid with NumPy only
+  (finite values, PDE residual of Laplace / Poisson / heat by finite differences, Dirichlet boundary values per face,
+  conservation by the divergence theorem, maximum principle, reference error, applicability against the training
+  bounds), turned into the deploy decision of `TrustReport` (APPROVED / REVIEW / REJECT) and the six questions of the
+  lab trust card.
+- `AGENTS.md` for coding agents (what the library is, the APIs to use first, how to validate any result, layout,
+  tests, what never to do), with `GEMINI.md` and `CLAUDE.md` pointing to it; `tests/test_agents_md.py` runs every
+  Python block in it.
+- MCP server `pinneapple-mcp` (`pinneapple_mcp`, extra `pinneapple[mcp]`, MCP Python SDK 1.x or 2.x, stdio): tools
+  `capabilities`, `list_methods` / `describe_method` (with the catalog's validation status), `list_presets`,
+  `solve` and `benchmark` (equal training budget) as jobs with a trust card per result, `trust_card` for any field
+  or file, `zoo_list` / `zoo_predict` / `zoo_validate` for the model zoo, and `job_status` / `list_jobs` /
+  `cancel_job`. Problems are JSON (a preset or a box problem whose values are safely parsed expressions);
+  results are saved under a working directory and returned as paths; jobs run in a separate process with a
+  wall-time limit, a memory limit and the network switched off. Added to `.mcp.json`; set-up for Gemini
+  CLI, Claude Code, Cursor, Codex and a Colab cell in `docs/guides/mcp_server.md`.
 - Latent surrogate with a trust card (`pinneapple_neural.architectures.rom.TrustedLatentSurrogate`): wraps a POD
   latent model (`ParametricPOD`) with three per-query checks calibrated on held-out designs — a normalised
   split-conformal bound on the relative field error (Gaussian-process spread or a bootstrap ensemble of latent

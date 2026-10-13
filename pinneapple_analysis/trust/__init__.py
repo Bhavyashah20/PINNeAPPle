@@ -13,3 +13,7 @@ __all__ = ["TrustGate", "TrustScore"]
 from .trust_report import Check, TrustReport  # noqa: E402  (relatório de confiança para deploy)
 
 __all__ += ["Check", "TrustReport"]
+
+from .field_card import FieldTrustCard, field_checks, trust_card  # noqa: E402  (physics checks of a field on a grid)
+
+__all__ += ["FieldTrustCard", "field_checks", "trust_card"]
