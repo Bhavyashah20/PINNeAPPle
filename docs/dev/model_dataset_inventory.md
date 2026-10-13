@@ -107,6 +107,8 @@ and its SHA-256 is recorded in `pinneapple_hub/zoo/manifest.json`.
 | `heatsink_natural_convection` | 5000 designs, natural convection (Bar-Cohen & Rohsenow, FVM base) | train 3250, val 500, cal 500, test 750 | Same engine; natural h agrees with Elenbaas to 2 % | 0.55 MB | CC-BY-4.0 |
 | `rover_contact_grc1_viper` | Wong–Reece forces over slip × sinkage | train 3600 (40×40 grid plus 2000 LHS), test 2000 (disjoint LHS) | Analytic model, quadrature-converged (3e-8) | 0.19 MB | CC-BY-4.0 |
 | `single_wheel_tests` | Published single-wheel testbed points: drawbar pull, sinkage and torque vs slip (Ding 2011, Wang & Han 2016, Hurrell 2025) | all 27 | Public experimental data, digitised from the papers' figures by RoverDevKit (MIT; status "digitised_approx"). For validation only. | 0.003 MB | MIT |
+| `burgers_1d_li2021` (Hub-only) | Viscous Burgers on [0, 1), ν = 0.1. Initial conditions u0 ~ N(0, 625(−Δ+25I)⁻²) (Li et al. 2021, §5.1); 11 snapshots t = 0…1 on 1024 points | train 1000, test 200 | Pseudo-spectral ETDRK4. Cole–Hopf check in the tests. Grid/time-step study vs 4096 points, dt 2.5e-5: 4.4e-12 rel. L2 | 54.7 MB | CC-BY-4.0 |
+| `darcy_2d_li2021` (Hub-only) | −div(a ∇u) = 1, u = 0 on ∂Ω. a = 12 / 3 thresholded from N(0, (−Δ+9I)⁻²) (Li et al. 2021, §5.2), 128 × 128 cells | train 1000, test 200 | Two-point-flux FV, solved on 512² and cell-averaged. Grid study vs 1024²: 4.3e-4 rel. L2 (order 1.2–1.4; Richardson about 8e-4). Manufactured-solution check in the tests | 71.1 MB | CC-BY-4.0 |
 
 The bundled items are small, 2.70 MB in total. They are bundled in the package, so the zoo works offline and in CI.
 They are also mirrored to the Hugging Face Hub (`PINNeAPPle-Labs/<name>`, tag `v<version>`) by the "Publish zoo to the
