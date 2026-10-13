@@ -14,6 +14,12 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Surrogate monitoring and sensor design: `pinneapple_analysis.uncertainty.assess_drift` (nRMSE, bias, interval
+  coverage, per-feature KS input shift, out-of-range fraction, Mann-Kendall residual trend and an ok / review /
+  retrain decision), `uncertainty.propagate` (Monte-Carlo tolerance propagation with Wilson intervals on the
+  probability of meeting limits) and `pinneapple_analysis.data_assimilation.sensor_placement` (NumPy Gaussian process
+  with an anisotropic Matern kernel, closed-form leave-one-out, marginal-likelihood fit, and greedy sensor placement
+  by integrated-variance reduction after Krause, Singh & Guestrin 2008).
 - Library homes for helpers that lived in examples: `pinneapple_neural.utils.as_tensor` (model output ->
   prediction Tensor); `pinneapple_data.datasets.deepmind_mgn` (DeepMind meshgraphnets partial download over HTTP
   Range, TFRecord reader, `cylinder_flow` conversion) and `train_dynamics` / `eval_rollout` in
