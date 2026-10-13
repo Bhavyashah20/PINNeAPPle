@@ -26,8 +26,14 @@ import time
 import numpy as np
 import torch
 
+from pinneapple_physics.physics_audit.regime import dominant_frequency
 from pinneapple_simulation.numerical_solvers.lbm import (
-    LBMSolver, _d2q9_tensors, _lbm_step_2d, _macroscopic_2d, cylinder_mask, naca4_mask,
+    LBMSolver,
+    _d2q9_tensors,
+    _lbm_step_2d,
+    _macroscopic_2d,
+    cylinder_mask,
+    naca4_mask,
 )
 
 
@@ -69,14 +75,8 @@ def run(case: str, steps: int, u_in: float = 0.1, scale: int = 20, height: int =
             raise FloatingPointError(f"diverged at step {n}")
     seconds = time.time() - t0
     s = series[steps // 2:] - series[steps // 2:].mean()
-    spec = np.abs(np.fft.rfft(s * np.hanning(len(s))))
-    freqs = np.fft.rfftfreq(len(s), d=1.0)
-    k = int(np.argmax(spec[1:]) + 1)
-    # parabolic peak interpolation for sub-bin frequency accuracy
-    if 1 <= k < len(spec) - 1:
-        a, b, g = np.log(spec[k - 1] + 1e-30), np.log(spec[k] + 1e-30), np.log(spec[k + 1] + 1e-30)
-        k = k + 0.5 * (a - g) / (a - 2 * b + g)
-    freq = k * (freqs[1] - freqs[0])
+    # Hann window + parabolic peak interpolation for sub-bin frequency accuracy
+    freq = dominant_frequency(series, dt=1.0, discard=0.5, window=True, refine=True)
     St = freq * L / u_in
     out = {"case": case, "St": St, "reference_St": ref,
            "rel_diff_vs_reference": None if ref is None else (St - ref) / ref,

@@ -40,6 +40,7 @@ class CylinderLBM(Experiment):
                             "Re_diameter": p["Re"], "Re_channel_solver": re_channel, "u_in": p["u_in"],
                             "smagorinsky_Cs": p["Cs"], "tau": 1.0 / solver.omega})
         # start with the fluid at rest inside the obstacle (no start-up shock), as in benchmarks/lbm_vortex_shedding
+        from pinneapple_physics.physics_audit.regime import dominant_frequency
         from pinneapple_simulation.numerical_solvers.lbm import _d2q9_tensors, _equilibrium_2d
         cxv, cyv, wv, _ = _d2q9_tensors(torch.device("cpu"))
         ux0 = torch.where(mask.bool(), 0.0, float(p["u_in"]))
@@ -59,10 +60,7 @@ class CylinderLBM(Experiment):
         half = probe[len(probe) // 2:]
         amp = float(np.std(half) / p["u_in"])
         dt_save = p["save_every"]
-        spec = np.abs(np.fft.rfft(half - half.mean()))
-        freqs = np.fft.rfftfreq(len(half), d=dt_save)
-        k = int(np.argmax(spec[1:]) + 1) if len(spec) > 2 else 0
-        f = float(freqs[k]) if k else 0.0
+        f = dominant_frequency(probe, dt=dt_save, discard=0.5, window=False, refine=False)
         st = f * D / p["u_in"]
         regime = "shedding" if amp > 0.02 else "steady"
         ctx.metric("wake_amplitude", amp)

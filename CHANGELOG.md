@@ -20,6 +20,24 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `pinneapple_data.preflight.attach_snippets` / `drop_results` / `is_result_file`, `formfill.compile_documents` /
   `check_overrides` / `output_filename` / `FormSpec.describe`, and `unified.before_after_series`. The heat-sink and PCB
   apps import the library modules directly (their alias modules stay for old imports).
+- Closed-form flow and heat helpers moved from benchmarks, lab experiments and examples into the library:
+  `closed_form.pipe_flow` (laminar / Blasius / Colebrook / Haaland friction factors with validity warnings, Darcy and
+  parallel-plate pressure drop, `first_cell_height` for a target y+), `closed_form.compressible` (isentropic ratios,
+  `normal_shock`, Rayleigh `pitot_pressure_ratio`, modified-Newtonian `cp_max_newtonian`),
+  `closed_form.heat.slab_transient` (Fourier series, Carslaw & Jaeger) and `burgers.burgers_sine_inviscid_exact` (entropy solution).
+- `physics_audit.regime.dominant_frequency` (Hann window, rfft, parabolic peak refinement) for Strouhal numbers;
+  `fitmesh.size_layers` (geometric prism-layer stack); `pinneapple_data.cae.courant_number` / `wall_distance` and
+  their `mesh_*` wrappers; `simulation_metadata.openfoam.read_dat` / `parse_dat` for function-object tables;
+  `lpm.Design.ellipse` / `Design.square`.
+- Helpers the experiment repositories used to copy: `pinneapple_analysis.uncertainty.resampling` (`block_bootstrap`,
+  moving-block bootstrap after Kunsch 1989; `group_bootstrap`; `skill_score` = 1 - E|model|/E|ref| with a paired
+  block, group or iid interval; blocked `jackknife`), `CalibrationSummary.from_predictions` and
+  `score_against_reference` (benchmark registration, `PhysicsCase` comparison, calibration and
+  `compute_physics_confidence` for several models in one call) in
+  `pinneapple_analysis.verification.physics_confidence_score`, `pinneapple_neural.architectures.rom.DMDc` (DMD with
+  control, Proctor, Brunton & Kutz 2016), `pinneapple_physics.metrics.rollout_relative_l2`,
+  `pinneapple_data.datasets.download.fetch_cached` (URL cache with retries and exponential backoff) and
+  `openradioss.read_energy_error` (energy-balance error from the engine log).
 - `scripts/check_app_helpers.py` (run in CI by `tests/test_app_helpers.py`): flags new local helper modules and new
   copies of library helpers in `apps/` and `examples/`, against a baseline that can only shrink. The rule
   ("reusable logic goes in the library; apps and examples only compose library calls") is in `AGENTS.md` and
@@ -201,6 +219,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `pp.cfd.FreeSurfaceFlow`, two meshes with mass balance, impingement, splash, floor shear and mean k).
 
 ### Changed
+- `compressible_fv.sod_exact` delegates to `astrophysics.sod_exact_solution` (same output to round-off; covers every wave pattern);
+  `internal_flow.colebrook` delegates to `closed_form.pipe_flow.colebrook`; the LBM shedding benchmark, the
+  cylinder / car / ROM lab experiments, the SSQN benchmarks and the missile example use the library functions above.
 - **Behavior:** the zoo gate of `rover_contact_grc1_viper` checks that dFx/ds has the sign of the recorded Wong-Reece
   reference (with slip-sinkage the pull need not grow with slip at a fixed sinkage) instead of dFx/ds >= 0.
 - **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their
