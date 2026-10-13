@@ -36,7 +36,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-__all__ = ["DuarteUNet", "DensityCodec", "make_blocks", "train_forecaster", "rollout", "lead_time_scores",
+__all__ = ["DuarteUNet", "DensityCodec", "make_blocks", "train_forecaster", "train_on_trajectories", "rollout", "lead_time_scores",
            "trust_horizon", "MassEnvelope", "MassProjection", "load_forecaster", "window_mass"]
 
 
@@ -254,6 +254,30 @@ def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarra
     with open(os.path.join(out_dir, "history.json"), "w") as f:
         json.dump(hist, f)
     return hist
+
+
+def train_on_trajectories(train: Sequence[np.ndarray], val: Sequence[np.ndarray], cfg: TrainConfig, out_dir: str, *,
+                          cell_volume: np.ndarray | None = None, val_blocks: int = 1, init: str | None = None,
+                          log=print) -> tuple[DensityCodec, dict[str, list]]:
+    """Train on whole trajectories of log10 density frames (T, H, W), already cropped to the forecast window and
+    ``frame_dt`` apart: blocks never cross trajectories, and validation trajectories are separate ones.
+
+    ``init``: a forecaster.pt to fine-tune (its normalisation is kept). Returns the codec and the history."""
+    if init:
+        model0, codec, _ = load_forecaster(init)
+    else:
+        lg = np.concatenate([np.asarray(t, np.float32) for t in train])
+        codec, model0 = DensityCodec(float(lg.min()), float(lg.max()), lg.shape[1], 0), None
+
+    def enc(lg):
+        return ((np.asarray(lg, np.float32) - codec.log_min) / (codec.log_max - codec.log_min)).astype(np.float32)
+
+    X, Y = zip(*[make_blocks(enc(t), cfg.frames, out_blocks=cfg.rollout_blocks) for t in train], strict=True)
+    Xv, Yv = zip(*[make_blocks(enc(t), cfg.frames, out_blocks=val_blocks) for t in val], strict=True)
+    X, Y, Xv, Yv = (np.concatenate(z) for z in (X, Y, Xv, Yv))
+    log(f"train {X.shape} -> {Y.shape}  val {Xv.shape} -> {Yv.shape}  codec {codec}")
+    hist = train_forecaster(X, Y, Xv, Yv, cfg, codec, out_dir, log=log, cell_volume=cell_volume, init=model0)
+    return codec, hist
 
 
 def _loss(pred, target, cfg):

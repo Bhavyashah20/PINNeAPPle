@@ -211,3 +211,53 @@ def test_rollout_loss_noise_and_mass_penalty_train(tmp_path):
     assert ck["train"]["rollout_blocks"] == 2 and c2 == codec
     with pytest.raises(ValueError, match="cell_volume"):
         train_forecaster(X, Y, X[:4], Y[:4], cfg, codec, str(tmp_path), log=lambda s: None)
+
+
+def test_conservative_remap_keeps_mass_between_non_nested_grids():
+    from pinneapple_physics.blackhole.convergence import cell_volumes, remap, remap_r
+    grids = {}
+    for nr in (45, 32):
+        f = AccretionFlow(RIAFConfig(nr=nr, ntheta=nr // 2))
+        grids[nr] = f.grid()
+    rng = np.random.default_rng(0)
+    a = rng.random((45, 22))
+    faces = {n: (g["r_faces"], g["theta_faces"]) for n, g in grids.items()}
+    b = remap(a, faces[45], faces[32])
+    m_f = (a * cell_volumes(grids[45])).sum()
+    m_c = (b * cell_volumes(grids[32])).sum()
+    assert b.shape == (32, 16) and abs(m_c / m_f - 1) < 1e-12
+    assert np.allclose(remap(np.full((45, 22), 3.0), faces[45], faces[32]), 3.0)
+    assert np.allclose(remap_r(np.full(45, 2.0), grids[45]["r_faces"], grids[32]["r_faces"]), 2.0)
+
+
+def test_dataset_codec_roundtrip():
+    from pinneapple_physics.blackhole.dataset import Q_HI, Q_LO, decode, encode
+    lg = np.random.default_rng(1).uniform(-7.5, 0.5, (4, 6, 5))
+    assert np.abs(decode(encode(lg)) - lg).max() <= 0.5 * (Q_HI - Q_LO) / 65535 + 1e-6
+    with pytest.raises(ValueError):
+        encode(np.array([Q_LO - 1.0]))
+
+
+def test_dmd_baseline_is_exact_on_a_linear_system():
+    from pinneapple_physics.blackhole.skill import DMDBaseline
+    rng = np.random.default_rng(2)
+    modes = rng.normal(size=(2, 4, 4))
+    t, w = np.arange(30), 2 * np.pi * 3 / 29         # whole periods over the 29 snapshot pairs: mean = 0.5 exactly
+    traj = [(0.5 + 0.1 * np.cos(w * t + ph)[:, None, None] * modes[0] + 0.1 * np.sin(w * t + ph)[:, None, None]
+             * modes[1]) for ph in (0.0, 1.0)]
+    d = DMDBaseline(traj, rank=2)
+    f = d.forecast(traj[0][10], 5)
+    assert np.abs(f - traj[0][11:16]).max() < 1e-6
+
+
+def test_forecast_skill_horizon_and_intervals():
+    from pinneapple_analysis.verification.forecast_skill import batch_means_ci, skill_vs_lead
+    rng = np.random.default_rng(3)
+    ref = 1.0 + 0.05 * rng.random((200, 6))
+    model = ref.copy()
+    model[:, :4] *= 0.8                                   # better for 4 leads, then equal
+    res = skill_vs_lead(model, ref, np.arange(1, 7) * 10.0, block=5)
+    assert res.horizon == 40.0
+    assert res.skill_score[0, 1] > 0.15 and res.diff[0, 2] < 0
+    m, h = batch_means_ci(rng.normal(size=4000))
+    assert abs(m) < 3 * h and 0 < h < 0.2

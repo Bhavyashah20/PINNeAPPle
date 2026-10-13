@@ -99,35 +99,21 @@ def main(argv=None):
 
 
 def main_dataset(a):
-    from zoo_data import load_trajectories, window_volumes
+    from pinneapple_physics.blackhole.dataset import load_trajectories, window_volumes
+    from pinneapple_physics.blackhole.forecast import train_on_trajectories
     path = a.dataset if a.dataset.endswith(".npz") else None
     tr, va = load_trajectories("train", path), load_trajectories("val", path)
-    lg_all = np.concatenate([v["log10_rho"] for v in tr.values()])
-    codec = DensityCodec(float(lg_all.min()), float(lg_all.max()), lg_all.shape[1], 0)
-    init = None
-    if a.init:                                  # fine-tune: keep the normalisation the weights were trained with
-        from pinneapple_physics.blackhole.forecast import load_forecaster
-        init, codec, _ = load_forecaster(a.init)
-
-    def enc(v):
-        return ((v["log10_rho"] - codec.log_min) / (codec.log_max - codec.log_min)).astype(np.float32)
-
-    X, Y = zip(*[make_blocks(enc(v), out_blocks=a.rollout_blocks) for v in tr.values()], strict=True)
-    Xv, Yv = zip(*[make_blocks(enc(v), out_blocks=a.val_blocks) for v in va.values()], strict=True)
-    X, Y, Xv, Yv = (np.concatenate(z) for z in (X, Y, Xv, Yv))
-    print(f"train {X.shape} -> {Y.shape}  val {Xv.shape} -> {Yv.shape}  codec {codec}", flush=True)
     cfg = TrainConfig(filters=a.filters, epochs=a.epochs, batch_size=a.batch_size, alpha=a.alpha, lr=a.lr,
                       residual=a.residual, loss=a.loss, clip=a.clip, max_minutes=a.max_minutes, seed=a.seed,
                       rollout_blocks=a.rollout_blocks, noise=a.noise, mass_weight=a.mass_weight, bf16=a.bf16)
     os.makedirs(a.out, exist_ok=True)
-    frame_dt = float(np.diff(next(iter(tr.values()))["t"]).mean())
     with open(os.path.join(a.out, "setup.json"), "w") as f:
-        json.dump({"dataset": a.dataset, "train_seeds": sorted(tr), "val_seeds": sorted(va), "frame_dt": frame_dt,
-                   "stride": 1, "one_sim": False, "n_train": int(len(X)), "n_val": int(len(Xv)),
+        json.dump({"dataset": a.dataset, "train_seeds": sorted(tr), "val_seeds": sorted(va),
+                   "frame_dt": float(np.diff(next(iter(tr.values()))["t"]).mean()), "stride": 1, "one_sim": False,
                    "args": vars(a)}, f, indent=1)
-    train_forecaster(X, Y, Xv, Yv, cfg, codec, a.out, log=lambda s: print(s, flush=True),
-                     cell_volume=window_volumes(path), init=init)
-
+    train_on_trajectories([v["log10_rho"] for v in tr.values()], [v["log10_rho"] for v in va.values()], cfg, a.out,
+                          cell_volume=window_volumes(path), val_blocks=a.val_blocks, init=a.init,
+                          log=lambda s: print(s, flush=True))
 
 if __name__ == "__main__":
     main()

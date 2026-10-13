@@ -21,111 +21,17 @@ for whole trajectories, so no trajectory is in two splits:
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import sys
-import zipfile
 from pathlib import Path
-
-import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "examples/black_hole_weather"))
 
 from pinneapple_hub.zoo import _artifacts as art  # noqa: E402
+from pinneapple_physics.blackhole.dataset import NAME, T0, T1, build_arrays, write_npz  # noqa: E402
 
-NAME = "blackhole_riaf_density_256"
 VERSION = "1.0.0"
-Q_LO, Q_HI = -8.0, 1.0
-T0, T1, FRAME_DT = 2000.0, 10000.0, 20.0
-SPLITS = {"train": [("conv_n256_s0", 0.1, 0), ("conv_n256_s1", 0.1, 1), ("conv_n256_s2", 0.1, 2),
-                    ("conv_n256_s3", 0.1, 3)],
-          "val": [("conv_n256_s4", 0.1, 4)],
-          "test": [("conv_n256_s5", 0.1, 5)],
-          "ood_alpha0.3": [("ood_n256_a0.3_s0", 0.3, 0)]}
-
-
-def encode(log10_rho: np.ndarray) -> np.ndarray:
-    q = np.round((np.asarray(log10_rho, float) - Q_LO) / (Q_HI - Q_LO) * 65535.0)
-    if q.min() < 0 or q.max() > 65535:
-        raise ValueError(f"log10 rho outside [{Q_LO}, {Q_HI}]")
-    return q.astype(np.uint16)
-
-
-def decode(q: np.ndarray) -> np.ndarray:
-    """uint16 column ``log10_rho_q`` -> log10 density (float32)."""
-    return (Q_LO + np.asarray(q, np.float64) * ((Q_HI - Q_LO) / 65535.0)).astype(np.float32)
-
-
-def deterministic_npz(arrays: dict[str, np.ndarray]) -> bytes:
-    """npz with fixed zip timestamps and order, so the SHA-256 does not change between identical builds."""
-    out = io.BytesIO()
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for k in sorted(arrays):
-            buf = io.BytesIO()
-            np.lib.format.write_array(buf, np.ascontiguousarray(arrays[k]), allow_pickle=False)
-            zi = zipfile.ZipInfo(f"{k}.npy", date_time=(2026, 1, 1, 0, 0, 0))
-            zi.compress_type = zipfile.ZIP_DEFLATED
-            z.writestr(zi, buf.getvalue())
-    return out.getvalue()
-
-
-def build_dataset(runs: Path, conv: dict, t0: float = T0, t1: float = T1) -> tuple[dict, dict]:
-    from convergence import window_mask
-    from simulate import load_run
-
-    arrays: dict[str, np.ndarray] = {}
-    stride = None
-    grid = None
-    for split, members in SPLITS.items():
-        cols = {"run": [], "alpha": [], "t": [], "mdot": [], "log10_rho_q": []}
-        for folder, alpha, seed in members:
-            run = load_run(str(runs / folder))
-            t = run["t"]
-            stride = int(round(FRAME_DT / float(np.diff(t).mean())))
-            k = (t >= t0 - 1e-6) & (t <= t1 + 1e-6)
-            idx = np.nonzero(k)[0][::stride]
-            if len(idx) != int(round((t1 - t0) / FRAME_DT)) + 1:
-                raise SystemExit(f"{folder}: {len(idx)} frames in [{t0}, {t1}] (incomplete run?)")
-            g = run["grid"]
-            m = window_mask(g)
-            ri, ti = np.nonzero(m.any(1))[0], np.nonzero(m.any(0))[0]
-            rho = run["frames"][idx, 0][:, ri[0]:ri[-1] + 1, ti[0]:ti[-1] + 1]
-            cols["log10_rho_q"].append(encode(np.log10(np.clip(rho, 1e-30, None))))
-            cols["t"].append(t[idx].astype(np.float32))
-            cols["mdot"].append(run["mdot"][idx].astype(np.float32))
-            cols["run"].append(np.full(len(idx), seed, np.int16))
-            cols["alpha"].append(np.full(len(idx), alpha, np.float32))
-            grid = (g, ri, ti)
-        for c, v in cols.items():
-            arrays[f"{split}__{c}"] = np.concatenate(v)
-    g, ri, ti = grid
-    arrays["grid_r__r"] = g["r"][ri].astype(np.float64)
-    arrays["grid_r__r_face_lo"] = g["r_faces"][ri].astype(np.float64)
-    arrays["grid_r__r_face_hi"] = g["r_faces"][ri + 1].astype(np.float64)
-    arrays["grid_theta__theta"] = g["theta"][ti].astype(np.float64)
-    arrays["grid_theta__theta_face_lo"] = g["theta_faces"][ti].astype(np.float64)
-    arrays["grid_theta__theta_face_hi"] = g["theta_faces"][ti + 1].astype(np.float64)
-    # resolution-study scalars, one row per (grid, seed)
-    rows = {"nr": [], "ntheta": [], "seed": [], **{q: [] for q in CONV_SCALARS}}
-    for nr, nth in conv["levels"]:
-        for i, seed in enumerate(conv["seeds"]):
-            vals = [conv["scalars"][q]["by_level"].get(str(nr), {}).get("per_seed", []) for q in CONV_SCALARS]
-            if any(len(v) <= i for v in vals):
-                continue
-            rows["nr"].append(nr)
-            rows["ntheta"].append(nth)
-            rows["seed"].append(seed)
-            for q, v in zip(CONV_SCALARS, vals, strict=True):
-                rows[q].append(v[i])
-    for c, v in rows.items():
-        arrays[f"convergence__{c}"] = np.asarray(v, np.int32 if c in ("nr", "ntheta", "seed") else np.float64)
-    return arrays, {"stride": stride}
-
-
-CONV_SCALARS = ["mdot_mean", "mdot_rms_over_mean", "mdot_psd_slope", "window_mass_mean", "persistence_mae_20M",
-                "persistence_mae_100M", "persistence_mae_1000M"]
 
 COLUMNS = {
     "run": ("-", "trajectory: the seed of the initial torus perturbation"),
@@ -147,6 +53,9 @@ COLUMNS = {
     "persistence_mae_20M": ("-", "MAE of persistence at a 20 M lead (normalised log density, log10 rho in [-6, 0])"),
     "persistence_mae_100M": ("-", "same, 100 M lead"),
     "persistence_mae_1000M": ("-", "same, 1000 M lead"),
+    "rho_slope_r10_60": ("-", "slope of the time-mean shell density, d ln rho / d ln r for r in [10, 60] M"),
+    "ell_over_kepler_r10": ("-", "time-mean specific angular momentum over the Keplerian (Paczynski-Wiita) value, r = 10 M"),
+    "ell_over_kepler_r30": ("-", "same at r = 30 M"),
 }
 
 
@@ -235,10 +144,8 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     if a.cmd == "dataset":
         conv = json.loads(a.convergence.read_text())
-        arrays, _ = build_dataset(a.runs, conv, a.t0, a.t1)
-        out = a.staging / NAME / "data.npz"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_bytes(deterministic_npz(arrays))
+        arrays = build_arrays(a.runs, conv, t0=a.t0, t1=a.t1)
+        out = write_npz(arrays, a.staging / NAME / "data.npz")
         if not a.no_manifest:
             update_manifest("datasets", NAME, manifest_entry(arrays, out, verification_text(conv), f"{NAME}/data.npz"))
         print(f"{out}: {out.stat().st_size / 1e6:.1f} MB, sha256 {art.sha256_file(out)}")
