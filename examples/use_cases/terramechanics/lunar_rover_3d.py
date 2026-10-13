@@ -185,7 +185,7 @@ def _plot_grades(rows, path):
     fig, ax = plt.subplots(1, 3, figsize=(13, 3.6))
     ax[0].plot(g, [r["slip_mean"] for r in rows], "o-", color="#2a78d6")
     ax[0].axhline(0.4, color="#9a9893", lw=0.8, ls="--")
-    ax[0].text(0.3, 0.42, "40 % slip, VIPER requirement at 15 deg", fontsize=7.5, color="#52514e")
+    ax[0].text(0.3, 0.385, "40 % slip, VIPER requirement at 15 deg", fontsize=7.5, color="#52514e", va="top")
     ax[1].plot(g, [r["speed_m_s"] for r in rows], "o-", color="#eb6834")
     ax[2].plot(g, [r["drive_torque_Nm"] for r in rows], "o-", color="#1baf7a", label="mean")
     ax[2].plot(g, [r["max_drive_torque_Nm"] for r in rows], "s--", color="#1baf7a", ms=4, label="peak")
