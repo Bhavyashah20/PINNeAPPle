@@ -239,9 +239,11 @@ That is 18 degrees of freedom, with the bodies' masses and inertias taken from t
 - **Suspension:** PD to a set point, 200 N m limit, plus an assumed load-levelling loop. On four wheels only the
   diagonal ("warp") share of the loads can be equalised by the arms; the front/rear split is fixed by the centre of
   mass.
-- **Slip-sinkage in the dynamic run:** the slip that sets the exponent is scaled down below 0.05 m/s of rim or
-  ground speed (`v_sink`). The slip ratio of a nearly stopped wheel is a ratio of noise, and slip-sinkage needs
-  the wheel to turn and dig (a model setting).
+- **Slip-sinkage in the dynamic run:** the slip that sets the exponent follows the wheel's slip with a lag of
+  0.15 m of rim travel (`sink_length`, about one contact length). Slip-sinkage builds up as the wheel turns and
+  digs; a stopped wheel neither builds nor loses it, so the slip ratio of a nearly stopped wheel, a ratio of
+  noise, cannot feed back into the sinkage. Without the lag, a wheel held on a 20° slope dug itself in and the
+  run diverged. This is a model setting, not a published law.
 - **Terrain:** `DeformableTerrain` keeps the soil memory on a 1 cm grid. Every wheel writes its rim trace and the
   shear it leaves, and the rut gets a real cross-section: a floor as wide as the wheel at the computed sinkage,
   walls at the angle of repose (38°) and rounded berms on both sides holding 30 % of the rut cross-section (the

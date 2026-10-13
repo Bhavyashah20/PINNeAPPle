@@ -34,8 +34,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 
 ### Changed
 - **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their
-  sinkage grows with driving slip. The validation soils keep n1 = 0. `VehicleSimulator(v_sink=0.05)` scales the
-  slip that sets the exponent down near standstill.
+  sinkage grows with driving slip. The validation soils keep n1 = 0. In `VehicleSimulator` the slip that sets the
+  exponent lags the wheel's slip over `sink_length` (0.15 m) of rim travel.
 - **Behavior:** `vehicle.dashboard.render_frames` and `vehicle_dashboard` default to the geometry-only view (no
   stress colour map, no colour bar); pass `field=` / `field_label=` for the overlay.
 
