@@ -228,7 +228,7 @@ class PeriodicCNN:
     """Dilated 2-D CNN with circular padding (built lazily so the module imports without torch)."""
 
     @staticmethod
-    def build(width=48):
+    def build(width=32):
         torch, nn = _torch()
         layers, c = [], 2
         for d in (1, 2, 4, 8, 4, 2, 1):
@@ -253,6 +253,7 @@ def torus_graph(n: int, offsets=(1, 2, 4)):
 
 
 GNN_N = 24
+CNN_N = 32                                   # the CNN works on 32^2 (its Gaussian 4h output has little above k = 12)
 LOW_MODES = [(kx, ky) for kx in range(0, 5) for ky in range(-4, 5) if (kx > 0 or ky > 0)]   # half plane, |k| <= 4
 
 
@@ -284,7 +285,7 @@ def train_surrogates(data: dict, scale: float = 1.0):
     torch.set_num_threads(4)
     steps = lambda n: max(20, int(n * scale))  # noqa: E731
     path = OUT / "surrogates.pt"
-    fno = FNO2d(2, 2, width=32, modes1=16, modes2=16, layers=4, use_grid=False)
+    fno = FNO2d(2, 2, width=24, modes1=16, modes2=16, layers=4, use_grid=False)
     cnn = PeriodicCNN.build()
     don = DeepONet(2 * len(LOW_MODES) + 1, 8 * 2 + 0, 2, hidden=128, modes=96, depth=3)
     gnn = MeshGraphNet(node_in_dim=2, out_dim=2, edge_in_dim=2, hidden_dim=48, n_message_passing=5)
@@ -315,17 +316,17 @@ def train_surrogates(data: dict, scale: float = 1.0):
     else:
         t0 = time.time()
         X, Y, _ = training_pairs(data, "low", SURROGATES["FNO"][1])
-        _fit(lambda x: fno(x).y, fno.parameters(), X, Y, steps(1500), 0, log="FNO")
-        X, Y, _ = training_pairs(data, "high", SURROGATES["CNN"][1])
-        _fit(cnn, cnn.parameters(), X, Y, steps(1500), 1, log="CNN")
+        _fit(lambda x: fno(x).y, fno.parameters(), X, Y, steps(800), 0, batch=8, log="FNO")
+        X, Y, _ = training_pairs(data, "high", SURROGATES["CNN"][1], n_grid=CNN_N)
+        _fit(cnn, cnn.parameters(), X, Y, steps(800), 1, batch=8, log="CNN")
         X, Y, _ = training_pairs(data, "mid", SURROGATES["DeepONet"][1])
         Xb = torch.tensor(don_features(X[:, 0].numpy(), X[:, 1, 0, 0].numpy()), dtype=torch.float32)
-        _fit(don_forward, don.parameters(), Xb, Y, steps(4000), 2, lr=1e-3, log="DeepONet")
+        _fit(don_forward, don.parameters(), Xb, Y, steps(2000), 2, lr=1e-3, log="DeepONet")
         X, Y, _ = training_pairs(data, "mid", SURROGATES["GNN"][1], n_grid=GNN_N)
-        _fit(gnn_forward, gnn.parameters(), X, Y, steps(800), 3, lr=1e-3, batch=8, log="GNN")
+        _fit(gnn_forward, gnn.parameters(), X, Y, steps(400), 3, lr=1e-3, batch=8, log="GNN")
         sel = data["band"] == "low"
         c0 = low_mode_coefficients(data["w"][sel, 0].astype(float))
-        pinn.fit(c0, data["nu"][sel], steps(4000), seed=4)
+        pinn.fit(c0, data["nu"][sel], steps(2000), seed=4)
         print(f"surrogates trained in {time.time() - t0:.0f} s", flush=True)
         torch.save({k: m.state_dict() for k, m in mods.items()}, path)
     for m in mods.values():
@@ -341,7 +342,7 @@ def train_surrogates(data: dict, scale: float = 1.0):
                 if name == "PINN":
                     c = pinn.predict(low_mode_coefficients(filtered_input(w0, filt))[None], np.array([nu]))[0]
                     return (c @ B64).reshape(2, N_OUT, N_OUT)
-                n = GNN_N if name == "GNN" else N_OUT
+                n = GNN_N if name == "GNN" else (CNN_N if name == "CNN" else N_OUT)
                 x = restrict(apply_filter(np.asarray(w0, float), filt, L), n) / VORT_SCALE
                 X = torch.tensor(np.stack([x, np.full_like(x, z)])[None], dtype=torch.float32)
                 if name == "FNO":
@@ -462,8 +463,9 @@ def _sc_tensors(data, idx, deltas):
     w = data["w"][idx].astype(float)
     x = restrict(w[:, 0], N_OUT) / VORT_SCALE
     z = np.broadcast_to(re_feature(data["nu"][idx])[:, None, None], x.shape)
-    X = torch.tensor(np.stack([x, z], 1))
-    Y = {float(d * H): torch.tensor(restrict(apply_filter(w[:, 3:5], Filter("gaussian", d * H), L), N_OUT) / VORT_SCALE)
+    X = torch.tensor(np.stack([x, z], 1), dtype=torch.float32)
+    Y = {float(d * H): torch.tensor(restrict(apply_filter(w[:, 3:5], Filter("gaussian", d * H), L), N_OUT) / VORT_SCALE,
+                                    dtype=torch.float32)
          for d in deltas}
     return X, Y
 
@@ -482,11 +484,10 @@ def train_scale_linking(data: dict, scale: float = 1.0):
     )
 
     torch.set_num_threads(4)
-    torch.set_default_dtype(torch.float64)
     steps = lambda n: max(20, int(n * scale))  # noqa: E731
     tr, _ = _split(data, ("mid", "high"))
     path = OUT / "scale_linking.pt"
-    kw = dict(in_channels=2, out_channels=2, width=32, modes=16, layers=4, delta_ref=H)
+    kw = dict(in_channels=2, out_channels=2, width=24, modes=16, layers=4, delta_ref=H)
     models = {"SC-FNO": ScaleConditionedFNO2d(conditioned=True, **kw),
               "FNO-blind": ScaleConditionedFNO2d(conditioned=False, **kw),
               **{f"FNO-{d}h": ScaleConditionedFNO2d(conditioned=False, **kw) for d in SC_DELTAS}}
@@ -502,7 +503,8 @@ def train_scale_linking(data: dict, scale: float = 1.0):
         for k, m in models.items():
             ys = Y if k in ("SC-FNO", "FNO-blind") else {float(int(k[4:-1]) * H): Y[float(int(k[4:-1]) * H)]}
             print(f"training {k}", flush=True)
-            fit_scale_conditioned(m, X, ys, "gaussian", steps=steps(2500), batch=16, lr=2e-3,
+            fit_scale_conditioned(m, X, ys, "gaussian", steps=steps(1200 if k in ("SC-FNO", "FNO-blind") else 700),
+                                  batch=8, lr=2e-3,
                                   consistency_weight=0.5 if k == "SC-FNO" else 0.0, seed=11, log_every=500)
         print(f"FNOs trained in {time.time() - t0:.0f} s", flush=True)
         # a-posteriori closure: LES 48^2 rolled out 60 steps (t = 0.3) against the filtered DNS at t = 0.1, 0.2, 0.3
@@ -514,13 +516,12 @@ def train_scale_linking(data: dict, scale: float = 1.0):
         les = TorchVorticityLES2D(LES_N)
         t0 = time.time()
         train_closure_aposteriori(closure, les, W0, torch.tensor(data["nu"][sub]), REF, 5e-3, [20, 40, 60],
-                                  steps=steps(300), batch=4, lr=1e-3, seed=5, log_every=50)
+                                  steps=steps(150), batch=4, lr=1e-3, seed=5, log_every=25)
         print(f"closure trained a posteriori in {time.time() - t0:.0f} s", flush=True)
         torch.save({**{k: m.state_dict() for k, m in models.items()}, "closure": closure.state_dict()}, path)
     for m in models.values():
         m.eval()
     closure.eval()
-    torch.set_default_dtype(torch.float32)
     return models, closure
 
 
@@ -528,9 +529,9 @@ def sc_predict(model, w0: np.ndarray, nu: float, delta: float) -> np.ndarray:
     """(2, 64, 64) prediction of a (scale-conditioned) FNO at Gaussian width ``delta``."""
     torch, _ = _torch()
     x = restrict(apply_filter(np.asarray(w0, float), Filter("gaussian", delta), L), N_OUT) / VORT_SCALE
-    X = torch.tensor(np.stack([x, np.full_like(x, float(re_feature(nu)))])[None], dtype=torch.float64)
+    X = torch.tensor(np.stack([x, np.full_like(x, float(re_feature(nu)))])[None], dtype=torch.float32)
     with torch.no_grad():
-        return model(X, torch.tensor([delta], dtype=torch.float64))[0].numpy() * VORT_SCALE
+        return model(X, torch.tensor([delta], dtype=torch.float32))[0].numpy().astype(float) * VORT_SCALE
 
 
 def scale_conditioning_study(data, models):

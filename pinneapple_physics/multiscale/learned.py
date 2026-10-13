@@ -155,10 +155,10 @@ def fit_scale_conditioned(model: nn.Module, inputs: torch.Tensor, targets: dict[
     conditioned = getattr(model, "conditioned", True)
     for step in range(steps):
         idx = torch.randint(0, N, (batch,), generator=g)
-        dsel = torch.tensor([deltas[int(i)] for i in torch.randint(0, len(deltas), (batch,), generator=g)],
-                            dtype=inputs.dtype)
+        jsel = torch.randint(0, len(deltas), (batch,), generator=g).tolist()
+        dsel = torch.tensor([deltas[j] for j in jsel], dtype=inputs.dtype)
         x = inputs[idx]
-        y = torch.stack([targets[float(d)][int(i)] for d, i in zip(dsel, idx, strict=True)])
+        y = torch.stack([targets[deltas[j]][int(i)] for j, i in zip(jsel, idx, strict=True)])
         xin = torch_filter(x, kind, dsel, length) if input_filter else x
         p = model(xin, dsel)
         loss = ((p - y) ** 2).mean() / (y ** 2).mean().clamp_min(1e-12)
