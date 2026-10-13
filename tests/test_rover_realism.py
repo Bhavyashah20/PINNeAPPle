@@ -165,3 +165,43 @@ def test_dashboard_small_layout_and_compact_gif(tmp_path):
     assert im.size == (1280, 720) and im.n_frames == len(t)
     g = write_gif(str(tmp_path / "g.gif"), [np.zeros((40, 60, 3), np.uint8)] * 3, fps=5)
     assert os.path.getsize(g) < 5000
+
+
+# ---------------------------------------------------------------------- zoo PINN in the dashboard, stress overlay
+def test_zoo_contact_surrogate_adapter():
+    pytest.importorskip("torch")
+    from pinneapple_hub import zoo
+    from pinneapple_simulation.terramechanics.surrogate import (
+        ZooContactSurrogate,
+        compare_on_states,
+    )
+    from pinneapple_simulation.vehicle import viper
+    m = zoo.load("rover_contact_grc1_viper")
+    sur = ZooContactSurrogate(m)
+    assert sur.meta["test_errors"]["Fx"]["rmse_N"] < 1.0 and sur.meta["name"].startswith("rover_contact")
+    s, z = np.array([0.05, 0.2, 1.5]), np.array([0.015, 0.02, 0.02])
+    P = sur.predict(s, z)
+    assert P.shape == (3, 3)
+    np.testing.assert_allclose(P[:, 0], m.predict(np.c_[s, z], warn=False)["Fx_N"])
+    assert sur.in_range(s, z).tolist() == [True, True, False]
+    # against the model it was trained on (GRC-1 without slip-sinkage) it is accurate at low slip
+    wr0 = WongReeceModel(get_soil("GRC-1").with_(n1=0.0), viper().wheel)
+    c = compare_on_states(sur, wr0, np.linspace(-0.2, 0.3, 30), np.full(30, 0.015))
+    assert c["errors_inside"]["Fx"]["rmse_N"] < 1.0
+
+
+def test_semi_transparent_overlay_keeps_the_shading():
+    from pinneapple_tools.visualization.studio.planetary import SurfaceView, _field_blend
+    from pinneapple_tools.visualization.studio.shadows import shade_terrain
+    X, Y = np.meshgrid(np.linspace(0, 1, 40), np.linspace(0, 1, 40))
+    Z = 0.05 * np.sin(8 * X)                                             # relief across the field
+    f = np.full(X.shape, 10.0)
+    view = SurfaceView(X, Y, Z, terrain_field=f, clim=(0.0, 20.0), field_alpha=0.6, field_glow=0.0)
+    tint, glow = _field_blend(view, f)
+    assert glow is None
+    plain = shade_terrain(X, Y, Z, (0.3, 0.0, 0.2), (0, -3, 2)).mean(-1)
+    tinted = shade_terrain(X, Y, Z, (0.3, 0.0, 0.2), (0, -3, 2), tint=tint).mean(-1)
+    assert np.corrcoef(plain.ravel(), tinted.ravel())[0, 1] > 0.95      # the relief's shading survives the map
+    assert not np.allclose(plain, tinted)                                # and the map changes the colour
+    view.field_glow = 0.55
+    assert _field_blend(view, f)[1] is not None

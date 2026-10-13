@@ -69,14 +69,18 @@ def terrain_at(run, terrain: DeformableTerrain, t_end: float, cache: dict | None
 def frame_view(run, terrain, k: int, *, field: str | None = None, clim=None, half_window=(3.2, 2.4),
                far_margin: float = 14.0, far_cell: float = 0.04, cache=None, earth: bool = False,
                preset="lunar_low_sun", sun_azimuth_deg: float | None = None, far_relief: float = 0.03,
-               colorbar: bool = True, trail: float = 0.0, horizon: float = 4000.0, overlay: bool = True):
+               colorbar: bool = True, trail: float = 0.0, horizon: float = 4000.0, overlay: bool = True,
+               field_alpha: float = 0.85, field_glow: float = 0.55):
     """The :class:`~pinneapple_tools.visualization.studio.planetary.SurfaceView` of sample ``k``.
 
     The detailed terrain (ruts with their walls, berms and grouser marks as real geometry, optional stress maps)
     covers ``half_window`` around the vehicle, shifted back by ``trail`` metres along the direction of travel so
     more of the ruts behind it stay in view; a coarser far field (:func:`far_surface`, ruts included, with the
     vehicle's shadow) fills ``far_margin`` metres around it and a curved annulus continues the ground to
-    ``horizon`` metres, past the lunar horizon, so no edge of the ground mesh is visible. ``field`` colours the wheels and the ruts; ``overlay=False`` keeps the
+    ``horizon`` metres, past the lunar horizon, so no edge of the ground mesh is visible. ``field_alpha`` and
+    ``field_glow`` set how the ruts' colour map sits on the relief (see
+    :class:`~pinneapple_tools.visualization.studio.planetary.SurfaceView`); e.g. 0.6 / 0.1 is a semi-transparent
+    map through which the rut geometry, grouser marks and Sun shading stay visible. ``field`` colours the wheels and the ruts; ``overlay=False`` keeps the
     wheel colours but draws the ruts by their geometry only."""
     from pinneapple_tools.visualization.studio.planetary import SurfaceView
     ter = terrain_at(run, terrain, float(run.t[k]), cache)
@@ -124,6 +128,9 @@ def frame_view(run, terrain, k: int, *, field: str | None = None, clim=None, hal
         ys = np.arange(cy - far_margin, cy + far_margin + far_cell, far_cell)
         Xf, Yf = np.meshgrid(xs, ys)
         far = (Xf, Yf, far_surface(ter, Xf, Yf, far_relief))
+    far_field = None
+    if far is not None and field in ("normal_stress", "shear_stress", "sinkage"):
+        far_field = _far_field(ter, far[0], far[1], field)
     if sun_azimuth_deg is not None:
         from pinneapple_tools.visualization.studio.lighting import get_preset
         preset = get_preset(preset).with_(sun_azimuth_deg=sun_azimuth_deg)
@@ -132,7 +139,18 @@ def frame_view(run, terrain, k: int, *, field: str | None = None, clim=None, hal
     return SurfaceView(X, Y, Z, parts=items, rocks=rocks, preset=preset, terrain_field=tfield, cmap=cmap,
                        clim=clim, colorbar_title=label if colorbar and field else "", far=far, earth=earth,
                        horizon=horizon if far is not None else 0.0, far_fn=ter.base_soil_height,
-                       terrain_overlay=overlay)
+                       terrain_overlay=overlay, field_alpha=field_alpha, field_glow=field_glow,
+                       far_field=far_field)
+
+
+def _far_field(ter: DeformableTerrain, X, Y, field: str):
+    """The terrain field of :func:`frame_view` (kPa or mm, NaN where nothing was recorded) on far-grid points."""
+    inside = (X >= ter.x0) & (X <= ter.x1) & (Y >= ter.y0) & (Y <= ter.y1)
+    if field == "sinkage":
+        g = 1e3 * ter.rut_depth(X, Y)
+        return np.where(inside & (g > 0.3), g, np.nan)
+    g = 1e-3 * ter._bilinear(ter.sigma if field == "normal_stress" else ter.tau, X, Y)
+    return np.where(inside & (g > 0), g, np.nan)
 
 
 def far_surface(ter: DeformableTerrain, X, Y, relief: float = 0.03, feather: float = 1.0):
