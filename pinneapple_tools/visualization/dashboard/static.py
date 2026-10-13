@@ -99,11 +99,8 @@ class _Layout:
         self.dyn.append(lambda k, im=im: im.set_data(db.frame(k)))
         cb = db.colorbar
         if cb is not None:
-            import matplotlib
             cax = f.add_axes([box[0] + box[2] - 0.012, box[1] + 0.06, 0.008, box[3] * 0.5])
-            g = np.linspace(0, 1, 256)[:, None]
-            cax.imshow(g, aspect="auto", cmap=matplotlib.colormaps[cb.cmap], origin="lower",
-                       extent=[0, 1, cb.lo, cb.hi])
+            cax.imshow(cb.colors(256)[:, None, :], aspect="auto", origin="lower", extent=[0, 1, cb.lo, cb.hi])
             cax.set_xticks([])
             cax.yaxis.tick_left()
             cax.tick_params(colors=THEME["text"], labelsize=7.5 * self.fs)
