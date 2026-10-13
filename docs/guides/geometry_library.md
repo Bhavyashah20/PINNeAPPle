@@ -237,10 +237,10 @@ Two-stage launcher with a tangent-ogive payload fairing, interstage, four tail f
 
 Volatiles Investigating Polar Exploration Rover from public NASA figures: chassis with side and aft solar arrays, deck radiator, mast with camera head, high- and low-gain antennas, TRIDENT drill, four active-suspension corner modules with spoked, grousered wheels. Wraps pinneapple_simulation.vehicle.viper.viper().cad.
 
-- Bounding box (default build, L x W x H): 1.53 x 1.53 x 2.45 m. Frame: right-handed, metres: x forward, y to the left, z up; origin on the ground below the chassis centre.
+- Bounding box (default build, L x W x H): 1.692 x 1.539 x 2.5 m. Frame: right-handed, metres: x forward, y to the left, z up; origin on the ground below the chassis centre.
 - Parameters: `wheel_radius` [m], `wheel_width` [m], `grouser_count`, `grouser_height` [m].
 - Physics: terramechanics (wheel-soil, slip, sinkage); multibody dynamics; thermal (lunar night, radiator); lighting / perception at the lunar south pole.
-- Sources: 1.5 m x 1.5 m x 2.5 m (mast up), ~450 kg, wheels ~0.5 m diameter, active suspension: NASA VIPER fact sheets and NTRS papers listed in pinneapple_simulation.vehicle.viper.VIPER_SOURCES; *(estimate)* detail placement (antennas, hazcams, instruments): estimates from NASA imagery
+- Sources: 1.5 m x 1.5 m x 2.5 m (mast up), ~450 kg, wheels ~0.5 m diameter, active suspension: NASA VIPER fact sheets and NTRS papers listed in pinneapple_simulation.vehicle.viper.VIPER_SOURCES; *(estimate)* detail placement (antennas, hazcams, instruments): estimates from NASA imagery; bounding box of the model: 1.69 m long (the front instruments and bumpers stand proud of the 1.5 m chassis), 1.54 m wide over the wheels, 2.50 m to the top of the mast: model geometry
 - Wraps `pinneapple_simulation.vehicle.viper.viper_cad` (still importable from there).
 
 

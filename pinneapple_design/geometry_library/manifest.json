@@ -886,58 +886,58 @@
    "category": "space",
    "dimensions_m": {
     "height_z": 2.4995,
-    "length_x": 1.6295,
-    "width_y": 1.619
+    "length_x": 1.6925,
+    "width_y": 1.539
    },
    "files": {
     "viper_rover.fine.glb": {
-     "bytes": 642980,
+     "bytes": 918672,
      "location": "hub",
-     "sha256": "320cfd20fb7340746c5572ba59d51e3630382d7a84877d574aac02cfa758f4c8"
+     "sha256": "14f6072bd92e4dedd23b5f13d309eb9b0925bec93e4c1c65abc734a3b8d70c67"
     },
     "viper_rover.fine.obj": {
-     "bytes": 525434,
+     "bytes": 810141,
      "location": "hub",
-     "sha256": "b7ca2b3b2cb0fa7add08523595750cffcb8009e09343e5ed866dc14814dbf7a1"
+     "sha256": "84c7e3110a5221f0d7e38728c37a75efa2282471b4f93e3da81925e3b9817989"
     },
     "viper_rover.fine.stl": {
-     "bytes": 832084,
+     "bytes": 1240284,
      "location": "hub",
-     "sha256": "1765094cf45d3b5feb522b724e18b4348e54542c4641fbdbe967fef8491e727f"
+     "sha256": "247c68c9c97dbcf37aa5fc9b74fa9568627da02a75777b758a522443b1cf62c8"
     },
     "viper_rover.fine.usda": {
-     "bytes": 879284,
+     "bytes": 1296278,
      "location": "hub",
-     "sha256": "524436fe8f9f323bcc6bfbb69be2e7a925899e0006d1298581fb31ee8f8ca6c4"
+     "sha256": "3211083f95184ad44333d6fd3ac5a4fc9b3efa7e6904782fe498b087055052a1"
     },
     "viper_rover.light.glb": {
-     "bytes": 642980,
+     "bytes": 918672,
      "location": "repo+hub",
-     "sha256": "320cfd20fb7340746c5572ba59d51e3630382d7a84877d574aac02cfa758f4c8"
+     "sha256": "14f6072bd92e4dedd23b5f13d309eb9b0925bec93e4c1c65abc734a3b8d70c67"
     },
     "viper_rover.light.obj": {
-     "bytes": 525435,
+     "bytes": 810142,
      "location": "hub",
-     "sha256": "757d91f46c09ba7be8d7f0bd5c2ee23d2361c4d6cbe4b82fe7029549eda7cc26"
+     "sha256": "ded4a5b9ef23945e18bd5c328a48f9e669f0a62bef2146d67f1124257f107970"
     },
     "viper_rover.light.step": {
-     "bytes": 5789142,
+     "bytes": 8742490,
      "location": "hub",
-     "sha256": "efc904b6b27bb001fefd25f88c621d6248e294b8e6cc8705bd9f55a561f233ec"
+     "sha256": "93a792858cd9706813d1682d6426f7e97b78e73686ff3a79a30406f343e42b1f"
     },
     "viper_rover.light.stl": {
-     "bytes": 832084,
+     "bytes": 1240284,
      "location": "repo+hub",
-     "sha256": "d1c3c62317da3ab51f7d2919764d2c6a5bad3f0c6301f1916e52c969d425ac2f"
+     "sha256": "f24351ead4be54d40bd43d14c587afa1757acc3dd5b0e53e74a10e7f92a2684b"
     },
     "viper_rover.light.usda": {
-     "bytes": 879284,
+     "bytes": 1296278,
      "location": "hub",
-     "sha256": "524436fe8f9f323bcc6bfbb69be2e7a925899e0006d1298581fb31ee8f8ca6c4"
+     "sha256": "3211083f95184ad44333d6fd3ac5a4fc9b3efa7e6904782fe498b087055052a1"
     }
    },
    "n_triangles": {
-    "light": 16640
+    "light": 24804
    },
    "params_hash": {
     "fine": "1ddaae8c23961eba",
