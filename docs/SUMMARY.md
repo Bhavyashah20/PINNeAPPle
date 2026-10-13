@@ -58,6 +58,7 @@
     * [Physics checks in CI](guides/physics_checks_in_ci.md)
     * [A latent surrogate that says when not to trust it](guides/trusted_latent_surrogate.md)
     * [Detect false data injection with physics residuals](guides/physics_residual_attack_detection.md)
+    * [The PINNeAPPle Observatory](guides/observatory.md)
 * [API Reference](api/index.md)
   * [pinneapple](api/pinneapple/index.md)
   * [pinneapple_physics](api/pinneapple_physics/index.md)

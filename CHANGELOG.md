@@ -77,6 +77,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   surrogate with conformal bands and a trust verdict; black-hole lensing of the real sky. Validated against USNO NOVAS,
   JPL Horizons, the USNO almanac, NASA eclipse predictions and skyfield (`validation.run_all()`). Extra `sky`.
   Docs: `docs/core_concepts/astro.md`.
+- PINNeAPPle Observatory app (`apps/observatory`): the sky and the solar system now from the visitor's location in
+  3-D (three.js), with satellites, astrophysics analyses, the orbit surrogate with its checks, and the validation table;
+  deploy service `observatory` (`OBS_DOMAIN`). Guide: `docs/guides/observatory.md`.
 - `pinneapple check`, a physics linter for CI (`pinneapple_check`; also `python -m pinneapple.check`): fails when a
   simulation result or a Physics-AI model violates physics. 29 rules with ids, explanations and fix hints
   (`--list-rules`, `--explain PC101`): conservation of mass, energy and momentum, divergence, conserved totals in
