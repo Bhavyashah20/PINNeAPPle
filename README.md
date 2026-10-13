@@ -366,7 +366,7 @@ If you use PINNeAPPle in your research, please cite it. [`CITATION.cff`](CITATIO
   author       = {Barros, Yan and Schiassi, Enrico},
   year         = {2026},
   url          = {https://github.com/PINNeAPPle-Labs/PINNeAPPle},
-  version      = {0.6.3}
+  version      = {0.7.0}
 }
 ```
 
