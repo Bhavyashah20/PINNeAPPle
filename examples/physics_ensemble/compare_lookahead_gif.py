@@ -17,22 +17,7 @@ from five_model_families_gif import AD, REGIMES, random_case, train_experts, tra
 
 from pinneapple_physics.ensemble import PhysicsEnsemble
 from pinneapple_physics.ensemble_viz import animate_ensemble
-
-
-def stitch(left: Path, right: Path, out: Path, fps: int = 10) -> Path:
-    """Two GIFs with the same number of frames → one, side by side."""
-    from PIL import Image, ImageSequence
-
-    a = [f.convert("RGB") for f in ImageSequence.Iterator(Image.open(left))]
-    b = [f.convert("RGB") for f in ImageSequence.Iterator(Image.open(right))]
-    frames = []
-    for fa, fb in zip(a, b, strict=True):
-        im = Image.new("RGB", (fa.width + fb.width, max(fa.height, fb.height)), "white")
-        im.paste(fa, (0, 0))
-        im.paste(fb, (fa.width, 0))
-        frames.append(im.quantize(colors=128, method=Image.Quantize.MEDIANCUT))
-    frames[0].save(out, save_all=True, append_images=frames[1:], duration=int(1000 / fps), loop=0, optimize=True)
-    return out
+from pinneapple_tools.visualization.dashboard.static import hstack_gifs
 
 
 def timeline(runs: dict, oracle: np.ndarray, names: list, cases_per_regime: int, path: Path) -> Path:
@@ -82,7 +67,7 @@ def main(out_dir=".", scale=1.0, cases_per_regime=16, frames_per_case=2, seed=7,
         gifs = [animate_ensemble(run, refs, Path(tmp) / f"{i}.gif", x=AD.x, times=AD.t, frames_per_case=frames_per_case,
                                  regimes=regimes, title=f"{label} (error {np.nanmean(run.ensemble_errors):.3f})", dpi=dpi)
                 for i, (label, run) in enumerate(runs.items()) if run.predictions is not None]
-        gif = stitch(gifs[0], gifs[1], out_dir / "lookahead_comparison.gif")
+        gif = hstack_gifs(gifs[:2], out_dir / "lookahead_comparison.gif")
     png = timeline(runs, oracle, names, cases_per_regime, out_dir / "lookahead_timeline.png")
     for label, run in runs.items():
         print(f"{label:24s} mean error {np.nanmean(run.ensemble_errors):.4f} | wrong model on "

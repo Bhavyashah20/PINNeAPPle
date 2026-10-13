@@ -14,6 +14,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- `PhysicsEnsemble.run_delayed(queries, references, available_at, issue_times=None)`: prequential evaluation where
+  each label is used only once it exists (pending updates replayed in order of availability), returning an
+  `EnsembleRun` like `run`; `PhysicsEnsemble.last_state()` and `update(..., state=...)` score a stored prediction
+  when its label arrives later. `hstack_gifs` in `pinneapple_tools.visualization.dashboard.static` stitches
+  animations side by side (replaces the `stitch` helper of the physics-ensemble examples).
 - Library homes for helpers that lived in examples: `pinneapple_neural.utils.as_tensor` (model output ->
   prediction Tensor); `pinneapple_data.datasets.deepmind_mgn` (DeepMind meshgraphnets partial download over HTTP
   Range, TFRecord reader, `cylinder_flow` conversion) and `train_dynamics` / `eval_rollout` in

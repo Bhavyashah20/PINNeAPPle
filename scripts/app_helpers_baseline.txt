@@ -27,7 +27,6 @@ examples/pde_environment/03_ns2d_channel_tags.py -> examples/pde_environment/_ut
 examples/pde_environment/04_heat3d_stl_box.py -> examples/pde_environment/_utils.py
 examples/pde_environment/07_tagged_presets_real_geometry.py -> examples/pde_environment/_utils.py
 examples/physics_ensemble/compare_lookahead_gif.py -> examples/physics_ensemble/five_model_families_gif.py
-examples/physics_ensemble/sensor_noise_gif.py -> examples/physics_ensemble/compare_lookahead_gif.py
 examples/physics_ensemble/sensor_noise_gif.py -> examples/physics_ensemble/five_model_families_gif.py
 examples/pinn_solver/06_domino_time_marching_demo.py::relative_l2
 examples/pinneapple_and_physicsnemo/physicsnemo/wave_1d.py -> examples/pinneapple_and_physicsnemo/physicsnemo/wave_equation.py

@@ -267,6 +267,47 @@ def write_gif(path: str, frames, fps: float, colors: int = 255, loop: int = 0) -
     return path
 
 
+def _gif_frames(src) -> list:
+    from PIL import Image, ImageSequence
+    if isinstance(src, (str, bytes)) or hasattr(src, "__fspath__"):
+        with Image.open(src) as im:
+            return [f.convert("RGB") for f in ImageSequence.Iterator(im)]
+    return [f.convert("RGB") if isinstance(f, Image.Image) else Image.fromarray(np.asarray(f, np.uint8)[..., :3])
+            for f in src]
+
+
+def hstack_gifs(paths_or_frames, out, fps: float = 10, colors: int = 128, background: str = "white",
+                mismatch: str = "error", loop: int = 0):
+    """Several animations side by side in one GIF, frame by frame (e.g. two runs of the same case compared).
+
+    ``paths_or_frames``: GIF paths, or sequences of RGB frames (arrays or PIL images), left to right. Each output
+    frame is as tall as the tallest input; shorter inputs are pasted at the top and the rest is filled with
+    ``background``. ``mismatch`` sets what happens when the inputs have different frame counts: ``"error"`` (default,
+    raise ``ValueError``), ``"hold"`` (the shorter ones stay on their last frame until the longest ends) or
+    ``"loop"`` (the shorter ones start again). Frames are quantised to ``colors`` colours each (median cut) and
+    written at ``fps``. Returns ``out``."""
+    from PIL import Image
+    if mismatch not in ("error", "hold", "loop"):
+        raise ValueError("mismatch must be 'error', 'hold' or 'loop'")
+    clips = [_gif_frames(s) for s in paths_or_frames]
+    if not clips or any(len(c) == 0 for c in clips):
+        raise ValueError("give at least one non-empty animation")
+    counts = [len(c) for c in clips]
+    if len(set(counts)) > 1 and mismatch == "error":
+        raise ValueError(f"the animations have different frame counts {counts}; use mismatch='hold' or 'loop'")
+    frames = []
+    for k in range(max(counts)):
+        row = [c[k] if k < len(c) else (c[-1] if mismatch == "hold" else c[k % len(c)]) for c in clips]
+        im = Image.new("RGB", (sum(f.width for f in row), max(f.height for f in row)), background)
+        x = 0
+        for f in row:
+            im.paste(f, (x, 0))
+            x += f.width
+        frames.append(im.quantize(colors=int(colors), method=Image.Quantize.MEDIANCUT))
+    frames[0].save(out, save_all=True, append_images=frames[1:], duration=int(1000 / fps), loop=loop, optimize=True)
+    return out
+
+
 def write_video(db: Dashboard, gif: str | None = None, mp4: str | None = None, *, fps: int = 12, size=(1920, 1080),
                 gif_size=(1280, 720), gif_every: int = 1, dpi: int = 100, frames=None, progress=None,
                 gif_font_scale: float | None = None, gif_colors: int = 255, mp4_quality: int = 8) -> dict:
@@ -307,4 +348,4 @@ def write_video(db: Dashboard, gif: str | None = None, mp4: str | None = None, *
     return out
 
 
-__all__ = ["write_png", "write_video", "write_gif"]
+__all__ = ["write_png", "write_video", "write_gif", "hstack_gifs"]
