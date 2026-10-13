@@ -1,14 +1,14 @@
 ---
-title: "REA: análise nativa de binários (FMUs, solvers) com Ghidra"
+title: "REA: native binary analysis (FMUs, solvers) with a Ghidra provider"
 labels: [enhancement, rea]
 ---
 
-**Quem tem:** REA `open_binary` + provider Ghidra/Hopper/IDA.
+**Who has it:** REA `open_binary` + Ghidra/Hopper/IDA providers.
 
-**O que o PINNeAPPle já tem:** `rea_bridge` cobre JS/proveniência; `fmu_inspect` cobre a tabela de símbolos ELF. Ghidra não pôde ser instalado no sandbox (download do GitHub Releases bloqueado).
+**What PINNeAPPle already has:** `rea_bridge` covers JavaScript and provenance; `fmu_inspect` covers the ELF symbol table. Ghidra could not be installed in the sandbox (GitHub Releases download blocked).
 
-**Proposta:** `rea setup` com Ghidra numa máquina com acesso; wrapper `ReaClient.open_binary/decompile` + summarizer de Evidence nativa.
+**Proposal:** `rea setup` with Ghidra on a machine with access; `ReaClient.open_binary/decompile` wrappers + a native-Evidence summarizer.
 
-**Critério de aceite (regra D1 — referência independente):** Decompilar `fmi2DoStep` de uma Reference-FMU e localizar a chamada ao integrador (Euler) com Evidence.
+**Acceptance (rule D1 — independent reference):** Decompile `fmi2DoStep` from a Reference-FMU and locate the call into the integrator, with Evidence.
 
-**Origem:** docs/dev/REA_INTEGRATION.md
+**Origin:** docs/dev/REA_INTEGRATION.md

@@ -1,14 +1,14 @@
 ---
-title: "AMR guiada pela solução (quadtree, critério wavelet/gradiente)"
+title: "Solution-adaptive mesh refinement (quadtree, wavelet/gradient criterion)"
 labels: [enhancement, meshing, solvers]
 ---
 
-**Quem tem:** CONVERGE (AMR a cada passo), Basilisk (adapt_wavelet), Luminary SDK.
+**Who has it:** CONVERGE (AMR every step), Basilisk (`adapt_wavelet`), Luminary SDK.
 
-**O que o PINNeAPPle já tem:** Só refinamento estático (camada limite, curvatura, níveis do snappy).
+**What PINNeAPPle already has:** Static refinement only (boundary layers, curvature, snappy levels).
 
-**Proposta:** Quadtree 2-D com critério wavelet para `fvm` e `shallow_water_fv`.
+**Proposal:** 2-D quadtree with a wavelet criterion for `fvm` and `shallow_water_fv`.
 
-**Critério de aceite (regra D1 — referência independente):** Dam-break de Ritter: mesmo erro L1 da malha uniforme fina com ≤ 40% das células.
+**Acceptance (rule D1 — independent reference):** Ritter dam break: same L1 error as the fine uniform grid with ≤ 40% of the cells.
 
-**Origem:** §2 item 7
+**Origin:** §2 item 7

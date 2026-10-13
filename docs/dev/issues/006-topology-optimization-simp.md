@@ -1,14 +1,14 @@
 ---
-title: "Otimização topológica SIMP (compliance 2-D) sobre o solid_fem"
+title: "SIMP topology optimization (2-D compliance) on top of solid_fem"
 labels: [enhancement, design-optimization]
 ---
 
-**Quem tem:** Ansys Mechanical/Discovery, STAR-CCM+ adjoint topology, SU2, OpenFOAM adjointOptimisation.
+**Who has it:** Ansys Mechanical/Discovery, STAR-CCM+ adjoint topology optimization, SU2, OpenFOAM adjointOptimisation.
 
-**O que o PINNeAPPle já tem:** Ausente.
+**What PINNeAPPle already has:** Absent.
 
-**Proposta:** SIMP com filtro de densidade e OC/MMA, 2-D compliance, sobre `solid_fem.py`.
+**Proposal:** SIMP with density filter and OC/MMA updates, 2-D compliance, on `solid_fem.py`.
 
-**Critério de aceite (regra D1 — referência independente):** Reproduzir o MBB beam do Sigmund (2001, '99-line') — compliance final dentro de 1% do valor publicado para a mesma malha.
+**Acceptance (rule D1 — independent reference):** Reproduce Sigmund's MBB beam ('99-line code', 2001): final compliance within 1% of the published value on the same mesh.
 
-**Origem:** §2 item 6
+**Origin:** §2 item 6

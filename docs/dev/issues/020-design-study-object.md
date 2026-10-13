@@ -1,14 +1,14 @@
 ---
-title: "Estudo de design como objeto (Study → Designs → Scenarios + tela de comparação)"
+title: "Design study as a first-class object (Study → Designs → Scenarios + comparison view)"
 labels: [enhancement, ux, orchestration]
 ---
 
-**Quem tem:** Autodesk CFD Design Study Automation, COMSOL Model Manager, Simcenter Studio.
+**Who has it:** Autodesk CFD Design Study Automation, COMSOL Model Manager, Simcenter Studio.
 
-**O que o PINNeAPPle já tem:** `pinneapple_lab`, `pinneapple_registry`.
+**What PINNeAPPle already has:** `pinneapple_lab`, `pinneapple_registry`.
 
-**Proposta:** Hierarquia Study/Design/Scenario no registry + view de comparação no `pinneapple_app`.
+**Proposal:** Study/Design/Scenario hierarchy in the registry + a comparison view in `pinneapple_app`.
 
-**Critério de aceite (regra D1 — referência independente):** Round-trip: estudo salvo e recarregado com os mesmos resultados; comparação ordena por KPI.
+**Acceptance (rule D1 — independent reference):** Round trip: a saved and reloaded study returns identical results; the comparison sorts by KPI.
 
-**Origem:** §2 item 12
+**Origin:** §2 item 12

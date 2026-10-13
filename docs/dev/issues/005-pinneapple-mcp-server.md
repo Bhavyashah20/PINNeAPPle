@@ -1,14 +1,14 @@
 ---
-title: "Servidor MCP do PINNeAPPle a partir do PhysicsToolRegistry"
+title: "PINNeAPPle MCP server generated from PhysicsToolRegistry"
 labels: [enhancement, llm, agents]
 ---
 
-**Quem tem:** PyAnsys (MCP para PyFluent/PyMechanical/PyMAPDL), Luminary SDK (MCP documentado).
+**Who has it:** PyAnsys (MCP servers for PyFluent/PyMechanical/PyMAPDL), Luminary SDK (documented MCP server).
 
-**O que o PINNeAPPle já tem:** `PhysicsToolRegistry` já tem `input_schema`/`output_schema`; `agent_loop` usa o registry.
+**What PINNeAPPle already has:** `PhysicsToolRegistry` already carries `input_schema`/`output_schema`; `agent_loop` uses the registry.
 
-**Proposta:** Gerar ferramentas MCP a partir do registry (stdio), com allowlist e o `PhysicsGuardrail` na saída.
+**Proposal:** Generate MCP tools from the registry (stdio), with an allowlist and `PhysicsGuardrail` on outputs.
 
-**Critério de aceite (regra D1 — referência independente):** Teste: `tools/list` expõe as tools registradas; uma chamada `reference_license_policy` e uma de solver retornam JSON válido.
+**Acceptance (rule D1 — independent reference):** `tools/list` exposes the registered tools; a `reference_license_policy` call and one solver call return valid JSON.
 
-**Origem:** §2 item 5
+**Origin:** §2 item 5

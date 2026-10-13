@@ -1,14 +1,14 @@
 ---
-title: "ROM dinâmico híbrido (física + resíduo aprendido) calibrado online com sensores"
+title: "Hybrid dynamic ROM (physics + learned residual) calibrated online from sensors"
 labels: [enhancement, digital-twin, rom]
 ---
 
-**Quem tem:** Twin Builder (Neural ODE, TFT, Hammerstein LPV, fusion modeling), ROM Builder (LSTM/GRU).
+**Who has it:** Twin Builder (Neural ODE, TFT, Hammerstein LPV, fusion modeling), ROM Builder (LSTM/GRU).
 
-**O que o PINNeAPPle já tem:** Neural ROM, Koopman, SINDy, Kalman, 4D-Var — sem a composição física+resíduo online.
+**What PINNeAPPle already has:** Neural ROM, Koopman, SINDy, Kalman, 4D-Var — but not the physics + residual composition updated online.
 
-**Proposta:** Modelo ROM físico + correção aprendida, atualizada por Kalman/EnKF no `digital_twin`.
+**Proposal:** Physics ROM + learned correction, updated by Kalman/EnKF inside `digital_twin`.
 
-**Critério de aceite (regra D1 — referência independente):** Sistema sintético com termo faltante conhecido: o resíduo aprendido converge para o termo (erro < 5%).
+**Acceptance (rule D1 — independent reference):** Synthetic system with a known missing term: the learned residual converges to it (error < 5%).
 
-**Origem:** §2 item 9
+**Origin:** §2 item 9

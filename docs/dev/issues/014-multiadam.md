@@ -1,14 +1,14 @@
 ---
-title: "Otimizador MultiAdam para perdas PINN multi-termo"
+title: "MultiAdam optimizer for multi-term PINN losses"
 labels: [enhancement, training]
 ---
 
-**Quem tem:** PINNacle `src/optimizer/multiadam.py` (MIT).
+**Who has it:** PINNacle `src/optimizer/multiadam.py` (MIT).
 
-**O que o PINNeAPPle já tem:** NTK weighting e Adam→L-BFGS existem; MultiAdam não.
+**What PINNeAPPle already has:** NTK weighting and Adam → L-BFGS exist; MultiAdam does not.
 
-**Proposta:** Estatísticas de Adam separadas por grupo de perda.
+**Proposal:** Separate Adam moment statistics per loss group.
 
-**Critério de aceite (regra D1 — referência independente):** Poisson com BCs desbalanceadas: converge onde Adam padrão estagna (erro relativo menor em 3 seeds).
+**Acceptance (rule D1 — independent reference):** Poisson with badly balanced boundary terms: lower relative error than plain Adam over 3 seeds.
 
-**Origem:** ledger: PINNacle
+**Origin:** ledger: PINNacle

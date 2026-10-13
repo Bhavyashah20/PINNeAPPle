@@ -1,14 +1,14 @@
 ---
-title: "LBM D3Q27 cumulant + voxelização de STL + armazenamento FP16"
+title: "LBM D3Q27 cumulant collision + STL voxelization + FP16 storage"
 labels: [enhancement, solvers, gpu]
 ---
 
-**Quem tem:** ultraFluidX, PowerFLOW, XFlow, M-Star, SimScale Pacefish, FluidX3D (FP16 storage).
+**Who has it:** ultraFluidX, PowerFLOW, XFlow, M-Star, SimScale Pacefish, FluidX3D (FP16 storage).
 
-**O que o PINNeAPPle já tem:** `lbm.py`: D2Q9/D3Q19 BGK + Smagorinsky; `lbm_tunnel`.
+**What PINNeAPPle already has:** `lbm.py`: D2Q9/D3Q19 BGK + Smagorinsky; `lbm_tunnel`.
 
-**Proposta:** Colisão cumulant D3Q27, voxelização de STL (GPU via torch), armazenamento FP16 com aritmética FP32 (ideia, não código — FluidX3D é não comercial).
+**Proposal:** D3Q27 cumulant collision, STL voxelization (GPU via torch), FP16 storage with FP32 arithmetic (the idea only — FluidX3D is non-commercial, no code reuse).
 
-**Critério de aceite (regra D1 — referência independente):** Poiseuille 3-D e Taylor–Green 3-D contra solução exata; esfera Re=100 com Cd dentro de 3% da correlação de Schiller–Naumann.
+**Acceptance (rule D1 — independent reference):** 3-D Poiseuille and Taylor–Green against exact solutions; sphere at Re = 100 with Cd within 3% of the Schiller–Naumann correlation.
 
-**Origem:** §3
+**Origin:** §3

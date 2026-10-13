@@ -1,14 +1,14 @@
 ---
-title: "Prévia de PDE no navegador (SymbolicPDE → GLSL), estilo VisualPDE"
+title: "In-browser PDE preview (SymbolicPDE → GLSL), VisualPDE-style"
 labels: [enhancement, frontend]
 ---
 
-**Quem tem:** VisualPDE (MIT) — localizado com REA: `setRDEquations`, url_codec, auto steps-per-frame.
+**Who has it:** VisualPDE (MIT) — located with REA: `setRDEquations`, `url_codec`, auto steps-per-frame.
 
-**O que o PINNeAPPle já tem:** `pinneapple_app/frontend` (React/Vite); `SymbolicPDE`.
+**What PINNeAPPle already has:** `pinneapple_app/frontend` (React/Vite); `SymbolicPDE`.
 
-**Proposta:** Emitir GLSL de um `ProblemSpec` 2-D (reação-difusão) e rodar no frontend; estado compartilhável na URL.
+**Proposal:** Emit GLSL from a 2-D reaction–diffusion `ProblemSpec`, run it in the frontend, keep the state shareable in the URL.
 
-**Critério de aceite (regra D1 — referência independente):** Gray–Scott: padrão estacionário igual ao do solver numpy (correlação > 0.99) em 5 presets.
+**Acceptance (rule D1 — independent reference):** Gray–Scott: steady pattern matches the NumPy solver (correlation > 0.99) on 5 presets.
 
-**Origem:** ledger: VisualPDE
+**Origin:** ledger: VisualPDE

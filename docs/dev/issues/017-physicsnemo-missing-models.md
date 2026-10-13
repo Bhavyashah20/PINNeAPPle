@@ -1,14 +1,14 @@
 ---
-title: "Modelos do PhysicsNeMo ausentes: FIGConvNet, TopoDiff, DLWP-HEALPix"
+title: "PhysicsNeMo models not yet exposed: FIGConvNet, TopoDiff, DLWP-HEALPix"
 labels: [enhancement, neural-operators]
 ---
 
-**Quem tem:** NVIDIA PhysicsNeMo (Apache-2.0).
+**Who has it:** NVIDIA PhysicsNeMo (Apache-2.0).
 
-**O que o PINNeAPPle já tem:** `physicsnemo_bridge` existe; esses modelos não.
+**What PINNeAPPle already has:** `physicsnemo_bridge` exists; these models are not exposed.
 
-**Proposta:** Expor via bridge primeiro (sem reimplementar); reimplementar só o que justificar.
+**Proposal:** Expose through the bridge first (no reimplementation); reimplement only where justified.
 
-**Critério de aceite (regra D1 — referência independente):** Smoke test de forward + um caso pequeno de treino por modelo.
+**Acceptance (rule D1 — independent reference):** Forward smoke test + one small training case per model.
 
-**Origem:** ledger: PhysicsNeMo
+**Origin:** ledger: PhysicsNeMo

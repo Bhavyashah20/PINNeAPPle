@@ -1,14 +1,14 @@
 ---
-title: "Morphing paramétrico de malha tesselada (RBF) sem CAD"
+title: "Parametric RBF morphing of tessellated geometry (no CAD needed)"
 labels: [enhancement, geometry, design-optimization]
 ---
 
-**Quem tem:** STAR-CCM+ 2506 Parametric Morphing, SU2 RBF.
+**Who has it:** STAR-CCM+ 2506 Parametric Morphing, SU2 RBF deformation.
 
-**O que o PINNeAPPle já tem:** Ausente (otimização depende de geometria paramétrica).
+**What PINNeAPPle already has:** Absent (optimization needs parametric geometry).
 
-**Proposta:** Morphing RBF com pontos de controle e vetores de parâmetro sobre STL.
+**Proposal:** RBF morphing with control points and parameter vectors acting on an STL.
 
-**Critério de aceite (regra D1 — referência independente):** Interpolação exata nos pontos de controle; deslocamento nulo longe do suporte; malha sem inversão (Jacobiano > 0).
+**Acceptance (rule D1 — independent reference):** Exact interpolation at control points; zero displacement outside the support; no inverted elements (positive Jacobian).
 
-**Origem:** §2 item 13
+**Origin:** §2 item 13

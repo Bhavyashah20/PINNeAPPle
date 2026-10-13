@@ -1,14 +1,14 @@
 ---
-title: "Pipeline 'casos CFD → surrogate de campo a partir de STL/point cloud' + DoMINO real"
+title: "Pipeline 'CFD cases → field surrogate from STL / point cloud' + a real DoMINO"
 labels: [enhancement, surrogate]
 ---
 
-**Quem tem:** Ansys SimAI (non-parametric), Simcenter PhysicsAI, Luminary SHIFT (DoMINO/GeoTransolver), Emmi AB-UPT.
+**Who has it:** Ansys SimAI (non-parametric), Simcenter PhysicsAI, Luminary SHIFT (DoMINO/GeoTransolver), Emmi AB-UPT.
 
-**O que o PINNeAPPle já tem:** `Transolver`, MeshGraphNet, `physicsnemo_bridge`, `lpm.py`. **Atenção:** `pinneapple_physics/pinn_solver/domino.py` é um PINN de decomposição de domínio, não o DoMINO da NVIDIA — o nome confunde.
+**What PINNeAPPle already has:** `Transolver`, MeshGraphNet, `physicsnemo_bridge`, `lpm.py`. **Note:** `pinneapple_physics/pinn_solver/domino.py` is a domain-decomposition PINN, not NVIDIA's DoMINO — the name is misleading.
 
-**Proposta:** Pipeline pronto: pasta de casos OpenFOAM → dataset (superfície+volume) → treino (Transolver / DoMINO via bridge) → Cd/Cl + campos → relatório. Renomear ou documentar o `domino.py` atual.
+**Proposal:** Ready-made pipeline: folder of OpenFOAM cases → dataset (surface + volume) → training (Transolver / DoMINO via the bridge) → fields + Cd/Cl → report. Rename or clearly document the current `domino.py`.
 
-**Critério de aceite (regra D1 — referência independente):** Benchmark reproduzível em AhmedML (CC-BY-SA) com erro de Cd reportado e comparado a um número publicado.
+**Acceptance (rule D1 — independent reference):** Reproducible AhmedML benchmark (CC-BY-SA) reporting the Cd error and comparing it with a published number.
 
-**Origem:** §2 item 3
+**Origin:** §2 item 3

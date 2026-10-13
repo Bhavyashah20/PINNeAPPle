@@ -1,14 +1,14 @@
 ---
-title: "Score de similaridade geométrica (0–1) devolvido com cada predição de surrogate"
+title: "Return a 0–1 geometric similarity score with every surrogate prediction"
 labels: [enhancement, surrogate, uq]
 ---
 
-**Quem tem:** Simcenter/Altair PhysicsAI devolvem um *geometric similarity score* e o Ansys SimAI um *confidence level* que diz se o design novo está dentro do domínio de treino.
+**Who has it:** Simcenter/Altair PhysicsAI return a *geometric similarity score*; Ansys SimAI returns a *confidence level* telling whether a new design lies inside the training domain.
 
-**O que o PINNeAPPle já tem:** `GeometryOODGuardrail`, `analysis/trust/trust_gate.py`, UQ conformal/ensemble em `pinneapple_analysis/uncertainty`.
+**What PINNeAPPle already has:** `GeometryOODGuardrail`, `analysis/trust/trust_gate.py`, conformal/ensemble UQ in `pinneapple_analysis/uncertainty`.
 
-**Proposta:** Embedding de geometria (descritores de `geometry_features` + curvatura de `geometry/ops/curvature.py`) → distância ao conjunto de treino (kNN/Mahalanobis) → calibração para [0,1] em hold-out. Devolver junto de toda predição e no relatório de evidência.
+**Proposal:** Geometry embedding (`geometry_features` descriptors + curvature from `geometry/ops/curvature.py`) → distance to the training set (kNN/Mahalanobis) → calibrated to [0, 1] on a hold-out split. Return it with every prediction and in the evidence report.
 
-**Critério de aceite (regra D1 — referência independente):** Teste: designs do treino têm score ≥ 0.9; design deformado progressivamente tem score monotonicamente decrescente; correlação de Spearman positiva entre (1-score) e erro real num conjunto sintético.
+**Acceptance (rule D1 — independent reference):** Training designs score ≥ 0.9; a progressively deformed design gets a monotonically decreasing score; positive Spearman correlation between (1 − score) and the true error on a synthetic set.
 
-**Origem:** docs/dev/ANALISE_FEATURES_COMERCIAIS.md §2 item 1
+**Origin:** docs/dev/ANALISE_FEATURES_COMERCIAIS.md §2 item 1

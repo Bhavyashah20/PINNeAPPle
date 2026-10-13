@@ -1,14 +1,14 @@
 ---
-title: "Viewer com cache de inferência por hash e diff surrogate × verdade"
+title: "Viewer with hash-keyed inference cache and surrogate-vs-truth diff"
 labels: [enhancement, frontend, twin3d]
 ---
 
-**Quem tem:** NVIDIA Omniverse digital-twins-for-fluid-simulation blueprint (cache .npz por SHA256).
+**Who has it:** NVIDIA Omniverse digital-twins-for-fluid-simulation blueprint (SHA256-keyed .npz cache).
 
-**O que o PINNeAPPle já tem:** `twin3d` viewer, `pinneapple_app`.
+**What PINNeAPPle already has:** `twin3d` viewer, `pinneapple_app`.
 
-**Proposta:** Re-inferência a cada mudança de parâmetro, cache por hash dos inputs, aba de diff.
+**Proposal:** Re-infer on every parameter change, cache by input hash, diff tab against ground truth.
 
-**Critério de aceite (regra D1 — referência independente):** Mesma entrada → mesmo hash e acerto de cache; diff zero quando surrogate = verdade.
+**Acceptance (rule D1 — independent reference):** Same input → same hash and a cache hit; zero diff when surrogate equals truth.
 
-**Origem:** §2 item 15
+**Origin:** §2 item 15

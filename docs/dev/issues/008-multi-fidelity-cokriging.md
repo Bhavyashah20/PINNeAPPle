@@ -1,14 +1,14 @@
 ---
-title: "Surrogate multi-fidelidade (co-kriging Kennedy–O'Hagan)"
+title: "Multi-fidelity surrogate (Kennedy–O'Hagan co-kriging)"
 labels: [enhancement, surrogate]
 ---
 
-**Quem tem:** optiSLang AI+, reuso de dados do HEEDS, COMSOL.
+**Who has it:** optiSLang AI+, HEEDS data reuse, COMSOL.
 
-**O que o PINNeAPPle já tem:** Transfer/meta-learning existem; multi-fidelidade explícita não.
+**What PINNeAPPle already has:** Transfer/meta-learning exist; explicit multi-fidelity does not.
 
-**Proposta:** Co-kriging autoregressivo sobre o GP numpy do `design_optimizer` (ex.: LBM grosso + OpenFOAM fino).
+**Proposal:** Autoregressive co-kriging on the NumPy GP in `design_optimizer` (e.g. coarse LBM + fine OpenFOAM).
 
-**Critério de aceite (regra D1 — referência independente):** Funções de Forrester (forma fechada): co-kriging com 4 pontos HF + 11 LF supera GP só-HF (RMSE).
+**Acceptance (rule D1 — independent reference):** Forrester functions (closed form): co-kriging with 4 HF + 11 LF points beats an HF-only GP in RMSE.
 
-**Origem:** §2 item 8
+**Origin:** §2 item 8

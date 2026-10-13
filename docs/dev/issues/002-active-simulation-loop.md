@@ -1,14 +1,14 @@
 ---
-title: "Loop fechado: o surrogate escolhe a próxima simulação (aquisição → campaign → re-treino)"
+title: "Closed loop: the surrogate picks the next simulation (acquisition → campaign → retrain)"
 labels: [enhancement, active-learning, orchestration]
 ---
 
-**Quem tem:** HEEDS adaptive sampling, PhysicsX (UQ → nova simulação), Neural Concept.
+**Who has it:** HEEDS adaptive sampling, PhysicsX (UQ → new simulation), Neural Concept.
 
-**O que o PINNeAPPle já tem:** `pinneapple_core/data.py::ActiveSampler`, EI em `design_optimizer`, `external_solvers/openfoam/campaign.py`, `pinneapple_registry`.
+**What PINNeAPPle already has:** `pinneapple_core/data.py::ActiveSampler`, EI in `design_optimizer`, `external_solvers/openfoam/campaign.py`, `pinneapple_registry`.
 
-**Proposta:** Orquestrador que conecta função de aquisição → `campaign` (OpenFOAM/LBM/qualquer solver do registry) → dataset store → re-treino → nova aquisição, com parada por erro de validação ou orçamento.
+**Proposal:** An orchestrator wiring acquisition function → `campaign` (OpenFOAM/LBM/any registry solver) → dataset store → retrain → next acquisition, stopping on validation error or budget.
 
-**Critério de aceite (regra D1 — referência independente):** Teste com solver barato (função analítica + `stable_fluids`): o loop ativo atinge o mesmo erro com ≤ 60% das amostras de um LHS de mesmo tamanho final (média de 5 seeds).
+**Acceptance (rule D1 — independent reference):** With a cheap solver (analytic function + `stable_fluids`), the active loop reaches the same error as an LHS of equal final size with ≤ 60% of the samples (mean over 5 seeds).
 
-**Origem:** §2 item 2
+**Origin:** §2 item 2

@@ -1,14 +1,14 @@
 ---
-title: "FNO incremental (iFNO): crescer modos de Fourier durante o treino"
+title: "Incremental FNO (iFNO): grow Fourier modes during training"
 labels: [enhancement, neural-operators]
 ---
 
-**Quem tem:** neuraloperator `IncrementalFNOTrainer` (MIT), George et al. TMLR 2024.
+**Who has it:** neuraloperator `IncrementalFNOTrainer` (MIT); George et al., TMLR 2024.
 
-**O que o PINNeAPPle já tem:** FNO em `architectures/neural_operators/fno.py`, sem crescimento de modos.
+**What PINNeAPPle already has:** FNO in `architectures/neural_operators/fno.py` with fixed modes.
 
-**Proposta:** Callback de treino (loss-gap e explained-variance) que aumenta `modes` do FNO.
+**Proposal:** Training callback (loss-gap and explained-variance rules) that increases the FNO `modes`.
 
-**Critério de aceite (regra D1 — referência independente):** Burgers 1-D: mesma acurácia final com menos FLOPs de treino que FNO de modos fixos (seed fixa).
+**Acceptance (rule D1 — independent reference):** 1-D Burgers: same final accuracy as fixed-mode FNO with fewer training FLOPs (fixed seed).
 
-**Origem:** ledger: neuraloperator
+**Origin:** ledger: neuraloperator

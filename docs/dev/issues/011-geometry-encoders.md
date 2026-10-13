@@ -1,14 +1,14 @@
 ---
-title: "Encoders de geometria (PointNet/DGCNN; B-rep UV-Net depois)"
+title: "Geometry encoders (PointNet / DGCNN; B-rep UV-Net later)"
 labels: [enhancement, geometry, surrogate]
 ---
 
-**Quem tem:** Neural Concept, Simcenter PhysicsAI (geometric deep learning).
+**Who has it:** Neural Concept, Simcenter PhysicsAI (geometric deep learning).
 
-**O que o PINNeAPPle já tem:** `geometry_features`, `geometry_intelligence` (descritores manuais).
+**What PINNeAPPle already has:** `geometry_features`, `geometry_intelligence` (hand-crafted descriptors).
 
-**Proposta:** Encoders PointNet/DGCNN em `pinneapple_neural/architectures`, usados pelos itens de similaridade e surrogate de geometria.
+**Proposal:** PointNet/DGCNN encoders in `pinneapple_neural/architectures`, used by the similarity score and the raw-geometry surrogate.
 
-**Critério de aceite (regra D1 — referência independente):** Invariância a permutação testada; ModelNet10 subset com acurácia reportada.
+**Acceptance (rule D1 — independent reference):** Permutation invariance tested; accuracy reported on a ModelNet10 subset.
 
-**Origem:** §2 item 11
+**Origin:** §2 item 11

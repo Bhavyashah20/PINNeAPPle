@@ -1,14 +1,14 @@
 ---
-title: "Polynomial chaos + índices de Sobol para UQ e sensibilidade"
+title: "Polynomial chaos expansion + Sobol indices for UQ and sensitivity"
 labels: [enhancement, uq]
 ---
 
-**Quem tem:** optiSLang, COMSOL UQ Module.
+**Who has it:** optiSLang, COMSOL Uncertainty Quantification Module.
 
-**O que o PINNeAPPle já tem:** Conformal/ensemble/MC-dropout; nenhum PCE.
+**What PINNeAPPle already has:** Conformal / ensemble / MC-dropout; no PCE.
 
-**Proposta:** PCE por regressão (Hermite/Legendre) com índices de Sobol analíticos dos coeficientes.
+**Proposal:** Regression PCE (Hermite/Legendre) with Sobol indices computed analytically from the coefficients.
 
-**Critério de aceite (regra D1 — referência independente):** Função de Ishigami: índices de Sobol de primeira ordem e totais dentro de 1% dos valores fechados.
+**Acceptance (rule D1 — independent reference):** Ishigami function: first-order and total Sobol indices within 1% of the closed-form values.
 
-**Origem:** §2 item 10
+**Origin:** §2 item 10

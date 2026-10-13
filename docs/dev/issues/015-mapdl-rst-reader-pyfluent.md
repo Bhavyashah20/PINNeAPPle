@@ -1,14 +1,14 @@
 ---
-title: "Leitor de resultados .rst do MAPDL e driver PyFluent"
+title: "MAPDL .rst result reader and a PyFluent driver"
 labels: [enhancement, interop]
 ---
 
-**Quem tem:** PyAnsys `pymapdl-reader` e `pyfluent` (MIT).
+**Who has it:** PyAnsys `pymapdl-reader` and `pyfluent` (MIT).
 
-**O que o PINNeAPPle já tem:** Readers de Abaqus, Exodus, CGNS, Fluent mesh, STAR-CCM+; Fluent via journal.
+**What PINNeAPPle already has:** Readers for Abaqus, Exodus, CGNS, Fluent mesh, STAR-CCM+; Fluent driven by journal files.
 
-**Proposta:** Reader `.rst` (via pymapdl-reader opcional) para UPD; caminho PyFluent no `external_solvers/ansys`.
+**Proposal:** `.rst` reader (optional pymapdl-reader dependency) into UPD; a PyFluent path in `external_solvers/ansys`.
 
-**Critério de aceite (regra D1 — referência independente):** Arquivo `.rst` de exemplo do próprio pymapdl-reader lido com deslocamentos iguais aos da biblioteca de referência.
+**Acceptance (rule D1 — independent reference):** pymapdl-reader's own example `.rst` file read with displacements equal to the reference library's.
 
-**Origem:** ledger: PyAnsys
+**Origin:** ledger: PyAnsys

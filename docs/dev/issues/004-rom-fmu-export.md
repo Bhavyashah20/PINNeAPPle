@@ -1,14 +1,14 @@
 ---
-title: "Exportar ROMs e surrogates como FMU (co-simulação)"
+title: "Export ROMs and surrogates as FMUs (co-simulation)"
 labels: [enhancement, rom, digital-twin, fmi]
 ---
 
-**Quem tem:** Ansys Twin Builder, Simcenter ROM Builder (FMI + ONNX), Altair/Siemens romAI.
+**Who has it:** Ansys Twin Builder, Simcenter ROM Builder (FMI + ONNX), Altair/Siemens romAI.
 
-**O que o PINNeAPPle já tem:** ROMs (POD, DMD, OpInf, neural ROM), export ONNX/TorchScript; `modelica/fmi_runner.py` só importa; novo `fmu_inspect.py` valida FMUs.
+**What PINNeAPPle already has:** ROMs (POD, DMD, OpInf, neural ROM), ONNX/TorchScript export; `modelica/fmi_runner.py` only imports FMUs; the new `fmu_inspect.py` validates them.
 
-**Proposta:** Empacotar ROM linear (POD/DMD/OpInf) como FMU 2.0/3.0 CS em C gerado (sem dependência) e ROM neural via ONNX Runtime.
+**Proposal:** Package linear ROMs (POD/DMD/OpInf) as FMI 2.0/3.0 co-simulation FMUs from generated C (no runtime dependency), and neural ROMs through ONNX Runtime.
 
-**Critério de aceite (regra D1 — referência independente):** Teste: FMU gerada passa no `inspect_fmu` (exporta todas as funções), simula via fmpy e reproduz o ROM Python a 1e-10.
+**Acceptance (rule D1 — independent reference):** The generated FMU passes `inspect_fmu` (exports every required function), simulates with fmpy and reproduces the Python ROM to 1e-10.
 
-**Origem:** §2 item 4
+**Origin:** §2 item 4
