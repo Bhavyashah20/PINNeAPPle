@@ -17,25 +17,23 @@ import sys
 
 import numpy as np
 
+from pinneapple_lab.uq import gci
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 PKG = os.path.dirname(HERE)
 GRIDS = ("coarse", "medium", "fine")
 
 
-def gci(f1: float, f2: float, f3: float, N1: int, N2: int, N3: int) -> dict:
-    """Celik et al. 2008: 1 = fine, 3 = coarse; 2-D representative size h = 1/sqrt(N)."""
-    r21, r32 = math.sqrt(N1 / N2), math.sqrt(N2 / N3)
-    e21, e32 = f2 - f1, f3 - f2
-    s = np.sign(e32 / e21) if e21 != 0 else 1.0
-    p = 2.0
-    for _ in range(200):
-        q = math.log((r21 ** p - s) / (r32 ** p - s))
-        p = abs(math.log(abs(e32 / e21)) + q) / math.log(r21)
-    ext = (r21 ** p * f1 - f2) / (r21 ** p - 1)
-    ea21 = abs((f1 - f2) / f1)
-    return {"r21": r21, "r32": r32, "observed_order": p, "oscillatory": bool(s < 0), "extrapolated": ext,
-            "rel_error_fine_vs_medium": ea21, "GCI_fine_pct": 100 * 1.25 * ea21 / (r21 ** p - 1),
-            "GCI_medium_pct": 100 * 1.25 * abs((f2 - f3) / f2) / (r32 ** p - 1)}
+def grid_study(f1: float, f2: float, f3: float, N1: int, N2: int, N3: int) -> dict:
+    """GCI of the fine (1), medium (2) and coarse (3) values with pinneapple_lab.uq.gci; 2-D cell size h = 1/sqrt(N).
+    Adds the medium-grid GCI and the field names of baseline_summary.json."""
+    h1, h2, h3 = (N ** -0.5 for N in (N1, N2, N3))
+    g = gci([f3, f2, f1], [h3, h2, h1])
+    p, r21, r32 = g["order"], g["ratio"], h3 / h2
+    return {"r21": r21, "r32": r32, "observed_order": p, "oscillatory": bool((f3 - f2) / (f2 - f1) < 0),
+            "extrapolated": g["extrapolated"], "rel_error_fine_vs_medium": abs((f1 - f2) / f1),
+            "GCI_fine_pct": 100 * g["gci"],
+            "GCI_medium_pct": 100 * g["safety"] * abs((f2 - f3) / f2) / (r32 ** p - 1)}
 
 
 def thin_airfoil_alpha_l0(m: float = 0.02, p: float = 0.4) -> float:
@@ -54,7 +52,7 @@ def main():
     N = {g: info[g]["cells"] for g in GRIDS}
     study = {}
     for k in ("Cl", "Cd", "Cm", "L_over_D"):
-        study[k] = gci(R["fine"][k], R["medium"][k], R["coarse"][k], N["fine"], N["medium"], N["coarse"])
+        study[k] = grid_study(R["fine"][k], R["medium"][k], R["coarse"][k], N["fine"], N["medium"], N["coarse"])
     with open(os.path.join(out, "grid_study.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["grid", "cells", "ni", "nj", "first_cell_over_c", "iterations", "Cl", "Cd", "Cm", "L_over_D",
@@ -113,7 +111,7 @@ def main():
                 "design": "opt_A_brief",
                 "grids": {g: {k: G[g][k] for k in ("Cl", "Cd", "Cm", "L_over_D")} for g in GRIDS},
                 "gain_over_baseline_pct": {g: 100 * (G[g]["L_over_D"] / R[g]["L_over_D"] - 1) for g in GRIDS},
-                **{f"GCI_{k}": gci(G["fine"][k], G["medium"][k], G["coarse"][k], N["fine"], N["medium"], N["coarse"])
+                **{f"GCI_{k}": grid_study(G["fine"][k], G["medium"][k], G["coarse"][k], N["fine"], N["medium"], N["coarse"])
                    for k in ("Cd", "L_over_D")}}
     with open(os.path.join(out, "baseline_summary.json"), "w") as f:
         json.dump(summary, f, indent=1)

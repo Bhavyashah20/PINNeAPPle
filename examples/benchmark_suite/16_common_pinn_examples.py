@@ -13,6 +13,9 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 
+from pinneapple_tools.visualization.style import use_cfd_style  # noqa: E402
+
+use_cfd_style(dark=True)                   # dark theme: text, ticks, spines, grid
 plt.rcParams.update({
     "font.size": 12,
     "axes.labelsize": 12,
@@ -35,16 +38,6 @@ RED    = "#f78166"
 OUT = os.path.join(os.path.dirname(__file__), "_out", "common_pinns")
 os.makedirs(OUT, exist_ok=True)
 DEVICE = "cpu"
-
-
-def dark_ax(ax, fc=BG):
-    ax.set_facecolor(fc)
-    for sp in ax.spines.values():
-        sp.set_color(BORD)
-    ax.tick_params(colors=MUTED, which="both")
-    ax.xaxis.label.set_color(TEXT)
-    ax.yaxis.label.set_color(TEXT)
-    ax.title.set_color(TEXT)
 
 
 class MLP(nn.Module):
@@ -131,7 +124,7 @@ fig.suptitle("Burgers Equation 1D — u_t + u·u_x = ν u_xx  (ν = 0.01/π)",
              color=ACCENT, fontsize=15, fontweight="bold", y=1.01)
 
 # Heatmap
-ax = axes[0]; dark_ax(ax, fc=SURF)
+ax = axes[0]; ax.set_facecolor(SURF)
 cf = ax.contourf(XX_b, TT, u_burg, levels=80, cmap="RdBu_r",
                  vmin=-1.0, vmax=1.0)
 cs = ax.contour(XX_b, TT, u_burg, levels=[-0.5, 0, 0.5],
@@ -150,7 +143,7 @@ ax.annotate("Shock\nformation", xy=(shock_x[NT // 2], t_g[NT // 2]),
             arrowprops=dict(arrowstyle="->", color=ORANGE, lw=1.2))
 
 # Time slices
-ax = axes[1]; dark_ax(ax, fc=SURF)
+ax = axes[1]; ax.set_facecolor(SURF)
 colors_s = [ACCENT, GREEN, ORANGE, RED]
 t_slices = [0.0, 0.25, 0.50, 0.75]
 for t_val, col in zip(t_slices, colors_s):
@@ -249,7 +242,7 @@ for i, (title, field, cmap_i, extra) in enumerate([
     (f"|Error|   rel-L² = {rel_l2_h:.4f}",  err_h, "hot_r",
      dict(vmin=0, vmax=max_err_h)),
 ]):
-    ax = axes[i]; dark_ax(ax, fc=SURF)
+    ax = axes[i]; ax.set_facecolor(SURF)
     cf = ax.contourf(XE, YE, field, levels=60, cmap=cmap_i, **extra)
     # Isocurves on true and predicted
     if i < 2:
@@ -353,7 +346,7 @@ fig.suptitle("Poisson Equation 2D — −Δu = f(x,y),  u|∂Ω = 0\n"
              color=ACCENT, fontsize=14, fontweight="bold")
 
 # Source field
-ax = axes[0]; dark_ax(ax, fc=SURF)
+ax = axes[0]; ax.set_facecolor(SURF)
 vlim = np.abs(f_src).max()
 cf = ax.contourf(XE3, YE3, f_src, levels=60, cmap="RdBu_r", vmin=-vlim, vmax=vlim)
 ax.contour(XE3, YE3, f_src, levels=8, colors=[BORD], linewidths=0.6, alpha=0.7)
@@ -366,7 +359,7 @@ ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_aspect("equal")
 ax.legend(fontsize=10, framealpha=0.3, loc="upper right")
 
 # PINN solution
-ax = axes[1]; dark_ax(ax, fc=SURF)
+ax = axes[1]; ax.set_facecolor(SURF)
 cf = ax.contourf(XE3, YE3, u_pois, levels=60, cmap="plasma")
 ax.contour(XE3, YE3, u_pois, levels=10, colors=[BORD], linewidths=0.6, alpha=0.7)
 cb = fig.colorbar(cf, ax=ax, pad=0.015, fraction=0.05, shrink=0.9)
@@ -375,7 +368,7 @@ ax.set_title("PINN solution u(x,y)", fontsize=12, pad=8)
 ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_aspect("equal")
 
 # Gradient ∇u field (quiver over contour)
-ax = axes[2]; dark_ax(ax, fc=SURF)
+ax = axes[2]; ax.set_facecolor(SURF)
 cf = ax.contourf(XE3, YE3, u_pois, levels=50, cmap="plasma", alpha=0.65)
 ax.quiver(XQ, YQ, UQ / speed_q, VQ / speed_q,
           speed_q, cmap="hot_r", pivot="mid",

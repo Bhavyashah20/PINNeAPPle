@@ -39,6 +39,14 @@ Resampling
 ``block_bootstrap`` / ``group_bootstrap`` / ``skill_score`` / ``jackknife``
     Confidence intervals for autocorrelated or grouped errors (NumPy only).
 
+Monitoring and tolerances
+-------------------------
+``assess_drift`` / ``DriftReport``
+    Accuracy, interval coverage, per-feature KS input shift, out-of-range fraction and residual trend of a
+    deployed surrogate, with an ok / review / retrain decision (NumPy + SciPy).
+``propagate`` / ``ToleranceResult``
+    Monte-Carlo propagation of input tolerances through any model, with the probability of meeting limits.
+
 Unified interface
 -----------------
 ``uq_predict(model, x, method=...) -> UQResult``
@@ -61,15 +69,27 @@ Quick start
 """
 from __future__ import annotations
 
-from pinneapple_analysis.uncertainty.core import UQResult, uq_predict
-from pinneapple_analysis.uncertainty.mc_dropout import MCDropout, MCDropoutConfig, MCDropoutWrapper
-from pinneapple_analysis.uncertainty.ensemble import EnsembleConfig, EnsembleUQ
-from pinneapple_analysis.uncertainty.conformal import ConformalPredictor
-from pinneapple_analysis.uncertainty.calibration import CalibrationMetrics
 from pinneapple_analysis.uncertainty.aleatoric import AleatoricHead, aleatoric_nll_loss
+from pinneapple_analysis.uncertainty.calibration import CalibrationMetrics
+from pinneapple_analysis.uncertainty.conformal import ConformalPredictor
+from pinneapple_analysis.uncertainty.core import UQResult, uq_predict
 from pinneapple_analysis.uncertainty.decomposition import decompose_uncertainty
-from pinneapple_analysis.uncertainty.quantile import QuantileConfig, QuantileHead, QuantileLoss, pinball_loss_torch
-from pinneapple_analysis.uncertainty.resampling import block_bootstrap, group_bootstrap, jackknife, skill_score
+from pinneapple_analysis.uncertainty.drift import DriftReport, DriftThresholds, assess_drift
+from pinneapple_analysis.uncertainty.ensemble import EnsembleConfig, EnsembleUQ
+from pinneapple_analysis.uncertainty.mc_dropout import MCDropout, MCDropoutConfig, MCDropoutWrapper
+from pinneapple_analysis.uncertainty.quantile import (
+    QuantileConfig,
+    QuantileHead,
+    QuantileLoss,
+    pinball_loss_torch,
+)
+from pinneapple_analysis.uncertainty.resampling import (
+    block_bootstrap,
+    group_bootstrap,
+    jackknife,
+    skill_score,
+)
+from pinneapple_analysis.uncertainty.tolerance import ToleranceResult, propagate, wilson_interval
 
 __all__ = [
     # Core types and unified interface
@@ -101,4 +121,11 @@ __all__ = [
     "group_bootstrap",
     "skill_score",
     "jackknife",
+    # Surrogate monitoring and tolerance propagation
+    "assess_drift",
+    "DriftReport",
+    "DriftThresholds",
+    "propagate",
+    "ToleranceResult",
+    "wilson_interval",
 ]

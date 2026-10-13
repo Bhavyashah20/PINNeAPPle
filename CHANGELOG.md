@@ -24,6 +24,12 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - `pinneapple_simulation.numerical_solvers.operator_benchmarks` (reference solvers and Gaussian random fields of
   the three standard problems) and `operator_datasets` (the dataset recipes: inputs, solves, convergence study,
   generation). `scripts/zoo/operator_data.py` is the command-line front end.
+- Surrogate monitoring and sensor design: `pinneapple_analysis.uncertainty.assess_drift` (nRMSE, bias, interval
+  coverage, per-feature KS input shift, out-of-range fraction, Mann-Kendall residual trend and an ok / review /
+  retrain decision), `uncertainty.propagate` (Monte-Carlo tolerance propagation with Wilson intervals on the
+  probability of meeting limits) and `pinneapple_analysis.data_assimilation.sensor_placement` (NumPy Gaussian process
+  with an anisotropic Matern kernel, closed-form leave-one-out, marginal-likelihood fit, and greedy sensor placement
+  by integrated-variance reduction after Krause, Singh & Guestrin 2008).
 - Library homes for helpers that lived in examples: `pinneapple_neural.utils.as_tensor` (model output ->
   prediction Tensor); `pinneapple_data.datasets.deepmind_mgn` (DeepMind meshgraphnets partial download over HTTP
   Range, TFRecord reader, `cylinder_flow` conversion) and `train_dynamics` / `eval_rollout` in
@@ -320,6 +326,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - `compressible_fv.sod_exact` delegates to `astrophysics.sod_exact_solution` (same output to round-off; covers every wave pattern);
   `internal_flow.colebrook` delegates to `closed_form.pipe_flow.colebrook`; the LBM shedding benchmark, the
   cylinder / car / ROM lab experiments, the SSQN benchmarks and the missile example use the library functions above.
+- Examples, benchmarks, scripts and a notebook use the library helpers instead of local copies: autograd
+  `grad`/`laplacian`/`divergence`, `pinneapple_physics.metrics`, `pinneapple_lab.uq.gci`, `latin_hypercube`,
+  `use_cfd_style(dark=True)`, `compressible_fv.sod_exact`, the `pinneapple_data.cae.foam` readers, `set_seed`,
+  `best_device` and `load_leaderboard` (20 lines fewer in `scripts/app_helpers_baseline.txt`).
+  `heat_fv_reference.footprint_area` is public (`_footprint_area` kept as an alias) and `interp_grid`/`convergence`
+  are in its `__all__`; the `fin_convection_inverse/fv_reference.py` shim is removed.
+  `examples/architectures/04_pinns.py` uses the real `PINNFactory` instead of stubs that ignored the PDE residuals.
 - **Behavior:** the zoo gate of `rover_contact_grc1_viper` checks that dFx/ds has the sign of the recorded Wong-Reece
   reference (with slip-sinkage the pull need not grow with slip at a fixed sinkage) instead of dFx/ds >= 0.
 - **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import json
-from pathlib import Path
+
+from pinneapple_tools.benchmark_suite.runner.leaderboard import load_leaderboard
 
 
 def main() -> int:
@@ -12,12 +12,10 @@ def main() -> int:
     ap.add_argument("--top", type=int, default=20)
     args = ap.parse_args()
 
-    p = Path(args.path)
-    if not p.exists():
-        print("No leaderboard.json found.")
+    rows = load_leaderboard(args.path)      # [] when the file is missing, empty or not valid JSON
+    if not rows:
+        print(f"No leaderboard entries in {args.path}.")
         return 0
-
-    rows = json.loads(p.read_text(encoding="utf-8"))
     key = args.sort
 
     def k(r):

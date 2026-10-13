@@ -88,6 +88,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from pinneapple_neural.architectures.rom.parametric import latin_hypercube
+from pinneapple_tools.visualization.style import make_figure, use_cfd_style
+
 # ── PINNeAPPle imports (graceful fallback) ─────────────────────────────────
 try:
     from pinneapple_train import best_device, maybe_compile
@@ -292,17 +295,6 @@ HCANARD_RANGE  = (0.015, 0.060) # m
 HFIN_RANGE     = (0.030, 0.090) # m
 
 
-def _lhs(n: int, ranges: List[Tuple[float, float]], rng) -> np.ndarray:
-    d   = len(ranges)
-    pts = np.zeros((n, d))
-    for j in range(d):
-        perm = rng.permutation(n)
-        u    = (perm + rng.uniform(size=n)) / n
-        lo, hi = ranges[j]
-        pts[:, j] = lo + u * (hi - lo)
-    return pts
-
-
 def generate_dataset(
     n_designs: int = 3_000,
     n_pts:     int = 100,
@@ -310,8 +302,8 @@ def generate_dataset(
 ) -> Dict[str, np.ndarray]:
     """LHS dataset: inputs (s,M,α,r_n,h_c,h_f) → outputs (Cp, Cf)."""
     rng = np.random.default_rng(seed)
-    ranges = [MACH_RANGE, ALPHA_RANGE, RNOSE_RANGE, HCANARD_RANGE, HFIN_RANGE]
-    designs = _lhs(n_designs, ranges, rng)
+    designs, _ = latin_hypercube(n_designs, {"M": MACH_RANGE, "alpha": ALPHA_RANGE, "r_nose": RNOSE_RANGE,
+                                             "h_canard": HCANARD_RANGE, "h_fin": HFIN_RANGE}, seed=seed)
 
     N = n_designs * n_pts
     X = np.zeros((N, 6), dtype=np.float32)
@@ -657,30 +649,14 @@ def run_trajectory(
 # 10. PLOTTING
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _dark_fig(nrows=1, ncols=1, figsize=(10, 4)):
-    fig, axes = plt.subplots(nrows, ncols, figsize=figsize, facecolor=DARK_BG)
-    if not isinstance(axes, np.ndarray):
-        axes = np.array([[axes]])
-    elif axes.ndim == 1:
-        axes = axes[None, :]
-    for ax in axes.flat:
-        ax.set_facecolor(DARK_BG)
-        ax.tick_params(colors="white")
-        for spine in ax.spines.values():
-            spine.set_edgecolor("#444")
-        ax.xaxis.label.set_color("white")
-        ax.yaxis.label.set_color("white")
-        ax.title.set_color("white")
-    return fig, axes
-
-
 def plot_cp_distribution(
     geom:    MissileGeometry,
     model:   AeroSurrogatePINN,
     device:  torch.device,
     out_path: Path,
 ):
-    fig, axes = _dark_fig(1, 2, figsize=(14, 5))
+    use_cfd_style(dark=True)
+    fig, axes = make_figure(1, 2, figsize=(14, 5), squeeze=False)
     n_s = 150
     mach_cases = [(2.0, 2.0, ACCENT), (3.0, 4.0, ACCENT2)]
 
@@ -723,7 +699,8 @@ def plot_cp_distribution(
 
 
 def plot_polar(aerodb: Dict[str, Any], out_path: Path):
-    fig, axes = _dark_fig(1, 2, figsize=(12, 5))
+    use_cfd_style(dark=True)
+    fig, axes = make_figure(1, 2, figsize=(12, 5), squeeze=False)
     colors = [ACCENT, ACCENT2, ACCENT3, "#d29922", "#bc8cff"]
 
     for i, row in enumerate(aerodb["data"]):
@@ -751,7 +728,8 @@ def plot_polar(aerodb: Dict[str, Any], out_path: Path):
 
 
 def plot_uq(uq, Y_test, out_path):
-    fig, axes = _dark_fig(1, 2, figsize=(12, 4))
+    use_cfd_style(dark=True)
+    fig, axes = make_figure(1, 2, figsize=(12, 4), squeeze=False)
     n = min(300, Y_test.shape[0])
     xs = np.arange(n)
 
@@ -774,7 +752,8 @@ def plot_uq(uq, Y_test, out_path):
 
 
 def plot_trajectory(traj: Dict[str, np.ndarray], out_path: Path):
-    fig, axes = _dark_fig(1, 2, figsize=(14, 5))
+    use_cfd_style(dark=True)
+    fig, axes = make_figure(1, 2, figsize=(14, 5), squeeze=False)
 
     axes[0, 0].plot(traj["x_km"], traj["h_km"], color=ACCENT, lw=2)
     axes[0, 0].set_xlabel("Down-range [km]"); axes[0, 0].set_ylabel("Altitude [km]")

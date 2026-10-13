@@ -40,10 +40,9 @@ pandas, numpy, torch, (optional) matplotlib for plots.
 from __future__ import annotations
 
 import math
-import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Tuple
 
 # Force UTF-8 output on Windows terminals (cp1252 can't encode many Unicode chars)
 if hasattr(sys.stdout, "reconfigure"):
@@ -52,32 +51,32 @@ if hasattr(sys.stdout, "reconfigure"):
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from pinneapple_timeseries.csv_loader import generate_synthetic_csv, load_timeseries_csv
+from pinneapple_timeseries.datamodule import TSDataModule
 from pinneapple_timeseries.decomposition.fft_lstm import (
     FFTLSTMPipeline,
-    ResidualLSTMConfig,
 )
-from pinneapple_timeseries.datamodule import TSDataModule
+from pinneapple_timeseries.metrics_ext.point import mae as np_mae
+from pinneapple_timeseries.metrics_ext.point import rmse as np_rmse
+from pinneapple_timeseries.metrics_ext.point import smape as np_smape
 from pinneapple_timeseries.spec import TimeSeriesSpec
-from pinneapple_timeseries.datasets.windowed import WindowedTimeSeriesDataset
-from pinneapple_timeseries.metrics_ext.point import mae as np_mae, rmse as np_rmse, smape as np_smape
-
-from pinneapple_train.trainer import Trainer, TrainConfig
-from pinneapple_train.losses import CombinedLoss, SupervisedLoss
-from pinneapple_train.metrics import regression_metrics_bundle
 from pinneapple_train.callbacks import EarlyStopping, ModelCheckpoint
 from pinneapple_train.preprocess import (
-    PreprocessPipeline,
     MissingValueStep,
+    PreprocessPipeline,
     RobustScaleStep,
 )
 
+from pinneapple_neural.trainer.audit import set_seed
+from pinneapple_neural.trainer.parallel import best_device
+from pinneapple_train.losses import CombinedLoss, SupervisedLoss
+from pinneapple_train.metrics import regression_metrics_bundle
+from pinneapple_train.trainer import TrainConfig, Trainer
 
 # ============================================================
 # 0) Reprodutibilidade
@@ -86,12 +85,7 @@ SEED = 42
 INPUT_LEN = 96    # janela de contexto para o LSTM
 HORIZON   = 24    # passos à frente para prever
 BATCH     = 64
-DEVICE    = "cuda" if torch.cuda.is_available() else "cpu"
-
-def set_seed(seed: int) -> None:
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+DEVICE    = str(best_device())
 
 set_seed(SEED)
 print(f"Dispositivo: {DEVICE}")
@@ -486,15 +480,8 @@ def rolling_evaluate_fft_only(
     return np.array(preds), np.array(trues)
 
 
-def compute_metrics(preds: np.ndarray, trues: np.ndarray) -> Dict[str, float]:
-    """Agrega métricas sobre todas as janelas e canais."""
-    y_hat = preds.reshape(-1)
-    y_tru = trues.reshape(-1)
-    return {
-        "MAE":   float(np_mae(y_hat, y_tru)),
-        "RMSE":  float(np_rmse(y_hat, y_tru)),
-        "sMAPE": float(np_smape(y_hat, y_tru)),
-    }
+# Pooled over every window and channel; point metrics from pinneapple_systems.time_series.metrics_ext
+POINT_METRICS = {"MAE": np_mae, "RMSE": np_rmse, "sMAPE": np_smape}
 
 
 # Carregar melhor checkpoint salvo pelo Trainer (chave "model_state")
@@ -548,13 +535,15 @@ preds_hybrid, trues_hybrid = rolling_evaluate_model(
     mode="residual", fft_pipeline_=fft_pipeline
 )
 
-metrics = {
-    "Naive":      compute_metrics(preds_naive,  trues_naive),
-    "Drift":      compute_metrics(preds_drift,  trues_drift),
-    "FFT-only":   compute_metrics(preds_fft,    trues_fft),
-    "LSTM puro":  compute_metrics(preds_lstm,   trues_lstm),
-    "FFT+LSTM":   compute_metrics(preds_hybrid, trues_hybrid),
+runs = {
+    "Naive":      (preds_naive, trues_naive),
+    "Drift":      (preds_drift, trues_drift),
+    "FFT-only":   (preds_fft, trues_fft),
+    "LSTM puro":  (preds_lstm, trues_lstm),
+    "FFT+LSTM":   (preds_hybrid, trues_hybrid),
 }
+metrics = {name: {k: float(f(p.reshape(-1), t.reshape(-1))) for k, f in POINT_METRICS.items()}
+           for name, (p, t) in runs.items()}
 
 
 # ============================================================
