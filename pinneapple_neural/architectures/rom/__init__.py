@@ -10,6 +10,7 @@ from .koopman import KoopmanAutoencoder
 from .neural_rom import NeuralROM
 from .parametric import ParametricPOD, latin_hypercube
 from .registry import ROMCatalog
+from .trusted import TrustedLatentSurrogate
 
 __all__ = [
     "ROMBase",
@@ -26,4 +27,5 @@ __all__ = [
     "ROMCatalog",
     "ParametricPOD",
     "latin_hypercube",
+    "TrustedLatentSurrogate",
 ]
