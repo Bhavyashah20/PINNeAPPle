@@ -14,6 +14,61 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Colab notebooks in `notebooks/colab/`, each self-contained (the first cell installs `pinneapple>=0.7.0` and picks
+  the GPU, a parameter cell sets the sizes): a first PINN with its physics checks, an airfoil surrogate from
+  `pp.zoo` validated against stored OpenFOAM runs, an equal-budget benchmark, the lunar rover terramechanics
+  dashboard as a GIF, and a "verify a model" notebook where the trust card catches bad predictions. `scripts/run_colab_notebooks.py` runs
+  them headless (`--smoke` for tiny sizes) and checks that the committed copies carry no outputs; a CI job runs them
+  in smoke mode. "Open in Colab" badges in the README and the docs (Guides > Colab notebooks).
+- `pp.trust_card` (`pinneapple_analysis.trust.field_card`): physics checks of any field on a grid with NumPy only
+  (finite values, PDE residual of Laplace / Poisson / heat by finite differences, Dirichlet boundary values per face,
+  conservation by the divergence theorem, maximum principle, reference error, applicability against the training
+  bounds), turned into the deploy decision of `TrustReport` (APPROVED / REVIEW / REJECT) and the six questions of the
+  lab trust card.
+- `AGENTS.md` for coding agents (what the library is, the APIs to use first, how to validate any result, layout,
+  tests, what never to do), with `GEMINI.md` and `CLAUDE.md` pointing to it; `tests/test_agents_md.py` runs every
+  Python block in it.
+- MCP server `pinneapple-mcp` (`pinneapple_mcp`, extra `pinneapple[mcp]`, MCP Python SDK 1.x or 2.x, stdio): tools
+  `capabilities`, `list_methods` / `describe_method` (with the catalog's validation status), `list_presets`,
+  `solve` and `benchmark` (equal training budget) as jobs with a trust card per result, `trust_card` for any field
+  or file, `zoo_list` / `zoo_predict` / `zoo_validate` for the model zoo, and `job_status` / `list_jobs` /
+  `cancel_job`. Problems are JSON (a preset or a box problem whose values are safely parsed expressions);
+  results are saved under a working directory and returned as paths; jobs run in a separate process with a
+  wall-time limit, a memory limit and the network switched off. Added to `.mcp.json`; set-up for Gemini
+  CLI, Claude Code, Cursor, Codex and a Colab cell in `docs/guides/mcp_server.md`.
+- Latent surrogate with a trust card (`pinneapple_neural.architectures.rom.TrustedLatentSurrogate`): wraps a POD
+  latent model (`ParametricPOD`) with three per-query checks calibrated on held-out designs — a normalised
+  split-conformal bound on the relative field error (Gaussian-process spread or a bootstrap ensemble of latent
+  regressors), a conformal p-value of the distance to the training designs (design envelope), and an optional
+  physics residual of the decoded field — and returns the library's `TrustReport` (APPROVED / REVIEW / REJECT).
+  Example `examples/latent/trusted_latent_surrogate.py` (2-D advection-diffusion-reaction, every answer checked
+  against a full solve). Guide: `docs/guides/trusted_latent_surrogate.md`.
+- Physics-residual false-data-injection detection for cyber-physical systems (`pinneapple_security.cps`): grey-box
+  residual components (`MassBalance`, `FlowLaw`) whose constants are identified from trusted data, a per-channel
+  CUSUM detector calibrated to a false-alarm budget, localisation of the broken balance, ROC AUC and episode metrics.
+  Reproducible benchmark `pinneapple_security.cps_bench` (three-tank water network, six attacks, data-driven
+  baselines: autoregressive twin, PCA Q statistic, isolation forest; nominal and shifted operating regimes).
+  Example `examples/security/02_physics_residual_fdi.py`. Guide: `docs/guides/physics_residual_attack_detection.md`.
+- Evaluation of latent-space methods and new cybersecurity applications, ranked, with a roadmap:
+  `docs/dev/LATENT_AND_CYBER_EVALUATION.md`.
+- Geometry library `pp.geometries` (`pinneapple_design.geometry_library`): 17 realistic parametric 3-D geometries
+  for Physics-AI, each with the code that regenerates it and ready-made files. Uniform API: `list()`, `info(name)`
+  (dimensions, units, parameters with ranges, sources of the real-world numbers with estimates flagged, frame,
+  physics uses), `build(name, **params)`, `load(name, format, lod)`, `export(...)`, `render(...)`.
+  - First entries wrapped from the existing models (their classes keep working): A320-class airliner, road car,
+    Formula car, two-stage launcher, NASA VIPER.
+  - New: NREL 5-MW wind turbine (published chord / twist table), ATR 72-class turboprop, H145-class helicopter,
+    F450-class quadcopter, KCS-class container ship, Wigley hull, high-speed train, Falcon 9-class launcher,
+    pin-fin heat sink, closed centrifugal impeller, CAARC tall building with an urban block, human aortic arch.
+  - Every body closed and outward (watertight, no self-intersections), metres, documented frame, two levels of
+    detail; `Geometry.solid()` fuses the bodies into one watertight surface (manifold3d).
+  - Formats: binary STL, OBJ, glTF, OpenUSD, STEP (faceted B-rep that OpenCASCADE reads back as solids).
+  - Light files committed in `data/geometries/`; every file of both levels on the Hugging Face Hub
+    (`PINNeAPPle-Labs/geometry-library`) with SHA-256 in a manifest; the loader downloads on demand into a cache
+    and falls back to `build()` offline. The `geometries` job of `publish-zoo.yml` rebuilds, verifies, uploads.
+  - Software renderer (no GPU) for thumbnails, a contact sheet and a turntable GIF; gallery page
+    `docs/guides/geometry_library.md`; examples: CAARC building wind with OpenFOAM through the STL path, BEM power
+    curve of the 5-MW turbine, vortex-lattice and friction drag of the airliner.
 - Positional astronomy and astrophysics (`pinneapple_physics.astro`): JPL SPK reader (DE421), time scales, IAU 2006
   precession and nutation, apparent places with light time, deflection and aberration, refraction, airmass and
   extinction; rise/transit/set, twilight, Moon phase, magnitudes, oppositions, elongations, lunar and solar eclipses,

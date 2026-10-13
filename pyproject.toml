@@ -49,10 +49,16 @@ dependencies = [
 [project.scripts]
 # Drop-in CalculiX executable backed by a PINN/surrogate (falls back to ccx outside its envelope)
 pinneapple-ccx = "pinneapple_simulation.external_solvers.calculix.virtual_ccx:main"
+# MCP server (stdio) for coding agents: solve, benchmark, trust card; needs the [mcp] extra
+pinneapple-mcp = "pinneapple_mcp.server:main"
 # pinneapple check [paths]: physics linter for CI (and `pinneapple benchmark ...` when that package is present)
 pinneapple = "pinneapple_check.cli:main"
 
 [project.optional-dependencies]
+# MCP server for coding agents (pinneapple-mcp): official MCP Python SDK, 1.x or 2.x
+mcp = [
+  "mcp>=1.10",
+]
 # Ed25519 signatures and AES-GCM encryption in pinneapple_security (the rest of the module needs only NumPy)
 security = [
   "cryptography>=41",
@@ -82,6 +88,11 @@ twin = [
   "asyncua>=1.1",
 ]
 # FMI: simulate FMUs (FMI 1.0 / 2.0 / 3.0) through fmpy; pythonfmu builds the test FMU
+# Geometry library (pp.geometries): boolean union of the bodies (Geometry.solid), Hub downloads, STEP read-back
+geometry = [
+  "manifold3d>=2.4",
+  "huggingface_hub>=0.20",
+]
 # Problem -> CAD -> fit-for-purpose meshes (pinneapple_design.fitmesh); OpenFOAM is a separate install
 fitmesh = [
   "cadquery>=2.4",
@@ -406,6 +417,7 @@ packages = [
   "pinneapple_blender",      # Blender export/render bridge
   "pinneapple_perception",   # extract physics from images/video/audio
   "pinneapple_security",     # integrity, signatures, provenance, audit trail, privacy/DP, model scanning, OT anomaly detection
+  "pinneapple_mcp",         # MCP server for coding agents (stdio; tools: solve, benchmark, trust card, catalog)
   "pinneapple_check",       # physics linter for CI: pinneapple check (conservation, units, BCs, residual, OOD, regression, integrity)
   "pinneapple_veriphysics",  # Decision Record, evidence report, applicability map, robustness and recommendation (verification layer)
 
@@ -454,6 +466,7 @@ include = [
   "pinneapple_twin3d/**",
   "pinneapple_llm/**",
   "pinneapple_decision/**",
+  "pinneapple_mcp/**",
   "pinneapple_blender/**",
   "pinneapple_perception/**",
   "pinneapple_security/**",
