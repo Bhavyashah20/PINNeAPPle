@@ -2,6 +2,12 @@
 
     python scripts/zoo/train_rover_contact.py ROVER_DIR      # ~5 min on one CPU core
     python scripts/zoo/build_assets.py --rover ROVER_DIR
+    python scripts/zoo/build_assets.py --rover ROVER_DIR --only rover_contact_grc1_viper   # rebuild one item
+
+``--only`` rebuilds the named models/datasets and keeps every other manifest entry as it is (their published files
+do not change). When an item's version changes, its previous manifest entry is kept under ``superseded`` (files,
+SHA-256, Hub tag, the catalog's ``supersedes_reason``), so the old release stays loadable with
+``pp.zoo.load(name, version=...)``.
 
 Sources (all in this repository):
   airfoil_cst_rans_mlp        apps/aero_optimizer/model/surrogate.pt (MLP part) + surrogate.metrics.json
@@ -180,15 +186,21 @@ def heatsink_model():
     return o["state"], cfg
 
 
-def rover_model(rover_dir: Path):
-    from pinneapple_simulation.terramechanics import get_soil
+def rover_physics() -> dict:
+    """The physics configuration of the rover dataset and model (``WongReeceModel.physics_config``)."""
+    from pinneapple_simulation.terramechanics import WongReeceModel, get_soil
     from pinneapple_simulation.vehicle import viper
+    return WongReeceModel(get_soil("GRC-1"), viper().wheel).physics_config()
+
+
+def rover_model(rover_dir: Path):
     meta = json.load(open(rover_dir / "rover_contact.json"))
     ts = torch.jit.load(str(rover_dir / "rover_contact.pt"), map_location="cpu")
-    soil, wheel = get_soil("GRC-1"), viper().wheel
+    phys = rover_physics()
     cfg = {"arch": {"hidden": 96, "depth": 4, "n_fourier": 16, "scale": 2.0, "seed": 0},
            "x_lo": meta["norm_x_lo"], "x_hi": meta["norm_x_hi"], "y_lo": meta["norm_y_lo"], "y_hi": meta["norm_y_hi"],
-           "physics": {"R_m": wheel.radius, "b_m": wheel.width, "c_Pa": soil.c, "phi_deg": soil.phi_deg}}
+           "physics": {**phys, "R_m": phys["wheel"]["radius"], "b_m": phys["wheel"]["width"],
+                       "c_Pa": phys["soil"]["c"], "phi_deg": phys["soil"]["phi_deg"]}}
     return dict(ts.state_dict()), cfg
 
 
@@ -204,15 +216,36 @@ def write_manifest(models: dict, datasets: dict) -> None:
     art.MANIFEST.write_text(json.dumps(man, indent=1, sort_keys=False) + "\n")
 
 
-def main(rover_dir: Path) -> None:
+def _carry_versions(old: dict | None, new: dict, spec: dict) -> dict:
+    """``new`` with the release history: the previous entry moved under ``superseded`` when the version changed
+    (its files lose ``bundled``: they now live only on the Hub, under the old tag)."""
+    if not old:
+        return new
+    history = list(old.get("superseded", []))
+    if old["version"] != new["version"]:
+        prev = {"version": old["version"], "revision": old["revision"], "superseded_by": new["version"],
+                "superseded_reason": spec.get("supersedes_reason", ""),
+                "files": {f: {k: v for k, v in fs.items() if k != "bundled"} for f, fs in old["files"].items()}}
+        history = [prev] + history
+    return {**new, "superseded": history} if history else new
+
+
+def main(rover_dir: Path, only: list[str] | None = None) -> None:
     from pinneapple_hub.zoo import _models
 
+    old_man = json.loads(art.MANIFEST.read_text()) if art.MANIFEST.exists() else {"models": {}, "datasets": {}}
+    keep = lambda kind, n: only is not None and n not in only and n in old_man[kind]  # noqa: E731
     print("datasets ...", flush=True)
-    built = {"airfoil_rans_cst_re4e6": build_airfoil_dataset(), "heatsink_forced_convection":
-             build_heatsink_dataset("forced"), "heatsink_natural_convection": build_heatsink_dataset("natural"),
-             "rover_contact_grc1_viper": build_rover_dataset(), "single_wheel_tests": build_single_wheel()}
+    builders = {"airfoil_rans_cst_re4e6": build_airfoil_dataset,
+                "heatsink_forced_convection": lambda: build_heatsink_dataset("forced"),
+                "heatsink_natural_convection": lambda: build_heatsink_dataset("natural"),
+                "rover_contact_grc1_viper": build_rover_dataset, "single_wheel_tests": build_single_wheel}
+    built = {n: f() for n, f in builders.items() if not keep("datasets", n)}
     ds_man = {}
     for name, spec in DATASETS.items():
+        if keep("datasets", name):
+            ds_man[name] = old_man["datasets"][name]
+            continue
         splits = built[name]
         cols_spec = spec["columns"] or SW_UNITS
         all_cols = sorted({c for s in splits.values() for c in s})
@@ -234,12 +267,18 @@ def main(rover_dir: Path) -> None:
                                    for s, v in splits.items()},
                         "columns": columns,
                         "files": {"data.npz": _file(ASSETS / "datasets" / name / "data.npz")}}
-    write_manifest({}, ds_man)
+        if name == "rover_contact_grc1_viper":
+            ds_man[name]["physics"] = rover_physics()
+        ds_man[name] = _carry_versions(old_man["datasets"].get(name), ds_man[name], spec)
+    write_manifest({k: v for k, v in old_man["models"].items() if only is not None}, ds_man)
 
     makers = {"airfoil_cst_rans_mlp": airfoil_model, "heatsink_forced_mlp": heatsink_model,
               "rover_contact_grc1_viper": lambda: rover_model(rover_dir)}
     m_man = {}
     for name, spec in MODELS.items():
+        if keep("models", name):
+            m_man[name] = old_man["models"][name]
+            continue
         print(f"model {name} ...", flush=True)
         state, cfg = makers[name]()
         d = ASSETS / "models" / name
@@ -249,7 +288,9 @@ def main(rover_dir: Path) -> None:
                          inputs=spec["inputs"], outputs=spec["outputs"], validity_range=spec["validity_range"],
                          known_limitations=spec["known_limitations"], architecture=spec["architecture"],
                          architecture_config=spec["architecture_config"], equations=spec["equations"],
-                         training_config=spec["training_config"], data_lineage=spec["data_lineage"],
+                         training_config=spec["training_config"],
+                         data_lineage={**spec["data_lineage"], **({"physics": cfg["physics"]} if "soil" in
+                                                                  cfg.get("physics", {}) else {})},
                          reference_source=spec["reference_source"], citation=spec["citation"],
                          license=spec["license"], tags=spec["tags"], pinneapple_version=_version())
         mspec = {k: spec[k] for k in ("version", "adapter", "dataset", "task", "tags", "guard_metrics", "acceptance",
@@ -267,7 +308,8 @@ def main(rover_dir: Path) -> None:
         card.save(str(d / "model_card.json"))
         m_man[name] = {**mspec, "revision": f"v{spec['version']}", "hf_repo": hf_repo("m", name), "repo_type": "model",
                        "files": {f: _file(d / f) for f in ("weights.pt", "config.json", "model_card.json")}}
-        write_manifest(m_man, ds_man)
+        m_man[name] = _carry_versions(old_man["models"].get(name), m_man[name], spec)
+        write_manifest({**({k: v for k, v in old_man["models"].items() if only is not None}), **m_man}, ds_man)
     total = sum(f["size"] for k in ("models", "datasets") for e in art.manifest()[k].values()
                 for f in e["files"].values())
     print(f"done: {len(m_man)} models, {len(ds_man)} datasets, {total / 1e6:.2f} MB bundled")
@@ -281,4 +323,6 @@ def _version() -> str:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--rover", required=True, type=Path, help="output directory of train_rover_contact.py")
-    main(ap.parse_args().rover)
+    ap.add_argument("--only", nargs="+", default=None, help="rebuild only these models/datasets (names)")
+    a = ap.parse_args()
+    main(a.rover, a.only)
