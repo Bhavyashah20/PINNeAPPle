@@ -75,6 +75,22 @@ def test_write_case(tmp_path):
     assert float(re.search(r"value ([^;]+);", (c / "constant" / "hRef").read_text()).group(1)) == pytest.approx(
         sec.level())
     assert "phases (metal air);" in (c / "constant" / "transportProperties").read_text()
+    fv = (c / "system" / "fvSolution").read_text()
+    assert re.search(r"p_rgh \{ solver PCG; preconditioner DIC; tolerance 1e-07; relTol 0.05; \}", fv)
+    assert "libs" not in (c / "system" / "controlDict").read_text()
+
+
+def test_write_case_with_warm_started_pressure(tmp_path):
+    from pinneapple_simulation.accelerated_foam.case import warm_solver
+
+    f = FreeSurfaceFlow(mesh=_fake_mesh(tmp_path), two_d=True, roles={"top": "atmosphere"},
+                        pressure_solver=warm_solver("PCG", 1e-7, 0.05, safeguard=True), libs=("/x/lib.so",))
+    f.write(str(tmp_path / "case"))
+    c = tmp_path / "case"
+    fv = (c / "system" / "fvSolution").read_text()
+    assert "p_rgh { solver pinneWarmStart; innerSolver PCG; guess projection; nSnapshots 8;" in fv
+    assert "safeguard true;" in fv and "p_rghFinal { $p_rgh; relTol 0; }" in fv
+    assert 'libs ("/x/lib.so");' in (c / "system" / "controlDict").read_text()
 
 
 def _foam():

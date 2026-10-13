@@ -24,6 +24,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   - Example: `examples/use_cases/terramechanics/lunar_rover_3d.py`. Docs:
     `docs/core_concepts/lunar_rover_terramechanics.md`.
   - `pinneapple_twin3d.Scene.add_motion`: rigid part motion per time step, played by the bundled viewer.
+- Faster implicit pressure solves in OpenFOAM (`pinneapple_simulation.accelerated_foam`): `pinneWarmStart`, an
+  OpenFOAM linear-solver wrapper (C++ source in the package, built against the installed OpenFOAM by
+  `build.build_plugin`) that projects each pressure system on recent solutions (or takes a guess from Python
+  through named pipes) before calling OpenFOAM's own PCG/GAMG, and can dump every system; readers to SciPy/PyTorch
+  sparse matrices, CG with Jacobi/DIC/AMG and mixed precision at OpenFOAM's stopping test, POD and learned
+  warm starts, and benchmarks against plain OpenFOAM. `FreeSurfaceFlow` takes `pressure_solver=` and `libs=`.
+  Measured results (including where it does not help): `docs/core_concepts/openfoam_acceleration.md`.
 - Fit-for-purpose geometry and mesh (`pinneapple_design.fitmesh`): reads a problem description (English or
   Portuguese) and asks for what is missing; suggests reference geometries with their published sources (NACA wing,
   Ahmed body, cylinder, sphere, 90-degree pipe bend, backward-facing step, plate with a hole, cantilever beam,

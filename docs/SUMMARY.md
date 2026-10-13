@@ -24,6 +24,7 @@
   * [3D Studio & External Flow](core_concepts/studio.md)
   * [Free-surface flow: runners, channels, launders](core_concepts/free_surface.md)
   * [OpenFOAM parameter campaigns on several machines](core_concepts/openfoam_campaigns.md)
+  * [Faster implicit pressure solves in OpenFOAM](core_concepts/openfoam_acceleration.md)
   * [Lattice Boltzmann wind tunnel and FluidX3D bridge](core_concepts/lbm_wind_tunnel.md)
   * [Rigid bodies with NVIDIA Newton](core_concepts/newton_rigid_body.md)
   * [Lunar rover terramechanics in 3D](core_concepts/lunar_rover_terramechanics.md)
