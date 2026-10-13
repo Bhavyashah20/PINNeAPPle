@@ -18,10 +18,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from pinneapple_design.thermal.heatsink.engine import H_BAND, DesignInput, OperatingInput, evaluate_design
+from pinneapple_design.thermal.heatsink.sizer import PROCESSES, SizingRequest, size
 from pinneapple_physics.closed_form.plate_fin_heatsink import MATERIALS
 
-from .engine import H_BAND, DesignInput, OperatingInput, evaluate_design
-from .sizer import PROCESSES, SizingRequest, size
 from .surrogate import COMMON_RANGES, MODE_RANGES, load_surrogates
 
 # apps/_shared: login, busy limiter and the vendored three.js used by every app

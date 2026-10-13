@@ -26,12 +26,13 @@ chilled-water plant whose true physics is known, so the predicted saving can be 
 """
 from __future__ import annotations
 
-import math
 import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+
+from pinneapple_core.jsonable import to_jsonable
 
 from .data_health import Issue, _issue_masks, _parse_time, _to_numeric, detect_time_column
 from .physical_units import split_header
@@ -334,15 +335,7 @@ def fit_and_optimize(data: pd.DataFrame, target: str, levers: Sequence[str], con
 
 
 def _clean_json(o: Any) -> Any:
-    if isinstance(o, dict):
-        return {str(k): _clean_json(v) for k, v in o.items() if not str(k).startswith("_")}
-    if isinstance(o, (list, tuple)):
-        return [_clean_json(v) for v in o]
-    if isinstance(o, (float, np.floating)):
-        return None if not math.isfinite(float(o)) else float(o)
-    if isinstance(o, np.integer):
-        return int(o)
-    return o
+    return to_jsonable(o, drop_private=True)
 
 
 # ── example: a chilled-water plant with known physics ───────────────────────

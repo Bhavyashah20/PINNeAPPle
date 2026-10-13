@@ -50,6 +50,15 @@ class Artifact:
     def completeness(self) -> float:
         return sum(1 for f in PROVENANCE_FIELDS if getattr(self, f)) / len(PROVENANCE_FIELDS)
 
+    @property
+    def verified(self) -> bool:
+        """The recorded hash matches the uploaded file (either may be a prefix of the other, 16 hex digits at
+        least)."""
+        if not (self.hash and self.actual_hash):
+            return False
+        rec, act = self.hash.lower(), self.actual_hash
+        return act.startswith(rec[:16]) or rec.startswith(act[:16])
+
 
 def _ts(s: Optional[str]) -> Optional[_dt.datetime]:
     if not s:
@@ -272,6 +281,37 @@ class Lineage:
         return out
 
     # ------------------------------------------------------------------ exports
+    def flags(self, checks: Optional[List[Dict[str, Any]]] = None) -> Dict[str, str]:
+        """Worst check status per artifact: ``{artifact id: "fail" | "warn"}`` (artifacts that pass are absent)."""
+        flag: Dict[str, str] = {}
+        for c in self.checks() if checks is None else checks:
+            if c.get("artifact") and c["status"] in ("fail", "warn") and flag.get(c["artifact"]) != "fail":
+                flag[c["artifact"]] = c["status"]
+        return flag
+
+    def report(self) -> Dict[str, Any]:
+        """Everything a viewer needs: the nodes (each with its layer, completeness, outputs, flag and hash
+        verification), the edges, the checks, the overall status (PASS / WARNING / FAIL) and a summary (artifact and
+        link counts, artifacts per kind, verified hashes, mean completeness)."""
+        lay, checks = self.layers(), self.checks()
+        flag = self.flags(checks)
+        nodes = []
+        for a in self.nodes.values():
+            d = a.to_dict()
+            d.update(layer=lay.get(a.id, 0), completeness=round(a.completeness(), 2), outputs=self.children(a.id),
+                     flag=flag.get(a.id), verified=a.verified)
+            nodes.append(d)
+        statuses = {c["status"] for c in checks}
+        worst = "fail" if "fail" in statuses else "warn" if "warn" in statuses else "pass"
+        kinds = [a.kind for a in self.nodes.values()]
+        return {"project": self.project, "nodes": nodes, "edges": self.edges(), "checks": checks,
+                "status": {"fail": "FAIL", "warn": "WARNING", "pass": "PASS"}[worst],
+                "summary": {"artifacts": len(self.nodes), "links": len(self.edges()),
+                            "by_kind": {k: kinds.count(k) for k in set(kinds)},
+                            "verified": sum(1 for n in nodes if n["verified"]),
+                            "completeness": round(sum(a.completeness() for a in self.nodes.values())
+                                                  / max(len(self.nodes), 1), 2)}}
+
     def to_prov(self) -> Dict[str, Any]:
         """W3C PROV-JSON: artifacts as entities, their production as activities, owners as agents."""
         ns = "pinneapple"

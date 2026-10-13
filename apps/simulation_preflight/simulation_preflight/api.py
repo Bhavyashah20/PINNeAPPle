@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.gzip import GZipMiddleware
@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from pinneapple_data.cae.upload import expand
-from pinneapple_data.preflight import preflight
+from pinneapple_data.preflight import attach_snippets, drop_results, preflight
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "_shared"))
 from appkit import BusyLimiter, install  # noqa: E402
@@ -113,21 +113,6 @@ def scope() -> dict:
             ]}
 
 
-def _snippets(rep: dict, fs: Dict[str, bytes]) -> None:
-    root = rep.get("info", {}).get("root", ".")
-    pre = "" if root in (".", "") else root.rstrip("/") + "/"
-    for f in rep["findings"]:
-        fn, ln = f.get("file"), f.get("line")
-        if not fn or not ln:
-            continue
-        b = fs.get(pre + fn) or fs.get(fn) or next((v for k, v in fs.items() if k.endswith("/" + fn) or k == fn), None)
-        if b is None:
-            continue
-        lines = b.decode("latin-1").splitlines()
-        a, z = max(0, ln - 4), min(len(lines), ln + 4)
-        f["snippet"] = {"start": a + 1, "lines": [l[:160] for l in lines[a:z]], "at": ln}
-
-
 def _run(files: List[Tuple[str, bytes]]) -> dict:
     if not files:
         raise HTTPException(422, "No files uploaded.")
@@ -137,9 +122,9 @@ def _run(files: List[Tuple[str, bytes]]) -> dict:
         with _HEAVY:
             fs = expand(files)
             # result time directories are not needed for a pre-flight: drop them early
-            fs = {k: v for k, v in fs.items() if not _is_result(k)}
+            fs = drop_results(fs)
             rep = preflight(fs)
-            _snippets(rep, fs)
+            attach_snippets(rep, fs)
     except HTTPException:
         raise
     except ValueError as e:
@@ -148,13 +133,6 @@ def _run(files: List[Tuple[str, bytes]]) -> dict:
         raise HTTPException(422, f"{type(e).__name__}: {e}") from e
     rep["scope"] = scope()
     return rep
-
-
-def _is_result(path: str) -> bool:
-    import re
-    parts = path.split("/")
-    return any(re.fullmatch(r"\d+(\.\d+)?(e[-+]?\d+)?", p) and p not in ("0",) for p in parts[:-1]) or \
-        path.lower().endswith((".frd", ".dat", ".sta", ".cvg", ".12d", ".vtk", ".vtu"))
 
 
 @app.get("/health")

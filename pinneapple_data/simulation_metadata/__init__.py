@@ -28,6 +28,8 @@ from typing import Any
 
 import numpy as np
 
+from pinneapple_core.jsonable import to_jsonable
+
 from . import calculix, convergence, openfoam
 
 SCHEMA = "pinneapple.simmeta/1"
@@ -337,17 +339,7 @@ def _table_record(fs: dict[str, bytes]) -> dict[str, Any]:
 
 
 def _clean(o: Any) -> Any:
-    if isinstance(o, dict):
-        return {str(k): _clean(v) for k, v in o.items()}
-    if isinstance(o, (list, tuple)):
-        return [_clean(v) for v in o]
-    if isinstance(o, (float, np.floating)):
-        return None if not np.isfinite(o) else float(o)
-    if isinstance(o, np.integer):
-        return int(o)
-    if isinstance(o, np.bool_):
-        return bool(o)
-    return o
+    return to_jsonable(o)
 
 
 __all__ = ["extract", "read_upload", "parse_residual_table", "SCHEMA"]

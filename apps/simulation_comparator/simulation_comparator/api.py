@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from pinneapple_data.cae import FormatError, read_any
-from pinneapple_data.cae.compare import compare, fields_of, views
+from pinneapple_data.cae.compare import compare, fields_of, tolerance_verdicts, views
 from pinneapple_data.cae.upload import expand
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "_shared"))
@@ -150,16 +150,12 @@ def _run(ref_files, cand_files, mode, mapping, method, tolerance, ref_time, cand
         raise HTTPException(422, str(e)) from e
     except Exception as e:
         raise HTTPException(422, f"{type(e).__name__}: {e}") from e
-    tol = tolerance / 100 if tolerance and tolerance > 0 else None
-    for f in res["fields"]:
-        e = f["summary"]["rel_l2"]
-        f["verdict"] = None if tol is None or e is None else ("pass" if e <= tol else "fail")
+    status = tolerance_verdicts(res, tolerance / 100 if tolerance else None)
     out = {k: v for k, v in res.items() if not k.startswith("_")}
     out.update(view=v, mode=mode, mode_label=MODES.get(mode, mode), tolerance_pct=tolerance,
                reference=_summary(ref), candidate=_summary(cand), scope=scope(),
                usage={"reference_points": max(ref.n_cells, ref.n_points), "candidate_points": max(cand.n_cells, cand.n_points)})
-    verdicts = [f["verdict"] for f in res["fields"] if f["verdict"]]
-    out["status"] = None if not verdicts else ("PASS" if all(v == "pass" for v in verdicts) else "FAIL")
+    out["status"] = status
     return out
 
 
