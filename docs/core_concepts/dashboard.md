@@ -16,7 +16,7 @@ It uses the dark style of the studio renders (aircraft, Formula car).
 
 ![VIPER crossing a lunar crater, dashboard](../assets/studio/rover-dashboard.gif)
 
-Interactive page: [rover-dashboard.html](../assets/studio/rover-dashboard.html) (≈ 6.1 MB, opens offline).
+Interactive page: [rover-dashboard.html](../assets/studio/rover-dashboard.html) (≈ 6.3 MB, opens offline).
 Static: [rover-dashboard.png](../assets/studio/rover-dashboard.png). Video: [rover-dashboard.mp4](../assets/studio/rover-dashboard.mp4).
 
 ```python

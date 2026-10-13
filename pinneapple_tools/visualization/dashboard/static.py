@@ -245,15 +245,27 @@ def write_png(db: Dashboard, path: str, k: int | None = None, size=(1920, 1080),
 
 def write_gif(path: str, frames, fps: float, colors: int = 192, loop: int = 0) -> str:
     """Animated GIF of RGB ``frames`` with one shared adaptive palette (built from a few frames spread over the
-    clip) and frame differencing, which keeps dashboards -- large static areas, one moving picture -- small."""
+    clip) and frame differencing: after the first frame, pixels whose palette index did not change are written as
+    one transparent index, so the static parts of a dashboard (and the still areas of the picture) cost almost
+    nothing."""
     from PIL import Image
     frames = [np.asarray(f)[..., :3] for f in frames]
+    colors = int(np.clip(colors, 2, 255))                 # one index stays free for transparency
     pick = frames[:: max(1, len(frames) // 6)][:6]
     mosaic = Image.fromarray(np.concatenate(pick, 0))
     pal = mosaic.quantize(colors=colors, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
-    ims = [Image.fromarray(f).quantize(palette=pal, dither=Image.Dither.NONE) for f in frames]
+    palette = pal.getpalette()[: 3 * colors] + [0, 0, 0] * (256 - colors)
+    clear = colors                                        # the transparent index
+    ims, prev = [], None
+    for f in frames:
+        idx = np.asarray(Image.fromarray(f).quantize(palette=pal, dither=Image.Dither.NONE), np.uint8)
+        out = idx if prev is None else np.where(idx == prev, np.uint8(clear), idx)
+        prev = idx
+        im = Image.fromarray(out, "P")
+        im.putpalette(palette)
+        ims.append(im)
     ims[0].save(path, save_all=True, append_images=ims[1:], duration=int(round(1000 / fps)), loop=loop,
-                optimize=False, disposal=1)
+                optimize=False, disposal=1, transparency=clear)
     return path
 
 
