@@ -42,7 +42,7 @@ At your DNS provider, create two **A** records (and AAAA records if you use IPv6
 | `interop` | A | `<server IPv4>` |
 | `aero` | A | `<server IPv4>` |
 | `lab` | A | `<server IPv4>` |
-| `observatory` | A | `<server IPv4>` |
+| `sky` | A | `<server IPv4>` |
 
 If the zone is on Cloudflare, set both records to **DNS only** (grey cloud) for the first start, so
 Let's Encrypt can reach Caddy. Check propagation with `dig +short heatsink.example.org`.
