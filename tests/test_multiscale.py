@@ -442,3 +442,87 @@ def test_error_tolerance_escalates_and_returns():
     ens.predict(q())
     ens.update(reference=np.ones(4))
     assert ens.predict(q())["active"].startswith("surrogate")
+
+
+# ------------------------------------------------------------------------------------------ issue acceptance checks
+def _steady_adv_diff_central(n: int, pe: float) -> tuple[np.ndarray, np.ndarray]:
+    """u' = u'' / Pe on [0, 1], u(0) = 0, u(1) = 1, central differences on n intervals; exact solution too."""
+    x = np.linspace(0, 1, n + 1)
+    h = 1.0 / n
+    a, b = 1.0 / pe / h ** 2, 1.0 / (2 * h)
+    A = np.zeros((n - 1, n - 1))
+    rhs = np.zeros(n - 1)
+    for i in range(n - 1):
+        A[i, i] = -2 * a
+        if i > 0:
+            A[i, i - 1] = a + b
+        if i < n - 2:
+            A[i, i + 1] = a - b
+    rhs[-1] = -(a - b) * 1.0
+    u = np.r_[0.0, np.linalg.solve(A, rhs), 1.0]
+    exact = np.expm1(pe * x) / np.expm1(pe)
+    return u, exact
+
+
+def test_issue_599_router_picks_fine_model_exactly_where_coarse_grid_peclet_exceeds_two():
+    n_c, n_f = 20, 400
+    profiles = [ScaleProfile("coarse", Filter("sharp", 0.0), 1.0 / n_c, re_range=(0.0, 2.0 * n_c), fidelity=0),
+                ScaleProfile("fine", Filter("sharp", 0.0), 1.0 / n_f, re_range=(0.0, 2.0 * n_f), fidelity=0)]
+    r = ScaleAwareRouter(profiles, re_band=1e-3)
+    for pe in (5.0, 20.0, 38.0, 42.0, 80.0, 200.0):
+        aw = r.awake(ScaleQuery(Filter("sharp", 1.0 / n_c), re=pe), ["coarse", "fine"])
+        chosen = r.route(ScaleQuery(Filter("sharp", 1.0 / n_c), re=pe), {"coarse": 0.9, "fine": 0.1}).chosen
+        pe_grid = pe / n_c
+        assert (chosen == "fine") == (pe_grid > 2), (pe, chosen)
+        assert aw["coarse"] == (pe_grid <= 2)
+        u, exact = _steady_adv_diff_central(n_c, pe)                  # the analytic reason: monotone iff Pe_h <= 2
+        monotone = bool(np.all(np.diff(u) >= -1e-12))
+        assert monotone == (pe_grid <= 2)
+        uf, ef = _steady_adv_diff_central(n_f, pe)
+        assert np.abs(uf - ef).max() < np.abs(u - exact).max() + 1e-12
+    route = r.route(ScaleQuery(Filter("sharp", 1.0 / (4 * n_f)), re=10.0), names=["coarse", "fine"])
+    assert route.chosen is None and "not covered" in route.reasons[0]
+
+
+def test_issue_600_truncated_field_residual_rises_only_below_its_cutoff():
+    rng = np.random.default_rng(13)
+    nu, dt = 1e-3, 2e-3
+    traj = VorticityNS2D(64, nu).simulate(random_vorticity(rng, 64, k0=5), [0.2, 0.2 + dt], dt=dt / 2)
+    kc = 8                                                          # an operator that only carries |k| <= 8
+    trunc = apply_filter(traj, Filter("sharp", np.pi / kc))
+    widths = [Filter("sharp", np.pi / k) for k in (24, 16, 8, 4)]
+    true = ns2d_multiscale_residuals(traj[0], traj[1], dt, nu, widths, subfilter=None)
+    cut = ns2d_multiscale_residuals(trunc[0], trunc[1], dt, nu, widths, subfilter=None)
+    ratio = cut.raw / true.raw
+    assert ratio[0] > 1.5 and ratio[1] > 1.2                          # finer than the cut-off: residual rises
+    np.testing.assert_allclose(ratio[2:], 1.0, rtol=1e-6)             # at and above the cut-off: same as the truth
+
+
+def _heat_fd(n: int, t: float = 0.1, nu: float = 1.0) -> np.ndarray:
+    """Periodic 1-D heat equation, second-order central differences, RK4 with a small step (space error dominates)."""
+    x = np.arange(n) * 2 * np.pi / n
+    u = np.sin(x) + 0.5 * np.sin(3 * x) + 0.2 * np.cos(5 * x)
+    h = 2 * np.pi / n
+    lap = lambda v: (np.roll(v, -1) - 2 * v + np.roll(v, 1)) / h ** 2  # noqa: E731
+    steps = 4000
+    k = t / steps
+    for _ in range(steps):
+        k1 = nu * lap(u)
+        k2 = nu * lap(u + 0.5 * k * k1)
+        k3 = nu * lap(u + 0.5 * k * k2)
+        k4 = nu * lap(u + k * k3)
+        u = u + k / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+    return u
+
+
+def test_issue_602_grid_levels_pass_with_mismatch_at_the_observed_order():
+    u32, u64, u128 = _heat_fd(32), _heat_fd(64), _heat_fd(128)
+    f = Filter("sharp", 2 * np.pi / 16)                              # compare on the shared large scales
+    mean = {"mean": lambda v: float(np.mean(v)), "energy": lambda v: float(np.mean(v ** 2))}
+    r1 = cross_scale_consistency(u64, apply_filter(u32, f), f, length=2 * np.pi, tol=0.01, integrals=mean,
+                                 spectrum=False)
+    r2 = cross_scale_consistency(u128, apply_filter(u64, f), f, length=2 * np.pi, tol=0.01, integrals=mean,
+                                 spectrum=False)
+    assert r1.passed and r2.passed
+    order = np.log2(r1.field_error / r2.field_error)
+    assert abs(order - 2.0) < 0.2                                    # second-order scheme

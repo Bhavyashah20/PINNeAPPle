@@ -99,7 +99,8 @@ def cross_scale_consistency(fine: np.ndarray, coarse: np.ndarray, coarse_filter:
         scale = max(abs(a), abs(b))
         if name.startswith("circulation"):                       # zero-mean quantities: relative to the field rms
             scale = float(np.sqrt(np.mean(coarse ** 2)))
-        rd = abs(a - b) / max(scale, 1e-300)
+        floor = 1e-10 * max(1.0, float(np.sqrt(np.mean(coarse ** 2))))  # both zero to round-off: equal
+        rd = 0.0 if abs(a - b) <= floor else abs(a - b) / max(scale, 1e-300)
         it = integral_tol.get(name, 0.02) if isinstance(integral_tol, Mapping) else float(integral_tol)
         it = max(it, safety * gci) if gci is not None else it
         ok = rd <= it
