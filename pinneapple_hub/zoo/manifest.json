@@ -91,6 +91,48 @@
     }
    }
   },
+  "heatsink_natural_mlp": {
+   "version": "1.0.0",
+   "adapter": "heatsink_natural",
+   "dataset": "heatsink_natural_convection",
+   "task": "Plate-fin heat sink in natural convection (vertical fins, free air): base-to-air thermal resistance",
+   "tags": [
+    "heat transfer",
+    "electronics cooling",
+    "natural convection",
+    "surrogate",
+    "conformal",
+    "monotone"
+   ],
+   "guard_metrics": [
+    "test/R_mean_abs_pct"
+   ],
+   "acceptance": {
+    "test/R_mean_abs_pct": 2.0,
+    "test/R_p95_abs_pct": 5.0
+   },
+   "card_tolerance": 0.001,
+   "revision": "v1.0.0",
+   "hf_repo": "PINNeAPPle-Labs/heatsink-natural-mlp",
+   "repo_type": "model",
+   "files": {
+    "weights.pt": {
+     "sha256": "85fcadf7182e81b58b1926715611fb10a089a515539d52020d72dc089f8abad2",
+     "size": 208709,
+     "bundled": "models/heatsink_natural_mlp/weights.pt"
+    },
+    "config.json": {
+     "sha256": "b0d10bdf450dd2b5a1f9e3563cc373aa75e09611d1684afb473bc55f24833e19",
+     "size": 908,
+     "bundled": "models/heatsink_natural_mlp/config.json"
+    },
+    "model_card.json": {
+     "sha256": "2b22ed77d7e1d74a41498544c76b30495263377b4a07d7ab1f97b26ffc3ac5cf",
+     "size": 8274,
+     "bundled": "models/heatsink_natural_mlp/model_card.json"
+    }
+   }
+  },
   "rover_contact_grc1_viper": {
    "version": "1.1.0",
    "adapter": "rover_contact",

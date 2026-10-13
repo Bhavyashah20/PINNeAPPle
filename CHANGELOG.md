@@ -23,6 +23,29 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   control, Proctor, Brunton & Kutz 2016), `pinneapple_physics.metrics.rollout_relative_l2`,
   `pinneapple_data.datasets.download.fetch_cached` (URL cache with retries and exponential backoff) and
   `openradioss.read_energy_error` (energy-balance error from the engine log).
+- `scripts/check_app_helpers.py` (run in CI by `tests/test_app_helpers.py`): flags new local helper modules and new
+  copies of library helpers in `apps/` and `examples/`, against a baseline that can only shrink. The rule
+  ("reusable logic goes in the library; apps and examples only compose library calls") is in `AGENTS.md` and
+  `CONTRIBUTING.md`; the inventory of what is being moved is `docs/dev/LIBRARY_CONSOLIDATION.md`.
+- Model zoo: `heatsink_natural_mlp`, the natural-convection plate-fin heat-sink surrogate. It is trained with
+  monotonicity constraints so that a more conductive material or a wider heat source never raises the resistance.
+  Error against 750 held-out physics-engine designs: R 0.47 % mean, 1.5 % p95. The 95 % conformal bound covers
+  97.1 %. Trust report `APPROVED`: monotonicity violations are 0 % for conductivity, source width and power (limit
+  1 %). The app's unconstrained surrogate had the conductivity sign wrong on 5 % of designs.
+- `pinneapple_neural.trainer.monotonic`: `monotonicity_penalty` (a hinge on input-output derivatives, in physical
+  units, with a margin) and `monotone_violation_share`.
+- `pinneapple_design.thermal.heatsink.monotone.train_monotone`: the training recipe of the constrained heat-sink
+  surrogate. It uses the same data, features and split as the app, the library `Trainer` with the penalty on
+  training and random in-range designs, then an L-BFGS polish.
+- Zoo infrastructure for large datasets:
+  - Hub-only datasets: one `<split>.npz` per split, optionally sharded into `<split>-NN.npz`. `pp.datasets.load`
+    downloads only the requested split, concatenates the shards and checks every file's SHA-256.
+  - `pp.datasets.split_files`.
+  - `scripts/zoo/build_assets.py --hub-only DIR` enters the Hub-only datasets, and `--heatsink-natural DIR --only
+    heatsink_natural_mlp` rebuilds the new model; neither touches the published files of the other items.
+  - `publish_to_hub.py --staging DIR` and `--verify --allow-unpublished`.
+  - A `staging_ref` input in the publish workflow.
+  - Hub cards now end with a citation section (PINNeAPPle, Zenodo DOI 10.5281/zenodo.23343062).
 - Zoo model `rover_contact_grc1_viper` v1.1.0 (model and dataset), trained on the library's current physics (GRC-1
   with slip-sinkage, n1 = 0.8): held-out Fx 0.220 N, Fz 0.470 N, My 0.071 N m RMSE. v1.0.0 (trained without
   slip-sinkage) stays published and listed under `superseded`; `pp.zoo.load(name, version=...)` and
