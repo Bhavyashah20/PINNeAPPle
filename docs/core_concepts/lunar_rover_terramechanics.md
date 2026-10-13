@@ -43,9 +43,10 @@ through a web search. The search returned text excerpts, but the PDFs, figures a
 - the wording of the quotes, and the slide or page they come from, should be checked against the documents;
 - the single-wheel test points are third-party readings of the published figures (see Validation), not tables
   from the papers;
-- the renders were compared with VIPER's published dimensions and ratios, not with photographs, because the
-  photographs could not be downloaded. A side-by-side check against the NASA photo pages listed below is still
-  to do.
+- the renders were compared with VIPER's published dimensions and ratios and with the layout NASA's renders and
+  photo captions describe (arrays on three sides, a white front without arrays, the mast at the front-left, the
+  TRIDENT drill on a vertical rail at the front). The photographs themselves could not be downloaded, so a
+  pixel-level side-by-side comparison is still to do.
 
 ## The rover: NASA VIPER
 
@@ -66,7 +67,7 @@ through a web search. The search returned text excerpts, but the PDFs, figures a
 | Mast | tip ≈ 2.5 m above the wheel rims; NavCam pair and LED headlights on a pan-tilt head | NASA (2023), *VIPER team raises its mighty mast* |
 | Antennas | gimballed high-gain (gimbal at ≈ 2.3 m), fixed low-gain | LSIC 2024 |
 | Power and thermal | solar arrays on three sides, radiator on top | LSIC 2024; Fong (2022) |
-| Drill | TRIDENT, 1 m class, vertical, in the middle of the rover | Zacny et al. (2021), LPSC 52, abstract 2400 |
+| Drill | TRIDENT, 1 m class rotary-percussive, vertical, 10 cm bites; integrated into the rover's belly, stows inside and extends 1 m; < 20 kg, 200 N maximum weight on bit; deployment and feed stages, brush, chute, footpad | Zacny et al. (2021), LPSC 52, abstract 2400; NASA (2024), *Into the Belly of the Rover*; NTRS 20240000585; Chu et al., Honeybee Robotics / LSIC poster |
 | Instruments | NSS on the front; NIRVSS and MSolo under the rover; one hazard camera per wheel | Andrews (2020), NTRS 20205000864; Fong (2022) |
 
 **Estimates** (not found in the sources that could be reached). Each one is chosen to agree with the published
@@ -74,10 +75,19 @@ envelope, track, wheelbase and wheel size:
 
 - **Suspension geometry:** pivots under the chassis, arm length, and a 0.15 m steering offset. These give the
   1.3 m track and 1.0 m wheelbase, and ±40° of arm travel changes ride height and track as the PSJ paper says.
-- **Chassis:** a closed 1.50 × 1.56 × 0.66 m box with its belly 0.64 m above the ground. With the arrays flush on
-  its sides it fills the 1.7 m envelope, and the wheels stay clear under the belly when steered ±50°.
-- **Other dimensions:** array panels covering the body faces (1.40 × 0.58 m on the sides, 1.46 × 0.58 m aft); high-gain dish 0.40 m across; straight grousers (the shape was
-  not found).
+- **Chassis:** a 1.44 × 1.48 m body with 7 cm chamfers on its edges, on a 1.20 × 0.40 m keel that carries the
+  suspension actuators. It fills the 1.7 m envelope with the wheels outboard, and the wheels clear every chassis
+  part when steered ±50° (tested).
+- **Faces:** arrays on the left, right and aft faces; the front face white radiator over silver MLI, gold MLI on
+  the belly, a radiator and a raised rim on the deck (layout from NASA renders; sizes estimated).
+- **Mast and head:** a tapered square mast at the front-left of the deck, a pan-tilt head with the NavCam stereo
+  pair (0.24 m baseline), an AftCam and a row of six LED lights, the high-gain antenna on a gimbal at ≈ 2.24 m.
+- **TRIDENT position:** the drill rail stands on the front face, right of centre, with the auger below the belly
+  and the footpad 0.36 m above the ground (from NASA renders and photos; the internal bay of the belly
+  installation is not modelled). Rail 1.30 m, auger 25 mm, footpad 0.12 m: sized for the 1 m stroke.
+- **Instruments:** NSS low on the front face, NIRVSS on the keel front near the drill, MSolo under the keel.
+- **Other dimensions:** array panels covering the body faces; high-gain dish 0.40 m across; straight grousers (the
+  shape was not found).
 - **Mass split:** per corner, 12 kg wheel with its drive, 8 kg steering module and 10 kg arm; 330 kg chassis,
   split among structure, avionics, arrays, radiator, mast, drill and instruments. The centre of mass and the
   inertias are computed from the CAD meshes with these masses.
@@ -104,7 +114,10 @@ quadrature, vectorised over wheels.
   `θ_m = (a0 + a1 s) θ_f`, and the rear arc mapped onto the front one (Wong & Reece 1967; Wong 2008).
 - **Shear:** Janosi-Hanamoto `τ = (c + σ tan φ)(1 - e^(-j/K))`, with the shear displacement
   `j = R_s[(θ_f - θ) - (1 - s)(sin θ_f - sin θ)]`.
-- **Slip-sinkage:** the exponent grows with slip, `n = n0 + n1|s|` (Ding et al. 2011).
+- **Slip-sinkage:** the exponent of the pressure-sinkage law grows with driving slip, `n = n0 + n1 s` (Ding et al.
+  2010, 2011, who identified it from single-wheel tests on lunar simulant). Skid (s < 0) leaves it at n0 by default
+  (`slip_sinkage="drive"`; `"both"` uses `|s|`, `"none"` turns it off). A larger exponent means a softer response
+  at the few-centimetre depths of a wheel, so the wheel sinks deeper as it slips and digs.
 - **Grousers:** shear on the equivalent radius `R_s = R + λ h` (Ding et al. 2011, λ = 1 by default). The visual
   grouser marks come from the vehicle simulation (below).
 - **Multi-pass:** Wong's repetitive loading. The soil remembers the deepest sinkage it carried, `z_u`. A later wheel
@@ -138,7 +151,9 @@ Other values, not measured for these simulants:
 - **Wong-Reece coefficients:** a0 = 0.40, a1 = 0.15, exit-angle ratio 1/3 (estimates, the library's earlier
   values).
 - **Unloading modulus:** k_u0 = 2e8 N/m³. Almost all of the sinkage stays plastic.
-- **Slip-sinkage:** n1 = 0. No value was found, so the effect is off unless set.
+- **Slip-sinkage:** n1 was not published for any of these simulants. The validation soils keep n1 = 0 (the cited
+  state, the "before" of the calibration below). GRC-1 and JSC-1A use n1 = 0.8, an estimate: the rounded mean of
+  n1 fitted on the training points of the five single-wheel series (0.64–0.94).
 
 The Oravec et al. (2010) GRC-1 paper and the Zeng et al. (2010) JSC-1A paper are the primary sources to check these
 against. The parameters the library used before under the name "GRC-1" (`SoilParams()`: c = 1.4 kPa, φ = 30°,
@@ -147,14 +162,16 @@ GRC-1 values above.
 
 ## Validation against single-wheel tests
 
-![Published single-wheel points and the model with the cited soil parameters](../assets/lunar_rover/validation_single_wheel.png)
+![Published single-wheel points, the cited soils (dashed) and the slip-sinkage calibration (solid)](../assets/lunar_rover/validation_single_wheel.png)
 
 `testbed.validate(testbed.load_dataset(name, wheel))` runs the wheel at the measured slips. It finds the sinkage
-for the test load, then the drawbar pull and the torque, using the soil parameters cited for that test. Nothing is
-fitted. The bundled points (`terramechanics/data/single_wheel_tests.csv`) are **readings of the published
-figures made by RoverDevKit** (MIT licence, status `digitised_approx`). They are not tables from the papers. No
+for the test load, then the drawbar pull and the torque, using the soil parameters cited for that test. The bundled
+points (`terramechanics/data/single_wheel_tests.csv`) are **readings of the published figures made by RoverDevKit**
+(MIT licence, status `digitised_approx`). They are not tables from the papers, and they are used unchanged. No
 tabulated single-wheel data for GRC-1 or JSC-1A could be obtained here; the NASA Glenn and WES reports that hold
 such tables could not be opened.
+
+**With the cited soils** (nothing fitted, n1 = 0), errors over all points:
 
 | Test (load) | Drawbar pull RMSE | RMSE / load | Sinkage RMSE | Torque RMSE |
 |---|---|---|---|---|
@@ -164,17 +181,34 @@ such tables could not be opened.
 | wanghan2016 grousered (58.9 N) | 9.2 N | 0.156 | 13.6 mm | 0.54 N m |
 | hurrell2025 grousered (24.5 N) | 3.0 N | 0.122 | 4.7 mm | not reported |
 
-What this says:
-- **Ding et al. 2011 (TYII):** the model has the right drawbar-pull level and slope; the RMSE is 0.05 load for
-  the grousered wheel and 0.10 for the smooth one. At zero slip the model gives the measured −0.08 W (compaction
-  resistance).
-- **Sinkage:** with n1 = 0 the model's sinkage hardly changes with slip, while the tests show it growing from
-  5 to 17–27 mm. This is the slip-sinkage effect, and its coefficient is not published for these soils.
-- **Wang & Han 2016 (KLS-1):** a firm, dense soil that barely sinks. The rigid-wheel model over-predicts both pull
-  and sinkage there, as RoverDevKit also reports.
+With a constant exponent the model's sinkage is almost flat with slip (≈ 10, 12 and 20 mm), while every test
+series rises, from ≈ 5 mm at zero slip to 15–27 mm at 0.6 slip, and the model over-predicts the sinkage at low
+slip.
 
-`testbed.calibrate(data)` fits a0, a1, n1 and K to one test series and reports the errors after the fit. A fit to
-the same points is not a validation, so it is listed separately in `results.json` (`calibration`). After fitting a0, a1, n1 and K: ding2011 smooth: DP RMSE 0.059 W, sinkage RMSE 1.9 mm; ding2011 grousered: DP RMSE 0.039 W, sinkage RMSE 3.2 mm; wanghan2016 smooth: DP RMSE 0.208 W, sinkage RMSE 11.9 mm; wanghan2016 grousered: DP RMSE 0.105 W, sinkage RMSE 9.8 mm; hurrell2025 grousered: DP RMSE 0.126 W, sinkage RMSE 2.9 mm. Several fitted coefficients end at their bounds (a0 = 0.05, a1 = 0.8), a sign that the model's form, not only its parameters, limits the match.
+**Slip-sinkage calibration with held-out points.** `testbed.calibrate_holdout(data)` fits the two coefficients
+of the slip-dependent exponent `n = n0 + n1 s` (Ding et al. 2010, 2011) and the shear modulus K, by least squares
+on the drawbar pull and sinkage of **every other point** (sorted by slip, starting with the lowest:
+`testbed.holdout_split`). The other points are held out: they do not enter the fit or its scaling (a test moves
+them and checks that the fit does not change). Errors on the **held-out points only**:
+
+| Test | Fitted n0, n1, K | Sinkage RMSE before → after | Drawbar pull RMSE / load before → after |
+|---|---|---|---|
+| ding2011 smooth | 0.92, 0.64, 16 mm | 4.9 → 0.5 mm | 0.116 → 0.101 |
+| ding2011 grousered | 0.89, 0.83, 10 mm | 10.2 → 3.1 mm | 0.061 → 0.067 |
+| wanghan2016 smooth | 0.53, 0.82, 50 mm (bound) | 15.7 → 1.3 mm | 0.232 → 0.045 |
+| wanghan2016 grousered | 0.63, 0.94, 31 mm | 13.9 → 0.4 mm | 0.109 → 0.117 |
+| hurrell2025 grousered | 0.77, 0.74, 25 mm | 3.3 → 0.8 mm | 0.092 → 0.139 |
+
+What this says:
+- **Sinkage:** the slip-dependent exponent reproduces the rise of sinkage with slip in all five series; the
+  held-out sinkage error falls by a factor of 3 to 37. The largest remaining miss is the 27 mm point of the Ding
+  grousered wheel at 0.6 slip (model 22 mm), where the grousers dig more than the exponent law follows.
+- **Drawbar pull:** much better for the Wang & Han smooth wheel (0.232 → 0.045 W, 0.244 → 0.043 W over all
+  points), about unchanged for the Ding wheels and the Wang & Han grousered wheel, and worse for the Hurrell
+  wheel (0.092 → 0.139 W): there the fit trades pull for sinkage, and the model's pull keeps rising past 0.3 slip
+  while the measured pull levels off. For the Wang & Han smooth wheel K ends at its 50 mm bound.
+- The fitted n0 are 0.53–0.92 and n1 0.64–0.94. Every fitted value and the held-out errors are in `results.json`
+  (`slip_sinkage_calibration`).
 
 ## Multibody vehicle
 
@@ -205,9 +239,16 @@ That is 18 degrees of freedom, with the bodies' masses and inertias taken from t
 - **Suspension:** PD to a set point, 200 N m limit, plus an assumed load-levelling loop. On four wheels only the
   diagonal ("warp") share of the loads can be equalised by the arms; the front/rear split is fixed by the centre of
   mass.
-- **Terrain:** `DeformableTerrain` keeps the soil memory on a 1 cm grid. Every wheel writes its rim trace (rut) and
-  the shear it leaves; each time a grouser passes the bottom of a loaded wheel it writes a mark across the track,
-  so the spacing of the marks shows the slip. Ruts keep the peak normal and shear stress for colour maps.
+- **Slip-sinkage in the dynamic run:** the slip that sets the exponent is scaled down below 0.05 m/s of rim or
+  ground speed (`v_sink`). The slip ratio of a nearly stopped wheel is a ratio of noise, and slip-sinkage needs
+  the wheel to turn and dig (a model setting).
+- **Terrain:** `DeformableTerrain` keeps the soil memory on a 1 cm grid. Every wheel writes its rim trace and the
+  shear it leaves, and the rut gets a real cross-section: a floor as wide as the wheel at the computed sinkage,
+  walls at the angle of repose (38°) and rounded berms on both sides holding 30 % of the rut cross-section (the
+  rest is compaction). A rear wheel in a front wheel's rut reloads the compacted soil (multi-pass) and deepens the
+  rut only where it sinks deeper; a wheel running over a berm flattens it. Each time a grouser passes the bottom
+  of a loaded wheel it writes a mark across the track, so the marks are spaced by the grouser pitch times
+  (1 − slip) (tested). Ruts keep the peak normal and shear stress for optional colour maps.
 
 ## Results (full vehicle, GRC-1, lunar g)
 
@@ -228,7 +269,7 @@ That is 18 degrees of freedom, with the bodies' masses and inertias taken from t
 On level ground the mean slip is -0.008: the rear wheels, running in the front wheels' ruts, carry slightly more traction and push. The slip grows with grade, to 0.12 at 15° and 0.27 at 20°, and the vehicle holds its heading on every grade. **This is more optimistic than NASA's published figures.** LSIC 2024 lists 15° slopes as a design requirement, and a limit of 40 % slip on 15° is quoted for VIPER in the literature (secondary source). Pavlov et al. (NTRS 20220005373) give about 18° as the safe limit with a 50 % slip cap, and Hu et al. (2025) extrapolate about 85 % slip at 30° for the full-scale rover. Likely reasons:
 - the GRC-1 parameters are secondary and describe a dense, firm state (φ = 38°, n = 0.8);
 - the shear carried over between wheels in one rut (Wong's multi-pass treatment) helps the rear wheels, and its size is not calibrated for lunar simulants (`VehicleSimulator(multipass_shear=False)` turns it off);
-- slip-sinkage is off (n1 = 0).
+- slip-sinkage on GRC-1 uses an estimated n1 (0.8), not a measured one.
 
 Treat these grades as model results, not as predictions of VIPER's performance.
 
@@ -280,11 +321,18 @@ Along the crater run, at the (slip, sinkage) states the wheels actually met (sam
 
 `vehicle.viz` and `studio.planetary` render with PyVista:
 - **Pose:** the CAD posed by the multibody state, so the wheels roll with their joint angles.
-- **Terrain:** replayed to each instant (ruts, grouser marks, berms).
+- **Terrain:** replayed to each instant. Ruts, walls, berms and grouser marks are deformations of the terrain
+  mesh, so their shading and shadows come from the geometry under the low Sun.
+- **Ground to the horizon:** a 1 cm patch around the vehicle, a 4 cm field with the ruts out to 14 m, and a
+  curved annulus out to 4 km whose height follows the Moon's curvature. The camera (≈ 2 m up) sees the real
+  horizon, ≈ 2.6 km away, and never the edge of a mesh. `studio.planetary.border_visibility` projects the mesh
+  border through the camera and checks that every point inside the frame is hidden by the ground; the tests and
+  the dashboard example run it for every camera used.
 - **Shadows:** Sun shadows of the vehicle, rocks and terrain, baked into the terrain and applied to the vehicle's
   vertices.
 - **Regolith:** shaded with McEwen's (1991) Lunar-Lambert function, which keeps it lit at grazing Sun angles.
-- **Colour maps:** contact stresses on the wheel arcs and in the ruts, with a colour bar.
+- **Colour maps (optional):** contact stresses on the wheel arcs and in the ruts, with a colour bar
+  (`field="normal_stress"`). The default view shows the ruts by their geometry only.
 
 The lighting presets (`studio.lighting`) are shared by PyVista, Blender (`render(..., background="lunar_south_pole")`)
 and the browser viewer (`Scene.set_lighting(...)`):
@@ -304,7 +352,8 @@ Earth can be shown in the sky (`earth=True`) at its 1.9° apparent size.
 - The Wong-Reece laws are quasi-static and per wheel. Transient soil flow, grouser-by-grouser force oscillations
   (Irani et al. 2011) and wheel-wheel soil interaction beyond the rut memory are not modelled.
 - Soil parameters are secondary or estimated (see the table). The single-wheel validation uses digitised figure
-  points, and the slip-sinkage coefficient is unknown, so sinkage at high slip is under-predicted.
+  points. The slip-sinkage coefficients are calibrated per test series (on half of its points); for GRC-1 n1 is an
+  estimate, so the vehicle's sinkage at high slip carries that uncertainty.
 - The load-levelling suspension law, the controllers' gains and the vertical soil damping are model choices.
 - Rocks are rigid ellipsoids. The terrain grid is 1 cm, so grouser marks are drawn about 1 cm wide.
 
@@ -314,6 +363,8 @@ with its verification tests. Its generic 40 kg rover is no longer used by the ex
 ## References
 
 - Bekker, M.G. (1969). *Introduction to Terrain-Vehicle Systems*. University of Michigan Press.
+- Ding, L., Gao, H., Deng, Z., Tao, J. (2010). Wheel slip-sinkage and its prediction model of lunar rover.
+  *J. Central South University of Technology* 17, 129-135. doi:10.1007/s11771-010-0021-7
 - Ding, L., Gao, H., Deng, Z., Nagatani, K., Yoshida, K. (2011). Experimental study and analysis on driving wheels'
   performance for planetary exploration rovers moving in deformable soil. *J. Terramechanics* 48(1), 27-45.
 - Hurrell et al. (2025). Traction performance evaluation for a Rashid-1 rover wheel. *Space Sci. Rev.* 221, 37.

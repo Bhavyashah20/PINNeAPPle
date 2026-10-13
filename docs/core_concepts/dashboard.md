@@ -88,7 +88,8 @@ shifts the series colours a little, so the MP4 and the HTML page are the referen
 
 ```python
 from pinneapple_simulation.vehicle import dashboard as vdash
-frames, ks, clim = vdash.render_frames(run, terrain, n=150)       # planetary renders, ruts coloured by stress
+frames, ks, clim = vdash.render_frames(run, terrain, n=150)       # planetary renders, 3-D ruts
+# field="normal_stress" (and vehicle_dashboard(..., field_label=...)) adds the stress colour map as an overlay
 db = vdash.vehicle_dashboard(run, frames, ks, model=wong_reece, surrogate=pinn, clim=clim,
                              scene3d=True, terrain=terrain)
 ```
@@ -96,8 +97,11 @@ db = vdash.vehicle_dashboard(run, frames, ks, model=wong_reece, surrogate=pinn, 
 The animation shows:
 - a hard, low Sun (`lunar_low_sun`, 12°) under a black sky, with long shadows;
 - regolith with small craters and rocks;
-- wheels that roll with the joint angles and leave ruts with grouser marks;
-- ruts coloured by the peak normal stress they carried [kPa], with the colour bar beside the animation.
+- wheels that roll with the joint angles and leave ruts deformed into the terrain mesh: a floor at the computed
+  sinkage, walls at the angle of repose, berms of displaced soil and grouser marks spaced by the pitch and the
+  slip, all shaded and shadowed by the low Sun;
+- the ground running out to the real lunar horizon, so no mesh edge shows in any frame (checked for the frames by
+  `studio.planetary.border_visibility`).
 
 Around it:
 - **left:** drawbar pull, driving torque and sinkage versus slip. The grey line is the single-wheel testbed curve at
@@ -113,7 +117,9 @@ Around it:
 ![Rover dashboard](../assets/studio/rover-dashboard.png)
 
 `examples/studio/07_lunar_rover_dashboard.py` regenerates every file:
-- `docs/assets/studio/rover-dashboard.{html,png,gif,mp4}`;
+- `docs/assets/studio/rover-dashboard.{html,png,gif,mp4}`: the MP4 at 1920 × 1080; the GIF at 1280 × 720, laid
+  out natively at that size (`to_video(gif_font_scale=1.0)`) so the chart text stays readable, with one shared
+  palette to stay under 8 MB (`dashboard.static.write_gif`);
 - `rover-frame.png`, one rendered frame.
 
 The run behind it is the crater crossing of the [lunar rover page](lunar_rover_terramechanics.md): NASA VIPER

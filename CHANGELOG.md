@@ -14,6 +14,23 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Rover realism (`pinneapple_simulation.terramechanics`, `.vehicle`, `pinneapple_tools.visualization.studio`,
+  `pinneapple_design.geometry.vehicle_cad`):
+  - Slip-sinkage calibration with held-out points: `testbed.calibrate_holdout` fits the slip-dependent sinkage
+    exponent `n = n0 + n1 s` (Ding et al. 2010, 2011) and K on every other published single-wheel point and reports
+    the errors on the held-out points before and after (`testbed.holdout_split`, `plot_validation(calibrated=...)`).
+    `WongReeceModel(slip_sinkage="drive" | "both" | "none")`, `sinkage_exponent()`, `forces(..., sinkage_slip=...)`.
+  - 3-D ruts: `DeformableTerrain` rut walls at the angle of repose (`wall_angle_deg`) and rounded berms holding the
+    displaced soil (`berm`), as separate layers; the default renders show ruts by their geometry, the stress map
+    is an option (`overlay=`).
+  - Ground to the horizon: `SurfaceView(horizon=..., far_fn=...)` adds a curved annulus past the lunar horizon;
+    `studio.planetary.border_visibility` checks that no mesh border is visible from a camera.
+  - Dashboard exports at small sizes: `font_scale` with text-aware gaps, `write_video(gif_font_scale=...)` lays the
+    GIF out natively at its size, `dashboard.static.write_gif` writes a palette-optimised GIF.
+  - VIPER CAD from public NASA figures: chamfered body, radiator and MLI front, pan-tilt mast head, box-beam
+    suspension arms with actuators, the TRIDENT drill (`vehicle_cad.drill_assembly`) and new primitives
+    (`loft`, `extrude_polygon`, `chamfered_box`, `box_beam`, `ladder_rail`, `helix_sweep`, `mli_blanket`,
+    `actuator`, `pan_tilt_head`); sources and estimates in `VIPER_SOURCES`.
 - Animation-centred dashboards for any simulation (`pinneapple_tools.visualization.dashboard`, `pp.viz.Dashboard`):
   an animation in the middle, charts synced to its time cursor (time series with a cursor, or fixed curves with
   markers that move with the frames), KPI tiles, a parameter panel and a colour bar.
@@ -494,6 +511,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   as a placeholder that fails loudly), and `fingerprint()` gives a stable hash for provenance. The three existing classes are
   adapters, unchanged: `from_pde_spec`/`to_pde_spec` round-trip all 65 presets exactly, and `from_physics_case`/
   `to_physics_case` and `from_problem_design`/`to_problem_design` cover the other two (#27).
+
+### Changed
+- **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their
+  sinkage grows with driving slip. The validation soils keep n1 = 0. `VehicleSimulator(v_sink=0.05)` scales the
+  slip that sets the exponent down near standstill.
+- **Behavior:** `vehicle.dashboard.render_frames` and `vehicle_dashboard` default to the geometry-only view (no
+  stress colour map, no colour bar); pass `field=` / `field_label=` for the overlay.
 
 ### Fixed
 
