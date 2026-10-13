@@ -1,0 +1,135 @@
+# The same fixtures as ../pass with one defect each: `pinneapple check examples/physics_check/fail` exits 1.
+# expected.json lists the rules each target must break (the tests check the exact set).
+
+[check]
+select = ["ALL"]
+fail-on = "error"
+
+# ---------------------------------------------------------------- OpenFOAM (real icoFoam runs)
+[[result]]
+name = "cavity"
+path = "cases/cavity"                       # the lid speed was typed as 2 m/s in 0/U
+physics = "incompressible-flow"
+parameters = { nu = "0.01 m2/s" }
+units = { U = "m/s", p = "m2/s2" }
+reference = { path = "reference/cavity.npz", fields = ["U"] }
+[result.bc.movingWall]
+U = [1, 0, 0]
+[result.bc.fixedWalls]
+U = [0, 0, 0]
+
+[[result]]
+name = "cavity-viscosity"
+path = "cases/cavity"                       # the run used nu = 0.01; the configuration says 0.1
+physics = "incompressible-flow"
+parameters = { nu = "0.1 m2/s" }
+[result.bc.movingWall]
+U = [2, 0, 0]
+
+[[result]]
+name = "cavity-dynamic-viscosity"
+path = "cases/cavity"
+physics = "incompressible-flow"
+parameters = { nu = "1e-3 Pa*s" }           # a dynamic viscosity where a kinematic one is needed
+[result.bc.movingWall]
+U = [2, 0, 0]
+
+[[result]]
+name = "cavity-undeclared-lid"
+path = "cases/cavity"                       # the moving lid is not declared: its wall velocity is flagged
+physics = "incompressible-flow"
+parameters = { nu = 0.01 }
+
+# ---------------------------------------------------------------- fields on grids and point clouds
+[[result]]
+path = "fields/heat_plate.npz"              # a linear profile: the source heat has nowhere to go
+physics = "heat"
+parameters = { k = "10 W/(m*K)", q = "1000 W/m3" }
+units = { T = "K" }
+
+[[result]]
+path = "fields/block_gravity.npz"           # the weight applied twice
+physics = "elasticity"
+parameters = { E = "2e9 Pa", nu = 0.3, f = [0, -19620] }
+
+[[result]]
+path = "fields/diffusion_1d.npz"            # a dissipative scheme loses q
+physics = "conservation"
+flux = { q = "F" }
+conserved = ["q"]
+
+[[result]]
+path = "fields/cooling_plate.npz"           # started 10 K hotter than the declared initial state
+physics = "heat"
+parameters = { alpha = "1e-2 m2/s" }
+ic = { T = "300 + 20*sin(pi*x)" }
+
+[[result]]
+path = "fields/tank_alpha.vtu"              # phase fraction overshoots [0, 1]
+
+[[result]]
+path = "fields/porosity.npz"
+bounds = { porosity = [0.2, 0.6] }
+reference = "reference/porosity_v1.npz"     # never committed
+
+[[result]]
+path = "fields/surrogate_T.npz"             # one NaN
+units = { T = "K" }
+
+[[result]]
+path = "fields/probe_T.csv"                 # exported in degC, declared in K
+kind = "points"
+units = { T = "K" }
+
+[[result]]
+path = "fields/unlabelled_T.npz"            # no unit anywhere for a field used by the heat equation
+physics = "heat"
+
+[[result]]
+path = "fields/corrupt.vtu"                 # a truncated file
+
+[[result]]
+path = "fields/stream.npz"                  # declared, but nothing applies to it
+
+# ---------------------------------------------------------------- quantities of interest
+[[result]]
+path = "qoi/airfoil.csv"                    # Cd moved by 5 %
+[result.reference]
+path = "reference/airfoil.csv"
+qoi = { Cd = { rel = 0.02 }, Cl = { abs = 0.005 } }
+
+# ---------------------------------------------------------------- models
+[[model]]
+name = "kovasznay-pinn"
+path = "models/kovasznay_pinn.py:predict"   # u grows 10 % per unit length: the network creates mass
+inputs = ["x", "y"]
+outputs = ["u", "v", "p"]
+physics = "incompressible-flow"
+parameters = { nu = 0.025 }
+method = "E10"
+domain = { x = [-0.5, 1.0], y = [-0.5, 1.5] }
+reference = { path = "reference/kovasznay.csv", rel-l2 = 1e-3 }
+[model.bc."x=-0.5"]
+u = "1 - exp(-0.9637405441957895*x)*cos(2*pi*y)"
+
+[[model]]
+name = "drag-surrogate"
+path = "models/drag_surrogate.py:predict"   # queried above its Re and aoa ranges, and inside a data gap
+inputs = ["Re", "aoa"]
+outputs = ["Cd"]
+train-range = { Re = [1e5, 1e6], aoa = [0, 10] }
+train-samples = "models/drag_training_points.csv"
+queries = "models/queries.csv"
+
+[[model]]
+name = "legacy-model"
+path = "models/legacy_model.pt"             # its pickle calls os.system: never loaded
+architecture = "vanilla_pinn"
+inputs = ["x", "y"]
+outputs = ["u"]
+
+# ---------------------------------------------------------------- artefacts
+[integrity]
+manifest = "models/manifest.json"           # drag_surrogate.py edited after the manifest; notes.txt never added
+public-key = "keys/release.pub.json"
+signed = ["models/drag_surrogate.py"]

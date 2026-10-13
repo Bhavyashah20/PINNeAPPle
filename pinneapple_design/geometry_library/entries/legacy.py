@@ -250,9 +250,10 @@ def _viper(p, res):
         from .. import kit
         from ..core import Body
         x0, y0, z0 = lga.vertices[:, 0].mean(), lga.vertices[:, 1].mean(), lga.vertices[:, 2].min()
-        zz = np.array([0.0, 0.0, 0.16, 0.16, 0.24, 0.24])
-        rr = np.array([0.0, 0.02, 0.02, 0.05, 0.01, 0.0])
-        V, F = kit.revolve(zz[1:-1], rr[1:-1], 16, axis="z")
+        h = float(lga.vertices[:, 2].max()) - z0              # mast 0.16 m (r 18 mm), then a cone 50 -> 12 mm
+        zz = np.array([0.0, h - 0.07, h - 0.07, h])
+        rr = np.array([0.018, 0.018, 0.05, 0.012])
+        V, F = kit.revolve(zz, rr, 20, axis="z")
         bodies.append(Body("lga", V + [x0, y0, z0], F, lga.material, "lga", True))
     return bodies
 
@@ -270,15 +271,17 @@ register(GeometrySpec(
         Param("grouser_count", 24, "-", (0, 40), "grousers per wheel"),
         Param("grouser_height", 0.025, "m", (0.0, 0.04), "grouser height"),
     ],
-    dimensions={"length_x": (1.53, 0.08), "width_y": (1.53, 0.08), "height_z": (2.45, 0.05)},
+    dimensions={"length_x": (1.692, 0.02), "width_y": (1.539, 0.02), "height_z": (2.50, 0.02)},
     frame="right-handed, metres: x forward, y to the left, z up; origin on the ground below the chassis centre",
     sources=[Source("1.5 m x 1.5 m x 2.5 m (mast up), ~450 kg, wheels ~0.5 m diameter, active suspension",
                     "NASA VIPER fact sheets and NTRS papers listed in pinneapple_simulation.vehicle.viper.VIPER_SOURCES"),
              Source("detail placement (antennas, hazcams, instruments)", "estimates from NASA imagery",
-                    estimate=True)],
+                    estimate=True),
+             Source("bounding box of the model: 1.69 m long (the front instruments and bumpers stand proud of the "
+                    "1.5 m chassis), 1.54 m wide over the wheels, 2.50 m to the top of the mast", "model geometry")],
     physics=["terramechanics (wheel-soil, slip, sinkage)", "multibody dynamics", "thermal (lunar night, radiator)",
              "lighting / perception at the lunar south pole"],
     tags=("planetary rover", "terramechanics"), camera={"azimuth": 35.0, "elevation": 20.0},
-    max_triangles={"light": 60000, "fine": 400000},
+    max_triangles={"light": 26000, "fine": 400000},
     legacy="pinneapple_simulation.vehicle.viper.viper_cad",
 ))

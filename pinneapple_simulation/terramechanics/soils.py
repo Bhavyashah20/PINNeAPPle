@@ -38,6 +38,8 @@ ZENG_2010 = ("Zeng, X., He, C., Oravec, H., Wilkinson, A., Agui, J., Asnani, V. 
 DING_2011 = ("Ding, L., Gao, H., Deng, Z., Nagatani, K., Yoshida, K. (2011). Experimental study and analysis on "
              "driving wheels' performance for planetary exploration rovers moving in deformable soil. "
              "J. Terramechanics 48(1), 27-45. doi:10.1016/j.jterra.2010.08.001")
+DING_2010 = ("Ding, L., Gao, H., Deng, Z., Tao, J. (2010). Wheel slip-sinkage and its prediction model of lunar rover. "
+             "J. Central South University of Technology 17, 129-135. doi:10.1007/s11771-010-0021-7")
 HURRELL_2025 = ("Hurrell et al. (2025). Traction performance evaluation for a Rashid-1 rover wheel. Space Science "
                 "Reviews 221, article 37 (open access)")
 WONG_2008 = "Wong, J.Y. (2008). Theory of Ground Vehicles, 4th ed. Wiley."
@@ -54,6 +56,13 @@ _EST_WR = ("estimate: Wong-Reece theta_m = (a0 + a1 s) theta_f coefficients were
            "Wong & Reece (1967)")
 _EST_C3 = "estimate: exit angle theta_r = -c3 theta_f with c3 = 1/3, the library's previous value (not measured)"
 _EST_N1 = "estimate: no slip-sinkage coefficient n1 was found for this simulant; 0 switches the effect off"
+# n1 for the two lunar simulants used by the vehicle examples: no measurement exists, so the slip-sinkage exponent
+# gradient is taken from the five single-wheel calibrations of testbed.calibrate_holdout (fitted n1 = 0.64-0.94)
+_SLIP_SINKAGE_N1 = 0.8
+_EST_N1_LUNAR = ("estimate: no slip-sinkage coefficient was published for this simulant; n1 = 0.8 is the rounded mean "
+                 "of n1 fitted (n = n0 + n1 |s|, Ding et al. 2010, 2011) to the training points of the five bundled "
+                 "single-wheel test series (0.64-0.94, testbed.calibrate_holdout); it makes the sinkage grow with "
+                 "slip as all those tests do")
 _EST_KU = ("estimate: no unloading-reloading modulus (Wong 2008, k_u = k_u0 + A_u z_u) was found for any lunar "
            "simulant; k_u0 = 2e8 N/m^3, A_u = 0 gives an elastic rebound of a few tenths of a millimetre, i.e. "
            "almost all of the sinkage is plastic, as observed for loose granular soils")
@@ -131,7 +140,7 @@ def register_soil(soil: Soil) -> Soil:
 
 
 register_soil(Soil(
-    "GRC-1", c=250.0, phi_deg=38.0, K=0.018, k_c=700.0, k_phi=505_000.0, n0=0.8, rho=1620.0,
+    "GRC-1", c=250.0, phi_deg=38.0, K=0.018, k_c=700.0, k_phi=505_000.0, n0=0.8, rho=1620.0, n1=_SLIP_SINKAGE_N1,
     description="NASA Glenn GRC-1 lunar terramechanics simulant (cohesionless, frictional)",
     sources={"c": f"secondary: 0.25 kPa as listed in the {ROVERDEVKIT}, attributed to {ORAVEC_2010}; "
                   "Oravec et al. describe GRC-1 as essentially cohesionless",
@@ -141,10 +150,10 @@ register_soil(Soil(
              "k_phi": f"secondary: 505 kN/m^(n+2) ({ROVERDEVKIT}, attributed to Oravec et al. 2010)",
              "n0": f"secondary: 0.8 ({ROVERDEVKIT}, attributed to Oravec et al. 2010)",
              "rho": f"secondary: 1620 kg/m^3 ({ROVERDEVKIT}); {HU_2025} test at 1660-1760 kg/m^3",
-             "K": _EST_K, **_common_estimates()}))
+             "K": _EST_K, **_common_estimates(), "n1": _EST_N1_LUNAR}))
 
 register_soil(Soil(
-    "JSC-1A", c=1000.0, phi_deg=45.0, K=0.018, k_c=1400.0, k_phi=820_000.0, n0=1.0, rho=1600.0,
+    "JSC-1A", c=1000.0, phi_deg=45.0, K=0.018, k_c=1400.0, k_phi=820_000.0, n0=1.0, rho=1600.0, n1=_SLIP_SINKAGE_N1,
     description="JSC-1A lunar mare simulant (Orbitec), compacted",
     sources={"c": f"secondary: 1.0 kPa ({ROVERDEVKIT}, attributed to {ZENG_2010}); reported cohesion ranges from "
                   "0 to 1 kPa as the density rises from 1.62 to 1.96 g/cm^3",
@@ -156,7 +165,7 @@ register_soil(Soil(
              "k_phi": f"secondary: 820 kN/m^(n+2) ({ROVERDEVKIT}); same caution as k_c",
              "n0": f"secondary: 1.0 ({ROVERDEVKIT}); same caution as k_c",
              "rho": f"secondary: 1600 kg/m^3 ({ROVERDEVKIT})",
-             "K": _EST_K, **_common_estimates()}))
+             "K": _EST_K, **_common_estimates(), "n1": _EST_N1_LUNAR}))
 
 register_soil(Soil(
     "Ding2011-TYII", c=250.0, phi_deg=31.9, K=0.011, k_c=15_600.0, k_phi=2_407_400.0, n0=1.10, rho=1605.0,
@@ -209,4 +218,4 @@ def list_soils() -> list[str]:
 
 
 __all__ = ["Soil", "SOILS", "get_soil", "list_soils", "register_soil", "ORAVEC_2010", "ZENG_2010", "DING_2011",
-           "HURRELL_2025", "WONG_2008", "WONG_REECE_1967", "ISHIGAMI_2007", "HU_2025", "ROVERDEVKIT"]
+           "HURRELL_2025", "DING_2010", "WONG_2008", "WONG_REECE_1967", "ISHIGAMI_2007", "HU_2025", "ROVERDEVKIT"]

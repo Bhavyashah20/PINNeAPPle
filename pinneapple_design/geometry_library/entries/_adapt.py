@@ -12,7 +12,7 @@ from typing import Iterable, List, Sequence, Tuple
 import numpy as np
 
 from ..core import Body
-from ..meshops import components, weld
+from ..meshops import components, edge_stats, weld
 
 Item = Tuple[str, np.ndarray, np.ndarray, str, str, bool]   # name, V, F, material, group, aero
 
@@ -31,6 +31,13 @@ def bodies_from_items(items: Iterable[Item], prefix: str = "") -> List[Body]:
         aero = np.concatenate([np.full(len(i[2]), bool(i[5])) for i in its])
         Vw, Fw = _weld_keep(V, F)
         lab = components(Fw, len(Vw))
+        # a welded shell that is not edge-manifold is several primitives touching at corners (box beams of a
+        # frame): keep those primitives apart, using the connectivity of the original, unwelded faces
+        lab_orig = components(F, len(V))
+        for c in np.unique(lab):
+            sel = lab == c
+            if edge_stats(Vw, Fw[sel])["nonmanifold_edges"]:
+                lab = np.where(sel, lab.max() + 1 + lab_orig, lab)
         for c in np.unique(lab):
             sel = lab == c
             used, inv = np.unique(Fw[sel], return_inverse=True)

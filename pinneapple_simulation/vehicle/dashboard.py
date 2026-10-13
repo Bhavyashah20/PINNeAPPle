@@ -31,11 +31,15 @@ from pinneapple_tools.visualization.dashboard import (
 )
 
 
-def render_frames(run, terrain, n: int = 150, *, field="normal_stress", clim=None, size=(1280, 720), camera=None,
+def render_frames(run, terrain, n: int = 150, *, field=None, clim=None, size=(1280, 720), camera=None,
                   preset="lunar_low_sun", sun_azimuth_deg=160.0, earth=False, trail: float = 0.0,
-                  half_window=(3.2, 3.4), progress=None):
+                  half_window=(3.2, 3.4), progress=None, overlay: bool = True):
     """``n`` rendered frames spread over the run and their sample indices (``vehicle.viz.render_frame``).
-    ``trail`` and ``half_window`` place the detailed terrain window (see ``vehicle.viz.frame_view``)."""
+    ``trail`` and ``half_window`` place the detailed terrain window (see ``vehicle.viz.frame_view``).
+
+    The default is the beauty view: ruts, berms and grouser marks as geometry, shaded by the Sun. ``field``
+    ("normal_stress", "shear_stress", "sinkage") adds the colour map as an overlay on the ruts and wheels
+    (``overlay=False``: on the wheels only)."""
     from .viz import render_frame
     ks = np.unique(np.linspace(0, len(run.t) - 1, n).astype(int))
     if clim is None and field in ("normal_stress", "shear_stress"):
@@ -49,7 +53,7 @@ def render_frames(run, terrain, n: int = 150, *, field="normal_stress", clim=Non
     for j, k in enumerate(ks):
         img = render_frame(run, terrain, int(k), None, field=field, clim=clim, camera=camera, size=size, cache=cache,
                            preset=preset, sun_azimuth_deg=sun_azimuth_deg, earth=earth, title="", colorbar=False,
-                           trail=trail, half_window=half_window)
+                           trail=trail, half_window=half_window, overlay=overlay)
         frames.append(np.asarray(img)[..., :3])
         if progress:
             progress(j + 1, len(ks))
@@ -61,10 +65,11 @@ def _running(fn, a):
 
 
 def vehicle_dashboard(run, frames, ks, *, model=None, surrogate=None, title: str | None = None, subtitle: str = "",
-                      field_label="Peak normal stress in the ruts [kPa]", cmap="inferno", clim=(0.0, 1.0),
+                      field_label=None, cmap="inferno", clim=(0.0, 1.0),
                       wheel_for_pinn: int = 0, extra_params=(), scene3d: bool = False, terrain=None,
                       footer: str = "") -> Dashboard:
-    """Build the dashboard of ``run`` with the rendered ``frames`` at sample indices ``ks``."""
+    """Build the dashboard of ``run`` with the rendered ``frames`` at sample indices ``ks``. ``field_label`` (with
+    ``cmap`` / ``clim``) adds a colour bar for frames rendered with a field overlay."""
     ks = np.asarray(ks, int)
     spec = run.model.spec
     names = run.corner_names
@@ -135,7 +140,8 @@ def vehicle_dashboard(run, frames, ks, *, model=None, surrogate=None, title: str
     if soil is not None:
         params += [Param("Soil", soil.name), Param("Cohesion c", soil.c / 1e3, "kPa"),
                    Param("Friction angle", soil.phi_deg, "deg"), Param("k_phi", soil.k_phi / 1e3, "kN/m^(n+2)"),
-                   Param("Sinkage exponent n", soil.n0), Param("Shear modulus K", 1e3 * soil.K, "mm")]
+                   Param("Sinkage exponent n0 + n1 s", f"{soil.n0:g} + {soil.n1:g} s"),
+                   Param("Shear modulus K", 1e3 * soil.K, "mm")]
     if cmd is not None:
         params.append(Param("Speed command", cmd, "m/s"))
     params.append(Param("Time step", 1e3 * run.meta.get("dt", 0.002), "ms"))
@@ -145,7 +151,8 @@ def vehicle_dashboard(run, frames, ks, *, model=None, surrogate=None, title: str
             params.append(Param("PINN held-out rmse (Fx)", round(te["rmse_N"], 3), "N"))
     params += list(extra_params)
     db = Dashboard(title or f"{spec.name} on the Moon", t, list(frames), charts=charts, tiles=tiles, params=params,
-                   subtitle=subtitle, colorbar=ColorBar(field_label, cmap, *clim), footer=footer)
+                   subtitle=subtitle, colorbar=ColorBar(field_label, cmap, *clim) if field_label else None,
+                   footer=footer)
     if scene3d:
         db.scene3d = vehicle_scene3d(run, ks, terrain)
     return db
