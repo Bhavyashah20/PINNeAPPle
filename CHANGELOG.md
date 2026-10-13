@@ -13,6 +13,32 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 
 ## [Unreleased]
 
+### Added
+- `pinneapple check`, a physics linter for CI (`pinneapple_check`; also `python -m pinneapple.check`): fails when a
+  simulation result or a Physics-AI model violates physics. 29 rules with ids, explanations and fix hints
+  (`--list-rules`, `--explain PC101`): conservation of mass, energy and momentum, divergence, conserved totals in
+  time (PC1xx), boundary and initial conditions, wall velocity (PC2xx), PDE residual of stored fields and of a
+  model's predictions (PC3xx), declared bounds, physical admissibility, non-finite values (PC4xx), units and
+  parameter dimensions (PC5xx), queries outside a model's training range or in a gap of its data (PC6xx), field
+  and quantity-of-interest regression against a reference (PC7xx), hashes, signatures, unsafe checkpoints and
+  untracked artefacts (PC8xx), method status in the catalog (PC9xx).
+  - Reads OpenFOAM cases (with `phi`, so continuity is checked on the solver's own flux), VTK/VTU, NPZ/HDF5 grids
+    and point tables, CSV of quantities of interest; models as a `file.py:function`, a PINNeAPPle checkpoint with
+    its zoo name (scanned before loading; training range from its metadata) or a hub model. Physics:
+    incompressible flow, heat, linear elasticity, generic conservation law.
+  - `pinneapple-check.toml` or `[tool.pinneapple.check]` in `pyproject.toml`, zero-config discovery, `--select` /
+    `--ignore` prefixes, `--format text|json|sarif|junit|github|summary`, a baseline to adopt it gradually, exit
+    codes 0/1/2. The JSON report carries the trust card of each target and feeds the veriphysics applicability map.
+  - Reuses `pinneapple_data` readers and units, the `physics_audit` training envelope, field metrics, the method
+    catalog and `pinneapple_security`, without importing torch.
+  - `action.yml`: a composite GitHub Action (pinned to its own ref or a PyPI version, pip cache, SARIF upload to
+    code scanning, annotations, job summary); example workflow in `examples/physics_check/workflow.yml`.
+  - `examples/physics_check/`: a passing and a failing fixture for every rule (real icoFoam runs among them), used
+    by `tests/test_physics_check.py` and by `.github/workflows/physics-check.yml`. Docs:
+    `docs/guides/physics_checks_in_ci.md`.
+  - New extra `check` (meshio, h5py, cryptography) and the `pinneapple` command (`pinneapple check ...`; it also
+    forwards `pinneapple benchmark ...` to `pinneapple_analysis.benchmark` when installed).
+
 ## [0.7.0] - 2026-10-13
 
 ### Added

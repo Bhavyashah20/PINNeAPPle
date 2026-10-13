@@ -1,0 +1,79 @@
+name: Physics check (pinneapple check)
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The action of this repository (action.yml), from this checkout, on the fixtures that must pass:
+  # annotations, SARIF upload and the job summary exactly as a user's repository gets them.
+  passing-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: pinneapple check examples/physics_check/pass
+        uses: ./
+        with:
+          paths: examples/physics_check/pass
+          fail-on: warning
+          sarif-category: pinneapple-check-fixtures
+
+  # The fixtures that must fail: the action is run without failing the job and without annotations or SARIF
+  # (they would flag the fixture files themselves), and every target must break exactly the rules in expected.json.
+  failing-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: pinneapple check examples/physics_check/fail
+        id: check
+        uses: ./
+        with:
+          paths: examples/physics_check/fail
+          fail-on: never
+          annotations: "false"
+          sarif: "false"
+          summary: "false"
+      - name: Every expected violation, nothing else
+        env:
+          REPORT: ${{ steps.check.outputs.report }}
+          ERRORS: ${{ steps.check.outputs.errors }}
+        run: |
+          test "$ERRORS" -gt 0
+          python - <<'PY'
+          import json, os
+          rep = json.load(open(os.environ["REPORT"]))
+          exp = json.load(open("examples/physics_check/fail/expected.json"))
+          got = {}
+          for v in rep["violations"]:
+              got.setdefault(v["target"], set()).add(v["rule"])
+          got = {k: sorted(v) for k, v in got.items()}
+          assert got == exp, json.dumps({"expected": exp, "got": got}, indent=1)
+          print(f"{sum(map(len, exp.values()))} expected violations found on {len(exp)} targets")
+          PY
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install (CPU torch for the checkpoint fixture)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[check]" pytest
+      - name: Tests
+        run: pytest tests/test_physics_check.py -q

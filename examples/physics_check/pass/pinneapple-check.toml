@@ -1,0 +1,112 @@
+# Fixtures where every check holds: `pinneapple check examples/physics_check/pass` exits 0.
+# The same targets, with one defect each, are in ../fail.
+
+[check]
+select = ["ALL"]
+fail-on = "warning"
+
+# ---------------------------------------------------------------- OpenFOAM (real icoFoam runs)
+[[result]]
+name = "cavity"
+path = "cases/cavity"                       # lid-driven cavity, Re = 100, 20 x 20 cells
+physics = "incompressible-flow"
+parameters = { nu = "0.01 m2/s" }
+units = { U = "m/s", p = "m2/s2" }
+ic = { U = [0, 0, 0], p = 0 }
+reference = { path = "reference/cavity.npz", fields = ["U"], rel-l2 = 1e-6 }
+[result.bc.movingWall]
+U = [1, 0, 0]
+[result.bc.fixedWalls]
+U = [0, 0, 0]
+
+[[result]]
+name = "channel"
+path = "cases/channel"                      # developing channel flow, inlet 1 m/s, Re = 20
+physics = "incompressible-flow"
+parameters = { nu = 0.05 }
+[result.bc.inlet]
+U = [1, 0, 0]
+
+# ---------------------------------------------------------------- fields on grids and point clouds
+[[result]]
+path = "fields/heat_plate.npz"              # steady conduction with a uniform source
+physics = "heat"
+parameters = { k = "10 W/(m*K)", q = "1000 W/m3" }
+units = { T = "K" }
+[result.bc."x=max"]
+T = "300 + 25*(1 - y**2)"
+
+[[result]]
+path = "fields/block_gravity.npz"           # plane-strain block under its own weight
+physics = "elasticity"
+parameters = { E = "2e9 Pa", nu = 0.3, f = [0, -19620] }
+[result.bc."y=min"]
+D = [0, 0]
+
+[[result]]
+path = "fields/diffusion_1d.npz"            # q_t + F_x = 0, insulated ends
+physics = "conservation"
+flux = { q = "F" }
+conserved = ["q"]
+
+[[result]]
+path = "fields/cooling_plate.npz"           # transient conduction from a known initial state
+physics = "heat"
+parameters = { alpha = "1e-2 m2/s" }
+ic = { T = "300 + 20*sin(pi*x)" }
+
+[[result]]
+path = "fields/tank_alpha.vtu"              # phase fraction on a triangle mesh: must stay in [0, 1]
+
+[[result]]
+path = "fields/porosity.npz"
+bounds = { porosity = [0.2, 0.6] }
+
+[[result]]
+path = "fields/surrogate_T.npz"             # a surrogate's output field: finite, absolute temperature
+units = { T = "K" }
+bounds = { T = [250, 400] }
+
+[[result]]
+path = "fields/probe_T.csv"
+kind = "points"
+units = { T = "K" }
+bounds = { T = [250, 400] }
+
+# ---------------------------------------------------------------- quantities of interest
+[[result]]
+path = "qoi/airfoil.csv"
+units = { x_separation = "m" }
+[result.reference]
+path = "reference/airfoil.csv"
+qoi = { Cd = { rel = 0.02 }, Cl = { abs = 0.005 } }
+
+# ---------------------------------------------------------------- models
+[[model]]
+name = "kovasznay-pinn"
+path = "models/kovasznay_pinn.py:predict"
+inputs = ["x", "y"]
+outputs = ["u", "v", "p"]
+physics = "incompressible-flow"
+parameters = { nu = 0.025 }
+domain = { x = [-0.5, 1.0], y = [-0.5, 1.5] }
+reference = { path = "reference/kovasznay.csv", rel-l2 = 1e-3 }
+[model.bc."x=-0.5"]
+u = "1 - exp(-0.9637405441957895*x)*cos(2*pi*y)"
+
+[[model]]
+name = "drag-surrogate"
+path = "models/drag_surrogate.py:predict"
+inputs = ["Re", "aoa"]
+outputs = ["Cd"]
+method = "E4"
+train-range = { Re = [1e5, 1e6], aoa = [0, 10] }
+train-samples = "models/drag_training_points.csv"
+queries = "models/queries.csv"
+bounds = { Cd = [0, 1] }
+
+# ---------------------------------------------------------------- artefacts
+[integrity]
+manifest = "models/manifest.json"
+public-key = "keys/release.pub.json"
+signed = ["models/drag_surrogate.py"]
