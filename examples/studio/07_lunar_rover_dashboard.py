@@ -75,15 +75,15 @@ def main(quick: bool = False):
         field_label="Peak normal stress in the ruts [kPa]",
         pinn_note="zoo model trained on GRC-1 without slip-sinkage (n1 = 0)",
         title="NASA VIPER crossing a lunar crater",
-        subtitle="Multibody dynamics, Wong-Reece wheels with slip-sinkage on GRC-1 (lunar g), deformable regolith "
-                 "with 3-D ruts coloured by normal stress; zoo PINN surrogate; low Sun (12 deg), black sky",
+        subtitle="Multibody dynamics, Wong-Reece wheels with slip-sinkage on GRC-1 (lunar g); 3-D ruts coloured by "
+                 "normal stress; zoo PINN surrogate; low Sun (12 deg)",
         footer="PINNeAPPle: pinneapple_simulation.vehicle, .terramechanics; pinneapple_tools.visualization."
                "dashboard. VIPER geometry from public NASA figures (estimates listed in VIPER_SOURCES).")
     db.to_html(os.path.join(out, "rover-dashboard.html"), max_width=1024, quality=30)
     db.to_png(os.path.join(out, "rover-dashboard.png"), k=int(len(ks) * 0.62))
     gif = os.path.join(out, "rover-dashboard.gif")
     db.to_video(gif=gif, mp4=os.path.join(out, "rover-dashboard.mp4"), fps=12, size=(1920, 1080),
-                gif_size=(1280, 720), gif_font_scale=1.0, gif_every=1 if quick else 2, gif_colors=128)
+                gif_size=(1280, 720), gif_font_scale=1.0, gif_every=1 if quick else 2)
     print(f"GIF {os.path.getsize(gif) / 1e6:.1f} MB")
     print(f"done in {time.time() - t0:.0f} s -> {os.path.abspath(out)}")
 
