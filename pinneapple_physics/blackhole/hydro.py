@@ -126,6 +126,7 @@ class AccretionFlow:
         self.mdot_in = 0.0                                                             # latest accretion rate
         self.capped = 0
         self.ii = (slice(None), slice(g, -g), slice(g, -g))
+        self._outer = None                     # fixed outer ghosts (outer_bc="fixed"), set by set_primitives
 
     # ------------------------------------------------------------------ state
     def interior(self, A: torch.Tensor) -> torch.Tensor:

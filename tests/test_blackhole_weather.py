@@ -261,3 +261,15 @@ def test_forecast_skill_horizon_and_intervals():
     assert res.skill_score[0, 1] > 0.15 and res.diff[0, 2] < 0
     m, h = batch_means_ci(rng.normal(size=4000))
     assert abs(m) < 3 * h and 0 < h < 0.2
+
+
+def test_simulate_run_resumes_from_its_checkpoint(tmp_path):
+    """A run interrupted after its first chunk continues from state.pt (the flow is rebuilt without set_primitives)."""
+    from pinneapple_physics.blackhole.runs import load_run, simulate_run
+    cfg = RIAFConfig(nr=16, ntheta=8, backend="torch", perturbation_kind="modes")
+    simulate_run(cfg, str(tmp_path / "a"), t_end=20.0, every=10.0, chunk=1, log=lambda m: None)
+    simulate_run(cfg, str(tmp_path / "a"), t_end=40.0, every=10.0, chunk=1, log=lambda m: None)
+    simulate_run(cfg, str(tmp_path / "b"), t_end=40.0, every=10.0, chunk=1, log=lambda m: None)
+    a, b = load_run(str(tmp_path / "a")), load_run(str(tmp_path / "b"))
+    assert len(a["t"]) == len(b["t"]) == 5
+    assert np.array_equal(a["frames"], b["frames"])
