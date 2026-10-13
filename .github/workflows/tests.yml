@@ -34,6 +34,11 @@ jobs:
           python -m build --outdir /tmp/dist
           python scripts/check_dist.py /tmp/dist --install --no-deps
 
+      - name: Astronomy accuracy vs USNO NOVAS, JPL Horizons, the USNO almanac and NASA eclipses (must pass)
+        run: |
+          pip install ".[sky]"
+          pytest tests/test_astro_accuracy.py -q -p no:warnings
+
       - name: Tier B — manufactured-solution physics-correctness tests (must pass)
         run: pytest tests/test_manufactured_solutions.py -q
 

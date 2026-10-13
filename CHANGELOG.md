@@ -14,6 +14,14 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Positional astronomy and astrophysics (`pinneapple_physics.astro`): JPL SPK reader (DE421), time scales, IAU 2006
+  precession and nutation, apparent places with light time, deflection and aberration, refraction, airmass and
+  extinction; rise/transit/set, twilight, Moon phase, magnitudes, oppositions, elongations, lunar and solar eclipses,
+  transits; SGP4 satellite passes with magnitudes; Yale BSC5 stars with luminosity, radius and HR diagram; Kepler
+  elements, N-body integrators (leapfrog, Yoshida-4, RK4, DOP853) with conservation checks; a physics-informed orbit
+  surrogate with conformal bands and a trust verdict; black-hole lensing of the real sky. Validated against USNO NOVAS,
+  JPL Horizons, the USNO almanac, NASA eclipse predictions and skyfield (`validation.run_all()`). Extra `sky`.
+  Docs: `docs/core_concepts/astro.md`.
 - `pinneapple check`, a physics linter for CI (`pinneapple_check`; also `python -m pinneapple.check`): fails when a
   simulation result or a Physics-AI model violates physics. 29 rules with ids, explanations and fix hints
   (`--list-rules`, `--explain PC101`): conservation of mass, energy and momentum, divergence, conserved totals in
