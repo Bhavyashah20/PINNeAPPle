@@ -158,6 +158,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - **Behavior:** `vehicle.dashboard.render_frames` and `vehicle_dashboard` default to the geometry-only view (no
   stress colour map, no colour bar); pass `field=` / `field_label=` for the overlay.
 
+### Fixed
+- Geometry library: `build()` snaps vertices to a 0.1 um grid, so the files rebuilt on another machine (the Hub
+  publishing job) are bit-identical to the manifest; the publishing job pins the NumPy / SciPy / manifold3d
+  versions the manifest was generated with. All files and the manifest were regenerated. The self-intersection
+  check measures distances about each triangle pair's centre with a size-relative tolerance (no false hits on flat
+  caps far from the origin or on nearly parallel neighbours).
+
 ## [0.7.0] - 2026-10-13
 
 ### Added

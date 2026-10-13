@@ -17,6 +17,9 @@ import numpy as np
 
 from . import meshops
 
+#: vertex grid [m] applied by :func:`build` (reproducible files across platforms)
+QUANTUM = 1e-7
+
 #: resolution multiplier per level of detail (the builders scale their sampling with it)
 LODS: dict[str, float] = {"light": 1.0, "fine": 2.5}
 
@@ -282,6 +285,9 @@ def build(name: str, lod: str = "light", **params) -> Geometry:
             b.vertices, b.faces = meshops.compact(b.vertices, b.faces)
         if b.closed:
             b.vertices, b.faces = meshops.orient_outward(b.vertices, b.faces)
+        # snap to a 0.1 um grid: last-bit differences between NumPy / SciPy builds vanish, so every machine writes
+        # the same bytes as the manifest (the grid is far below any feature of the library)
+        b.vertices = np.round(b.vertices / QUANTUM) * QUANTUM
     names = [b.name for b in bodies]
     if len(set(names)) != len(names):
         raise RuntimeError(f"{name}: duplicate body names")
