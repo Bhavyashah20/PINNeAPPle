@@ -1,8 +1,6 @@
 # Existing duplicates of library helpers in apps/ and examples/ (scripts/check_app_helpers.py).
 # This list may only shrink: fix an entry by moving the logic into the library, then delete it.
 apps/aero_optimizer/aero_optimizer/api.py::_clean
-apps/aero_optimizer/tools/render_airliner.py::colorbar
-apps/aero_optimizer/tools/verify.py -> apps/aero_optimizer/tools/generate_dataset.py
 apps/mesh_quality/mesh_quality/api.py::_clean
 examples/architectures/04_pinns.py::rel_l2
 examples/arena_pipelines/03_kovasznay_ns_benchmark.py::_grad

@@ -28,7 +28,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from airfoil_case import ROOT, run, write  # noqa: E402
+from airfoil_case import run, write  # noqa: E402
 
 from pinneapple_design.aero.geometry import (  # noqa: E402
     BOUNDS,
@@ -76,8 +76,7 @@ def one(job: dict, out: str, grid: str, reynolds: float, clean: bool) -> dict:
 def jobs_from(a) -> list[dict]:
     jobs = []
     if a.original:
-        sys.path.insert(0, os.path.join(ROOT, "apps", "aero_optimizer", "tools"))
-        from generate_dataset import plan
+        from pinneapple_design.aero.dataset import plan
         return [{"id": j["id"], "variant": j["shape_id"], "shape": j["shape"], "alpha": j["alpha"]} for j in plan(100, 4)]
     shapes = {}
     if a.variants:

@@ -3,7 +3,7 @@
     python export_campaign.py OUT.csv [--dataset ../../../../apps/aero_optimizer/model/dataset.json]
 
 The stored campaign summary (model/dataset.json) keeps, per run, its id, alpha, Cl, Cd, convergence status and
-thickness. The 6 CST weights of each run are regenerated from the campaign plan (generate_dataset.plan, seeded
+thickness. The 6 CST weights of each run are regenerated from the campaign plan (pinneapple_design.aero.dataset.plan, seeded
 Latin hypercube, seed 7); the script checks that the regenerated angle and thickness match the stored ones.
 """
 from __future__ import annotations
@@ -19,9 +19,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
 sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "apps", "aero_optimizer", "tools"))
-from generate_dataset import RE, plan  # noqa: E402
-
+from pinneapple_design.aero.dataset import RE, plan  # noqa: E402
 from pinneapple_design.aero.geometry import PARAMS, properties  # noqa: E402
 
 
