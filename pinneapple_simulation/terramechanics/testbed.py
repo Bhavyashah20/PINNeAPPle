@@ -4,7 +4,16 @@ published measurements.
     from pinneapple_simulation.terramechanics import testbed
     data = testbed.load_dataset("ding2011", "grousered")         # bundled points, see data/single_wheel_tests.csv
     rep = testbed.validate(data)                                   # model with the cited soil, errors per quantity
-    testbed.plot_validation([rep], "validation.png")
+    cal = testbed.calibrate_holdout(data)                          # slip-sinkage fit on a training subset only
+    cal["test_before"], cal["test_after"]                          # errors on the held-out points
+    testbed.plot_validation([rep], "validation.png", calibrated=[cal])
+
+Slip-sinkage calibration (:func:`calibrate_holdout`): the sinkage exponent of the Bekker pressure-sinkage law grows
+with slip, ``n = n0 + n1 |s|`` (Ding et al. 2010, 2011: the slip-sinkage model they identified from single-wheel tests
+on lunar simulant). ``n0`` and ``n1`` (and the shear modulus ``K``) are fitted by least squares to the sinkage and
+drawbar pull of a *training* subset of the published points (every other point by slip, see :func:`holdout_split`);
+the remaining points are held out and the errors on them are reported with the cited soil (before) and the fitted
+soil (after). The published points are never changed.
 
 The model side is :meth:`WongReeceModel.steady_state` (sinkage from the load balance, then forces). A testbed runs on
 Earth, so the bundled cases use g = 9.81 m/s^2 (it only enters the bulldozing term; the load is prescribed).
@@ -113,47 +122,110 @@ def validate(data: TestbedData, soil: Soil | None = None, g: float = 9.81, **mod
     return ValidationReport(data, at, fine, {k: v for k, v in errors.items() if v})
 
 
-def calibrate(data: TestbedData, params=("a0", "a1", "n1", "K"), bounds=None, g: float = 9.81) -> dict:
-    """Least-squares fit of soil ``params`` to the drawbar pull and sinkage of ``data`` (a fit, not a validation:
-    report it separately). Returns the fitted soil and the errors after the fit."""
+CALIBRATION_BOUNDS = {"a0": (0.05, 0.8), "a1": (0.0, 0.8), "n0": (0.3, 2.0), "n1": (0.0, 2.0), "K": (0.002, 0.05),
+                      "c3": (0.0, 0.6)}
+
+
+def _errors_at(data: TestbedData, model_at: dict, mask) -> dict:
+    zs = float(np.nanmax(data.sinkage))
+    out = {"drawbar_pull_N": _err(model_at["drawbar_pull"][mask], data.drawbar_pull[mask], data.load),
+           "sinkage_m": _err(model_at["sinkage"][mask], data.sinkage[mask], zs),
+           "torque_Nm": _err(model_at["torque"][mask], data.torque[mask], data.load * data.wheel.radius)}
+    return {k: v for k, v in out.items() if v}
+
+
+def holdout_split(data: TestbedData, every: int = 2, offset: int = 0) -> np.ndarray:
+    """Boolean training mask over the points of ``data`` (sorted by slip): every ``every``-th point starting at
+    ``offset`` is used for fitting, the others are held out. The default (0, 2, 4 ...) keeps the lowest slip in the
+    training set, so the static sinkage is constrained, and holds out points across the whole slip range."""
+    idx = np.arange(len(data.slip))
+    return (idx % every) == (offset % every)
+
+
+def calibrate(data: TestbedData, params=("n0", "n1", "K"), bounds=None, g: float = 9.81, train=None) -> dict:
+    """Least-squares fit of soil ``params`` to the drawbar pull and sinkage of ``data`` (scaled by the load and the
+    largest measured sinkage). ``train`` (boolean mask) restricts the fit to those points; by default all points are
+    used, which is a fit, not a validation. Returns the fitted soil, its parameters and the report on all points."""
     from scipy.optimize import least_squares
     base = data.soil
-    bounds = bounds or {"a0": (0.05, 0.8), "a1": (0.0, 0.8), "n1": (0.0, 1.0), "K": (0.002, 0.05),
-                        "c3": (0.0, 0.6), "k_phi": (0.2 * base.k_phi, 5 * base.k_phi)}
+    bounds = {**CALIBRATION_BOUNDS, "k_phi": (0.2 * base.k_phi, 5 * base.k_phi), **(bounds or {})}
+    train = np.ones(len(data.slip), bool) if train is None else np.asarray(train, bool)
     x0 = np.array([getattr(base, p) for p in params], float)
     lo = np.array([bounds[p][0] for p in params])
     hi = np.array([bounds[p][1] for p in params])
-    x0 = np.clip(x0, lo + 1e-9, hi - 1e-9)
-    ok_z = np.isfinite(data.sinkage)
-    zs = float(np.nanmax(data.sinkage))
+    x0 = np.clip(x0, lo + 1e-6 * (hi - lo), hi - 1e-6 * (hi - lo))
+    ok_z = np.isfinite(data.sinkage[train])
+    zs = float(np.nanmax(data.sinkage[train]))          # scale from the training points only (no held-out leak)
+    slips = data.slip[train]
 
     def res(x):
         soil = base.with_(**dict(zip(params, x, strict=True)))
-        r = run_testbed(WongReeceModel(soil, data.wheel, g=g), data.load, data.slip)
-        return np.r_[(r["drawbar_pull"] - data.drawbar_pull) / data.load, (r["sinkage"][ok_z] - data.sinkage[ok_z]) / zs]
+        r = run_testbed(WongReeceModel(soil, data.wheel, g=g), data.load, slips)
+        return np.r_[(r["drawbar_pull"] - data.drawbar_pull[train]) / data.load,
+                     (r["sinkage"][ok_z] - data.sinkage[train][ok_z]) / zs]
 
     sol = least_squares(res, x0, bounds=(lo, hi), x_scale=np.maximum(np.abs(x0), 1e-3))
     soil = base.with_(**dict(zip(params, sol.x, strict=True)))
     rep = validate(data, soil=soil, g=g)
-    return {"soil": soil, "params": dict(zip(params, sol.x.tolist(), strict=True)), "report": rep}
+    at_bound = [p for p, v, a, b in zip(params, sol.x, lo, hi, strict=True) if min(v - a, b - v) < 1e-3 * (b - a)]
+    return {"soil": soil, "params": dict(zip(params, sol.x.tolist(), strict=True)), "report": rep,
+            "at_bound": at_bound}
 
 
-def plot_validation(reports, path: str, title: str = "") -> str:
-    """Drawbar pull / load and sinkage versus slip: measured points and model curves, one colour per report."""
+def calibrate_holdout(data: TestbedData, params=("n0", "n1", "K"), every: int = 2, offset: int = 0,
+                      g: float = 9.81) -> dict:
+    """Slip-sinkage calibration with held-out points: fit ``params`` (default: the slip-dependent sinkage exponent
+    ``n = n0 + n1 |s|`` of Ding et al. 2010/2011 and the shear modulus K) on :func:`holdout_split` training points
+    only, then report the errors on the training and held-out points with the cited soil (``*_before``) and the
+    fitted soil (``*_after``)."""
+    train = holdout_split(data, every, offset)
+    test = ~train
+    before = validate(data, g=g)
+    fit = calibrate(data, params, g=g, train=train)
+    return {"dataset": data.label, "params": fit["params"], "at_bound": fit["at_bound"], "soil": fit["soil"],
+            "train": train, "report_before": before, "report": fit["report"],
+            "train_before": _errors_at(data, before.model, train), "train_after": _errors_at(data, fit["report"].model,
+                                                                                           train),
+            "test_before": _errors_at(data, before.model, test), "test_after": _errors_at(data, fit["report"].model,
+                                                                                        test)}
+
+
+def plot_validation(reports, path: str, title: str = "", calibrated=None) -> str:
+    """Drawbar pull / load and sinkage versus slip: measured points and model curves, one colour per report.
+
+    With ``calibrated`` (results of :func:`calibrate_holdout`, one per report, same order) the solid lines are the
+    calibrated model, the dashed lines the cited soil; filled points were used for fitting, open points are held
+    out, and the legend gives the held-out RMSE before and after."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     pal = ("#2a78d6", "#eb6834", "#1baf7a", "#6250d6", "#e87ba4", "#eda100")
-    fig, ax = plt.subplots(1, 2, figsize=(11.5, 4.2))
+    fig, ax = plt.subplots(1, 2, figsize=(12.5, 4.8))
     for k, rep in enumerate(reports):
         c = pal[k % len(pal)]
         d, W = rep.data, rep.data.load
-        lab = f"{d.label}" + (f" ({rep.errors['drawbar_pull_N']['rmse_rel_scale']:.3f} W rmse)"
-                              if "drawbar_pull_N" in rep.errors else "")
-        ax[0].plot(rep.curve["slip"], rep.curve["drawbar_pull"] / W, color=c, lw=1.8)
-        ax[0].plot(d.slip, d.drawbar_pull / W, "o", color=c, ms=5, label=lab)
-        ax[1].plot(rep.curve["slip"], 1e3 * rep.curve["sinkage"], color=c, lw=1.8)
-        ax[1].plot(d.slip, 1e3 * d.sinkage, "o", color=c, ms=5, label=d.label)
+        cal = calibrated[k] if calibrated else None
+        if cal is None:
+            lab_dp = d.label + (f" ({rep.errors['drawbar_pull_N']['rmse_rel_scale']:.3f} W rmse)"
+                                if "drawbar_pull_N" in rep.errors else "")
+            lab_z = d.label
+            ax[0].plot(rep.curve["slip"], rep.curve["drawbar_pull"] / W, color=c, lw=1.8)
+            ax[1].plot(rep.curve["slip"], 1e3 * rep.curve["sinkage"], color=c, lw=1.8)
+            ax[0].plot(d.slip, d.drawbar_pull / W, "o", color=c, ms=5, label=lab_dp)
+            ax[1].plot(d.slip, 1e3 * d.sinkage, "o", color=c, ms=5, label=lab_z)
+            continue
+        tb, ta = cal["test_before"], cal["test_after"]
+        lab_dp = (f"{d.label}: held-out {tb['drawbar_pull_N']['rmse_rel_scale']:.3f} -> "
+                  f"{ta['drawbar_pull_N']['rmse_rel_scale']:.3f} W")
+        lab_z = f"{d.label}: held-out {1e3 * tb['sinkage_m']['rmse']:.1f} -> {1e3 * ta['sinkage_m']['rmse']:.1f} mm"
+        cur = cal["report"].curve
+        for a, key, sc, lab in ((ax[0], "drawbar_pull", 1.0 / W, lab_dp), (ax[1], "sinkage", 1e3, lab_z)):
+            meas = (d.drawbar_pull / W) if key == "drawbar_pull" else 1e3 * d.sinkage
+            a.plot(rep.curve["slip"], sc * rep.curve[key], color=c, lw=1.0, ls=(0, (4, 3)), alpha=0.75)
+            a.plot(cur["slip"], sc * cur[key], color=c, lw=2.0)
+            tr = cal["train"]
+            a.plot(d.slip[tr], meas[tr], "o", color=c, ms=5.5, label=lab)
+            a.plot(d.slip[~tr], meas[~tr], "o", mfc="white", mec=c, mew=1.6, ms=6)
     ax[0].set_ylabel("drawbar pull / load DP/W [-]")
     ax[1].set_ylabel("sinkage [mm]")
     for a in ax:
@@ -161,8 +233,13 @@ def plot_validation(reports, path: str, title: str = "") -> str:
         a.grid(True, color="#e4e3df", lw=0.6)
         for s in ("top", "right"):
             a.spines[s].set_visible(False)
-    ax[0].legend(fontsize=7.5, frameon=False)
-    ax[0].set_title("points: published tests   lines: Wong-Reece model", fontsize=9, loc="left")
+        a.legend(fontsize=7.2, frameon=False, loc="upper left")
+    if calibrated:
+        ax[0].set_title("filled: fitted points   open: held out   solid: calibrated   dashed: cited soil",
+                        fontsize=8.5, loc="left")
+        ax[1].set_title("slip-sinkage n = n0 + n1 s (Ding et al. 2010, 2011)", fontsize=8.5, loc="left")
+    else:
+        ax[0].set_title("points: published tests   lines: Wong-Reece model", fontsize=9, loc="left")
     if title:
         fig.suptitle(title, fontsize=11, x=0.01, ha="left")
     fig.tight_layout()
@@ -172,4 +249,4 @@ def plot_validation(reports, path: str, title: str = "") -> str:
 
 
 __all__ = ["TestbedData", "ValidationReport", "load_dataset", "list_datasets", "run_testbed", "validate",
-           "calibrate", "plot_validation", "SOURCES"]
+           "calibrate", "calibrate_holdout", "holdout_split", "plot_validation", "SOURCES", "CALIBRATION_BOUNDS"]
