@@ -239,8 +239,18 @@ def _viper(p, res):
               grousers=Grousers(count=p["grouser_count"], height=p["grouser_height"], thickness=0.004,
                                 shape="straight", shear_radius_factor=1.0), mass=12.0)
     spec = viper(wheel=w)
-    items = [(q.name, q.vertices, q.faces, q.material, "", True) for q in spec.cad.parts]
-    return close_sheets(drop_degenerate(bodies_from_items(items)))
+    items = [(q.name, q.vertices, q.faces, q.material, "", True) for q in spec.cad.parts if q.name != "lga"]
+    bodies = close_sheets(drop_degenerate(bodies_from_items(items)))
+    lga = next((q for q in spec.cad.parts if q.name == "lga"), None)
+    if lga is not None:            # mast + cone merged with coincident caps in viper_cad: one solid of revolution
+        from .. import kit
+        from ..core import Body
+        x0, y0, z0 = lga.vertices[:, 0].mean(), lga.vertices[:, 1].mean(), lga.vertices[:, 2].min()
+        zz = np.array([0.0, 0.0, 0.16, 0.16, 0.24, 0.24])
+        rr = np.array([0.0, 0.02, 0.02, 0.05, 0.01, 0.0])
+        V, F = kit.revolve(zz[1:-1], rr[1:-1], 16, axis="z")
+        bodies.append(Body("lga", V + [x0, y0, z0], F, lga.material, "lga", True))
+    return bodies
 
 
 register(GeometrySpec(

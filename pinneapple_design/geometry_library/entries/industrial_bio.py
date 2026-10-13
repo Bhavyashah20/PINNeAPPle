@@ -518,7 +518,7 @@ def _resample(C, m):
     return np.stack([np.interp(su, s, C[:, i]) for i in range(3)], 1), su
 
 
-_FLARE = (0.45, 5.0)       # ostium flare: relative radius increase at the aortic wall, decay length [mm]
+_FLARE = (0.35, 6.0)       # ostium flare: relative radius increase at the aortic wall, decay length [mm]
 
 
 def _aorta_build(p, res):
@@ -558,9 +558,9 @@ def _aorta_build(p, res):
     # supra-aortic branches: take-off on the arch roof, then rising towards the neck / arm
     T, _, _ = _frames(C)
     zc = np.array([0, 0, 1.0])
-    specs = [("brachiocephalic_trunk", 0.30, p["bct_diameter"], p["bct_angle_deg"], 48.0),
-             ("left_common_carotid", 0.50, p["lcca_diameter"], p["lcca_angle_deg"], 58.0),
-             ("left_subclavian", 0.68, p["lsa_diameter"], p["lsa_angle_deg"], 52.0)]
+    specs = [("brachiocephalic_trunk", 0.28, p["bct_diameter"], p["bct_angle_deg"], 30.0),
+             ("left_common_carotid", 0.50, p["lcca_diameter"], p["lcca_angle_deg"], 52.0),
+             ("left_subclavian", 0.68, p["lsa_diameter"], p["lsa_angle_deg"], 46.0)]
     i_top0 = int(np.searchsorted(s, L_asc + 8 * k))
     i_top1 = int(np.searchsorted(s, s_arch + 60 * k))
     nb = _n(16, res, 12)
@@ -581,8 +581,25 @@ def _aorta_build(p, res):
         dist = np.r_[0, np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))]
         flare = 1.0 + _FLARE[0] * np.exp(-np.maximum(dist - rb[i], 0) / _FLARE[1])     # ostium funnel
         flare = np.minimum(flare, (rb[i] - 1.0) / rr)
-        rad = 0.5 * dmm / mm * flare
+        rad = rr * flare
+        bif = name == "brachiocephalic_trunk" and p["bct_bifurcation"]
+        if bif:                               # domed end, covered by the two daughter vessels
+            ph = np.linspace(0, 1.25, 5)[1:]
+            path = np.vstack([path, P2 + dfin * (rr * np.sin(ph))[:, None]])
+            rad = np.r_[rad, rr * np.cos(ph)]
         tubes.append((name, _sweep(path, lambda q, th, rad=rad: np.full_like(th, rad[q]), nbt)))
+        if bif:
+            for dname, dd, dang, Ld in (("right_subclavian", p["rsa_diameter"], -68.0, 30.0),
+                                        ("right_common_carotid", p["rcca_diameter"], -6.0, 36.0)):
+                a2 = math.radians(dang)
+                d2 = np.array([math.sin(a2), 0.15 * abs(math.sin(a2)), math.cos(a2)])
+                d2 /= np.linalg.norm(d2)
+                Q0 = P2 - dfin * 0.4 * rr
+                Q1 = Q0 + dfin * (0.9 * rr)
+                Q2 = Q1 + d2 * Ld
+                pth = (1 - t) ** 2 * Q0 + 2 * t * (1 - t) * Q1 + t ** 2 * Q2
+                rd = 0.5 * dd / mm
+                tubes.append((dname, _sweep(pth, lambda q, th, rd=rd: np.full_like(th, rd), nbt)))
     tubes = [(nm, (V * mm, F)) for nm, (V, F) in tubes]
     if p["fused"]:
         V, F = meshops.union([m for _, m in tubes])
@@ -604,8 +621,8 @@ register(GeometrySpec(
         Param("arch_diameter", 0.026, "m", (0.018, 0.040), "arch diameter (between the branches)"),
         Param("descending_diameter", 0.023, "m", (0.015, 0.035), "descending thoracic aorta diameter"),
         Param("arch_radius", 0.032, "m", (0.022, 0.045), "radius of curvature of the arch centreline"),
-        Param("ascending_length", 0.060, "m", (0.040, 0.090), "root-to-arch length of the ascending aorta"),
-        Param("descending_length", 0.230, "m", (0.120, 0.300), "drop of the descending aorta below the arch start"),
+        Param("ascending_length", 0.070, "m", (0.040, 0.090), "root-to-arch length of the ascending aorta"),
+        Param("descending_length", 0.200, "m", (0.120, 0.300), "drop of the descending aorta below the arch start"),
         Param("arch_plane_deg", 40.0, "deg", (0.0, 70.0), "rotation of the arch plane from sagittal towards the left"),
         Param("bct_diameter", 0.012, "m", (0.007, 0.018), "brachiocephalic trunk diameter"),
         Param("lcca_diameter", 0.008, "m", (0.005, 0.012), "left common carotid diameter"),
@@ -613,7 +630,11 @@ register(GeometrySpec(
         Param("bct_angle_deg", -28.0, "deg", (-60.0, 20.0), "brachiocephalic tilt from vertical (- = rightwards)"),
         Param("lcca_angle_deg", 6.0, "deg", (-30.0, 40.0), "left common carotid tilt from vertical (+ = leftwards)"),
         Param("lsa_angle_deg", 35.0, "deg", (0.0, 70.0), "left subclavian tilt from vertical (+ = leftwards)"),
-        Param("fused", True, "", None, "one fused lumen (True) or the four overlapping closed tubes (False)"),
+        Param("bct_bifurcation", True, "", None, "split the brachiocephalic trunk into the right subclavian "
+              "and right common carotid arteries"),
+        Param("rsa_diameter", 0.009, "m", (0.005, 0.013), "right subclavian diameter"),
+        Param("rcca_diameter", 0.007, "m", (0.004, 0.011), "right common carotid diameter"),
+        Param("fused", True, "", None, "one fused lumen (True) or the overlapping closed tubes (False)"),
     ],
     dimensions={"length_x": (0.0991, 0.02), "width_y": (0.0767, 0.02), "height_z": (0.3426, 0.02)},
     frame=("right-handed patient frame, metres: x towards the patient's left, y posterior, z cranial; origin at the "
