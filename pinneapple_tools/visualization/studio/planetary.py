@@ -8,7 +8,10 @@ and on the parts (with a colour bar), Earth in the sky and a title.
 
 ``parts`` entries are ``(vertices, faces, material)`` or ``(vertices, faces, material, values)`` where ``values`` (one
 per vertex) are coloured with ``cmap`` / ``clim`` instead of the material. ``terrain_field`` (ny, nx) colours the
-terrain where it is finite (e.g. normal stress in the ruts), blended over the regolith by ``field_alpha``.
+terrain where it is finite (e.g. normal stress in the ruts), blended over the regolith by ``field_alpha``: the colour
+multiplies the regolith albedo before the photometry, so the relief, the shading and the shadows stay visible
+through it; ``field_glow`` adds a share of unshaded colour that keeps the map readable inside shadows (0 = a pure
+semi-transparent tint). ``far_field`` colours the far grid the same way.
 
 Horizon: with ``horizon`` > 0 an annulus of terrain runs from the edge of the ``far`` grid out to ``horizon`` metres,
 its height following ``far_fn`` near the grid and dropping with the curvature of the body (``planet_radius``,
@@ -37,6 +40,8 @@ class SurfaceView:
     preset: object = "lunar_south_pole"
     terrain_field: np.ndarray | None = None
     field_alpha: float = 0.85
+    field_glow: float = 0.55            # unshaded share of the colour (relative to field_alpha)
+    far_field: np.ndarray | None = None  # field on the ``far`` grid (same convention as terrain_field)
     cmap: str = "inferno"
     clim: tuple | None = None
     colorbar_title: str = ""
@@ -194,6 +199,23 @@ def _rgb_from_cmap(vals, cmap, clim):
     return cm(np.clip((np.asarray(vals, float) - lo) / max(hi - lo, 1e-12), 0, 1))[..., :3]
 
 
+def _field_blend(view: SurfaceView, field):
+    """Albedo tint (before the photometry) and a glow function (after it) for a field map on a grid."""
+    ok = np.isfinite(field)
+    if not ok.any():
+        return None, None
+    col = _rgb_from_cmap(np.where(ok, field, view.clim[0]), view.cmap, view.clim)
+    a = view.field_alpha * ok[..., None]
+    tint = (1 - a) + a * col / np.asarray(view.albedo)[None, None, :] * 0.9
+    g = view.field_glow * view.field_alpha * ok[..., None]
+    if not view.field_glow:
+        return tint, None
+
+    def glow(rgb):
+        return rgb * (1 - g) + g * col * np.maximum(rgb.mean(-1, keepdims=True) * 1.6, 0.45)
+    return tint, glow
+
+
 def render_surface(view: SurfaceView, path: str | None, camera, *, size=(1600, 900), view_angle: float = 35.0,
                    title: str = "", subtitle: str = "", plotter=None, return_image: bool = False,
                    shadow_cache: dict | None = None):
@@ -213,22 +235,12 @@ def render_surface(view: SurfaceView, path: str | None, camera, *, size=(1600, 9
     casters = [(p[0], p[1]) for p in view.parts] + [(r[0], r[1]) for r in view.rocks]
     if casters:
         shadow = shadow | cast_shadow(casters, X, Y, Z, sun)
-    tint = None
     overlay = view.terrain_overlay and view.terrain_field is not None and view.clim is not None
-    if overlay:
-        f = view.terrain_field
-        ok = np.isfinite(f)
-        if ok.any():
-            col = _rgb_from_cmap(np.where(ok, f, view.clim[0]), view.cmap, view.clim)
-            a = view.field_alpha * ok[..., None]
-            tint = (1 - a) + a * col / np.asarray(view.albedo)[None, None, :] * 0.9
+    tint, glow_rgb = _field_blend(view, view.terrain_field) if overlay else (None, None)
     rgb = shade_terrain(X, Y, Z, sun, cam_pos, view.albedo, shadow, exposure=view.exposure * 2.2,
                         fill=0.05 + P.ambient * 0.3, tint=tint, L=view.lunar_lambert_L)
-    if overlay:
-        ok = np.isfinite(view.terrain_field)
-        col = _rgb_from_cmap(np.where(ok, view.terrain_field, view.clim[0]), view.cmap, view.clim)
-        glow = 0.55 * view.field_alpha * ok[..., None]       # keep the colour readable inside shadows
-        rgb = rgb * (1 - glow) + glow * col * np.maximum(rgb.mean(-1, keepdims=True) * 1.6, 0.45)
+    if glow_rgb is not None:
+        rgb = glow_rgb(rgb)
     own = plotter is None
     p = plotter or pv.Plotter(off_screen=True, window_size=list(size), lighting="none")
     grid = pv.StructuredGrid(X, Y, Z)
@@ -240,9 +252,13 @@ def render_surface(view: SurfaceView, path: str | None, camera, *, size=(1600, 9
         shadow_f = terrain_self_shadow(Zf, cf, sun)
         if casters:                               # the vehicle's shadow continues past the detailed patch
             shadow_f = np.maximum(shadow_f, cast_shadow(casters, Xf, Yf, Zf, sun, supersample=4))
+        far_on = view.terrain_overlay and view.far_field is not None and view.clim is not None
+        tint_f, glow_f = _field_blend(view, view.far_field) if far_on else (None, None)
         rgb_f = shade_terrain(Xf, Yf, Zf, sun, cam_pos, view.albedo, shadow_f,
                               exposure=view.exposure * 2.2, fill=0.05 + P.ambient * 0.3,
-                              L=view.lunar_lambert_L)
+                              L=view.lunar_lambert_L, tint=tint_f)
+        if glow_f is not None:
+            rgb_f = glow_f(rgb_f)
         g = pv.StructuredGrid(Xf, Yf, Zf - 0.004)
         g["rgb"] = (np.clip(rgb_f, 0, 1).transpose(1, 0, 2).reshape(-1, 3) * 255).astype(np.uint8)
         cc = g.cell_centers().points

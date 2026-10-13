@@ -225,6 +225,33 @@ def train_contact_surrogate(model: WongReeceModel, slip_range=(0.0, 0.8), sinkag
     return sur, report
 
 
+class ZooContactSurrogate:
+    """A model-zoo wheel-contact model (e.g. ``pp.zoo.load("rover_contact_grc1_viper")``) with the
+    :class:`ContactSurrogate` interface: ``predict(slip, z) -> (N, 3)`` [Fx N, Fz N, My N m], ``in_range`` on its
+    validity box, and ``meta["test_errors"]`` from its model card (held-out errors against its own reference)."""
+
+    def __init__(self, zoo_model):
+        self.zoo = zoo_model
+        card = zoo_model.card
+        vm = card.validation_metrics or {}
+        te = {}
+        for k, u in (("Fx", "N"), ("Fz", "N"), ("My", "Nm")):
+            if f"test/{k}_rmse_{u}" in vm:
+                te[k] = {f"rmse_{u}": float(vm[f"test/{k}_rmse_{u}"]),
+                         f"max_abs_{u}": float(vm.get(f"test/{k}_max_abs_{u}", math.nan))}
+        self.meta = {"name": f"{card.name} v{card.version}", "test_errors": te, "source": "model zoo",
+                     "validity_range": dict(card.validity_range)}
+
+    def predict(self, slip, z) -> np.ndarray:
+        X = np.column_stack([np.asarray(slip, float).ravel(), np.asarray(z, float).ravel()])
+        p = self.zoo.predict(X, warn=False)
+        return np.column_stack([p["Fx_N"], p["Fz_N"], p["My_Nm"]])
+
+    def in_range(self, slip, z) -> np.ndarray:
+        X = np.column_stack([np.asarray(slip, float).ravel(), np.asarray(z, float).ravel()])
+        return self.zoo.in_range(X)
+
+
 def compare_on_states(sur: ContactSurrogate, model: WongReeceModel, slip, z) -> dict:
     """Surrogate and reference at given (slip, sinkage) states (e.g. every wheel along a run): both predictions,
     the errors and the share of states outside the training box."""
@@ -240,4 +267,5 @@ def compare_on_states(sur: ContactSurrogate, model: WongReeceModel, slip, z) -> 
             "fraction_outside": float(1 - inside[ok].mean()) if ok.any() else math.nan}
 
 
-__all__ = ["ContactSurrogate", "train_contact_surrogate", "load_surrogate", "contact_net", "compare_on_states"]
+__all__ = ["ContactSurrogate", "ZooContactSurrogate", "train_contact_surrogate", "load_surrogate", "contact_net",
+           "compare_on_states"]
