@@ -14,6 +14,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- `pinneapple_tools.reporting.paperkit`: the report figure style (`setup_mpl`, `savefig`, `CAT`/`SEQ`/`DIV`
+  palettes), `fmt`, `sanitize` and `Paper`, an A4 PDF builder for numbered technical reports (reportlab, from the
+  `veriphysics` extra, is imported only when a `Paper` is built). Moved from the benchmark and climate repos.
 - Rover dashboard with a semi-transparent stress map and the zoo PINN:
   - `SurfaceView(field_glow=..., far_field=...)`: a field map can sit semi-transparently on the shaded 3-D relief
     (`field_glow=0` is a pure albedo tint, so rut geometry, grouser marks and Sun shading show through) and continue
