@@ -194,3 +194,21 @@ def test_real_rea_on_a_small_javascript_app(tmp_path):
     assert {"project", "divergence", "solvePressure", "subtractGradient"} <= names
     hits = locate(fmap, ["solvePressure"])
     assert hits and hits[0].function.name in {"project", "solvePressure"}
+
+
+def test_lgpl_project_shipping_gpl_text_is_lgpl(tmp_path):
+    """LGPL projects ship COPYING (GPL text) + COPYING.LESSER: the LGPL governs."""
+    (tmp_path / "COPYING").write_text("GNU GENERAL PUBLIC LICENSE\n Version 3, 29 June 2007")
+    (tmp_path / "COPYING.LESSER").write_text("GNU LESSER GENERAL PUBLIC LICENSE\n Version 3, 29 June 2007")
+    assert detect_licenses(tmp_path) == ["LGPL-3.0"]
+
+
+def test_registry_exposes_license_tool_always(tmp_path, monkeypatch):
+    """The license tool needs no REA; REA tools appear only when REA resolves."""
+    from pinneapple_worldmodel.physics_tools import PhysicsToolRegistry
+    monkeypatch.setenv("PINNEAPPLE_REA_BIN", str(tmp_path / "missing"))
+    reg = PhysicsToolRegistry()
+    reg._register_research_tools()
+    assert [t.name for t in reg.list_by_category("research")] == ["reference_license_policy"]
+    (tmp_path / "LICENSE").write_text(MIT)
+    assert reg.get("reference_license_policy").call(path=str(tmp_path))["policy"] == "adapt"

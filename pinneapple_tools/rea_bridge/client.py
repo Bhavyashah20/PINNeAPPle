@@ -79,6 +79,8 @@ class ReaResult:
     def subject_sha256(self) -> Optional[str]:
         if not isinstance(self.payload, dict):
             return None
+        if "root_sha256" in self.payload:          # HistoricalSourceGraph
+            return self.payload["root_sha256"]
         return ((self.payload.get("subject") or {}).get("digest") or {}).get("sha256")
 
     @property
@@ -194,6 +196,13 @@ class ReaClient:
         if analysis_timeout_ms is not None:
             args += ["--analysis-timeout-ms", str(int(analysis_timeout_ms))]
         return self.run("analyze-javascript-application", *args)
+
+    def import_reference_source(self, root: str | os.PathLike) -> ReaResult:
+        """Pin a source tree as *historical reference* (inventory, languages,
+        root SHA-256, git HEAD). REA has no Python/C++ semantic analyser, so
+        for such projects this is the provenance record; the study itself is
+        a direct reading of the source (``Finding.method="manual"``)."""
+        return self.run("import-reference-source", str(Path(root).resolve()))
 
     def inspect_artifact(self, path: str | os.PathLike) -> ReaResult:
         """Identify one artifact (binary, archive, package) and list next probes."""

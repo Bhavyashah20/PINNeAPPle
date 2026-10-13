@@ -116,6 +116,7 @@ def detect_licenses(root: str | Path, *, max_bytes: int = 200_000) -> List[str]:
     (plus ``package.json``/``pyproject.toml`` declarations)."""
     root = Path(root)
     found: List[str] = []
+    _seen_in: dict = {}
     for p in sorted(root.iterdir()) if root.is_dir() else []:
         if p.is_file() and _LICENSE_FILES.match(p.name):
             text = _normalise(p.read_text(errors="replace")[:max_bytes])
@@ -127,9 +128,15 @@ def detect_licenses(root: str | Path, *, max_bytes: int = 200_000) -> List[str]:
                 gnu = spdx.startswith(("GPL", "LGPL", "AGPL"))
                 if spdx in found or not re.search(pattern, head if gnu else text):
                     continue
-                if gnu and any(f.startswith(("GPL", "LGPL", "AGPL")) for f in found):
-                    continue
+                if gnu and any(f.startswith(("GPL", "LGPL", "AGPL")) for f in found
+                               if p.name in _seen_in.get(f, ())):
+                    continue                     # one GNU family per file
                 found.append(spdx)
+                _seen_in.setdefault(spdx, set()).add(p.name)
+    # COPYING (GPL text) + COPYING.LESSER (LGPL) is how LGPL projects ship:
+    # the LGPL is the license; the GPL text is incorporated by reference.
+    if any(f.startswith("LGPL") for f in found):
+        found = [f for f in found if not f.startswith("GPL")]
     for manifest, pattern in (("package.json", r'"license"\s*:\s*"([^"]+)"'),
                               ("pyproject.toml", r'^license\s*=\s*"([^"]+)"')):
         f = root / manifest
