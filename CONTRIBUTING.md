@@ -2,6 +2,19 @@
 
 Thanks for taking the time to contribute!
 
+## Reporting bugs and requesting features
+Open an issue in the [issue tracker](https://github.com/PINNeAPPle-Labs/PINNeAPPle/issues) using the bug report or
+feature request template. For a bug, include the PINNeAPPle version (`python -c "import pinneapple; print(pinneapple.__version__)"`),
+your Python and PyTorch versions, a minimal script that reproduces the problem, and the full error message.
+Security problems must not be reported in public issues: follow [SECURITY.md](SECURITY.md).
+
+## Getting help
+Ask usage questions in the [issue tracker](https://github.com/PINNeAPPle-Labs/PINNeAPPle/issues). The documentation is at
+<https://pinneapple-labs.github.io/PINNeAPPle/>, and runnable examples are in [`examples/`](examples/).
+
+## Code of conduct
+Everyone taking part in this project is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Development setup
 
 ```bash

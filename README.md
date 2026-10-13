@@ -15,6 +15,17 @@
 
 ---
 
+## Statement of need
+
+Physics-informed neural networks, neural operators (DeepONet, FNO), graph networks on meshes and classical solvers each
+live in their own library, with their own problem description, and they are usually judged by their error against a
+reference solution that does not exist once a model is used on new cases. PINNeAPPle is for researchers and engineers
+in computational science who train or compare physics-based surrogate models and need to know when those models stop
+being valid. It gives every method one problem description, a comparison interface and a record of each run, and it
+checks each prediction against the physics (equation residuals, conservation, bounds and each model's declared
+assumptions) without needing a reference. It bridges to DeepXDE and PhysicsNeMo instead of replacing them. See
+[`paper/paper.md`](paper/paper.md) for how it relates to other libraries.
+
 ## What makes it different
 
 Most Physics AI libraries stop at the prediction. PINNeAPPle adds a **trust layer**, so a model can say how good it is right now:
@@ -346,15 +357,25 @@ Correct formulations, reliable validation, understanding failure modes, and deci
 
 ## Citation
 
+If you use PINNeAPPle in your research, please cite it. [`CITATION.cff`](CITATION.cff) holds the citation metadata
+(GitHub shows it under "Cite this repository"):
+
 ```bibtex
 @software{pinneapple2026,
   title        = {PINNeAPPle: An Open-Source Physics AI Research and Experimentation Platform},
-  author       = {Barros, Yan and Contributors},
+  author       = {Barros, Yan and Schiassi, Enrico},
   year         = {2026},
   url          = {https://github.com/PINNeAPPle-Labs/PINNeAPPle},
   version      = {0.6.3}
 }
 ```
+
+## Contributing and support
+
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, tests and pull request
+rules, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report bugs and request features in the
+[issue tracker](https://github.com/PINNeAPPle-Labs/PINNeAPPle/issues); report security problems privately as described
+in [SECURITY.md](SECURITY.md).
 
 If this project makes sense to you, **give it a star** ⭐: it helps grow the ecosystem and attract contributors.
 
