@@ -228,3 +228,31 @@ def test_vrmse_and_pearson_closed_forms():
     # Predicting the spatial mean everywhere: VRMSE = 1, whatever the offset.
     m = np.broadcast_to(t.mean(axis=(-2, -1), keepdims=True), t.shape)
     assert field_error_metrics(m, t, ndim=2).vrmse == pytest.approx(1.0, rel=1e-9)
+
+
+def test_etdrk4_matches_exponax_to_round_off():
+    """Cross-validation against an independent ETDRK4 implementation
+    (Exponax, MIT, JAX): Kuramoto-Sivashinsky in the Kassam-Trefethen setup,
+    u_t + (u^2/2)_x + u_xx + u_xxxx = 0 on [0, 32 pi), integrated into the
+    chaotic regime. With the same 2/3 dealiasing convention (keep |m| <
+    int(2/3 * N/2)) the trajectories agree to round-off, so any difference
+    would be in the scheme, not in the setup."""
+    ex = pytest.importorskip("exponax")
+    jax = pytest.importorskip("jax")
+    jax.config.update("jax_enable_x64", True)
+    L, N, dt, T = 32 * np.pi, 128, 0.0625, 30.0
+    x = L * np.arange(N) / N
+    u0 = np.cos(x / 16) * (1 + np.sin(x / 16))
+    k = fourier_wavenumbers(N, L)
+    mask = np.abs(np.fft.fftfreq(N) * N) < int((2 / 3) * (N // 2))
+
+    def nonlin(u_hat, t):
+        u = np.fft.ifft(u_hat).real
+        return -0.5j * k * np.fft.fft(u * u) * mask
+
+    ours = np.fft.ifft(ETDRK4(k ** 2 - k ** 4, nonlin, dt=dt).solve(np.fft.fft(u0), T).u[-1]).real
+    stepper = ex.stepper.KuramotoSivashinskyConservative(1, L, N, dt, order=4)
+    u = jax.numpy.asarray(u0[None, :], dtype=jax.numpy.float64)
+    for _ in range(int(round(T / dt))):
+        u = stepper(u)
+    assert np.max(np.abs(ours - np.asarray(u[0]))) < 1e-10
