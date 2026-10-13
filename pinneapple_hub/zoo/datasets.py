@@ -6,13 +6,16 @@
     test = pp.datasets.load("airfoil_rans_cst_re4e6", split="test")
     test["Cl"], test.columns, test.xy(["T0", "alpha_deg"], ["Cl"])
 
-Each dataset is one ``data.npz`` (no pickles) whose arrays are named ``<split>__<column>``; the file is bundled with
-the package when small, otherwise downloaded once from the Hugging Face Hub (``PINNeAPPle-Labs/<name>``), checked
-against the SHA-256 in the manifest and cached (see ``pinneapple_hub.zoo._artifacts``).
+Each dataset is stored as npz files (no pickles) whose arrays are named ``<split>__<column>``: either one ``data.npz``
+holding every split, or one ``<split>.npz`` per split (large datasets; a split may be sharded into ``<split>-NN.npz``,
+concatenated along the rows on load, and only the requested split is downloaded). Small files are bundled with the
+package; the others are downloaded once from the Hugging Face Hub (``PINNeAPPle-Labs/<name>``), checked against the
+SHA-256 in the manifest and cached (see ``pinneapple_hub.zoo._artifacts``).
 """
 from __future__ import annotations
 
 import builtins
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -21,7 +24,7 @@ import numpy as np
 
 from . import _artifacts as art
 
-__all__ = ["list", "info", "load", "DatasetInfo", "DatasetSplit", "status"]
+__all__ = ["list", "info", "load", "DatasetInfo", "DatasetSplit", "status", "split_files"]
 
 
 @dataclass
@@ -43,8 +46,12 @@ class DatasetInfo:
     split_rule: str = ""
 
     def to_markdown(self) -> str:
+        size = sum(f.get("size", 0) for f in self.files.values())
+        where = "bundled with the package" if all(f.get("bundled") for f in self.files.values()) else \
+            "downloaded on first use"
         lines = [f"# {self.title}", "", self.description, "",
-                 f"`{self.name}` v{self.version} · licence {self.license} · Hub `{self.hf_repo}` @ {self.revision}", "",
+                 f"`{self.name}` v{self.version} · licence {self.license} · Hub `{self.hf_repo}` @ {self.revision} · "
+                 f"{len(self.files)} file(s), {size / 1e6:.1f} MB, {where}", "",
                  "## Splits", "", "| Split | Rows | Content |", "|---|---|---|",
                  *(f"| `{s}` | {d['n']} | {d['description']} |" for s, d in self.splits.items()), "",
                  "## Columns", "", "| Column | Unit | Type | Description |", "|---|---|---|---|",
@@ -102,20 +109,31 @@ def info(name: str) -> DatasetInfo:
                        split_rule=e.get("split_rule", ""))
 
 
-def _read(name: str, offline: bool | None) -> dict[str, dict[str, np.ndarray]]:
-    path = art.fetch("datasets", name, "data.npz", offline=offline)
-    out: dict[str, dict[str, np.ndarray]] = {}
-    with np.load(path, allow_pickle=False) as z:
-        for key in z.files:
-            split, col = key.split("__", 1)
-            out.setdefault(split, {})[col] = z[key]
-    return out
+def split_files(name: str, split: str | None = None) -> builtins.list[str]:
+    """Files holding ``split`` (all files when None): ``data.npz``, or ``<split>.npz`` / ``<split>-NN.npz``."""
+    files = sorted(art.entry("datasets", name)["files"])
+    if "data.npz" in files or split is None:
+        return files
+    return [f for f in files if re.fullmatch(rf"{re.escape(split)}(-\d+)?\.npz", f)]
+
+
+def _read(name: str, offline: bool | None, split: str | None = None) -> dict[str, dict[str, np.ndarray]]:
+    parts: dict[str, dict[str, builtins.list[np.ndarray]]] = {}
+    for fn in split_files(name, split):
+        path = art.fetch("datasets", name, fn, offline=offline)
+        with np.load(path, allow_pickle=False) as z:
+            for key in z.files:
+                s, col = key.split("__", 1)
+                parts.setdefault(s, {}).setdefault(col, []).append(z[key])
+    return {s: {c: v[0] if len(v) == 1 else np.concatenate(v) for c, v in cols.items()} for s, cols in parts.items()}
 
 
 def load(name: str, split: str | None = None, *, offline: bool | None = None):
     """A split (:class:`DatasetSplit`), or ``{split: DatasetSplit}`` for all of them when ``split`` is None."""
     ds_info = info(name)
-    data = _read(name, offline)
+    if split is not None and split not in ds_info.splits:
+        raise KeyError(f"{name} has no split {split!r}; splits: {sorted(ds_info.splits)}")
+    data = _read(name, offline, split)
     if split is None:
         return {s: DatasetSplit(d, name, s, ds_info) for s, d in data.items()}
     if split not in data:

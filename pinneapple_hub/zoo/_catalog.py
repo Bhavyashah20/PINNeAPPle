@@ -134,6 +134,75 @@ MODELS = {
         "acceptance": {"test/R_mean_abs_pct": 2.0, "test/R_p95_abs_pct": 5.0, "test/dP_mean_abs_pct": 3.0},
         "card_tolerance": 1e-3,
     },
+    "heatsink_natural_mlp": {
+        "version": "1.0.0",
+        "adapter": "heatsink_natural",
+        "dataset": "heatsink_natural_convection",
+        "task": "Plate-fin heat sink in natural convection (vertical fins, free air): base-to-air thermal resistance",
+        "description": (
+            "PINNeAPPle ModelRegistry 'bench_mlp' (4 x 128, SiLU) on log-scaled geometry, material and operating "
+            "variables, trained on 5000 solves of the HeatSink Sizer physics engine in natural convection (Bar-Cohen "
+            "& Rohsenow composite correlation, 3-D finite-volume base conduction) with monotonicity constraints: a "
+            "hinge penalty keeps d log R / d log k and d log R / d log(source width) negative on the training designs "
+            "and on random in-range designs (pinneapple_design.thermal.heatsink.monotone). Returns the resistance and "
+            "a split-conformal 95 % upper bound."),
+        "architecture": "bench_mlp",
+        "architecture_config": {"in_dim": 12, "out_dim": 1, "width": 128, "depth": 4, "act": "silu",
+                                "targets": ["log R"], "monotone": {"log_k": -1, "log_fw": -1}},
+        "inputs": [
+            {"name": "base_width_mm", "unit": "mm", "description": "base width (across the fins)"},
+            {"name": "base_depth_mm", "unit": "mm", "description": "base depth (fin length)"},
+            {"name": "base_thickness_mm", "unit": "mm", "description": "base plate thickness"},
+            {"name": "n_fins", "unit": "-", "description": "number of fins"},
+            {"name": "fin_thickness_mm", "unit": "mm", "description": "fin thickness"},
+            {"name": "fin_height_mm", "unit": "mm", "description": "fin height"},
+            {"name": "k_w_mk", "unit": "W/(m K)", "description": "material thermal conductivity"},
+            {"name": "source_width_mm", "unit": "mm", "description": "heat-source footprint width"},
+            {"name": "source_depth_mm", "unit": "mm", "description": "heat-source footprint depth"},
+            {"name": "t_ambient_c", "unit": "degC", "description": "ambient air temperature"},
+            {"name": "power_w", "unit": "W", "description": "dissipated power"}],
+        "outputs": [{"name": "r_base_k_w", "unit": "K/W", "description": "thermal resistance, base to ambient air"},
+                    {"name": "r_base_upper95_k_w", "unit": "K/W",
+                     "description": "split-conformal 95 % upper bound on r_base_k_w"}],
+        "validity_range": {"base_width_mm": [30.0, 200.0], "base_depth_mm": [30.0, 200.0],
+                           "base_thickness_mm": [2.0, 15.0], "fin_thickness_mm": [0.6, 4.0],
+                           "fin_height_mm": [8.0, 80.0], "k_w_mk": [150.0, 400.0], "source_frac_w": [0.15, 1.0],
+                           "source_frac_d": [0.15, 1.0], "t_ambient_c": [0.0, 50.0], "fin_gap_mm": [2.2, 30.6],
+                           "fin_gap_note": "gap sampled in 2.5-20 mm, then the fin count is rounded; the realised "
+                                           "gaps of the training designs span 2.2-30.6 mm",
+                           "power_w": [1.0, 80.0],
+                           "regime": "natural convection in free air, vertical fins, no radiation"},
+        "equations": ["Bar-Cohen & Rohsenow (1984) composite natural-convection correlation for vertical "
+                      "parallel plates", "3-D finite-volume conduction in the base (spreading resistance)"],
+        "reference_source": (
+            "750 held-out designs solved by the HeatSink Sizer physics engine (pinneapple_design.thermal.heatsink."
+            "engine). The engine is checked against independent methods: natural h vs Elenbaas (1942) 2 %, Lee et "
+            "al. spreading (1-5 %), FVM grid convergence < 2 %."),
+        "training_config": {"optimizer": "Adam (600 epochs, lr 2e-3 cosine, batch 128; hinge penalty from epoch 50, "
+                                         "weight 1, margin 3e-4) + 4 rounds of full-batch L-BFGS on the same "
+                                         "constrained objective",
+                            "split": {"train": 3250, "val": 500, "cal": 500, "test": 750}, "seed": 0,
+                            "script": "scripts/zoo/train_heatsink_natural.py "
+                                      "(pinneapple_design.thermal.heatsink.monotone.train_monotone)"},
+        "data_lineage": {"dataset": "heatsink_natural_convection",
+                         "source": "apps/heatsink_sizer/artifacts/dataset_natural.json.gz"},
+        "known_limitations": [
+            "Natural convection without radiation: at low power, radiation can carry a comparable share of the heat "
+            "for black-anodised sinks; the reference does not model it.",
+            "Correlation-based reference (typical +-15 % against experiments); the surrogate's own error is against "
+            "the engine, not against a measurement.",
+            "The engine's resistance rises with power on 0.5 % of designs (non-monotone correlation blending); the "
+            "power law is checked on the model but not enforced in training.",
+            "Screening tool: re-verify a chosen design with the physics engine."],
+        "license": "apache-2.0",
+        "tags": ["heat transfer", "electronics cooling", "natural convection", "surrogate", "conformal",
+                 "monotone"],
+        "citation": ("PINNeAPPle contributors (2026). HeatSink Sizer natural-convection surrogate (monotone). "
+                     "PINNeAPPle model zoo, https://github.com/PINNeAPPle-Labs/PINNeAPPle"),
+        "guard_metrics": ["test/R_mean_abs_pct"],
+        "acceptance": {"test/R_mean_abs_pct": 2.0, "test/R_p95_abs_pct": 5.0},
+        "card_tolerance": 1e-3,
+    },
     "rover_contact_grc1_viper": {
         "version": "1.0.0",
         "adapter": "rover_contact",

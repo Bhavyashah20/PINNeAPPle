@@ -14,6 +14,25 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Model zoo: `heatsink_natural_mlp`, the natural-convection plate-fin heat-sink surrogate. It is trained with
+  monotonicity constraints so that a more conductive material or a wider heat source never raises the resistance.
+  Error against 750 held-out physics-engine designs: R 0.52 % mean, 1.6 % p95. The 95 % conformal bound covers
+  97.2 %. Trust report `APPROVED`: monotonicity violations are 0 % for conductivity, 0.14 % for source width and
+  0 % for power (limit 1 %). The app's unconstrained surrogate had the conductivity sign wrong on 5 % of designs.
+- `pinneapple_neural.trainer.monotonic`: `monotonicity_penalty` (a hinge on input-output derivatives, in physical
+  units, with a margin) and `monotone_violation_share`.
+- `pinneapple_design.thermal.heatsink.monotone.train_monotone`: the training recipe of the constrained heat-sink
+  surrogate. It uses the same data, features and split as the app, Adam with the penalty on training and random
+  in-range designs, then an L-BFGS polish.
+- Zoo infrastructure for large datasets:
+  - Hub-only datasets: one `<split>.npz` per split, optionally sharded into `<split>-NN.npz`. `pp.datasets.load`
+    downloads only the requested split, concatenates the shards and checks every file's SHA-256.
+  - `pp.datasets.split_files`.
+  - `scripts/zoo/build_assets.py --hub-only DIR` and `--model NAME DIR` rebuild one item without touching the
+    published ones.
+  - `publish_to_hub.py --staging DIR` and `--verify --allow-unpublished`.
+  - A `staging_ref` input in the publish workflow.
+  - Hub cards now end with a citation section (PINNeAPPle, Zenodo DOI 10.5281/zenodo.23343062).
 - Geometry library `pp.geometries` (`pinneapple_design.geometry_library`): 17 realistic parametric 3-D geometries
   for Physics-AI, each with the code that regenerates it and ready-made files. Uniform API: `list()`, `info(name)`
   (dimensions, units, parameters with ranges, sources of the real-world numbers with estimates flagged, frame,
