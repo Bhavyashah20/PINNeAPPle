@@ -158,6 +158,8 @@ class CarLBM(Experiment):
              "clearance": (0.04, 0.12), "diffuser_deg": (0.0, 10.0), "nose": (0.0, 1.0)}
 
     def run(self, ctx):
+        from pinneapple_physics.physics_audit.regime import dominant_frequency
+
         p = ctx.params
         shape = {k: p[k] for k in _SHAPE_KEYS}
         ctx.input("design", shape)
@@ -173,10 +175,8 @@ class CarLBM(Experiment):
         ctx.metric("Cd", cd)
         ctx.metric("Cl", cl)
         ctx.metric("Cd_rms_fluctuation", float(sim["cd_t"][n // 2:].std() / sim["cd_t"][n // 2:].mean() * cd))
-        sig = sim["cl_t"][n // 2:] - cl
-        spec = np.abs(np.fft.rfft(sig))
-        k = int(np.argmax(spec[1:]) + 1)
-        st = float(np.fft.rfftfreq(len(sig))[k] * sim["frontal_height"] / p["u_in"])
+        f = dominant_frequency(sim["cl_t"][n // 2:], dt=1.0, discard=0.0, window=False, refine=False)
+        st = float(f * sim["frontal_height"] / p["u_in"])
         ctx.metric("Strouhal_frontal_height", st)
         div = np.gradient(sim["mean_ux"], axis=0) + np.gradient(sim["mean_uy"], axis=1)
         fl = ~sim["solid"]

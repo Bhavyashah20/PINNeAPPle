@@ -37,6 +37,16 @@ ruff check .
 ruff format .
 ```
 
+## Where code goes
+Reusable logic goes in the library; apps and examples only compose library calls. Physics, numerics, geometry,
+data processing, metrics, plotting helpers, trust checks, IO, solvers and training loops belong in a `pinneapple*`
+package, with a public API, docstrings and tests (against an independent reference when the code is numerical), so
+users get them with `pip install pinneapple`. `apps/` keeps only glue (FastAPI routes, request schemas, HTML/JS,
+deploy files) and `examples/` only the narrative of the example. `python scripts/check_app_helpers.py` (run in CI by
+`tests/test_app_helpers.py`) fails on a new local helper module in `apps/` or `examples/`, or on a new local copy of a
+helper the library already has; [docs/dev/LIBRARY_CONSOLIDATION.md](docs/dev/LIBRARY_CONSOLIDATION.md) is the
+inventory of what is being moved.
+
 ## Pull requests
 - Keep changes focused and well-scoped
 - Add or update tests when possible

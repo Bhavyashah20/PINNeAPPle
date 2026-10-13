@@ -36,6 +36,8 @@ import numpy as np
 import torch
 
 from pinneapple_neural.trainer.self_scaled_qn import SelfScaledQuasiNewton
+from pinneapple_physics.closed_form.burgers import burgers_sine_inviscid_exact
+from pinneapple_simulation.numerical_solvers.compressible_fv import sod_exact as _sod_exact
 
 
 def mlp(n_in, n_out, width, depth, seed):
@@ -165,15 +167,8 @@ class Burgers:
 
     @staticmethod
     def exact(t, x):
-        from scipy.optimize import brentq
-        if t == 0:
-            return -math.sin(math.pi * x)
-        if x == 0 or abs(x) >= 1:  # shock location and the fixed walls u(+-1) = 0
-            return 0.0
-        # characteristic from x0 on the same side as x (entropy solution: shock pinned at x = 0)
-        f = lambda x0: x0 - t * math.sin(math.pi * x0) - x
-        lo, hi = (0.0, 1.0) if x > 0 else (-1.0, 0.0)
-        return -math.sin(math.pi * brentq(f, lo, hi, xtol=1e-14))
+        """Entropy solution at one (t, x): :func:`pinneapple_physics.closed_form.burgers.burgers_sine_inviscid_exact`."""
+        return float(burgers_sine_inviscid_exact(x, t))
 
     def u(self, tx):
         t, x = tx[:, :1], tx[:, 1:2]
@@ -187,8 +182,8 @@ class Burgers:
 
     def error(self):
         ts, xs = np.linspace(0, 1, 101), np.linspace(-1, 1, 201)
-        ref = np.array([[self.exact(t, x) for x in xs] for t in ts])
         T, X = np.meshgrid(ts, xs, indexing="ij")
+        ref = burgers_sine_inviscid_exact(X, T)
         tx = torch.as_tensor(np.stack([T.ravel(), X.ravel()], 1))
         with torch.no_grad():
             return rel_l2(self.u(tx).numpy().reshape(ref.shape), ref)
@@ -196,42 +191,9 @@ class Burgers:
 
 # ── Sod shock tube ──────────────────────────────────────────────────────
 def sod_exact(x, t, gamma=1.4, left=(1.0, 0.0, 1.0), right=(0.125, 0.0, 0.1), x0=0.5):
-    """Exact Riemann solution (Toro ch. 4): returns rho, u, p at positions x and time t > 0."""
-    rl, ul, pl = left
-    rr, ur, pr = right
-    cl, cr = math.sqrt(gamma * pl / rl), math.sqrt(gamma * pr / rr)
-
-    def fk(p, rk, pk, ck):
-        if p > pk:
-            A, B = 2 / ((gamma + 1) * rk), (gamma - 1) / (gamma + 1) * pk
-            return (p - pk) * math.sqrt(A / (p + B))
-        return 2 * ck / (gamma - 1) * ((p / pk) ** ((gamma - 1) / (2 * gamma)) - 1)
-
-    from scipy.optimize import brentq
-    ps = brentq(lambda p: fk(p, rl, pl, cl) + fk(p, rr, pr, cr) + ur - ul, 1e-10, 10.0, xtol=1e-14)
-    us = 0.5 * (ul + ur) + 0.5 * (fk(ps, rr, pr, cr) - fk(ps, rl, pl, cl))
-    g1 = (gamma - 1) / (gamma + 1)
-    rsl = rl * (ps / pl) ** (1 / gamma)  # left rarefaction
-    rsr = rr * ((ps / pr) + g1) / (g1 * ps / pr + 1)  # right shock
-    csl = cl * (ps / pl) ** ((gamma - 1) / (2 * gamma))
-    s_head, s_tail = ul - cl, us - csl
-    s_shock = ur + cr * math.sqrt((gamma + 1) / (2 * gamma) * ps / pr + (gamma - 1) / (2 * gamma))
-    out = np.empty((len(x), 3))
-    for i, xi in enumerate(x):
-        s = (xi - x0) / t
-        if s < s_head:
-            out[i] = rl, ul, pl
-        elif s < s_tail:
-            u = 2 / (gamma + 1) * (cl + (gamma - 1) / 2 * ul + s)
-            c = 2 / (gamma + 1) * (cl + (gamma - 1) / 2 * (ul - s))
-            out[i] = rl * (c / cl) ** (2 / (gamma - 1)), u, pl * (c / cl) ** (2 * gamma / (gamma - 1))
-        elif s < us:
-            out[i] = rsl, us, ps
-        elif s < s_shock:
-            out[i] = rsr, us, ps
-        else:
-            out[i] = rr, ur, pr
-    return out
+    """Exact Riemann solution (Toro ch. 4) as an (N, 3) array of rho, u, p:
+    :func:`pinneapple_simulation.numerical_solvers.compressible_fv.sod_exact`."""
+    return np.stack(_sod_exact(x, t, left=left, right=right, gamma=gamma, x0=x0), 1)
 
 
 class Sod:
@@ -256,7 +218,7 @@ class Sod:
         E = p / (self.gamma - 1) + 0.5 * rho * u ** 2
         U = [rho, rho * u, E]
         F = [rho * u, rho * u ** 2 + p, u * (E + p)]
-        r = sum(((grad(Ui, tx)[:, :1] + grad(Fi, tx)[:, 1:2]) ** 2).mean() for Ui, Fi in zip(U, F))
+        r = sum(((grad(Ui, tx)[:, :1] + grad(Fi, tx)[:, 1:2]) ** 2).mean() for Ui, Fi in zip(U, F, strict=True))
         rho0, u0, p0 = self.prim(self.ic_tx)
         ic = ((torch.cat([rho0, u0, p0], 1) - self.ic) ** 2).mean()
         return r + 10 * ic
@@ -296,9 +258,9 @@ def run(name, variant, args):
 
         def closure():
             qn.zero_grad()
-            l = prob.loss()
-            l.backward()
-            return l
+            loss = prob.loss()
+            loss.backward()
+            return loss
 
         qn.step(closure)
         rec["iters"] = qn.state["n_iter"]

@@ -11,7 +11,8 @@ per vertex) are coloured with ``cmap`` / ``clim`` instead of the material. ``ter
 terrain where it is finite (e.g. normal stress in the ruts), blended over the regolith by ``field_alpha``: the colour
 multiplies the regolith albedo before the photometry, so the relief, the shading and the shadows stay visible
 through it; ``field_glow`` adds a share of unshaded colour that keeps the map readable inside shadows (0 = a pure
-semi-transparent tint). ``far_field`` colours the far grid the same way.
+semi-transparent tint); ``field_saturation`` < 1 mutes the colours so the relief dominates. ``far_field`` colours
+the far grid the same way.
 
 Horizon: with ``horizon`` > 0 an annulus of terrain runs from the edge of the ``far`` grid out to ``horizon`` metres,
 its height following ``far_fn`` near the grid and dropping with the curvature of the body (``planet_radius``,
@@ -41,6 +42,7 @@ class SurfaceView:
     terrain_field: np.ndarray | None = None
     field_alpha: float = 0.85
     field_glow: float = 0.55            # unshaded share of the colour (relative to field_alpha)
+    field_saturation: float = 1.0       # 1 = the colour map as is, 0 = grey (the map's lightness only)
     far_field: np.ndarray | None = None  # field on the ``far`` grid (same convention as terrain_field)
     cmap: str = "inferno"
     clim: tuple | None = None
@@ -205,6 +207,9 @@ def _field_blend(view: SurfaceView, field):
     if not ok.any():
         return None, None
     col = _rgb_from_cmap(np.where(ok, field, view.clim[0]), view.cmap, view.clim)
+    if view.field_saturation != 1.0:
+        lum = (col @ np.array([0.299, 0.587, 0.114]))[..., None]
+        col = np.clip(lum + view.field_saturation * (col - lum), 0.0, 1.0)
     a = view.field_alpha * ok[..., None]
     tint = (1 - a) + a * col / np.asarray(view.albedo)[None, None, :] * 0.9
     g = view.field_glow * view.field_alpha * ok[..., None]

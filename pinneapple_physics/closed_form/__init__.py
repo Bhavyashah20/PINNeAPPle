@@ -35,16 +35,31 @@ plate_fin_heatsink
 pcb_thermal
     PCB stack-up conductivity, thermal vias, JEDEC two-resistor packages
     and board-surface convection + radiation.
+burgers
+    Viscous (Cole-Hopf) and inviscid (characteristics) Burgers solutions
+    for the sine initial condition.
+pipe_flow
+    Darcy friction factors (laminar, Blasius, Colebrook, Haaland), pressure
+    drop and first-cell height for a target y+.
+heat
+    Transient 1-D slab conduction (Fourier series, Carslaw & Jaeger).
+compressible
+    Isentropic ratios, normal shock, Pitot pressure, modified-Newtonian Cp_max.
 """
 from __future__ import annotations
 
 from . import (
+    burgers,
     cantilever_fatigue,
+    compressible,
     fin_array_conduction,
+    heat,
     helmholtz_resonator,
     membrane_diffusion,
     pcb_thermal,
+    pipe_flow,
     plate_fin_heatsink,
 )
 
-__all__ = ["fin_array_conduction", "plate_fin_heatsink", "cantilever_fatigue", "membrane_diffusion", "helmholtz_resonator", "pcb_thermal"]
+__all__ = ["fin_array_conduction", "plate_fin_heatsink", "cantilever_fatigue", "membrane_diffusion",
+           "helmholtz_resonator", "pcb_thermal", "burgers", "pipe_flow", "heat", "compressible"]

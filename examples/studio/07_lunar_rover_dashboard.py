@@ -3,7 +3,7 @@
 The animation (planetary renderer: regolith, rocks and craters, a low hard Sun with long shadows, a black sky and
 the ground running out to the lunar horizon; wheels rolling and leaving 3-D ruts -- floor, walls, berms and
 grouser marks deformed into the terrain mesh and shaded by the Sun, coloured by the peak normal stress they carried
-through a semi-transparent map with its colour bar) sits in the middle. Around
+through a muted, semi-transparent map with its colour bar) sits in the middle. Around
 it, charts synced to its time cursor:
 - drawbar pull, driving torque and sinkage versus slip (testbed curves, each wheel's live operating point);
 - per-wheel sinkage and normal load along the traverse;
@@ -56,9 +56,13 @@ def main(quick: bool = False):
     from pinneapple_hub import zoo
     sur = ZooContactSurrogate(zoo.load("rover_contact_grc1_viper"))
     print("PINN:", sur.meta["name"], "held-out (card):", sur.meta["test_errors"], flush=True)
-    # ruts coloured by the peak normal stress they carried, semi-transparent over the 3-D relief
+    # the zoo model must have been trained on the physics of this run (warns and notes the chart otherwise)
+    assert not sur.check_physics(wr), "the zoo model was trained on other physics; retrain and release it"
+    # ruts coloured by the peak normal stress they carried: muted and semi-transparent over the 3-D relief, the
+    # colour range spanning the 5-95 % of the stress the ruts carry, so the relief and grouser marks dominate
+    look = dict(field_alpha=0.45, field_glow=0.05, field_saturation=0.6)
     frames, ks, clim = vdash.render_frames(run, site, n=24 if quick else 150, size=(1280, 720),
-                                           field="normal_stress", field_alpha=0.6, field_glow=0.1,
+                                           field="normal_stress", clim_percentiles=(5, 95), **look,
                                            progress=lambda j, n: print(f"  frame {j}/{n}", flush=True)
                                            if j % 25 == 0 else None)
     # no edge of the ground mesh may show in any frame (the ground runs out past the lunar horizon)
@@ -66,14 +70,13 @@ def main(quick: bool = False):
     from pinneapple_tools.visualization.studio.planetary import border_visibility
     for k in ks[:: max(1, len(ks) // 10)]:
         view = viz.frame_view(run, site, int(k), field="normal_stress", clim=clim, sun_azimuth_deg=160.0,
-                              half_window=(3.2, 3.4))
+                              half_window=(3.2, 3.4), **look)
         vis = border_visibility(view, viz.follow_camera(run, int(k)), (1280, 720))
         assert vis["visible"] == 0, f"ground border visible at sample {k}"
     Image.fromarray(frames[len(frames) * 2 // 3]).save(os.path.join(out, "rover-frame.png"))
     db = vdash.vehicle_dashboard(
         run, frames, ks, model=wr, surrogate=sur, clim=clim, scene3d=True, terrain=site,
-        field_label="Peak normal stress in the ruts [kPa]",
-        pinn_note="zoo model trained on GRC-1 without slip-sinkage (n1 = 0)",
+        field_label="Peak normal stress in the ruts [kPa]", field_saturation=look["field_saturation"],
         title="NASA VIPER crossing a lunar crater",
         subtitle="Multibody dynamics, Wong-Reece wheels with slip-sinkage on GRC-1 (lunar g); 3-D ruts coloured by "
                  "normal stress; zoo PINN surrogate; low Sun (12 deg)",
