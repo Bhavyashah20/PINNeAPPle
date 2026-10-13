@@ -60,7 +60,7 @@ _TEXT_RULES: List[Tuple[str, str]] = [
     ("BSD-3-Clause", r"neither the name of .{0,200}? nor the names of its\s+contributors"),
     ("BSD-2-Clause", r"redistributions in binary form must reproduce the above copyright"),
     ("ISC", r"permission to use, copy, modify, and/or distribute this software for any"),
-    ("CC-BY-NC", r"creativecommons\.org/licenses/by-nc|noncommercial"),
+    ("CC-BY-NC", r"creativecommons\.org/licenses/by-nc|attribution-noncommercial"),
     ("CC-BY-4.0", r"creativecommons\.org/licenses/by/4\.0|attribution 4\.0 international"),
     ("CC0-1.0", r"cc0 1\.0 universal"),
     ("Unlicense", r"this is free and unencumbered software released into the public domain"),
@@ -119,13 +119,17 @@ def detect_licenses(root: str | Path, *, max_bytes: int = 200_000) -> List[str]:
     for p in sorted(root.iterdir()) if root.is_dir() else []:
         if p.is_file() and _LICENSE_FILES.match(p.name):
             text = _normalise(p.read_text(errors="replace")[:max_bytes])
+            # GNU licenses quote each other (GPL-3.0 section 13 names the
+            # AGPL; the LGPL incorporates the GPL), so the family is decided
+            # by the title at the top of the file only.
+            head = text[:1200]
             for spdx, pattern in _TEXT_RULES:
-                if re.search(pattern, text) and spdx not in found:
-                    # An LGPL text quotes "GNU General Public License"; do not
-                    # double-count it as GPL.
-                    if spdx.startswith("GPL") and any(f.startswith(("LGPL", "AGPL")) for f in found):
-                        continue
-                    found.append(spdx)
+                gnu = spdx.startswith(("GPL", "LGPL", "AGPL"))
+                if spdx in found or not re.search(pattern, head if gnu else text):
+                    continue
+                if gnu and any(f.startswith(("GPL", "LGPL", "AGPL")) for f in found):
+                    continue
+                found.append(spdx)
     for manifest, pattern in (("package.json", r'"license"\s*:\s*"([^"]+)"'),
                               ("pyproject.toml", r'^license\s*=\s*"([^"]+)"')):
         f = root / manifest
