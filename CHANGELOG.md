@@ -36,6 +36,21 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   results are saved under a working directory and returned as paths; jobs run in a separate process with a
   wall-time limit, a memory limit and the network switched off. Added to `.mcp.json`; set-up for Gemini
   CLI, Claude Code, Cursor, Codex and a Colab cell in `docs/guides/mcp_server.md`.
+- Latent surrogate with a trust card (`pinneapple_neural.architectures.rom.TrustedLatentSurrogate`): wraps a POD
+  latent model (`ParametricPOD`) with three per-query checks calibrated on held-out designs — a normalised
+  split-conformal bound on the relative field error (Gaussian-process spread or a bootstrap ensemble of latent
+  regressors), a conformal p-value of the distance to the training designs (design envelope), and an optional
+  physics residual of the decoded field — and returns the library's `TrustReport` (APPROVED / REVIEW / REJECT).
+  Example `examples/latent/trusted_latent_surrogate.py` (2-D advection-diffusion-reaction, every answer checked
+  against a full solve). Guide: `docs/guides/trusted_latent_surrogate.md`.
+- Physics-residual false-data-injection detection for cyber-physical systems (`pinneapple_security.cps`): grey-box
+  residual components (`MassBalance`, `FlowLaw`) whose constants are identified from trusted data, a per-channel
+  CUSUM detector calibrated to a false-alarm budget, localisation of the broken balance, ROC AUC and episode metrics.
+  Reproducible benchmark `pinneapple_security.cps_bench` (three-tank water network, six attacks, data-driven
+  baselines: autoregressive twin, PCA Q statistic, isolation forest; nominal and shifted operating regimes).
+  Example `examples/security/02_physics_residual_fdi.py`. Guide: `docs/guides/physics_residual_attack_detection.md`.
+- Evaluation of latent-space methods and new cybersecurity applications, ranked, with a roadmap:
+  `docs/dev/LATENT_AND_CYBER_EVALUATION.md`.
 - Geometry library `pp.geometries` (`pinneapple_design.geometry_library`): 17 realistic parametric 3-D geometries
   for Physics-AI, each with the code that regenerates it and ready-made files. Uniform API: `list()`, `info(name)`
   (dimensions, units, parameters with ranges, sources of the real-world numbers with estimates flagged, frame,

@@ -12,6 +12,8 @@ What it covers, and where:
 ``dp``                 differential privacy: Laplace/Gaussian mechanisms, DP statistics, RDP accountant, DP-SGD
 ``model_security``     pickle/checkpoint scanning, safe loading, adversarial sensitivity of surrogates
 ``anomaly``            physics-residual CUSUM and replay detection of manipulated sensor data (OT security)
+``cps``                grey-box physics residuals (mass balances, flow laws) + CUSUM: false-data-injection detection
+``cps_bench``          three-tank water-network benchmark: attacks, data-driven baselines, ROC/delay/false alarms
 ``secrets_scan``       credentials in code, notebooks, configs and solver cases
 ``classification``     data labels (level, personal data, export control) and handling policy
 ``compliance``         capability → control map (NIST CSF 2.0, IEC 62443, ISO 27001, 21 CFR 11, LGPD/GDPR, SSDF, SLSA)
@@ -28,10 +30,10 @@ import importlib as _importlib
 
 __all__ = [
     "integrity", "signing", "attestation", "audit", "encryption", "privacy", "dp", "model_security", "anomaly",
-    "secrets_scan", "classification", "compliance", "integrate",
+    "secrets_scan", "classification", "compliance", "integrate", "cps", "cps_bench",
     "build_manifest", "Manifest", "sha256_file", "digest_array", "generate_key", "hmac_key", "sign_json",
     "verify_json", "AuditLog", "find_pii", "redact", "sanitize_log", "scan_checkpoint", "safe_load", "scan_path",
-    "DataLabel", "HandlingPolicy", "ResidualCUSUM", "sbom", "attest_experiment",
+    "DataLabel", "HandlingPolicy", "ResidualCUSUM", "sbom", "attest_experiment", "PhysicsResidualDetector",
 ]
 
 _ATTRS = {
@@ -40,9 +42,9 @@ _ATTRS = {
     "AuditLog": "audit", "find_pii": "privacy", "redact": "privacy", "sanitize_log": "privacy",
     "scan_checkpoint": "model_security", "safe_load": "model_security", "scan_path": "secrets_scan",
     "DataLabel": "classification", "HandlingPolicy": "classification", "ResidualCUSUM": "anomaly",
-    "sbom": "attestation", "attest_experiment": "attestation",
+    "sbom": "attestation", "attest_experiment": "attestation", "PhysicsResidualDetector": "cps",
 }
-_MODULES = set(__all__[:13])
+_MODULES = set(__all__[:15])
 
 
 def __getattr__(name: str):
