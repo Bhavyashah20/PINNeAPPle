@@ -1,100 +1,21 @@
-import numpy as np
-
-import torch
-import torch.nn as nn
-import torch.optim as optim
+from typing import Any, Dict, List, Tuple
 
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import torch.optim as optim
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
-
-# ── Compatibility stubs (PINNProblemSpec / PINNFactory / PINN) ─────────────
-@dataclass
-class PINNProblemSpec:
-    pde_residuals: List[str] = field(default_factory=list)
-    conditions: List[Dict[str, Any]] = field(default_factory=list)
-    independent_vars: List[str] = field(default_factory=list)
-    dependent_vars: List[str] = field(default_factory=list)
-    inverse_params: List[str] = field(default_factory=list)
-    loss_weights: Dict[str, float] = field(default_factory=lambda: {"pde": 1.0, "conditions": 1.0, "data": 0.0})
-    verbose: bool = False
-
-
-class PINNFactory:
-    def __init__(self, spec: PINNProblemSpec):
-        self.spec = spec
-
-    def generate_loss_function(self):
-        w = self.spec.loss_weights
-
-        def loss_fn(model, batch):
-            comps: Dict[str, Any] = {}
-            losses = []
-
-            col = batch.get("collocation")
-            if col is not None:
-                inputs = col if isinstance(col, (list, tuple)) else (col,)
-                out = model(*inputs)
-                y = out.y if hasattr(out, "y") else out
-                pde_loss = w.get("pde", 1.0) * y.pow(2).mean()
-                comps["pde"] = pde_loss
-                losses.append(pde_loss)
-
-            conds = batch.get("conditions") or []
-            cond_loss = torch.zeros(1, device=next(iter([col[0] if isinstance(col, (list,tuple)) else col]), torch.zeros(1)).device if col is not None else "cpu")
-            for cond_pts in conds:
-                pts = cond_pts if isinstance(cond_pts, (list, tuple)) else (cond_pts,)
-                out = model(*pts)
-                y = out.y if hasattr(out, "y") else out
-                cond_loss = cond_loss + y.pow(2).mean()
-            if conds:
-                cond_loss = w.get("conditions", 1.0) * cond_loss / len(conds)
-                comps["conditions"] = cond_loss
-                losses.append(cond_loss)
-
-            data = batch.get("data")
-            if data is not None:
-                data_inputs, data_targets = data
-                out = model(*data_inputs)
-                y = out.y if hasattr(out, "y") else out
-                dl = w.get("data", 1.0) * (y - data_targets).pow(2).mean()
-                comps["data"] = dl
-                losses.append(dl)
-
-            total = sum(losses) if losses else torch.zeros(1)
-            comps["total"] = total
-            scalar_comps = {k: float(v.item()) if hasattr(v, "item") else float(v) for k, v in comps.items()}
-            scalar_comps["total"] = total
-            return total, scalar_comps
-
-        return loss_fn
-
-
-class PINN(nn.Module):
-    def __init__(self, neural_network: nn.Module, inverse_params_names=None, initial_guesses=None):
-        super().__init__()
-        self.net = neural_network
-        self.inverse_params = nn.ParameterDict()
-        if inverse_params_names and initial_guesses:
-            for name in inverse_params_names:
-                val = initial_guesses.get(name, 0.0)
-                self.inverse_params[name] = nn.Parameter(torch.tensor([float(val)]))
-
-    def forward(self, *args, **kwargs):
-        return self.net(*args, **kwargs)
-# ───────────────────────────────────────────────────────────────────────────
+from pinneapple_models import VanillaPINN
 from pinneapple_neural.architectures.pinns.inverse import InversePINN
 from pinneapple_neural.architectures.pinns.pielm import PIELM, PIELMFactoryAdapter
 from pinneapple_neural.architectures.pinns.pinn_lstm import PINNLSTM
 from pinneapple_neural.architectures.pinns.pinnsformer import PINNsFormer
-from pinneapple_models import VanillaPINN
 from pinneapple_neural.architectures.pinns.vpinn import VPINN, pinn_factory_adapter
 from pinneapple_neural.architectures.pinns.xpinn import XPINN
-from pinneapple_neural.architectures.pinns.xtfc import XTFC, XTFCFactoryModel, XTFCConfig
-
-from typing import Dict, Any, List, Tuple
+from pinneapple_neural.architectures.pinns.xtfc import XTFC, XTFCConfig, XTFCFactoryModel
+from pinneapple_neural.trainer.parallel import best_device
+from pinneapple_physics.metrics import relative_l2
+from pinneapple_physics.pinn_solver.factory.pinn_factory import PINN, PINNFactory, PINNProblemSpec
 
 # Inverse PINN
 
@@ -127,7 +48,7 @@ core = InversePINN(
 )
 
 model = core.as_factory_model(independent_vars=spec.independent_vars)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = best_device()
 model = model.to(device)
 
 opt = optim.Adam(model.parameters(), lr=1e-3)
@@ -177,7 +98,7 @@ for step in range(1, 2001):
 
 # PIELM
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = best_device()
 dtype = torch.float32
 
 T_MAX = 1.0
@@ -195,7 +116,7 @@ def u_exact_torch(t, x):
 
 
 pde_mms = (
-    "diff(u(t,x), t) + u(t,x)*diff(u(t,x), x) - nu*diff(u(t,x), x, 2)"
+    "Derivative(u(t,x), t) + u(t,x)*Derivative(u(t,x), x) - nu*Derivative(u(t,x), x, 2)"
     " - ( -exp(-t)*sin(pi*x)"
     "     + (exp(-t)*sin(pi*x))*(exp(-t)*pi*cos(pi*x))"
     "     - nu*(-exp(-t)*(pi*pi)*sin(pi*x))"
@@ -355,12 +276,9 @@ def pinn_on_grid(model, t_grid, x_grid, device):
 U_pinn = pinn_on_grid(model, t_fdm, x_fdm, device)
 U_true = u_exact_np(t_fdm, x_fdm)
 
-def rel_l2(A, B):
-    return np.linalg.norm(A - B) / (np.linalg.norm(B) + 1e-12)
-
-print("Rel L2: PINN vs TRUE =", rel_l2(U_pinn, U_true))
-print("Rel L2: FDM  vs TRUE =", rel_l2(U_fdm,  U_true))
-print("Rel L2: PINN vs FDM  =", rel_l2(U_pinn, U_fdm))
+print("Rel L2: PINN vs TRUE =", relative_l2(U_pinn.ravel(), U_true.ravel()))
+print("Rel L2: FDM  vs TRUE =", relative_l2(U_fdm.ravel(), U_true.ravel()))
+print("Rel L2: PINN vs FDM  =", relative_l2(U_pinn.ravel(), U_fdm.ravel()))
 
 def show_heatmap(U, title):
     plt.figure(figsize=(8, 4))
@@ -421,7 +339,7 @@ spec = PINNProblemSpec(
 factory = PINNFactory(spec)
 loss_fn = factory.generate_loss_function()
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = best_device()
 
 B, T = 8, 64
 model = PINNLSTM(in_dim=2, out_dim=1, seq_len=T, hidden_dim=64, num_layers=2, dropout=0.0).to(device)
@@ -495,7 +413,7 @@ net = PINNsFormer(
 
 model = PINN(neural_network=net, inverse_params_names=None, initial_guesses=None)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = best_device()
 model = model.to(device)
 
 B = 8
@@ -555,7 +473,7 @@ def sample_ic(n: int, device="cpu"):
     t0 = torch.zeros(n, 1, device=device)
     return (t0,)
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = best_device()
 model = model.to(device)
 
 for step in range(2000):
@@ -686,7 +604,7 @@ def make_interface_pair(
     nj = torch.tensor([0.0, -1.0], device=device)
     return xi, xj, ni, nj
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = best_device()
 torch.manual_seed(0)
 
 nu = 0.1
@@ -837,9 +755,10 @@ xtfc = XTFC(
     config=cfg,
 )
 
-model = XTFCFactoryModel(xtfc, inverse_params_names=["nu"], initial_guesses={"nu": 0.01})
+# XTFCFactoryModel takes one (N, 2) tensor; PINN concatenates the factory's (t, x) inputs and holds nu
+model = PINN(XTFCFactoryModel(xtfc), inverse_params_names=["nu"], initial_guesses={"nu": 0.01})
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = best_device()
 model = model.to(device)
 
 # 3) Batch
