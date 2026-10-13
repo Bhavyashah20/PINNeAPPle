@@ -213,3 +213,18 @@ def test_point_metrics_closed_forms():
     assert field_error_metrics(q, t, ndim=2).crmse == pytest.approx(0.0, abs=1e-15)
     # Interior-only error: boundary RMSE is zero.
     assert field_error_metrics(q, t, ndim=2).brmse == pytest.approx(0.0, abs=1e-15)
+
+
+def test_vrmse_and_pearson_closed_forms():
+    """pred = target + c (target - mean): VRMSE = |c| exactly, Pearson = 1 (c > -1)."""
+    rng = np.random.default_rng(7)
+    t = rng.standard_normal((3, 16, 16)) + 5.0          # large offset: nRMSE would look tiny
+    for c in (0.1, 0.5, 2.0):
+        p = t + c * (t - t.mean(axis=(-2, -1), keepdims=True))
+        r = field_error_metrics(p, t, ndim=2)
+        assert r.vrmse == pytest.approx(c, rel=1e-9)
+        assert r.pearson == pytest.approx(1.0, abs=1e-9)
+        assert r.nrmse < r.vrmse                         # offset hides the error in nRMSE
+    # Predicting the spatial mean everywhere: VRMSE = 1, whatever the offset.
+    m = np.broadcast_to(t.mean(axis=(-2, -1), keepdims=True), t.shape)
+    assert field_error_metrics(m, t, ndim=2).vrmse == pytest.approx(1.0, rel=1e-9)
