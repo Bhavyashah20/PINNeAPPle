@@ -29,6 +29,8 @@ import time
 import torch
 
 from pinneapple_neural.trainer.self_scaled_qn import SelfScaledQuasiNewton
+from pinneapple_physics.metrics import relative_l2
+from pinneapple_physics.pinn_solver.compiler.autograd_ops import laplacian
 
 A1, A2, K = 1.0, 4.0, 1.0
 
@@ -60,10 +62,7 @@ def make_model(seed):
 def residual_loss(u, xy, q):
     xy = xy.requires_grad_(True)
     uu = u(xy)
-    g = torch.autograd.grad(uu.sum(), xy, create_graph=True)[0]
-    uxx = torch.autograd.grad(g[:, 0].sum(), xy, create_graph=True)[0][:, :1]
-    uyy = torch.autograd.grad(g[:, 1].sum(), xy, create_graph=True)[0][:, 1:2]
-    return ((uxx + uyy + K ** 2 * uu - q) ** 2).mean()
+    return ((laplacian(uu, xy) + K ** 2 * uu - q) ** 2).mean()
 
 
 def rel_l2(u, n=200):
@@ -71,8 +70,7 @@ def rel_l2(u, n=200):
     X, Y = torch.meshgrid(s, s, indexing="ij")
     xy = torch.stack([X.reshape(-1), Y.reshape(-1)], 1)
     with torch.no_grad():
-        ref = exact(xy)
-        return float(torch.linalg.norm(u(xy) - ref) / torch.linalg.norm(ref))
+        return relative_l2(u(xy).ravel(), exact(xy).ravel())
 
 
 def run(variant, args):

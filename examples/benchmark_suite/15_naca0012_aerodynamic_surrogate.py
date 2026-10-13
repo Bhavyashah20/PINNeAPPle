@@ -20,6 +20,9 @@ from matplotlib.path import Path as MplPath
 import torch
 import torch.nn as nn
 
+from pinneapple_tools.visualization.style import use_cfd_style  # noqa: E402
+
+use_cfd_style(dark=True)                   # dark theme: text, ticks, spines, grid
 plt.rcParams.update({
     "font.size": 12,
     "axes.labelsize": 12,
@@ -101,15 +104,6 @@ CP_REF[inside] = np.nan
 # 2. FIGURE A — Velocity field + Cp field
 # ─────────────────────────────────────────────────────────────────────────────
 
-def dark_ax(ax, facecolor=BG):
-    ax.set_facecolor(facecolor)
-    for sp in ax.spines.values():
-        sp.set_color(BORD)
-    ax.tick_params(colors=MUTED)
-    ax.xaxis.label.set_color(TEXT)
-    ax.yaxis.label.set_color(TEXT)
-    ax.title.set_color(TEXT)
-
 fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(16, 7), facecolor=BG)
 
 # — Velocity magnitude
@@ -136,7 +130,7 @@ ax0.annotate("Stagnation\npoint", xy=(-1.05, 0.04), color=ORANGE,
              fontsize=9, xytext=(-1.9, 0.5),
              arrowprops=dict(arrowstyle="->", color=ORANGE, lw=0.9))
 ax0.annotate("Wake", xy=(1.5, 0.0), color=PURPLE, fontsize=9, ha="center")
-dark_ax(ax0)
+ax0.set_facecolor(BG)
 
 # — Cp field
 cp_plot = np.clip(np.where(inside, np.nan, CP_REF), -3, 1.5)
@@ -153,7 +147,7 @@ ax1.set_aspect("equal"); ax1.set_xlim(-2.5, 2.5); ax1.set_ylim(-2.0, 2.0)
 ax1.annotate("Suction\npeak", xy=(-0.8, 0.12), color=TEXT, fontsize=9,
              xytext=(-1.8, 0.8),
              arrowprops=dict(arrowstyle="->", color=TEXT, lw=0.9))
-dark_ax(ax1)
+ax1.set_facecolor(BG)
 
 fig.suptitle("NACA 0012 — Joukowski Potential Flow  (inviscid, incompressible)",
              color=ACCENT, fontsize=15, fontweight="bold", y=1.01)
@@ -254,7 +248,7 @@ vmax_u = np.nanpercentile(u_ref_plot, 98)
 for ax, field, title in zip(axes,
     [u_ref_plot, U_pred, U_rel_err],
     ["Reference (Joukowski)", "PINN prediction", "Relative error (%, capped 30%)"]):
-    dark_ax(ax)
+    ax.set_facecolor(BG)
     cmap_i = "plasma" if "error" not in title.lower() else "hot_r"
     if "error" in title.lower():
         cf = ax.contourf(XX, YY, field, levels=50, cmap=cmap_i, vmin=0, vmax=30)
@@ -352,7 +346,7 @@ cp_up_pinn_c = np.clip(cp_up_pinn_raw[mask_up], CP_DISPLAY_MIN, CP_DISPLAY_MAX)
 cp_lo_pinn_c = np.clip(cp_lo_pinn_raw[mask_lo], CP_DISPLAY_MIN, CP_DISPLAY_MAX)
 
 fig, ax = plt.subplots(figsize=(13, 7), facecolor=BG)
-dark_ax(ax, facecolor=SURF)
+ax.set_facecolor(SURF)
 
 ax.fill_between(x_up_t, cp_up_c, 0, alpha=0.15, color=ACCENT, label="_nolegend_")
 ax.fill_between(x_lo_t, cp_lo_c, 0, alpha=0.10, color=ORANGE, label="_nolegend_")

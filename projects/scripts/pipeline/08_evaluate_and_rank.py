@@ -7,15 +7,11 @@ import torch
 from pinneapple_neural.architectures.pinns.registry import PINNCatalog
 from pinneapple_neural.architectures.neural_operators.fno import FourierNeuralOperator
 from pinneapple_neural.trainer.checkpoint import load_checkpoint
+from pinneapple_neural.trainer.parallel import best_device
+from pinneapple_physics.metrics import rmse
 
 
 PINN_MODELS = ["vanilla_pinn", "vpinn", "xpinn", "pinnsformer", "xtfc"]
-
-
-def rmse(a, b):
-    a = np.asarray(a, dtype=np.float64)
-    b = np.asarray(b, dtype=np.float64)
-    return float(np.sqrt(np.mean((a - b) ** 2)))
 
 
 def split_filter(df, split="test"):
@@ -37,7 +33,7 @@ def main():
     cloud_test = split_filter(cloud, "test")
     line_test = split_filter(line, "test")
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = str(best_device())
 
     rows = []
 

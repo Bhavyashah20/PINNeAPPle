@@ -42,7 +42,7 @@ applies, where no closed form exists. The fin was chosen because it has one, so 
 An aluminium plate (100 × 60 × 1 mm) carries an 8 W device (20 × 20 mm) and cools by natural convection from both faces;
 h is unknown. Eight thermocouples (±0.5 °C). There is no formula for this field: the PINN learns T(x, y) and h from
 `k t ∇²T − 2h (T − T_air) + q'' = 0`, the adiabatic edges and the readings. The check is an independent finite-volume
-solution (`fv_reference.py`, 200 × 120 cells, grid-converged to 0.01 K).
+solution (`pinneapple_simulation.numerical_solvers.heat_fv_reference`, 200 × 120 cells, grid-converged to 0.01 K).
 
 ![2D result](results/2d/plate_result_card.png)
 

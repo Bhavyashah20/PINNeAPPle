@@ -72,6 +72,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from pinneapple_neural.architectures.rom.parametric import latin_hypercube
+from pinneapple_tools.visualization.style import make_figure, use_cfd_style
+
 # ── PINNeAPPle imports (graceful fallback) ─────────────────────────────────
 try:
     from pinneapple_train import best_device, maybe_compile
@@ -183,23 +186,11 @@ SEDAN_PROGRAM = ProgramSpec("Sedan", n_tubes=300,  n_crush_pts=50,
                              t_range=(1.2, 3.0), b_range=(40.0, 80.0))
 
 
-def _lhs_sample(n: int, ranges: List[Tuple[float, float]], rng: np.random.Generator) -> np.ndarray:
-    """Latin Hypercube Sampling (LHS) from unit hypercube → physical space."""
-    d = len(ranges)
-    pts = np.zeros((n, d))
-    for j in range(d):
-        perm = rng.permutation(n)
-        u    = (perm + rng.uniform(size=n)) / n
-        lo, hi = ranges[j]
-        pts[:, j] = lo + u * (hi - lo)
-    return pts
-
-
 def generate_dataset(prog: ProgramSpec, seed: int = 0) -> Dict[str, np.ndarray]:
     """Generate crash surrogate dataset via LHS + Abramowicz-Jones solver."""
     rng = np.random.default_rng(seed)
-    ranges = [prog.t_range, prog.b_range, prog.sigma_range, prog.v0_range]
-    design_pts = _lhs_sample(prog.n_tubes, ranges, rng)
+    design_pts, _ = latin_hypercube(prog.n_tubes, {"t": prog.t_range, "b": prog.b_range,
+                                                   "sigma": prog.sigma_range, "v0": prog.v0_range}, seed=seed)
 
     N  = prog.n_tubes
     Nx = prog.n_crush_pts
@@ -507,25 +498,9 @@ def design_space_sweep(
 # 9. PLOTTING
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _dark_fig(nrows=1, ncols=1, figsize=(10, 4)):
-    fig, axes = plt.subplots(nrows, ncols, figsize=figsize, facecolor=DARK_BG)
-    if not isinstance(axes, np.ndarray):
-        axes = np.array([[axes]])
-    elif axes.ndim == 1:
-        axes = axes[None, :]
-    for ax in axes.flat:
-        ax.set_facecolor(DARK_BG)
-        ax.tick_params(colors="white")
-        for spine in ax.spines.values():
-            spine.set_edgecolor("#444")
-        ax.xaxis.label.set_color("white")
-        ax.yaxis.label.set_color("white")
-        ax.title.set_color("white")
-    return fig, axes
-
-
 def plot_training_history(history_suv, history_sedan, out_path):
-    fig, axes = _dark_fig(1, 2, figsize=(12, 4))
+    use_cfd_style(dark=True)
+    fig, axes = make_figure(1, 2, figsize=(12, 4), squeeze=False)
     for ax, hist, label, color in zip(
         axes[0],
         [history_suv, history_sedan],
@@ -574,7 +549,8 @@ def plot_force_displacement(
     with torch.no_grad():
         pred = model(torch.tensor(X_q, device=device)).cpu().numpy()
 
-    fig, axes = _dark_fig(1, 3, figsize=(15, 4))
+    use_cfd_style(dark=True)
+    fig, axes = make_figure(1, 3, figsize=(15, 4), squeeze=False)
     x_mm = sol["x_m"] * 1e3
 
     for ax, y_ref, y_pred, scale, ylabel, col in zip(
@@ -603,7 +579,8 @@ def plot_force_displacement(
 
 
 def plot_design_map(sweep: Dict[str, np.ndarray], out_path: Path):
-    fig, axes = _dark_fig(1, 3, figsize=(15, 5))
+    use_cfd_style(dark=True)
+    fig, axes = make_figure(1, 3, figsize=(15, 5), squeeze=False)
     t_range = (1.0, 4.0);  b_range = (40.0, 100.0)
 
     for ax, zmap, title, cmap in zip(

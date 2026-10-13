@@ -38,7 +38,7 @@ SOURCES = {
 _SCRIPTS = {
     "burgers_pinn": ["examples/benchmark_suite/03_pinn_burgers_full_pipeline.py"],
     "fin_inverse_2d": ["examples/use_cases/fin_convection_inverse/plate_2d.py",
-                       "examples/use_cases/fin_convection_inverse/fv_reference.py"],
+                       "pinneapple_simulation/numerical_solvers/heat_fv_reference.py"],
     "fin_inverse_3d": ["examples/use_cases/fin_convection_inverse/block_3d.py"],
     "lbm_strouhal": ["benchmarks/lbm_vortex_shedding.py"],
     "meshgraphnet": ["examples/meshgraphnet/01_synthetic_diffusion.py",
