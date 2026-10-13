@@ -82,9 +82,10 @@ VIPER_SOURCES = {
     "suspension arm geometry (pivot, length), steering offset": "estimate: not published; pivots under the chassis "
         "and a 0.15 m steering offset chosen so that the nominal track is 1.3 m, the wheelbase 1.0 m and +/-40 deg of "
         "arm travel changes ride height and track, as the PSJ paper describes",
-    "chassis box 1.40 x 1.30 x 0.66 m, belly 0.64 m above ground": "estimate: fits the 1.7 m envelope with the side "
-        "arrays and keeps the 0.5 m wheels clear under the deck at +/-50 deg steering",
-    "solar array panels 1.30 x 0.78 m": "estimate: panel area not found",
+    "chassis box 1.50 x 1.56 x 0.66 m, belly 0.64 m above ground": "estimate: with the arrays flush on its sides it "
+        "fills the 1.7 m envelope, and the 0.5 m wheels stay clear under the belly at +/-50 deg steering",
+    "solar array panels 1.40 x 0.58 m (sides), 1.46 x 0.58 m (aft), on the body faces": "estimate: panel area not "
+        "found; each panel covers its body face",
     "high-gain dish diameter 0.40 m": "estimate: not found",
     "mass split (per corner: wheel+drive 12 kg, steering 8 kg, arm 10 kg; chassis 330 kg)": "estimate: only the total "
         "is published; the split sets the centre of mass and inertia computed from the CAD",
@@ -134,23 +135,23 @@ def viper_cad(spec: VehicleSpec) -> VehicleCAD:
     alloc = {"structure": 0.36, "avionics": 0.27, "arrays": 0.11, "radiator": 0.045, "mast": 0.075, "drill": 0.06,
              "instruments": 0.045, "susp_housings": 0.035}
     M = {k: v * m_chassis / sum(alloc.values()) for k, v in alloc.items()}
-    # chassis: structure (white box with a gold MLI belly)
-    cad.add("chassis_box", "chassis", beveled_box((1.40, 1.30, H - 0.05), (0, 0, zc + 0.025), 0.035), "white_paint",
+    # chassis: a closed white box whose sides carry the arrays flush (no gap between arrays and body)
+    bx0, bx1, by = -0.78, 0.72, 0.78                   # aft face, front face, half width [m]
+    L, Wd, xm = bx1 - bx0, 2 * by, 0.5 * (bx0 + bx1)
+    cad.add("chassis_box", "chassis", beveled_box((L, Wd, H - 0.04), (xm, 0, zc + 0.02), 0.04), "white_paint",
             M["structure"] * 0.85)
-    cad.add("chassis_belly", "chassis", box((1.32, 1.22, 0.05), (0, 0, zb + 0.025)), "mli_gold",
+    cad.add("chassis_belly", "chassis", box((L - 0.06, Wd - 0.06, 0.04), (xm, 0, zb + 0.02)), "mli_gold",
             M["structure"] * 0.15)
     cad.add("avionics", "chassis", box((0.9, 0.8, 0.25), (0.0, 0.0, zb + 0.18)), "mli_gold", M["avionics"])
-    # solar arrays: left, right, aft
-    pw, ph = 1.30, 0.78
-    for nm, R, t in (("array_L", rot((0, 0, 1), math.pi), (0.0, 0.81, zc + 0.04)),
-                     ("array_R", np.eye(3), (0.0, -0.81, zc + 0.04)),
-                     ("array_aft", rot((0, 0, 1), -math.pi / 2), (-0.81, 0.0, zc + 0.04))):
-        cad.add_assembly(nm, "chassis", solar_panel(pw, ph, cells=(8, 4)), M["arrays"] / 3, R=R, t=t)
-        for k in (-1, 1):
-            br = box((0.06, 0.12, 0.06), (k * 0.45, 0.07, ph / 2 - 0.1))
-            cad.add(f"{nm}_bracket{k}", "chassis", (br[0] @ np.asarray(R).T + t, br[1]), "aluminium", 0.0)
-    # radiator on the deck
-    cad.add_assembly("radiator", "chassis", radiator(1.05, 0.95, fins=14), M["radiator"], t=(-0.08, 0.0, zt + 0.02))
+    # solar arrays on the left, right and aft faces, the full height of the body side
+    ph, th = H - 0.08, 0.025
+    for nm, R, t, pw in (("array_L", rot((0, 0, 1), math.pi), (xm, by + th / 2 + 0.002, zc), L - 0.10),
+                         ("array_R", np.eye(3), (xm, -by - th / 2 - 0.002, zc), L - 0.10),
+                         ("array_aft", rot((0, 0, 1), -math.pi / 2), (bx0 - th / 2 - 0.002, 0.0, zc), Wd - 0.10)):
+        cad.add_assembly(nm, "chassis", solar_panel(pw, ph, thickness=th, cells=(8, 4)), M["arrays"] / 3, R=R, t=t)
+    # radiator covering the deck
+    cad.add_assembly("radiator", "chassis", radiator(L - 0.14, Wd - 0.14, fins=16), M["radiator"],
+                     t=(xm, 0.0, zt + 0.02))
     # mast with camera head, high-gain antenna, low-gain antenna
     mx, my = 0.52, 0.40
     mast_top = 2.50 - 0.20
@@ -178,7 +179,7 @@ def viper_cad(spec: VehicleSpec) -> VehicleCAD:
     cad.add("drill_bit", "chassis", cylinder((0.10, 0.0, zb), (0.10, 0.0, zb - 0.16), (0.03, 0.012), 20),
             "steel", M["drill"] * 0.4)
     # instruments: NSS on the front, NIRVSS and MSolo under the rover
-    cad.add("NSS", "chassis", beveled_box((0.10, 0.26, 0.20), (0.75, -0.25, zc - 0.05), 0.015), "mli_gold",
+    cad.add("NSS", "chassis", beveled_box((0.10, 0.26, 0.20), (bx1 + 0.05, -0.25, zc - 0.05), 0.015), "mli_gold",
             M["instruments"] * 0.4)
     cad.add("NIRVSS", "chassis", beveled_box((0.24, 0.18, 0.08), (0.35, -0.30, zb - 0.04), 0.01), "anodized_black",
             M["instruments"] * 0.35)
@@ -187,11 +188,11 @@ def viper_cad(spec: VehicleSpec) -> VehicleCAD:
     # hazard cameras (one per wheel) and hazard lights at the corners
     for c in spec.corners:
         sx, sy = c.front, c.side
-        p = np.array([0.70 * sx, 0.52 * sy, zb + 0.06])
+        p = np.array([(bx1 - 0.06 if sx > 0 else bx0 + 0.06), 0.52 * sy, zb - 0.035])   # under the belly
         cad.add(f"hazcam_{c.name}", "chassis", beveled_box((0.07, 0.07, 0.05), p, 0.008), "anodized_black", 0.0)
         cad.add(f"hazcam_lens_{c.name}", "chassis", cylinder(p + [0.035 * sx, 0, 0], p + [0.045 * sx, 0, 0], 0.015,
                                                              16), "lens", 0.0)
-        cad.add(f"hazlight_{c.name}", "chassis", box((0.01, 0.10, 0.03), (0.705 * sx, 0.32 * sy, zb + 0.06)), "led",
+        cad.add(f"hazlight_{c.name}", "chassis", box((0.10, 0.03, 0.02), (0.55 * sx, (by - 0.05) * sy, zb - 0.012)), "led",
                 0.0)
         # suspension actuator housing (fixed to the chassis, at the arm pivot)
         P = c.susp_pivot
