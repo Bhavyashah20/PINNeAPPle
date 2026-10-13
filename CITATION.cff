@@ -17,6 +17,11 @@ authors:
     affiliation: "University of Arizona; University of Bologna"
 version: "0.7.0"
 date-released: "2026-10-13"
+doi: "10.5281/zenodo.23343062"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.23343062"
+    description: "Zenodo archive of version 0.7.0"
 repository-code: "https://github.com/PINNeAPPle-Labs/PINNeAPPle"
 url: "https://pinneapple-labs.github.io/PINNeAPPle/"
 license: "Apache-2.0"

@@ -8,6 +8,7 @@
 
 [![Tests](https://github.com/PINNeAPPle-Labs/PINNeAPPle/actions/workflows/tests.yml/badge.svg)](https://github.com/PINNeAPPle-Labs/PINNeAPPle/actions/workflows/tests.yml)
 [![PyPI](https://img.shields.io/pypi/v/pinneapple.svg)](https://pypi.org/project/pinneapple/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23343062.svg)](https://doi.org/10.5281/zenodo.23343062)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 <img src="docs/assets/readme/mosaic.jpg" width="100%" alt="Highlights: global weather forecast, OpenFOAM airliner and Ahmed body, physics ensembles, MeshGraphNet, LBM, qualitative preview, PINNs for electrodynamics and heat, design apps"/>
@@ -366,7 +367,8 @@ If you use PINNeAPPle in your research, please cite it. [`CITATION.cff`](CITATIO
   author       = {Barros, Yan and Schiassi, Enrico},
   year         = {2026},
   url          = {https://github.com/PINNeAPPle-Labs/PINNeAPPle},
-  version      = {0.7.0}
+  version      = {0.7.0},
+  doi          = {10.5281/zenodo.23343062}
 }
 ```
 
