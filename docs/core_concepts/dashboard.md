@@ -92,9 +92,10 @@ shifts the series colours a little, so the MP4 and the HTML page are the referen
 import pinneapple as pp
 from pinneapple_simulation.vehicle import dashboard as vdash
 frames, ks, clim = vdash.render_frames(run, terrain, n=150,      # planetary renders, 3-D ruts
-                                       field="normal_stress", field_alpha=0.6, field_glow=0.1)
+                                       field="normal_stress", field_alpha=0.45, field_glow=0.05,
+                                       field_saturation=0.6, clim_percentiles=(5, 95))
 db = vdash.vehicle_dashboard(run, frames, ks, model=wong_reece, surrogate=pp.zoo.load("rover_contact_grc1_viper"),
-                             clim=clim, field_label="Peak normal stress in the ruts [kPa]",
+                             clim=clim, field_label="Peak normal stress in the ruts [kPa]", field_saturation=0.6,
                              scene3d=True, terrain=terrain)
 ```
 
@@ -104,9 +105,10 @@ The animation shows:
 - wheels that roll with the joint angles and leave ruts deformed into the terrain mesh: a floor at the computed
   sinkage, walls at the angle of repose, berms of displaced soil and grouser marks spaced by the pitch and the
   slip, all shaded and shadowed by the low Sun;
-- the ruts coloured by the peak normal stress they carried [kPa], with its colour bar. The map is semi-transparent
-  (`field_alpha=0.6`, `field_glow=0.1`): it tints the regolith's albedo before the photometry, so the rut walls,
-  the grouser marks and the Sun's shading and shadows stay visible through it;
+- the ruts coloured by the peak normal stress they carried [kPa], with its colour bar. The map is muted and
+  semi-transparent (`field_alpha=0.45`, `field_glow=0.05`, `field_saturation=0.6`): it tints the regolith's albedo
+  before the photometry, so the rut walls, the grouser marks and the Sun's shading and shadows dominate; its range
+  spans the 5-95 % percentiles of the stress the ruts carry (≈ 14-21 kPa), so the variation along the ruts shows;
 - the ground running out to the real lunar horizon, so no mesh edge shows in any frame (checked for the frames by
   `studio.planetary.border_visibility`).
 
@@ -137,13 +139,11 @@ The run behind it is the crater crossing of the [lunar rover page](lunar_rover_t
 794 J (92 J/m), and reaches 10.5° of pitch and 3.8° of roll; the front-left wheel leaves the soil for a moment near
 1.3 m (its sinkage and load drop to zero).
 
-**The zoo PINN along the run.** Its model card gives a held-out drawbar-pull RMSE of 0.207 N against its own
-reference. Along this run, against the run's Wong-Reece model, the drawbar-pull RMSE over all wheels is 11.3 N.
-Almost all of it comes from a few samples near the rock, where the rear-left wheel slips up to ≈ 0.8 and the error
-reaches ≈ 190 N; elsewhere it is a few newtons. The reason is the model, not the network: the zoo model was trained
-on GRC-1 before slip-sinkage was added to the library (n1 = 0), while the run uses n1 = 0.8 (see the
-[lunar rover page](lunar_rover_terramechanics.md)). Against the n1 = 0 Wong-Reece model it was trained on, its
-drawbar-pull RMSE at the states of this run is 0.35 N. Retraining the zoo model on the current GRC-1
-(`scripts/zoo/train_rover_contact.py`) and publishing it would bring the run error back to that level.
+**The zoo PINN along the run.** `rover_contact_grc1_viper` v1.1.0 is trained on the physics of this run (GRC-1
+with slip-sinkage, n1 = 0.8; the dashboard checks it with `ZooContactSurrogate.check_physics` and shows "PINN
+physics vs run: same"). Its model card gives a held-out drawbar-pull RMSE of 0.22 N; along this run, at the states
+the wheels met, its drawbar-pull RMSE over all wheels is 0.33 N, with no error above 1 N. v1.0.0, trained before
+slip-sinkage was added (n1 = 0), erred by 11.3 N RMS on the same run and by up to ≈ 190 N near the rock; it stays
+loadable as a superseded release (see the [model zoo guide](../guides/model_zoo.md)).
 
 ![One rendered frame](../assets/studio/rover-frame.png)
