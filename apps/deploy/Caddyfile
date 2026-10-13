@@ -167,3 +167,8 @@
 		}
 	}
 }
+
+{$PLG_DOMAIN} {
+	import common
+	reverse_proxy playground:8094
+}

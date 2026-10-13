@@ -14,6 +14,21 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- PINNeAPPle Playground (`apps/playground`): a static web page in which the zoo models answer live in the browser,
+  with the physics checks and the trust verdict next to every number. It has four modes:
+  - airfoil: drag the CST shape or pick a NACA preset; Cl/Cd/Cm/L-D with the ensemble spread, and the polar
+    against held-out OpenFOAM and XFOIL;
+  - heat sink: resistance with the conformal 95 % bound, and the pressure drop;
+  - rover wheel: the VIPER wheel on GRC-1;
+  - the geometry library in 3-D.
+
+  The models are exported to ONNX (`apps/playground/tools/build_assets.py`), with pre- and post-processing
+  included, and run in a built-in interpreter, or in onnxruntime-web with `engine=ort`. The state lives in the URL,
+  the page works offline, and the mobile layout is supported. CI (`.github/workflows/playground.yml`) checks ONNX
+  parity with PyTorch to 1e-5 on the zoo test sets, runs JS unit tests against Python fixtures and a Playwright
+  smoke test, and builds the Docker image. Deploy config: `apps/playground/Dockerfile`, a `playground` service in
+  `apps/deploy`, and an opt-in GitHub Pages step (`PLAYGROUND_PAGES`) in the docs workflow.
+  Guide: `docs/guides/playground.md`.
 - Latent surrogate with a trust card (`pinneapple_neural.architectures.rom.TrustedLatentSurrogate`): wraps a POD
   latent model (`ParametricPOD`) with three per-query checks calibrated on held-out designs — a normalised
   split-conformal bound on the relative field error (Gaussian-process spread or a bootstrap ensemble of latent
