@@ -1,0 +1,47 @@
+{
+ "source": "JPL Horizons values as quoted in the skyfield test suite (skyfield/tests/test_against_horizons.py, MIT, (c) Brandon Rhodes). Horizons itself (ssd.jpl.nasa.gov) was not reachable from the build environment; scripts/astro/fetch_horizons_fixtures.py regenerates a larger set where it is.",
+ "cases": [
+  {
+   "id": "mars_1956_ecliptic_of_date",
+   "body": "mars",
+   "utc": "1956-01-14T06:00:00Z",
+   "frame": "apparent ecliptic of date, geocentric",
+   "lon_deg": 240.0965633,
+   "lat_deg": 0.4753402,
+   "tolerance_arcsec": 0.72
+  },
+  {
+   "id": "sun_2005_ecliptic_of_date_a",
+   "body": "sun",
+   "utc": "2005-10-01T07:00:00Z",
+   "frame": "apparent ecliptic of date, geocentric",
+   "lon_deg": 188.2011122,
+   "lat_deg": 4.88e-05,
+   "tolerance_arcsec": 0.72
+  },
+  {
+   "id": "sun_2005_ecliptic_of_date_b",
+   "body": "sun",
+   "utc": "2005-10-01T08:00:00Z",
+   "frame": "apparent ecliptic of date, geocentric",
+   "lon_deg": 188.2420983,
+   "lat_deg": 4.74e-05,
+   "tolerance_arcsec": 0.72
+  },
+  {
+   "id": "moon_boston_2015_astrometric",
+   "body": "moon",
+   "tdb_jd": 2457083.5,
+   "tt_minus_ut1_s": 67.7139857,
+   "observer": {
+    "lat": 42.356694,
+    "lon": -71.056889,
+    "elevation_m": 0
+   },
+   "frame": "topocentric astrometric GCRS (DE430 in the source)",
+   "ra_deg": 121.479647,
+   "dec_deg": 14.910845,
+   "tolerance_arcsec": 0.5
+  }
+ ]
+}

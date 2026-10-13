@@ -97,6 +97,13 @@ fitmesh = [
 newton = [
   "newton>=1.6",
 ]
+# Positional astronomy (pinneapple_physics.astro): SGP4 satellites, the public-domain JPL DE421 kernel, and skyfield
+# as an independent cross-check in the validation suite
+sky = [
+  "sgp4>=2.22",
+  "skyfield-data>=6.0",
+  "skyfield>=1.48",
+]
 # astroML periodograms, extreme deconvolution, fits with errors (pde_environment.presets.astroml_bridge)
 astroml = [
   "astroML>=1.0",
