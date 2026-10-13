@@ -1,0 +1,59 @@
+{
+ "source": "U.S. Naval Observatory Astronomical Applications Department tables (aa.usno.navy.mil) for 2018, as quoted with their URLs in the skyfield test suite (skyfield/tests/test_almanac.py, MIT). Times are UTC rounded to the minute by USNO.",
+ "sunrise_sunset": [
+  {
+   "place": "Bluffton, OH",
+   "lat": 40.8939,
+   "lon": -83.8917,
+   "date_utc_start": "2018-09-12T04:00:00Z",
+   "rise": "2018-09-12T11:13",
+   "set": "2018-09-12T23:50"
+  }
+ ],
+ "moon_phases": [
+  {
+   "event": "First quarter",
+   "utc": "2018-09-16T23:15"
+  },
+  {
+   "event": "Full Moon",
+   "utc": "2018-09-25T02:52"
+  }
+ ],
+ "seasons": [
+  {
+   "event": "September equinox",
+   "utc": "2018-09-23T01:54"
+  },
+  {
+   "event": "December solstice",
+   "utc": "2018-12-21T22:23"
+  }
+ ],
+ "moon_illumination_0500utc": {
+  "dates": [
+   "2018-09-09",
+   "2018-09-10",
+   "2018-09-11",
+   "2018-09-12",
+   "2018-09-13",
+   "2018-09-14",
+   "2018-09-15",
+   "2018-09-16",
+   "2018-09-17",
+   "2018-09-18"
+  ],
+  "fraction": [
+   0,
+   0,
+   0.03,
+   0.08,
+   0.15,
+   0.24,
+   0.33,
+   0.43,
+   0.52,
+   0.62
+  ]
+ }
+}
