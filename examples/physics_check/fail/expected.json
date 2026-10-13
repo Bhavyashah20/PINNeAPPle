@@ -1,0 +1,76 @@
+{
+ "cavity": [
+  "PC201",
+  "PC701"
+ ],
+ "cavity-viscosity": [
+  "PC301"
+ ],
+ "cavity-dynamic-viscosity": [
+  "PC504"
+ ],
+ "cavity-undeclared-lid": [
+  "PC203"
+ ],
+ "fields/heat_plate.npz": [
+  "PC103",
+  "PC301"
+ ],
+ "fields/block_gravity.npz": [
+  "PC104",
+  "PC301"
+ ],
+ "fields/diffusion_1d.npz": [
+  "PC105",
+  "PC301"
+ ],
+ "fields/cooling_plate.npz": [
+  "PC202",
+  "PC301"
+ ],
+ "fields/tank_alpha.vtu": [
+  "PC402"
+ ],
+ "fields/porosity.npz": [
+  "PC401",
+  "PC703"
+ ],
+ "fields/surrogate_T.npz": [
+  "PC403"
+ ],
+ "fields/probe_T.csv": [
+  "PC501",
+  "PC503"
+ ],
+ "fields/unlabelled_T.npz": [
+  "PC502"
+ ],
+ "fields/corrupt.vtu": [
+  "PC001"
+ ],
+ "fields/stream.npz": [
+  "PC002"
+ ],
+ "qoi/airfoil.csv": [
+  "PC702"
+ ],
+ "kovasznay-pinn": [
+  "PC101",
+  "PC102",
+  "PC302",
+  "PC701",
+  "PC901"
+ ],
+ "drag-surrogate": [
+  "PC601",
+  "PC602"
+ ],
+ "legacy-model": [
+  "PC803"
+ ],
+ "integrity": [
+  "PC801",
+  "PC802",
+  "PC804"
+ ]
+}

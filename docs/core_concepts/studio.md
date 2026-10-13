@@ -92,6 +92,38 @@ The file grows by about 28 bytes per triangle, plus about 2 bytes per triangle f
 
 Slices are stored as JSON grids, about 7 bytes per value. Keep them to a few hundred cells a side.
 
+## Lighting presets, Sun shadows and planetary surfaces
+
+`studio.lighting` holds lighting and sky presets that PyVista, Blender and the browser viewer share:
+
+| Preset | Sky | Sun | Used for |
+|---|---|---|---|
+| `studio` | grey-blue gradient | soft, 45° | the CFD renders (aircraft, Formula car) |
+| `lunar_south_pole` | black | 5°, 0.53° disc | the lunar south pole: within about 5.5° of the horizon at 86° S |
+| `lunar_low_sun` | black | 12° | long hard shadows, with small crater floors partly lit |
+| `lunar_day` | black | 30° | mid latitudes |
+
+How each renderer uses them:
+- **PyVista:** `apply_pyvista(plotter, "lunar_south_pole", earth=True)` adds the Sun, a weak regolith bounce
+  light and, optionally, Earth at its 1.9° apparent size.
+- **Blender:** `pp.viz.render(scene, "x.jpg", background="lunar_south_pole")` lights the scene with one Sun lamp of
+  the Sun's angular size and no sky light.
+- **Browser viewer:** `scene.set_lighting("lunar_low_sun")` makes the viewer draw the black sky and the low Sun.
+
+`studio.shadows` bakes hard Sun shadows into heightfield terrains, independent of the renderer:
+- **Self-shadowing:** `terrain_self_shadow` marches towards the horizon along the Sun direction.
+- **Cast shadows:** `cast_shadow` projects vehicle and rock meshes along the Sun onto the terrain.
+- **Shadowed points:** `points_in_terrain_shadow` darkens meshes the terrain hides from the Sun.
+
+Regolith is shaded with the Lunar-Lambert photometric function of McEwen (1991), which keeps it readable at grazing
+Sun angles where a Lambert surface turns black. `studio.planetary.render_surface(SurfaceView(...))` puts it all
+together: terrain with baked photometry and shadows, a far-field ring, rocks, vehicle parts with their materials,
+optional field colour maps on the terrain and the parts with a colour bar, and Earth.
+
+![VIPER under a 5 degree Sun](../assets/lunar_rover/viper_beauty.png)
+
+The lunar rover page ([Lunar rover terramechanics in 3D](lunar_rover_terramechanics.md)) shows these in use.
+
 ## Particle process videos
 
 Thousands of spheres coloured by a value inside glass or steel equipment that moves (an impeller turning), rendered

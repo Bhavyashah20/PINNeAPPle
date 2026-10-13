@@ -1,0 +1,84 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:                                        |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : OpenFOAM v1912 (Ubuntu 24.04 package)
+Arch   : "LSB;label=32;scalar=64"
+Exec   : checkMesh
+Case   : tr5/run
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 0
+
+Time = 0
+
+Mesh stats
+    points:           39204
+    internal points:  0
+    faces:            77441
+    internal faces:   38239
+    cells:            19280
+    faces per cell:   6
+    boundary patches: 7
+    point zones:      0
+    face zones:       0
+    cell zones:       0
+
+Overall number of cells of each type:
+    hexahedra:     19280
+    prisms:        0
+    wedges:        0
+    pyramids:      0
+    tet wedges:    0
+    tetrahedra:    0
+    polyhedra:     0
+
+Checking topology...
+    Boundary definition OK.
+    Cell to face addressing OK.
+    Point usage OK.
+    Upper triangular ordering OK.
+    Face vertices OK.
+    Number of regions: 1 (OK).
+
+Checking patch topology for multiply connected surfaces...
+    Patch               Faces    Points   Surface topology                  
+    floor               241      484      ok (non-closed singly connected)  
+    upstreamWall        50       102      ok (non-closed singly connected)  
+    sill                16       34       ok (non-closed singly connected)  
+    outlet              64       130      ok (non-closed singly connected)  
+    atmosphere          266      536      ok (non-closed singly connected)  
+    nozzle              5        12       ok (non-closed singly connected)  
+    frontAndBack        38560    39204    ok (non-closed singly connected)  
+
+Checking faceZone topology for multiply connected surfaces...
+    No faceZones found.
+
+Checking basic cellZone addressing...
+    No cellZones found.
+
+Checking geometry...
+    Overall domain bounding box (0 0 0) (1.2 0.005 0.4)
+    Mesh has 2 geometric (non-empty/wedge) directions (1 0 1)
+    Mesh has 2 solution (non-empty) directions (1 0 1)
+    All edges aligned with or perpendicular to non-empty directions.
+    Boundary openness (2.1175824e-19 -1.1653438e-15 3.4419392e-17) OK.
+    Max cell openness = 1.3625211e-16 OK.
+    Max aspect ratio = 1.0825323 OK.
+    Minimum face area = 2.3094e-05. Maximum face area = 2.5e-05.  Face area magnitudes OK.
+    Min volume = 1.1547e-07. Max volume = 1.2478273e-07.  Total volume = 0.0024.  Cell volumes OK.
+    Mesh non-orthogonality Max: 0 average: 0
+    Non-orthogonality check OK.
+    Face pyramids OK.
+    Max skewness = 2.6157438e-13 OK.
+    Coupled point location match (average 0) OK.
+
+Mesh OK.
+
+End
+

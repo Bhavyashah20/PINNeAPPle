@@ -1,0 +1,285 @@
+{
+  "name": "airfoil_cst_rans_mlp",
+  "description": "Ensemble of 5 MLPs (8 -> 96 -> 96 -> 96 -> 3, SiLU, bootstrap) mapping a 6-weight CST airfoil and the angle of attack to lift, drag and quarter-chord moment coefficients of a fully turbulent, incompressible 2-D RANS solution at Re = 4e6. The ensemble spread is returned as an uncertainty.",
+  "task": "Airfoil aerodynamic coefficients (Cl, Cd, Cm) from shape and angle of attack, 2-D steady RANS",
+  "version": "1.0.0",
+  "inputs": [
+    {
+      "name": "T0",
+      "unit": "-",
+      "description": "CST thickness weight, leading edge"
+    },
+    {
+      "name": "T1",
+      "unit": "-",
+      "description": "CST thickness weight, mid chord"
+    },
+    {
+      "name": "T2",
+      "unit": "-",
+      "description": "CST thickness weight, aft"
+    },
+    {
+      "name": "M0",
+      "unit": "-",
+      "description": "CST camber weight, front"
+    },
+    {
+      "name": "M1",
+      "unit": "-",
+      "description": "CST camber weight, mid chord"
+    },
+    {
+      "name": "M2",
+      "unit": "-",
+      "description": "CST camber weight, aft"
+    },
+    {
+      "name": "alpha_deg",
+      "unit": "deg",
+      "description": "angle of attack"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "Cl",
+      "unit": "-",
+      "description": "lift coefficient (per unit span, chord 1)"
+    },
+    {
+      "name": "Cd",
+      "unit": "-",
+      "description": "drag coefficient"
+    },
+    {
+      "name": "Cm",
+      "unit": "-",
+      "description": "pitching-moment coefficient about c/4"
+    }
+  ],
+  "validity_range": {
+    "T0": [
+      0.1,
+      0.24
+    ],
+    "T1": [
+      0.08,
+      0.22
+    ],
+    "T2": [
+      0.08,
+      0.22
+    ],
+    "M0": [
+      -0.03,
+      0.08
+    ],
+    "M1": [
+      -0.02,
+      0.14
+    ],
+    "M2": [
+      -0.04,
+      0.12
+    ],
+    "alpha_deg": [
+      -2.0,
+      14.0
+    ],
+    "reynolds": 4000000.0,
+    "mach": "incompressible",
+    "geometry_family": "2nd-order Bernstein CST, upper = M + T, lower = M - T, trailing-edge thickness 0.25 % chord",
+    "regime": "fully turbulent (k-omega SST), attached to mildly separated; deep stall (Cl swing > 0.1 over the last 500 iterations) was excluded from training"
+  },
+  "known_limitations": [
+    "Drag at high lift reads ~14 % high on the campaign grid (20k cells) compared with finer grids/XFOIL; the surrogate inherits the solver's bias, it does not correct it.",
+    "Not valid in deep stall, at other Reynolds numbers, compressible flow or outside the CST bounds.",
+    "Accuracy is against the same solver and grid that generated the training data (interpolation error); the solver's own error against experiment is the larger term."
+  ],
+  "architecture": "MLPEnsemble",
+  "architecture_config": {
+    "k": 5,
+    "width": 96,
+    "in_dim": 8,
+    "out_dim": 3,
+    "activation": "SiLU",
+    "targets": [
+      "Cl",
+      "log Cd",
+      "Cm"
+    ]
+  },
+  "equations": [
+    "steady incompressible RANS, k-omega SST (OpenFOAM v1912 simpleFoam)"
+  ],
+  "domain_bounds": {},
+  "boundary_conditions": {},
+  "initial_condition": {},
+  "training_config": {
+    "epochs": 6000,
+    "optimizer": "Adam lr 3e-3, cosine, weight decay 1e-6",
+    "loss": "MSE on standardised (Cl, log Cd, Cm), weights (1, 2, 1)",
+    "bootstrap": true,
+    "train_runs": 386,
+    "train_shapes": 91,
+    "extra_verification_runs": 54,
+    "script": "apps/aero_optimizer/tools/train_surrogate.py"
+  },
+  "data_lineage": {
+    "dataset": "airfoil_rans_cst_re4e6",
+    "split": "by shape (seed 3, 15 % of LHS shapes held out)",
+    "source": "examples/handoff_cases/airfoil_ld (campaign), apps/aero_optimizer/model/surrogate.pt"
+  },
+  "validation_metrics": {
+    "test/Cl_mae": 0.0028476635807695894,
+    "test/Cl_max_abs": 0.019326576151895702,
+    "test/Cd_mae": 9.115975415693806e-05,
+    "test/Cd_max_abs": 0.0011104396736285153,
+    "test/Cd_mape_pct": 0.5447462642571239,
+    "test/Cd_p90_pct": 1.0353616187191836,
+    "test/Cm_mae": 0.0004539437796155409,
+    "test/Cm_max_abs": 0.0025451080196258954,
+    "test/n": 60.0,
+    "naca_reference/Cl_mae": 0.003231396365459536,
+    "naca_reference/Cl_max_abs": 0.028683417593309724,
+    "naca_reference/Cd_mae": 0.00013511379859050402,
+    "naca_reference/Cd_max_abs": 0.0013729081470662922,
+    "naca_reference/Cd_mape_pct": 0.615631882294239,
+    "naca_reference/Cd_p90_pct": 1.1373013614073955,
+    "naca_reference/Cm_mae": 0.00022242696868302747,
+    "naca_reference/Cm_max_abs": 0.0019696524520329602,
+    "naca_reference/n": 36.0,
+    "xfoil_naca2412/Cl_mae": 0.010092481383557984,
+    "xfoil_naca2412/Cl_max_abs": 0.02017109433227715,
+    "xfoil_naca2412/Cd_mae": 0.00028128564747221293,
+    "xfoil_naca2412/Cd_max_abs": 0.0009061347505152015,
+    "xfoil_naca2412/Cd_mape_pct": 2.812720929821659,
+    "xfoil_naca2412/Cd_p90_pct": 6.872440265354455,
+    "xfoil_naca2412/Cm_mae": 0.0009800236757100693,
+    "xfoil_naca2412/Cm_max_abs": 0.0012370981942770864,
+    "xfoil_naca2412/n": 9.0
+  },
+  "reference_source": "Held-out OpenFOAM RANS runs on 15 airfoil shapes never seen in training (60 runs) and 36 NACA 0012/2412/4412/4415 runs excluded from training. The solver is verified: 3-grid study on NACA 2412 at alpha 4 deg (Cd GCI 1.9 %, observed order 2.4; Cl within 0.02 %), XFOIL 6.99 tripped (Cl -2.3 %, Cd +4.5 %), lift slope 0.110/deg vs 0.110/deg thin-airfoil theory, NASA TMR NACA 0012 SST (Cd 0.00812 vs 0.0081).",
+  "citation": "PINNeAPPle contributors (2026). Airfoil RANS campaign (OpenFOAM v1912 simpleFoam, k-omega SST, Re 4e6, 436 runs) and MLP-ensemble surrogate. PINNeAPPle model zoo, https://github.com/PINNeAPPle-Labs/PINNeAPPle",
+  "license": "apache-2.0",
+  "tags": [
+    "aerodynamics",
+    "airfoil",
+    "RANS",
+    "surrogate",
+    "ensemble"
+  ],
+  "pinneapple_version": "0.7.0",
+  "trust_report": {
+    "modelo": "airfoil_cst_rans_mlp v1.0.0",
+    "decisao": "APPROVED",
+    "score": 1.0,
+    "cobertura": 1.0,
+    "motivos": [],
+    "checagens": [
+      {
+        "name": "card metrics reproduced on the stored reference (max relative difference)",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.0,
+        "limit": 0.001,
+        "source": "Held-out OpenFOAM RANS runs on 15 airfoil shapes never seen in training (60 runs) and 36 NACA 0012/2412/4412/4415 runs e",
+        "reason": ""
+      },
+      {
+        "name": "held-out test/Cl_mae within the zoo acceptance limit",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.0028476635807695894,
+        "limit": 0.01,
+        "source": "independent reference",
+        "reason": ""
+      },
+      {
+        "name": "held-out test/Cd_mape_pct within the zoo acceptance limit",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.5447462642571239,
+        "limit": 2.0,
+        "source": "independent reference",
+        "reason": ""
+      },
+      {
+        "name": "held-out test/Cm_mae within the zoo acceptance limit",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.0004539437796155409,
+        "limit": 0.002,
+        "source": "independent reference",
+        "reason": ""
+      },
+      {
+        "name": "held-out naca_reference/Cl_mae within the zoo acceptance limit",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.003231396365459536,
+        "limit": 0.01,
+        "source": "independent reference",
+        "reason": ""
+      },
+      {
+        "name": "held-out naca_reference/Cd_mape_pct within the zoo acceptance limit",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.615631882294239,
+        "limit": 2.0,
+        "source": "independent reference",
+        "reason": ""
+      },
+      {
+        "name": "lift slope vs thin-airfoil 2 pi/rad (alpha -2..6, held-out shapes)",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.04875750467180495,
+        "limit": 0.15,
+        "source": "thin-airfoil theory; viscous RANS slopes sit ~5-10 % below",
+        "reason": ""
+      },
+      {
+        "name": "Cl increases with alpha below stall (alpha -2..10, held-out shapes)",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": null,
+        "limit": null,
+        "source": "attached-flow lift curve",
+        "reason": ""
+      },
+      {
+        "name": "symmetric airfoil: |Cl(0)| and |Cl(2)+Cl(-2)| (NACA 0012)",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": 0.000901879482561152,
+        "limit": 0.01,
+        "source": "symmetry",
+        "reason": ""
+      },
+      {
+        "name": "Cd > 0 and finite outputs on 2000 random in-range inputs",
+        "status": "supports",
+        "critical": true,
+        "weight": 1.0,
+        "value": null,
+        "limit": null,
+        "source": "second law (drag is dissipative)",
+        "reason": ""
+      }
+    ],
+    "min_coverage": 0.6,
+    "min_score": 0.8
+  },
+  "trust_override": {}
+}

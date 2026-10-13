@@ -154,6 +154,7 @@ class PhysicsToolRegistry:
         self._register_design_opt_tools()
         self._register_digital_twin_tools()
         self._register_worldmodel_tools()
+        self._register_research_tools()
         log.info("PhysicsToolRegistry: %d tools registered.", len(self._tools))
 
     # ------------------------------------------------------------------
@@ -901,6 +902,16 @@ class PhysicsToolRegistry:
     # ------------------------------------------------------------------
     # World model tools
     # ------------------------------------------------------------------
+
+    def _register_research_tools(self) -> None:
+        """Reference-implementation study via REA (pinneapple_tools.rea_bridge).
+        The license tool is always added; REA tools only if REA resolves."""
+        try:
+            from pinneapple_tools.rea_bridge.tools import register_rea_tools
+        except Exception as exc:  # pragma: no cover - optional component
+            log.debug("rea_bridge tools unavailable: %s", exc)
+            return
+        register_rea_tools(self)
 
     def _register_worldmodel_tools(self) -> None:
         def _build_foundation(config: Any = None, n_fields: int = 1,

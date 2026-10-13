@@ -1,0 +1,53 @@
+<?xml version='1.0'?>
+<!-- patch='nozzle' time='2' index='3668' -->
+<VTKFile type='PolyData' version='0.1' byte_order='LittleEndian' header_type='UInt64'>
+  <PolyData>
+    <FieldData>
+      <DataArray type='Float32' Name='TimeValue' NumberOfTuples='1' format='ascii'>
+2
+      </DataArray>
+    </FieldData>
+    <Piece NumberOfPoints='12' NumberOfPolys='5'>
+      <Points>
+        <DataArray type='Float32' Name='Points' NumberOfComponents='3' format='ascii'>
+0.288453 0 0.4 0.293072 0 0.4
+0.293072 0.005 0.4 0.288453 0.005 0.4
+0.297691 0 0.4 0.297691 0.005 0.4
+0.302309 0 0.4 0.302309 0.005 0.4
+0.306928 0 0.4 0.306928 0.005 0.4
+0.311547 0 0.4 0.311547 0.005 0.4
+        </DataArray>
+      </Points>
+      <Polys>
+        <DataArray type='Int32' Name='connectivity' format='ascii'>
+0 1 2 3 1 4
+5 2 4 6 7 5
+6 8 9 7 8 10
+11 9
+        </DataArray>
+        <DataArray type='Int32' Name='offsets' format='ascii'>
+4 8 12 16 20
+        </DataArray>
+      </Polys>
+      <CellData>
+        <DataArray type='Float32' Name='alpha.water' format='ascii'>
+1 1 1 1 1
+        </DataArray>
+        <DataArray type='Float32' Name='k' format='ascii'>
+0.0234375 0.0234375 0.0234375 0.0234375 0.0234375
+        </DataArray>
+        <DataArray type='Float32' Name='nut' format='ascii'>
+0.000117394 0.000117394 0.000117394 0.000117394 0.000117394
+        </DataArray>
+        <DataArray type='Float32' Name='p_rgh' format='ascii'>
+3111.54 3072.41 3090.98 3160.76 3363.34
+        </DataArray>
+        <DataArray type='Float32' Name='U' NumberOfComponents='3' format='ascii'>
+1.25 0 -2.16506 1.25 0 -2.16506
+1.25 0 -2.16506 1.25 0 -2.16506
+1.25 0 -2.16506
+        </DataArray>
+      </CellData>
+    </Piece>
+  </PolyData>
+</VTKFile>

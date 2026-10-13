@@ -7,13 +7,26 @@
 **Solve, simulate, forecast and design with physics-informed AI — and know, for every prediction, whether it still holds.**
 
 [![Tests](https://github.com/PINNeAPPle-Labs/PINNeAPPle/actions/workflows/tests.yml/badge.svg)](https://github.com/PINNeAPPle-Labs/PINNeAPPle/actions/workflows/tests.yml)
+[![Physics check](https://github.com/PINNeAPPle-Labs/PINNeAPPle/actions/workflows/physics-check.yml/badge.svg)](docs/guides/physics_checks_in_ci.md)
 [![PyPI](https://img.shields.io/pypi/v/pinneapple.svg)](https://pypi.org/project/pinneapple/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23343062.svg)](https://doi.org/10.5281/zenodo.23343062)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 <img src="docs/assets/readme/mosaic.jpg" width="100%" alt="Highlights: global weather forecast, OpenFOAM airliner and Ahmed body, physics ensembles, MeshGraphNet, LBM, qualitative preview, PINNs for electrodynamics and heat, design apps"/>
 </div>
 
 ---
+
+## Statement of need
+
+Physics-informed neural networks, neural operators (DeepONet, FNO), graph networks on meshes and classical solvers each
+live in their own library, with their own problem description, and they are usually judged by their error against a
+reference solution that does not exist once a model is used on new cases. PINNeAPPle is for researchers and engineers
+in computational science who train or compare physics-based surrogate models and need to know when those models stop
+being valid. It gives every method one problem description, a comparison interface and a record of each run, and it
+checks each prediction against the physics (equation residuals, conservation, bounds and each model's declared
+assumptions) without needing a reference. It bridges to DeepXDE and PhysicsNeMo instead of replacing them. See
+[`paper/paper.md`](paper/paper.md) for how it relates to other libraries.
 
 ## What makes it different
 
@@ -39,6 +52,27 @@ Most Physics AI libraries stop at the prediction. PINNeAPPle adds a **trust laye
 | **A Formula car in OpenFOAM.** A parametric open-wheel car with wings, floor and diffuser, solved at 70 m/s with a moving road; skin pressure coefficient. | **Forces by component.** Opening the DRS flap cuts the rear-wing drag by 56 %; the wheels give part of it back. A pipeline demonstration, not a validated F1 model. |
 
 </div>
+
+## Physics checks in CI
+
+`pinneapple check` is a linter for physics: it fails a pull request when a simulation result or a Physics-AI model
+breaks conservation, its PDE, its boundary or initial conditions, bounds, units, its training range, a stored
+reference or the integrity of its files. Zero configuration to start, rule ids with fixes (`PC101`...), exit
+codes, SARIF and JUnit; the GitHub Action annotates the line that caused the violation.
+
+```yaml
+# .github/workflows/physics-check.yml, in a job with `permissions: security-events: write`
+- uses: actions/checkout@v4
+- uses: PINNeAPPle-Labs/PINNeAPPle@main    # pin a tag or a commit SHA
+```
+
+```bash
+pinneapple check cases/ models/            # locally: same rules, readable output, exit code 1 on a violation
+```
+
+<div align="center"><img src="docs/assets/physics_check/pr_blocked.gif" width="80%" alt="A pull request blocked because the lid boundary condition of an OpenFOAM cavity changed"/></div>
+
+Rules, configuration and the Action: [docs/guides/physics_checks_in_ci.md](docs/guides/physics_checks_in_ci.md).
 
 ## Discovering physical laws from data
 
@@ -346,15 +380,26 @@ Correct formulations, reliable validation, understanding failure modes, and deci
 
 ## Citation
 
+If you use PINNeAPPle in your research, please cite it. [`CITATION.cff`](CITATION.cff) holds the citation metadata
+(GitHub shows it under "Cite this repository"):
+
 ```bibtex
 @software{pinneapple2026,
   title        = {PINNeAPPle: An Open-Source Physics AI Research and Experimentation Platform},
-  author       = {Barros, Yan and Contributors},
+  author       = {Barros, Yan and Schiassi, Enrico},
   year         = {2026},
   url          = {https://github.com/PINNeAPPle-Labs/PINNeAPPle},
-  version      = {0.6.3}
+  version      = {0.7.0},
+  doi          = {10.5281/zenodo.23343062}
 }
 ```
+
+## Contributing and support
+
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, tests and pull request
+rules, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report bugs and request features in the
+[issue tracker](https://github.com/PINNeAPPle-Labs/PINNeAPPle/issues); report security problems privately as described
+in [SECURITY.md](SECURITY.md).
 
 If this project makes sense to you, **give it a star** ⭐: it helps grow the ecosystem and attract contributors.
 

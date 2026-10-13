@@ -5,12 +5,24 @@
     sc.save("result.glb")                               # glTF with the fields, also .usda (Omniverse) and .stl
     pp.viz.render(sc, "stress.jpg", field="STRESS")     # Blender Cycles, jet colour scale, colour bar
     pp.viz.web_viewer(sc, "viewer/")                    # interactive three.js page: surfaces, streamlines, slices
+    pp.viz.LIGHTING_PRESETS["lunar_south_pole"]         # black sky, low hard Sun (also: studio, lunar_low_sun, ...)
+
+Planetary surfaces (heightfield terrain, Sun shadows, Lunar-Lambert regolith): :mod:`.planetary`, :mod:`.shadows`.
 """
 from .colormap import JET, colorbar, jet
+from .lighting import PRESETS as LIGHTING_PRESETS
+from .lighting import LightingPreset
 from .scene import MATERIALS, Lines, Scene, Slice, Surface, read_obj, read_stl, scalar_of
 
 __all__ = ["Scene", "Surface", "Lines", "Slice", "MATERIALS", "read_stl", "read_obj", "scalar_of", "JET", "jet",
-           "colorbar", "render", "web_viewer", "serve"]
+           "colorbar", "render", "web_viewer", "serve", "LIGHTING_PRESETS", "LightingPreset", "Dashboard"]
+
+
+def __getattr__(name):
+    if name == "Dashboard":                        # pp.viz.Dashboard: the animation-centred dashboard
+        from ..dashboard import Dashboard
+        return Dashboard
+    raise AttributeError(name)
 
 
 def render(*a, **kw):

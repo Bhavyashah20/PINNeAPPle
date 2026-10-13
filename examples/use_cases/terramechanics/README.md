@@ -169,6 +169,34 @@ def predict_forces(slip: float, sinkage_m: float):
 
 ---
 
+## Full 3D rover: `lunar_rover_3d.py`
+
+NASA's VIPER at real scale (four wheels 0.5 m across with 24 grousers, 450 kg, actuated suspension and steering)
+on GRC-1 regolith in lunar gravity. The script is a thin composition of library features:
+- `pinneapple_simulation.vehicle`: VIPER from cited public figures, its CAD, the multibody model, the simulator;
+- `pinneapple_simulation.terramechanics`: the soil database, the Wong-Reece wheel with grousers, slip-sinkage,
+  multi-pass, bulldozing and lateral force, the deformable terrain, the single-wheel testbed and the PINN
+  surrogate;
+- the studio's lunar lighting, shadows and planetary renders.
+
+```bash
+python examples/use_cases/terramechanics/lunar_rover_3d.py          # ~20 min on 4 cores, writes docs/assets/lunar_rover/
+python examples/use_cases/terramechanics/lunar_rover_3d.py --quick  # shorter, writes outputs/viper/media/
+```
+
+It writes:
+- the CAD (glTF, STL) and beauty renders;
+- single-wheel curves of the VIPER wheel;
+- the model against published single-wheel tests;
+- the PINN's held-out errors;
+- a grade sweep, a cross-slope run and a crater crossing with rocks;
+- an animation of the crater crossing.
+
+Every number, its source, and what was estimated are in
+[docs/core_concepts/lunar_rover_terramechanics.md](../../../docs/core_concepts/lunar_rover_terramechanics.md).
+
+---
+
 ## Prerequisites
 
 ```bash
@@ -196,6 +224,7 @@ pip install matplotlib numpy   # visualization
 examples/use_cases/terramechanics/
 ├── README.md                          ← this file — pipeline description
 ├── terramechanics_rover_pinn.py       ← complete implementation (run this)
+├── lunar_rover_3d.py                  ← six-wheel rover on lunar terrain (scenarios + verification)
 └── outputs/
     ├── 01_traction_curves.png         ← F_x, F_z, M_y vs slip (PINN vs Bekker-Wong)
     ├── 02_force_maps.png              ← 2D (slip, sinkage) force heatmaps

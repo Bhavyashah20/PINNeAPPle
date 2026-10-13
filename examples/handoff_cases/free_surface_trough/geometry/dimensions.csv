@@ -1,0 +1,14 @@
+symbol,value,unit,description
+L,1.2,m,"inside length of the floor, upstream end wall to overflow sill"
+W,0.15,m,inside width
+H,0.25,m,side and upstream end wall height above the floor
+h_s,0.08,m,"overflow sill height above the floor (full width, downstream end)"
+t_w,0.01,m,"wall, floor and sill thickness"
+x_n,0.3,m,nozzle exit centre: distance from the upstream end wall
+y_n,0.075,m,nozzle exit centre: distance from the side wall (centre plane)
+z_n,0.4,m,nozzle exit centre: height above the floor
+d,0.02,m,nozzle bore (inner diameter)
+D_o,0.026,m,nozzle outer diameter
+L_n,0.15,m,nozzle straight length (bore length upstream of the exit)
+theta,60.0,deg,"jet angle below the horizontal, pointing downstream (+x)"
+h_0,0.08,m,initial liquid depth (still liquid up to the sill crest)

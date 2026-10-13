@@ -1,2 +1,21 @@
 Pinneapple
 Copyright (c) 2026 Pinneapple contributors
+
+-------------------------------------------------------------------------------
+Third-party material adapted into this repository
+(full provenance: docs/dev/rea_harvest/ledger.json)
+
+pinneapple_simulation/numerical_solvers/stable_fluids.py
+  Vorticity-confinement and scalar-dissipation rules adapted from
+  WebGL-Fluid-Simulation, Copyright (c) 2017 Pavel Dobryakov, MIT License.
+  stable_time_step() follows jax-cfd (google/jax-cfd), Copyright Google LLC,
+  Apache License 2.0.
+
+pinneapple_simulation/numerical_solvers/etdrk4.py
+  check_finite() follows the blow-up check of VisualPDE (VisualPDE.com by
+  Benjamin Walker, Adam Townsend and Andrew Krause), MIT License.
+
+pinneapple_analysis/validation/field_metrics.py
+  Metric definitions adapted from PDEBench (pdebench/PDEBench),
+  Copyright 2022 NEC Labs Europe GmbH, Stuttgart University, CSIRO and PDEBench
+  contributors, MIT License.

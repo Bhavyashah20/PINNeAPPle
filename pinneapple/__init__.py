@@ -106,7 +106,7 @@ Feature examples:
 
 from __future__ import annotations
 
-__version__ = "0.6.3"
+__version__ = "0.7.0"
 __author__  = "pinneapple contributors"
 
 # ---------------------------------------------------------------------------
@@ -593,11 +593,23 @@ _SUBMODULES = {
     "qualitative": "pinneapple_design.qualitative",
     # data assimilation: 4D-Var through autograd, Lorenz-96/63
     "assimilation": "pinneapple_analysis.data_assimilation",
+    # planetary wheels: soils with provenance, Wong-Reece + grousers / multi-pass / lateral, testbed, PINN surrogate
+    "terramechanics": "pinneapple_simulation.terramechanics",
+    # floating-base multibody trees with revolute joints (reduced coordinates, implicit stepping)
+    "multibody":  "pinneapple_simulation.multibody",
+    # wheeled planetary vehicles: spec + CAD + multibody + terramechanics simulator; NASA VIPER from public figures
+    "vehicle":    "pinneapple_simulation.vehicle",
+    # animation-centred dashboards: animation + synced charts + KPI tiles + parameters -> HTML, PNG, GIF/MP4
+    "dashboard":  "pinneapple_tools.visualization.dashboard",
     # Field, Mesh, Domain, Geometry primitives
     "core":       "pinneapple_core",
     "loss":       "pinneapple_core.loss",
     "transforms": "pinneapple_core.transforms",
     "func":       "pinneapple_core.func",
+    # model zoo: pre-trained, verified models (load / predict / evaluate / validate / benchmark / finetune)
+    "zoo":        "pinneapple_hub.zoo",
+    # dataset hub: verified datasets with schema, splits, checksums, caching and lazy download
+    "datasets":   "pinneapple_hub.zoo.datasets",
 }
 
 # Lazy functions: resolved on first access, so ``import pinneapple`` does not
