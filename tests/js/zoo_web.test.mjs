@@ -29,7 +29,8 @@ for (const name of ["airfoil_cst_rans_mlp", "heatsink_forced_mlp", "rover_contac
       cols.forEach((k, j) => X.forEach((_, i) => {
         const ref = f.predict[k][i], got = row(out[o], i)[j];
         const sc = k.endsWith("_std") && k !== "Cl_std" && k !== "Cm_std" ? Math.max(Math.abs(f.predict[k.replace("_std", "")][i]), 1)
-          : SCALE[k] ?? Math.max(Math.abs(ref), k.startsWith("LD") ? 1 : 0);
+          : k.startsWith("LD") ? Math.max(Math.abs(f.predict.LD[i]), SCALE.Cl / f.predict.Cd[i]) // as export.output_scale
+          : SCALE[k] ?? Math.abs(ref);
         assert.ok(Math.abs(got - ref) <= 1e-5 * sc, `${name} ${k}[${i}]: ${got} vs ${ref}`);
       }));
     }

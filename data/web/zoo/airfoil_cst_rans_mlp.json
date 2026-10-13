@@ -296,7 +296,7 @@
    "checks": "query checks",
    "aux": "check details"
   },
-  "parity": 5.7087185e-06,
+  "parity": 5.1362588e-07,
   "checks_parity": {
    "max_value_diff": 3.5762787e-07,
    "status_flips": 0

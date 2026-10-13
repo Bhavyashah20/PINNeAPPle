@@ -113,7 +113,8 @@ def as_graph_outputs(zm: ZooModel, pred: dict[str, np.ndarray]) -> dict[str, np.
 
 def output_scale(zm: ZooModel) -> dict[str, np.ndarray]:
     """Per column, the scale of the parity tolerance: NaN = relative to the value (positive, log-modelled outputs:
-    Cd, R, dP; L/D relative to max(|L/D|, 1)), otherwise the network's standardisation scale."""
+    Cd, R, dP; L/D relative to max(|L/D|, y_std(Cl) / Cd), the error a Cl within tolerance implies), otherwise the
+    network's standardisation scale."""
     if zm.adapter == "airfoil_mlp":
         s = np.array([zm.config["y_std"][0], np.nan, zm.config["y_std"][2]])
         return {"mean": s, "std": s, "ld": np.array([np.nan, np.nan])}
@@ -131,8 +132,11 @@ def parity_error(zm: ZooModel, ref: dict[str, np.ndarray], got: dict[str, np.nda
         g = np.asarray(got[o], float)
         s = np.broadcast_to(scale[o], r.shape).copy()
         rel = np.abs(ref["mean"] if o == "std" else r)
-        if o == "ld":                                       # L/D crosses zero near alpha -2: scale max(|L/D|, 1)
-            rel = np.maximum(np.abs(np.stack([r[:, 0], r[:, 0]], 1)), 1.0)
+        if o == "ld":
+            # L/D = Cl / Cd crosses zero near alpha -2; there the error a Cl within tolerance implies is
+            # (Cl scale) / Cd, so L/D is held to the same standard as Cl: scale max(|L/D|, y_std(Cl) / Cd)
+            floor = zm.config["y_std"][0] / np.abs(ref["mean"][:, 1])
+            rel = np.maximum(np.abs(np.stack([r[:, 0], r[:, 0]], 1)), floor[:, None])
         s = np.where(np.isnan(s), rel, s)
         worst = max(worst, float(np.max(np.abs(g - r) / np.maximum(s, 1e-12))))
     return worst

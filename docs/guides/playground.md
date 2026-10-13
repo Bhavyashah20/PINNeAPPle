@@ -85,7 +85,7 @@ What is tested, in CI (`.github/workflows/playground.yml`):
 
 - **Library, Python** (`tests/test_zoo_web.py`):
   - The ONNX export of each model matches PyTorch to 1e-5 on every held-out and independent-reference input.
-    Measured: 5.7e-6 airfoil (L/D included), 1.6e-6 heat sink, 5.7e-7 rover.
+    Measured: 5.1e-7 airfoil, 1.6e-6 heat sink, 5.7e-7 rover.
   - The query checks never change status away from a limit.
   - Range checks fail exactly where `ZooModel.in_range` is False.
   - Held-out inputs are trusted.
