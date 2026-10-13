@@ -357,7 +357,7 @@ def main(scale=1.0, workers=4, assets="docs/assets/physics_ensemble", stage="all
         out_refs = [BENCH.reference_output(refs[s]["traj"][k], q["filter"]) for k, q in enumerate(streams[s])]
         runs[s] = (streams[s], run_ensembles(streams[s], out_refs, tables[s], prof, CONFIGS, dt=BENCH.dt_pair, h=H,
                                              length=L, cost_weight=0.1))
-    rows = summarise_runs(runs, prof, list(CONFIGS), BENCH.widths, solver="DNS-128")
+    rows = summarise_runs(runs, prof, list(CONFIGS), BENCH.widths, solver="DNS-128", target=TOLERANCE)
     les_targets = {s: [BENCH.reference_output(refs[s]["traj"][k], BENCH.les_filter) for k in range(N_QUERIES)]
                    for s in SEEDS}
     flags = closure_flag_table(tables, les_targets, [n for n in BASE + LINK if n.startswith("LES")], BENCH.les_n // 3, L)
@@ -416,7 +416,7 @@ def sweep_report(assets="docs/assets/physics_ensemble"):
         res = json.loads((OUT / f"sweep_seed{s}.json").read_text())
         runs[s] = (BENCH.query_stream(s, N_QUERIES), res)
     cfgs = list(sweep_configs())
-    rows = summarise_runs(runs, prof, cfgs, BENCH.widths, solver="DNS-128", oracle_config=cfgs[-1])
+    rows = summarise_runs(runs, prof, cfgs, BENCH.widths, solver="DNS-128", oracle_config=cfgs[-1], target=TOLERANCE)
     md = markdown_tables(rows, BENCH.widths)
     (OUT / "sweep.md").write_text(md)
     print(md)

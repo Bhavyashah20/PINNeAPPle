@@ -197,16 +197,17 @@ def run_ensembles(queries: Sequence[dict], references: Sequence[np.ndarray], tab
 def summarise_runs(runs: Mapping[Any, tuple[Sequence[dict], Mapping[str, dict]]], profiles: Mapping[str, Any],
                    configs: Sequence[str], widths: Sequence[int], *, wrong_factor: float = 1.5,
                    wrong_margin: float = 0.03, solver: str | None = None,
-                   oracle_config: str | None = None) -> list[dict[str, Any]]:
+                   oracle_config: str | None = None, target: float | None = None) -> list[dict[str, Any]]:
     """Per configuration, pooled over the streams in ``runs`` (``{seed: (queries, results)}``): mean error, error
     per requested width (with n), spectrum error, wrong selections (error above ``max(wrong_factor * best,
     best + wrong_margin)``, best = best expert available to the configuration on that query), scale violations
     (chosen model coarser than the request), cost of the chosen model and of the experts the policy ran, share of
-    queries sent to ``solver``. Then two baselines: always ``solver`` and the oracle (best expert in hindsight, of
+    queries sent to ``solver``; with ``target``, the queries whose error is above that accuracy target (the fair count
+    for policies that pick a cheaper model on purpose). Then two baselines: always ``solver`` and the oracle (best expert in hindsight, of
     the experts of ``oracle_config``)."""
     rows = []
     for cname in configs:
-        acc: dict[str, list] = {k: [] for k in ("err", "spec", "wrong", "viol", "cc", "cp", "solver")}
+        acc: dict[str, list] = {k: [] for k in ("err", "spec", "wrong", "viol", "cc", "cp", "solver", "over")}
         byw: dict[int, list] = {d: [] for d in widths}
         for _, (qs, res) in runs.items():
             r, cost = res[cname], res["_cost"]
@@ -222,12 +223,14 @@ def summarise_runs(runs: Mapping[Any, tuple[Sequence[dict], Mapping[str, dict]]]
                 acc["cc"].append(cost[r["active"][k]])
                 acc["cp"].append(r["policy_cost"][k])
                 acc["solver"].append(float(r["active"][k] == solver))
+                acc["over"].append(float(target is not None and e > target))
         rows.append({"config": cname, "n": len(acc["err"]), "error": float(np.mean(acc["err"])),
                      **{f"error_{d}h": float(np.mean(v)) if v else float("nan") for d, v in byw.items()},
                      **{f"n_{d}h": len(v) for d, v in byw.items()},
                      "spectrum_error": float(np.mean(acc["spec"])), "wrong": int(sum(acc["wrong"])),
                      "scale_violations": int(sum(acc["viol"])), "cost_chosen": float(np.mean(acc["cc"])),
-                     "cost_policy": float(np.mean(acc["cp"])), "solver_share": float(np.mean(acc["solver"]))})
+                     "cost_policy": float(np.mean(acc["cp"])), "solver_share": float(np.mean(acc["solver"])),
+                     **({"over_target": int(sum(acc["over"]))} if target is not None else {})})
     oc = oracle_config or configs[-1]
     base = {f"always {solver}": ([], []), "oracle (best expert in hindsight)": ([], [])}
     for _, (qs, res) in runs.items():
@@ -285,22 +288,24 @@ def markdown_tables(rows: Sequence[dict], widths: Sequence[int], flags: Sequence
                     sc_rows: Sequence[dict] = (), bench_rows: Sequence[dict] = ()) -> str:
     """Markdown of :func:`summarise_runs`, :func:`closure_flag_table`, the scale-conditioning study and the closure
     benchmark."""
-    head = ("| configuration | error (all) | " + " | ".join(f"{d}h" for d in widths) +
-            " | spectrum error | wrong model | coarser than asked | cost of chosen model (s) | cost of policy (s) |"
-            " solver share |")
-    out = [head, "|---|---|" + "---|" * len(widths) + "---|---|---|---|---|---|"]
     cfg_rows = [r for r in rows if "error_" + f"{widths[0]}h" in r]
+    tgt = bool(cfg_rows) and "over_target" in cfg_rows[0]
+    head = ("| configuration | error (all) | " + " | ".join(f"{d}h" for d in widths) +
+            " | spectrum error | wrong model | " + ("above target | " if tgt else "") +
+            "coarser than asked | cost of chosen model (s) | cost of policy (s) | solver share |")
+    out = [head, "|---|---|" + "---|" * len(widths) + "---|---|" + ("---|" if tgt else "") + "---|---|---|---|"]
     for r in rows:
         if r in cfg_rows:
             out.append(f"| {r['config']} | {_pct(r['error'])} | " + " | ".join(_pct(r[f'error_{d}h']) for d in widths) +
-                       f" | {r['spectrum_error']:.3f} | {r['wrong']} | {r['scale_violations']} | "
+                       f" | {r['spectrum_error']:.3f} | {r['wrong']} | " + (f"{r['over_target']} | " if tgt else "") +
+                       f"{r['scale_violations']} | "
                        f"{r['cost_chosen']:.3f} | {r['cost_policy']:.2f} | {100 * r['solver_share']:.0f} % |")
         else:
             out.append(f"| {r['config']} | {_pct(r['error'])} | " + " | ".join("" for _ in widths) +
-                       f" | | | | {r['cost_chosen']:.3f} | | |")
+                       " | | | " + ("| " if tgt else "") + f"| {r['cost_chosen']:.3f} | | |")
     if cfg_rows:
         out.append(f"| n (queries) | {cfg_rows[0]['n']} | " + " | ".join(str(cfg_rows[0][f'n_{d}h']) for d in widths)
-                   + " | | | | | | |")
+                   + " | | | " + ("| " if tgt else "") + "| | | |")
     if flags:
         out += ["", "| expert | flagged | field error flagged / not | spectrum error flagged / not | reasons |",
                 "|---|---|---|---|---|"]
