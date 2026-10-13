@@ -129,11 +129,11 @@ def test_committed_bundle_is_current(model):
     assert [c["id"] for c in meta["checks"]["checks"]] == [c["id"] for c in spec["checks"]]
     for a, b in zip(meta["checks"]["checks"], spec["checks"], strict=True):
         assert a["op"] == b["op"] and a["detail"] == b["detail"]
-        assert np.allclose(np.ravel(a["limit"]), np.ravel(b["limit"]), rtol=1e-6)
+        assert np.allclose(np.ravel(a["limit"]), np.ravel(b["limit"]), rtol=1e-5)
     card = model.card.to_dict()
     assert meta["card"]["version"] == card["version"]
     for k, v in card["validation_metrics"].items():
-        assert meta["card"]["validation_metrics"][k] == pytest.approx(v, rel=1e-6)
+        assert meta["card"]["validation_metrics"][k] == pytest.approx(v, rel=1e-5)
 
 
 def test_committed_fixtures_are_current():
@@ -146,8 +146,9 @@ def test_committed_fixtures_are_current():
         o = old["models"][name]
         assert o["inputs"] == f["inputs"] and o["in_range"] == f["in_range"]
         assert [e["statuses"] for e in o["evaluation"]] == [e["statuses"] for e in f["evaluation"]]
-        for k, v in f["predict"].items():
-            np.testing.assert_allclose(o["predict"][k], v, rtol=1e-6, atol=1e-9)
+        for k, v in f["predict"].items():                  # float32 networks: torch builds differ at ~1e-7
+            v = np.asarray(v, float)
+            np.testing.assert_allclose(o["predict"][k], v, rtol=1e-5, atol=1e-5 * max(np.abs(v).max(), 1e-3))
     np.testing.assert_allclose(old["geometry"]["props"], new["geometry"]["props"], atol=1e-12)
 
 

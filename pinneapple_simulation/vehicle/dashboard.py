@@ -33,13 +33,15 @@ from pinneapple_tools.visualization.dashboard import (
 
 def render_frames(run, terrain, n: int = 150, *, field=None, clim=None, size=(1280, 720), camera=None,
                   preset="lunar_low_sun", sun_azimuth_deg=160.0, earth=False, trail: float = 0.0,
-                  half_window=(3.2, 3.4), progress=None, overlay: bool = True):
+                  half_window=(3.2, 3.4), progress=None, overlay: bool = True, field_alpha: float = 0.85,
+                  field_glow: float = 0.55):
     """``n`` rendered frames spread over the run and their sample indices (``vehicle.viz.render_frame``).
     ``trail`` and ``half_window`` place the detailed terrain window (see ``vehicle.viz.frame_view``).
 
     The default is the beauty view: ruts, berms and grouser marks as geometry, shaded by the Sun. ``field``
     ("normal_stress", "shear_stress", "sinkage") adds the colour map as an overlay on the ruts and wheels
-    (``overlay=False``: on the wheels only)."""
+    (``overlay=False``: on the wheels only); ``field_alpha`` / ``field_glow`` set its opacity on the relief
+    (e.g. 0.6 / 0.1: semi-transparent, the rut geometry and the Sun shading stay visible)."""
     from .viz import render_frame
     ks = np.unique(np.linspace(0, len(run.t) - 1, n).astype(int))
     if clim is None and field in ("normal_stress", "shear_stress"):
@@ -53,7 +55,8 @@ def render_frames(run, terrain, n: int = 150, *, field=None, clim=None, size=(12
     for j, k in enumerate(ks):
         img = render_frame(run, terrain, int(k), None, field=field, clim=clim, camera=camera, size=size, cache=cache,
                            preset=preset, sun_azimuth_deg=sun_azimuth_deg, earth=earth, title="", colorbar=False,
-                           trail=trail, half_window=half_window, overlay=overlay)
+                           trail=trail, half_window=half_window, overlay=overlay, field_alpha=field_alpha,
+                           field_glow=field_glow)
         frames.append(np.asarray(img)[..., :3])
         if progress:
             progress(j + 1, len(ks))
@@ -67,9 +70,12 @@ def _running(fn, a):
 def vehicle_dashboard(run, frames, ks, *, model=None, surrogate=None, title: str | None = None, subtitle: str = "",
                       field_label=None, cmap="inferno", clim=(0.0, 1.0),
                       wheel_for_pinn: int = 0, extra_params=(), scene3d: bool = False, terrain=None,
-                      footer: str = "") -> Dashboard:
+                      footer: str = "", pinn_note: str = "") -> Dashboard:
     """Build the dashboard of ``run`` with the rendered ``frames`` at sample indices ``ks``. ``field_label`` (with
-    ``cmap`` / ``clim``) adds a colour bar for frames rendered with a field overlay."""
+    ``cmap`` / ``clim``) adds a colour bar for frames rendered with a field overlay. ``surrogate`` is a
+    :class:`~pinneapple_simulation.terramechanics.surrogate.ContactSurrogate` or a model-zoo contact model
+    (``pp.zoo.load(...)``, wrapped in ``ZooContactSurrogate``); it is compared with ``model`` (the Wong-Reece model
+    of the run) at the wheels' (slip, sinkage) states. ``pinn_note`` is added under the PINN chart."""
     ks = np.asarray(ks, int)
     spec = run.model.spec
     names = run.corner_names
@@ -98,6 +104,9 @@ def vehicle_dashboard(run, frames, ks, *, model=None, surrogate=None, title: str
     charts.append(Chart("Slip", "slip [-]", "time [s]", [Series(n_, W["slip"][ks, i]) for i, n_ in enumerate(names)],
                         slot="right", ylim=(-0.3, 1.0)))
     pin_err = None
+    if surrogate is not None and not hasattr(surrogate, "meta") and hasattr(surrogate, "card"):
+        from pinneapple_simulation.terramechanics.surrogate import ZooContactSurrogate
+        surrogate = ZooContactSurrogate(surrogate)
     if surrogate is not None and model is not None:
         from pinneapple_simulation.terramechanics.surrogate import compare_on_states
         c = compare_on_states(surrogate, model, W["slip"][ks].ravel(), W["sinkage"][ks].ravel())
@@ -108,7 +117,8 @@ def vehicle_dashboard(run, frames, ks, *, model=None, surrogate=None, title: str
         charts.append(Chart(f"PINN vs Wong-Reece, {names[i]} drawbar pull", "drawbar pull [N]", "time [s]",
                             [Series("Wong-Reece", ref[:, i], color="#e8e8e8", width=2.6),
                              Series("PINN", pr[:, i], color="#d95926", dash=True)], slot="right",
-                            note="same (slip, sinkage) inputs to both; gaps: outside the training box"))
+                            note="same (slip, sinkage) inputs to both; gaps: outside the training box"
+                            + (f"; {pinn_note}" if pinn_note else "")))
         pin_err = np.abs(pr - ref)
     # --- bottom: along the traverse
     charts.append(Chart("Sinkage per wheel along the traverse", "sinkage [mm]", "distance [m]",
@@ -146,9 +156,14 @@ def vehicle_dashboard(run, frames, ks, *, model=None, surrogate=None, title: str
         params.append(Param("Speed command", cmd, "m/s"))
     params.append(Param("Time step", 1e3 * run.meta.get("dt", 0.002), "ms"))
     if surrogate is not None:
+        if surrogate.meta.get("name"):
+            params.append(Param("PINN model", surrogate.meta["name"]))
         te = surrogate.meta.get("test_errors", {}).get("Fx")
         if te:
             params.append(Param("PINN held-out rmse (Fx)", round(te["rmse_N"], 3), "N"))
+        if pin_err is not None and np.isfinite(pin_err).any():
+            params.append(Param("PINN rmse on this run (Fx)", round(float(np.sqrt(np.nanmean(pin_err ** 2))), 2),
+                                "N"))
     params += list(extra_params)
     db = Dashboard(title or f"{spec.name} on the Moon", t, list(frames), charts=charts, tiles=tiles, params=params,
                    subtitle=subtitle, colorbar=ColorBar(field_label, cmap, *clim) if field_label else None,

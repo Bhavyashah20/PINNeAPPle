@@ -41,6 +41,16 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   smoke test, and a Docker build. Deploy config: `apps/playground/Dockerfile`, a `playground` service in
   `apps/deploy` (port 8095), and an opt-in GitHub Pages step (`PLAYGROUND_PAGES`) in the docs workflow.
   Guide: `docs/guides/playground.md`.
+- Rover dashboard with a semi-transparent stress map and the zoo PINN:
+  - `SurfaceView(field_glow=..., far_field=...)`: a field map can sit semi-transparently on the shaded 3-D relief
+    (`field_glow=0` is a pure albedo tint, so rut geometry, grouser marks and Sun shading show through) and continue
+    onto the far grid; `vehicle.viz.frame_view` and `vehicle.dashboard.render_frames` take `field_alpha` and
+    `field_glow`.
+  - `terramechanics.surrogate.ZooContactSurrogate` gives a model-zoo contact model the `ContactSurrogate` interface;
+    `vehicle_dashboard` accepts zoo models directly and lists the model, its held-out error and its error along the
+    run.
+  - `examples/studio/07_lunar_rover_dashboard.py` uses `pp.zoo.load("rover_contact_grc1_viper")` and colours the
+    ruts by normal stress at 0.6 opacity with a kPa colour bar.
 - Colab notebooks in `notebooks/colab/`, each self-contained (the first cell installs `pinneapple>=0.7.0` and picks
   the GPU, a parameter cell sets the sizes): a first PINN with its physics checks, an airfoil surrogate from
   `pp.zoo` validated against stored OpenFOAM runs, an equal-budget benchmark, the lunar rover terramechanics
