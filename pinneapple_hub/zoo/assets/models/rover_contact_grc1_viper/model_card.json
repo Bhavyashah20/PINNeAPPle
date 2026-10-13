@@ -1,8 +1,8 @@
 {
   "name": "rover_contact_grc1_viper",
-  "description": "Physics-informed surrogate (random-Fourier-feature residual tanh MLP, 4 blocks x 96) of the Wong-Reece rigid-wheel model for the NASA VIPER wheel (R 0.25 m, b 0.20 m, 24 grousers, parametric model from public figures) on GRC-1 lunar simulant. Inputs slip and sinkage, outputs drawbar pull, normal load and driving torque. Trained with soft constraints dFz/dz >= 0, dFx/ds >= 0 (slip <= 0.3), Mohr-Coulomb traction limit and My >= R Fx.",
+  "description": "Physics-informed surrogate (random-Fourier-feature residual tanh MLP, 4 blocks x 96) of the Wong-Reece rigid-wheel model for the NASA VIPER wheel (R 0.25 m, b 0.20 m, 24 grousers, parametric model from public figures) on GRC-1 lunar simulant, with slip-sinkage (sinkage exponent n = n0 + n1 s, Ding et al. 2010/2011; GRC-1 n1 = 0.8). Inputs slip and sinkage, outputs drawbar pull, normal load and driving torque. Trained with soft constraints dFz/dz >= 0, dFx/ds >= 0 (slip <= 0.3), Mohr-Coulomb traction limit and My >= R Fx. The exact physics configuration it was trained on is recorded in data_lineage.physics and config.json (checked by ZooContactSurrogate.check_physics).",
   "task": "Wheel-soil contact forces of a rigid grousered wheel on lunar regolith simulant (terramechanics)",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "inputs": [
     {
       "name": "slip",
@@ -43,11 +43,13 @@
     ],
     "soil": "GRC-1 (pinneapple terramechanics soil database)",
     "wheel": "VIPER wheel, R 0.25 m, b 0.20 m, 24 grousers",
-    "slip_angle_deg": 0.0
+    "slip_angle_deg": 0.0,
+    "physics": "Wong-Reece with slip-sinkage n = n0 + n1 s on driving slip (GRC-1: n0 0.8, n1 0.8); steady state, so the slip that sets the exponent equals the slip"
   },
   "known_limitations": [
-    "Only as good as the Wong-Reece model: against published single-wheel tests the model's drawbar pull RMSE is 4-14 N (digitised data), larger than the surrogate's own error (~0.2 N).",
-    "One soil and one wheel; zero slip angle (no lateral force); steady state."
+    "Only as good as the Wong-Reece model: against published single-wheel tests the model's drawbar pull RMSE is 4-14 N (digitised data), larger than the surrogate's own error.",
+    "One soil and one wheel; zero slip angle (no lateral force); steady state.",
+    "Slip-sinkage makes the forces kink at zero slip (the exponent grows only with driving slip); the network smooths the kink over a small slip interval."
   ],
   "architecture": "contact_net",
   "architecture_config": {
@@ -75,18 +77,52 @@
   },
   "data_lineage": {
     "dataset": "rover_contact_grc1_viper",
-    "source": "pinneapple_simulation.terramechanics.WongReeceModel(get_soil('GRC-1'), pinneapple_simulation.vehicle.viper().wheel)"
+    "source": "pinneapple_simulation.terramechanics.WongReeceModel(get_soil('GRC-1'), pinneapple_simulation.vehicle.viper().wheel)",
+    "physics": {
+      "model": "Wong-Reece",
+      "soil": {
+        "name": "GRC-1",
+        "c": 250.0,
+        "phi_deg": 38.0,
+        "K": 0.018,
+        "Ky": 0.018,
+        "k_c": 700.0,
+        "k_phi": 505000.0,
+        "n0": 0.8,
+        "n1": 0.8,
+        "rho": 1620.0,
+        "a0": 0.4,
+        "a1": 0.15,
+        "c3": 0.3333333333333333,
+        "k_u0": 200000000.0,
+        "A_u": 0.0
+      },
+      "wheel": {
+        "radius": 0.25,
+        "width": 0.2,
+        "grouser_count": 24,
+        "grouser_height": 0.025,
+        "shear_radius_factor": 1.0
+      },
+      "g": 1.62,
+      "bulldozing": "lateral",
+      "slip_sinkage": "drive",
+      "R_m": 0.25,
+      "b_m": 0.2,
+      "c_Pa": 250.0,
+      "phi_deg": 38.0
+    }
   },
   "validation_metrics": {
-    "test/Fx_rmse_N": 0.20736592572546925,
-    "test/Fx_max_abs_N": 1.0792020686719752,
-    "test/Fx_r2": 0.9999995706205718,
-    "test/Fz_rmse_N": 0.1568210078193249,
-    "test/Fz_max_abs_N": 0.6640089749187155,
-    "test/Fz_r2": 0.9999998419103606,
-    "test/My_rmse_Nm": 0.05530825731613573,
-    "test/My_max_abs_Nm": 0.23872462260743532,
-    "test/My_r2": 0.9999996657312542,
+    "test/Fx_rmse_N": 0.22012320923636258,
+    "test/Fx_max_abs_N": 1.6962837221363714,
+    "test/Fx_r2": 0.9999991370180031,
+    "test/Fz_rmse_N": 0.46965493069413194,
+    "test/Fz_max_abs_N": 5.374369781392943,
+    "test/Fz_r2": 0.9999981720332396,
+    "test/My_rmse_Nm": 0.07066064857911242,
+    "test/My_max_abs_Nm": 0.6174497678684645,
+    "test/My_r2": 0.9999985029384229,
     "test/n": 2000.0
   },
   "reference_source": "2000 held-out Latin-hypercube states (seed 1000, disjoint from training) of the Wong-Reece model evaluated by adaptive quadrature (analytic reference). The Wong-Reece implementation is compared with published single-wheel tests (Ding et al. 2011; Wang & Han 2016; dataset single_wheel_tests).",
@@ -100,7 +136,7 @@
   ],
   "pinneapple_version": "0.7.0",
   "trust_report": {
-    "modelo": "rover_contact_grc1_viper v1.0.0",
+    "modelo": "rover_contact_grc1_viper v1.1.0",
     "decisao": "APPROVED",
     "score": 1.0,
     "cobertura": 1.0,
@@ -121,7 +157,7 @@
         "status": "supports",
         "critical": true,
         "weight": 1.0,
-        "value": 0.20736592572546925,
+        "value": 0.22012320923636258,
         "limit": 5.0,
         "source": "independent reference",
         "reason": ""
@@ -131,7 +167,7 @@
         "status": "supports",
         "critical": true,
         "weight": 1.0,
-        "value": 0.1568210078193249,
+        "value": 0.46965493069413194,
         "limit": 5.0,
         "source": "independent reference",
         "reason": ""
@@ -141,7 +177,7 @@
         "status": "supports",
         "critical": true,
         "weight": 1.0,
-        "value": 0.05530825731613573,
+        "value": 0.07066064857911242,
         "limit": 2.0,
         "source": "independent reference",
         "reason": ""
@@ -157,13 +193,13 @@
         "reason": ""
       },
       {
-        "name": "dFx/ds >= 0 for slip <= 0.3 (share violating)",
+        "name": "dFx/ds for slip <= 0.3 has the sign of the Wong-Reece reference (share disagreeing)",
         "status": "supports",
         "critical": true,
         "weight": 1.0,
         "value": 0.0,
         "limit": 0.01,
-        "source": "shear mobilisation",
+        "source": "shear mobilisation and slip-sinkage",
         "reason": ""
       },
       {
