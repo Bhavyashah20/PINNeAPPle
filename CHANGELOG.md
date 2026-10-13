@@ -14,6 +14,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- `scripts/check_app_helpers.py` (run in CI by `tests/test_app_helpers.py`): flags new local helper modules and new
+  copies of library helpers in `apps/` and `examples/`, against a baseline that can only shrink. The rule
+  ("reusable logic goes in the library; apps and examples only compose library calls") is in `AGENTS.md` and
+  `CONTRIBUTING.md`; the inventory of what is being moved is `docs/dev/LIBRARY_CONSOLIDATION.md`.
 - Colab notebooks in `notebooks/colab/`, each self-contained (the first cell installs `pinneapple>=0.7.0` and picks
   the GPU, a parameter cell sets the sizes): a first PINN with its physics checks, an airfoil surrogate from
   `pp.zoo` validated against stored OpenFOAM runs, an equal-budget benchmark, the lunar rover terramechanics
