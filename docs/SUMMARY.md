@@ -51,6 +51,7 @@
 * Guides
     * [Recreate a 3D wear twin](guides/recreate_a_wear_twin.md)
     * [Pre-trained models and datasets (pp.zoo)](guides/model_zoo.md)
+    * [Physics checks in CI](guides/physics_checks_in_ci.md)
 * [API Reference](api/index.md)
   * [pinneapple](api/pinneapple/index.md)
   * [pinneapple_physics](api/pinneapple_physics/index.md)

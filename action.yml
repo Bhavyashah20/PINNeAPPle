@@ -1,0 +1,162 @@
+name: "PINNeAPPle physics check"
+description: "Fail a pull request when a simulation result or a Physics-AI model violates physics (pinneapple check)."
+author: "PINNeAPPle Labs"
+branding:
+  icon: "activity"
+  color: "green"
+
+inputs:
+  paths:
+    description: "Files or folders to check, separated by spaces (default: every target of pinneapple-check.toml)."
+    default: "."
+  config:
+    description: "Configuration file (default: pinneapple-check.toml or [tool.pinneapple.check] in pyproject.toml)."
+    default: ""
+  version:
+    description: >-
+      pinneapple version installed from PyPI (e.g. "0.8.0"). Empty: the source of this action's own ref, so
+      `uses: PINNeAPPle-Labs/PINNeAPPle@<tag or sha>` pins the checker to that tag or commit.
+    default: ""
+  python-version:
+    description: "Python used to run the checker."
+    default: "3.11"
+  torch:
+    description: "Install torch (CPU) too: needed only to load .pt checkpoints. Python callables need nothing."
+    default: "false"
+  select:
+    description: "Comma-separated rule ids or prefixes to enable (e.g. PC1,PC201)."
+    default: ""
+  ignore:
+    description: "Comma-separated rule ids or prefixes to disable."
+    default: ""
+  fail-on:
+    description: "error | warning | never."
+    default: "error"
+  baseline:
+    description: "Baseline file: violations recorded in it do not fail the job."
+    default: ""
+  annotations:
+    description: "Write violations as workflow annotations (shown on the changed lines of the pull request)."
+    default: "true"
+  sarif:
+    description: "Upload SARIF to GitHub code scanning (needs `permissions: security-events: write`)."
+    default: "true"
+  sarif-category:
+    description: "Code-scanning category (keep one per job if you run the action several times)."
+    default: "pinneapple-check"
+  summary:
+    description: "Write a summary table (with the trust card of each target) to the job summary."
+    default: "true"
+  args:
+    description: "Extra arguments for `pinneapple check`."
+    default: ""
+
+outputs:
+  exit-code:
+    description: "0 no violation, 1 violations, 2 configuration or usage error."
+    value: ${{ steps.check.outputs.exit-code }}
+  errors:
+    description: "Number of error-level violations (not baselined)."
+    value: ${{ steps.check.outputs.errors }}
+  warnings:
+    description: "Number of warning-level violations (not baselined)."
+    value: ${{ steps.check.outputs.warnings }}
+  report:
+    description: "Path of the JSON report (every check, the trust card of each target)."
+    value: ${{ steps.check.outputs.report }}
+  sarif-file:
+    description: "Path of the SARIF file."
+    value: ${{ steps.check.outputs.sarif-file }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Cache pip downloads
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: pinneapple-check-${{ runner.os }}-py${{ inputs.python-version }}-${{ inputs.version || github.action_ref || 'src' }}-torch-${{ inputs.torch }}
+        restore-keys: |
+          pinneapple-check-${{ runner.os }}-py${{ inputs.python-version }}-
+
+    - name: Install pinneapple check
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        ACTION_PATH: ${{ github.action_path }}
+        TORCH: ${{ inputs.torch }}
+      run: |
+        python -m pip install --upgrade pip >/dev/null
+        if [ -n "$VERSION" ]; then SPEC="pinneapple==$VERSION"; else SPEC="$ACTION_PATH"; fi
+        # The checker needs NumPy and SciPy, not the deep-learning stack: install the package without its
+        # dependencies, then only what `pinneapple check` uses. torch on request, for .pt checkpoints.
+        python -m pip install --no-deps "$SPEC"
+        python -m pip install "numpy>=1.24" "scipy>=1.10" "pandas>=2.0" "pyyaml>=6.0" "meshio>=5.3" "h5py>=3.8" \
+          "cryptography>=41" "tomli>=2.0; python_version < '3.11'"
+        if [ "$TORCH" = "true" ]; then
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        fi
+        pinneapple check --version
+
+    - name: Run pinneapple check
+      id: check
+      shell: bash
+      env:
+        PATHS: ${{ inputs.paths }}
+        CONFIG: ${{ inputs.config }}
+        SELECT: ${{ inputs.select }}
+        IGNORE: ${{ inputs.ignore }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        BASELINE: ${{ inputs.baseline }}
+        ANNOTATIONS: ${{ inputs.annotations }}
+        SUMMARY: ${{ inputs.summary }}
+        EXTRA: ${{ inputs.args }}
+      run: |
+        out="$RUNNER_TEMP/pinneapple-check"
+        mkdir -p "$out"
+        args=(--sarif "$out/results.sarif" --json "$out/report.json" --fail-on "$FAIL_ON" --color never)
+        [ -n "$CONFIG" ] && args+=(--config "$CONFIG")
+        [ -n "$SELECT" ] && args+=(--select "$SELECT")
+        [ -n "$IGNORE" ] && args+=(--ignore "$IGNORE")
+        [ -n "$BASELINE" ] && args+=(--baseline "$BASELINE")
+        [ "$SUMMARY" = "true" ] && args+=(--summary "$GITHUB_STEP_SUMMARY")
+        if [ "$ANNOTATIONS" = "true" ]; then args+=(--format github); else args+=(--format text); fi
+        read -r -a paths <<< "$PATHS"
+        read -r -a extra <<< "$EXTRA"
+        set +e
+        pinneapple check "${paths[@]}" "${args[@]}" "${extra[@]}"
+        code=$?
+        set -e
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        echo "report=$out/report.json" >> "$GITHUB_OUTPUT"
+        echo "sarif-file=$out/results.sarif" >> "$GITHUB_OUTPUT"
+        if [ -f "$out/report.json" ]; then
+          python - "$out/report.json" >> "$GITHUB_OUTPUT" <<'PY'
+        import json, sys
+        s = json.load(open(sys.argv[1]))["summary"]
+        print(f"errors={s['errors']}")
+        print(f"warnings={s['warnings']}")
+        PY
+        fi
+
+    - name: Upload SARIF to code scanning
+      if: ${{ always() && inputs.sarif == 'true' && steps.check.outputs.exit-code != '2' }}
+      uses: github/codeql-action/upload-sarif@v3
+      continue-on-error: true
+      with:
+        sarif_file: ${{ steps.check.outputs.sarif-file }}
+        category: ${{ inputs.sarif-category }}
+
+    - name: Fail on physics violations
+      if: ${{ steps.check.outputs.exit-code != '0' }}
+      shell: bash
+      env:
+        CODE: ${{ steps.check.outputs.exit-code }}
+      run: |
+        if [ "$CODE" = "2" ]; then echo "::error title=pinneapple check::configuration or usage error (see the log above)"; fi
+        exit "$CODE"

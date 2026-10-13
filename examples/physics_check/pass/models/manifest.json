@@ -1,0 +1,22 @@
+{
+ "algorithm": "sha256",
+ "files": {
+  "drag_surrogate.py": {
+   "sha256": "079711987bd5cabfc9a3e79697415ce8c93c2239d5c6490fa71c4fc2c22aa46d",
+   "size": 260
+  },
+  "drag_training_points.csv": {
+   "sha256": "b37615f7bbcee61928ddc2cd0c7a8c8444a383a27f02c2e9a884348b0fe0d6c1",
+   "size": 2326
+  },
+  "kovasznay_pinn.py": {
+   "sha256": "9d6a0fdbfa515179115de65cc9bd06292913135044ceb66585df3132a0dc91dc",
+   "size": 631
+  },
+  "queries.csv": {
+   "sha256": "e87364d502c3e07521e63b7b69937ad86ffdec295d10d7caa010f55edc08ffbb",
+   "size": 34
+  }
+ },
+ "merkle_root": "59bf47df53f3ae1dc00672b877fe4c0e97002b0feefb3d8f5abb6284483f4fb0"
+}
