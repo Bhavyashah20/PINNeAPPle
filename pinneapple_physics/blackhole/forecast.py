@@ -82,12 +82,12 @@ def _up(a):
 
 
 class _Conv(nn.Sequential):
-    def __init__(self, cin, cout):
-        super().__init__(nn.Conv2d(cin, cout, 5, padding=2), nn.LeakyReLU(0.3))
+    def __init__(self, cin, cout, padding_mode="zeros"):
+        super().__init__(nn.Conv2d(cin, cout, 5, padding=2, padding_mode=padding_mode), nn.LeakyReLU(0.3))
 
 
-def _block(cin, cout):
-    return nn.Sequential(_Conv(cin, cout), _Conv(cout, cout))
+def _block(cin, cout, padding_mode="zeros"):
+    return nn.Sequential(_Conv(cin, cout, padding_mode), _Conv(cout, cout, padding_mode))
 
 
 class DuarteUNet(nn.Module):
@@ -95,19 +95,24 @@ class DuarteUNet(nn.Module):
 
     ``residual=True`` (not in the paper) predicts the change from the last input frame instead of the frames
     themselves: the output is ``x[:, -1:] + net(x)``. When the flow changes little between frames, the absolute
-    prediction spends its accuracy on reproducing the state; the residual one starts from persistence."""
+    prediction spends its accuracy on reproducing the state; the residual one starts from persistence.
 
-    def __init__(self, filters: int = 32, frames: int = 5, residual: bool = False):
+    ``padding="replicate"`` (not in the paper, which pads with zeros) extends the edge values of the window instead
+    of zeros: the window edges are not walls of empty space, and zero padding seeds errors there that grow in long
+    rollouts. The weights are the same, so a zero-padded model can be fine-tuned with replicate padding."""
+
+    def __init__(self, filters: int = 32, frames: int = 5, residual: bool = False, padding: str = "zeros"):
         super().__init__()
         self.residual = residual
-        m = filters
+        m, pm = filters, padding
         c = [2 * m, 4 * m, 8 * m, 16 * m]
-        self.e1, self.e2, self.e3, self.e4 = _block(frames, c[0]), _block(c[0], c[1]), _block(c[1], c[2]), _block(c[2], c[3])
-        self.mid = _block(c[3], c[3])
-        self.d4 = _block(2 * c[3], c[3])
-        self.d3 = _block(c[3] + c[2], c[2])
-        self.d2 = _block(c[2] + c[1], c[1])
-        self.d1 = _block(c[1] + c[0], c[0])
+        self.e1, self.e2 = _block(frames, c[0], pm), _block(c[0], c[1], pm)
+        self.e3, self.e4 = _block(c[1], c[2], pm), _block(c[2], c[3], pm)
+        self.mid = _block(c[3], c[3], pm)
+        self.d4 = _block(2 * c[3], c[3], pm)
+        self.d3 = _block(c[3] + c[2], c[2], pm)
+        self.d2 = _block(c[2] + c[1], c[1], pm)
+        self.d1 = _block(c[1] + c[0], c[0], pm)
         self.out = nn.Conv2d(c[0], frames, 1)
         for mod in self.modules():
             if isinstance(mod, nn.Conv2d):
@@ -166,6 +171,7 @@ class TrainConfig:
     filters: int = 32
     frames: int = 5
     residual: bool = False
+    padding: str = "zeros"             # "zeros" (paper) | "replicate" (edge values; stabler long rollouts)
     epochs: int = 40
     batch_size: int = 16
     lr: float = 2e-4                   # the paper uses 5e-4 with batch 64; at batch 16 that diverges here
@@ -210,7 +216,7 @@ def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarra
     if cfg.mass_weight > 0 and log_vol is None:
         raise ValueError("mass_weight > 0 needs cell_volume")
     os.makedirs(out_dir, exist_ok=True)
-    model = DuarteUNet(cfg.filters, cfg.frames, cfg.residual)
+    model = DuarteUNet(cfg.filters, cfg.frames, cfg.residual, cfg.padding)
     if init is not None:                                # fine-tune from given weights
         model.load_state_dict(init.state_dict())
     opt = torch.optim.Adam(model.parameters(), lr=cfg.lr)
@@ -322,7 +328,7 @@ def save_forecaster(path, model, cfg: TrainConfig, codec: DensityCodec, meta: di
 def load_forecaster(path) -> tuple[DuarteUNet, DensityCodec, dict]:
     ck = torch.load(path, map_location="cpu", weights_only=False)
     tc = ck["train"]
-    model = DuarteUNet(tc["filters"], tc["frames"], tc.get("residual", False))
+    model = DuarteUNet(tc["filters"], tc["frames"], tc.get("residual", False), tc.get("padding", "zeros"))
     model.load_state_dict({k: v.float() for k, v in ck["state_dict"].items()})
     model.eval()
     return model, DensityCodec(**ck["codec"]), ck

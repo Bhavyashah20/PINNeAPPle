@@ -57,6 +57,7 @@ def main(argv=None):
     ap.add_argument("--alpha", type=float, default=8.0)
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--residual", action="store_true", help="predict the change from the last frame")
+    ap.add_argument("--padding", default="zeros", choices=["zeros", "replicate"], help="convolution padding")
     ap.add_argument("--loss", default="multi", choices=["multi", "regional"],
                     help="paper multi-sim loss, or the one-sim regional loss (Table 1 weights)")
     ap.add_argument("--clip", type=float, default=1.0, help="gradient clipping (0: off, as in the paper)")
@@ -108,7 +109,7 @@ def main_dataset(a):
     cfg = TrainConfig(filters=a.filters, epochs=a.epochs, batch_size=a.batch_size, alpha=a.alpha, lr=a.lr,
                       residual=a.residual, loss=a.loss, clip=a.clip, max_minutes=a.max_minutes, seed=a.seed,
                       rollout_blocks=a.rollout_blocks, noise=a.noise, mass_weight=a.mass_weight, bf16=a.bf16,
-                      samples_per_epoch=a.samples_per_epoch)
+                      samples_per_epoch=a.samples_per_epoch, padding=a.padding)
     os.makedirs(a.out, exist_ok=True)
     with open(os.path.join(a.out, "setup.json"), "w") as f:
         json.dump({"dataset": a.dataset, "train_seeds": sorted(tr), "val_seeds": sorted(va),
