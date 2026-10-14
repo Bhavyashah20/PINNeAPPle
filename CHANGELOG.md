@@ -14,6 +14,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- `CONTRIBUTING.md` explains who reviews pull requests, the best-effort response targets, and how someone becomes a
+  maintainer.
 - `pp.zoo.catalogue()` and the docs page `docs/guides/zoo_catalogue.md` generated from it. The page lists every zoo
   model and dataset: version, task, held-out metrics, trust decision, size (bundled or Hub-only), licence and
   Hugging Face link. A test keeps the committed page in sync with the manifest.
@@ -911,8 +913,6 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - JOSS paper draft (`paper/paper.md`, `paper/paper.bib`) and a workflow that builds its PDF (`draft-pdf.yml`).
   `CITATION.cff` lists both authors and points to this repository; the Code of Conduct is now the full Contributor
   Covenant 2.1; `CONTRIBUTING.md` explains how to report bugs and get help; the README has a statement of need.
-- `CONTRIBUTING.md` explains who reviews pull requests, the best-effort response targets, and how someone becomes a
-  maintainer.
 
 ### Known issues
 - The classical reference path for `burgers_1d` (`fdm` solver) overflows and returns a grid over `x` only, without the time
