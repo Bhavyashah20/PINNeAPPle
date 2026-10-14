@@ -65,6 +65,9 @@
   "PC601",
   "PC602"
  ],
+ "peak-temperature": [
+  "PC303"
+ ],
  "legacy-model": [
   "PC803"
  ],

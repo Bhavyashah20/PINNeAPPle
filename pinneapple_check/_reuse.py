@@ -69,6 +69,10 @@ def field_metrics():
     return leaf("pinneapple_analysis.validation.field_metrics")
 
 
+def metamorphic():
+    return leaf("pinneapple_analysis.validation.metamorphic")
+
+
 def method_catalog():
     return leaf("pinneapple_catalog.methods")
 
