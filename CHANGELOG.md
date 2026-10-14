@@ -14,6 +14,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- `pp.zoo.catalogue()` and the docs page `docs/guides/zoo_catalogue.md` generated from it. The page lists every zoo
+  model and dataset: version, task, held-out metrics, trust decision, size (bundled or Hub-only), licence and
+  Hugging Face link. A test keeps the committed page in sync with the manifest.
 - `pp.` shortcuts for the helpers consolidated from the apps, examples and satellite repositories: `pp.uncertainty`,
   `pp.closed_form`, `pp.excitation`, `pp.reporting` (modules) and `pp.as_tensor`, `pp.to_jsonable`, `pp.dominant_frequency`,
   `pp.assess_drift`, `pp.propagate_tolerances`, `pp.score_against_reference` (resolved on first use).

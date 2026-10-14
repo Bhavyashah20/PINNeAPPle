@@ -9,6 +9,7 @@ reference, validate (physics checks + validity range), benchmark and fine-tune w
     m.predict(T0=0.17, T1=0.15, T2=0.13, M0=0.02, M1=0.05, M2=0.03, alpha_deg=4.0)
     pp.zoo.evaluate("airfoil_cst_rans_mlp")             # recomputes the card's metrics on the stored reference
     pp.zoo.validate("airfoil_cst_rans_mlp").decisao     # TrustReport: APPROVED | REVIEW | REJECT
+    print(pp.zoo.catalogue())                           # every model and dataset: metrics, size, Hub link
     res = pp.zoo.finetune("airfoil_cst_rans_mlp", (X_new, Y_new), save_to="my_airfoil")  # refused if worse
 
 Only models that passed the zoo's gate ship (see ``_catalog.py`` and ``docs/dev/model_dataset_inventory.md``).
@@ -50,7 +51,7 @@ from ._models import (
 )
 
 __all__ = ["list", "info", "load", "versions", "predict", "evaluate", "validate", "benchmark", "finetune", "status",
-           "export_onnx", "onnx_parity", "query_checks", "check_spec", "export_web",
+           "catalogue", "export_onnx", "onnx_parity", "query_checks", "check_spec", "export_web",
            "load_dir", "datasets", "ZooModel", "FinetuneResult", "FinetuneRejectedError", "OutOfRangeWarning",
            "SupersededModelWarning",
            "ZooError", "ArtifactNotPublishedError", "ArtifactUnavailableError", "ChecksumMismatchError", "cache_dir"]
@@ -130,6 +131,13 @@ def versions(name: str) -> builtins.list[dict[str, str]]:
 def predict(name: ModelRef, inputs=None, **named) -> dict[str, np.ndarray]:
     """``load(name).predict(...)`` in one call."""
     return _model(name).predict(inputs, **named)
+
+
+def catalogue() -> str:
+    """Markdown page of every model and dataset: metrics, trust decision, size, Hugging Face link
+    (``docs/guides/zoo_catalogue.md`` is this page)."""
+    from .catalogue import markdown
+    return markdown()
 
 
 def status(name: str) -> dict[str, str]:
