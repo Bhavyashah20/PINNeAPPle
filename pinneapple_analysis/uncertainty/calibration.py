@@ -15,7 +15,6 @@ Regression Tasks*. Sensors, 22(15).
 from __future__ import annotations
 
 import math
-from typing import Dict, List
 
 import torch
 from torch import Tensor
@@ -25,7 +24,6 @@ try:
     from scipy.stats import norm as _scipy_norm  # type: ignore
 
     def _normal_cdf(z: Tensor) -> Tensor:
-        import numpy as np  # type: ignore
         return torch.from_numpy(_scipy_norm.cdf(z.cpu().numpy())).to(z.device)
 
     def _normal_ppf(p: float) -> float:
@@ -53,6 +51,25 @@ except ImportError:  # pragma: no cover
         return (lo + hi) / 2.0
 
 
+def _prepare(y_pred, y_true, y_std=None):
+    """Float64 tensors of one shape; a clear error for mismatched shapes, NaN/Inf or a negative std (a NaN target
+    used to count as "outside every interval" and silently changed the ECE)."""
+    out = [torch.as_tensor(v.detach() if hasattr(v, "detach") else v, dtype=torch.float64).cpu()
+           for v in ((y_pred, y_true) if y_std is None else (y_pred, y_true, y_std))]
+    if any(t.shape != out[0].shape for t in out):
+        raise ValueError(f"y_pred, y_true and y_std must have the same shape; got {[tuple(t.shape) for t in out]}")
+    if out[0].numel() == 0:
+        raise ValueError("calibration metrics need at least one sample")
+    for name, t in zip(("y_pred", "y_true", "y_std"), out, strict=False):
+        if not bool(torch.isfinite(t).all()):
+            raise ValueError(f"{name} contains NaN or Inf; remove or impute those samples first")
+    if y_std is not None:
+        if bool((out[2] < 0).any()):
+            raise ValueError("y_std must be non-negative")
+        out[2] = out[2].clamp(min=1e-9)
+    return out
+
+
 class CalibrationMetrics:
     """Collection of calibration and sharpness metrics for regression UQ.
 
@@ -68,8 +85,11 @@ class CalibrationMetrics:
 
     Notes
     -----
-    All tensors should be 1-D or 2-D.  For multi-output models, metrics are
-    computed element-wise and then averaged across output dimensions.
+    Inputs are tensors or arrays of one shape, ``(N,)`` or ``(N, D)``; they are
+    computed in float64. For multi-output models, metrics are computed
+    element-wise and then averaged across output dimensions (so a calibrated
+    model has ``coverage_at_level`` close to ``1 - alpha`` whatever ``D``).
+    NaN or Inf inputs raise ``ValueError``.
     """
 
     # ------------------------------------------------------------------
@@ -106,18 +126,15 @@ class CalibrationMetrics:
         float
             ECE in ``[0, 1]``.  A perfectly calibrated model returns 0.
         """
-        y_pred = y_pred.float()
-        y_true = y_true.float()
-        y_std = y_std.float().clamp(min=1e-9)
+        y_pred, y_true, y_std = _prepare(y_pred, y_true, y_std)
 
-        # Standardised residuals.
-        z = (y_true - y_pred) / y_std
+        # Probability integral transform of the standardised residuals: Uniform(0, 1) when calibrated.
+        pit = _normal_cdf((y_true - y_pred) / y_std)
 
         levels = torch.linspace(0.0, 1.0, n_bins + 2)[1:-1]  # exclude 0 and 1
         ece_sum = 0.0
         for p in levels.tolist():
-            z_p = _normal_ppf(p)
-            empirical = float((_normal_cdf(z) <= p).float().mean().item())
+            empirical = float((pit <= p).double().mean().item())
             ece_sum += abs(empirical - p)
 
         return ece_sum / n_bins
@@ -149,21 +166,21 @@ class CalibrationMetrics:
         Returns
         -------
         float
-            Fraction of samples whose true value lies within the predicted
-            interval.
+            Fraction of values (samples times output dimensions) that lie
+            within their predicted interval. For a calibrated model this is
+            close to ``1 - alpha`` whatever the number of outputs. (The joint
+            coverage of all ``D`` outputs at once is a different quantity, about
+            ``(1 - alpha)^D`` for independent errors.)
         """
-        y_pred = y_pred.float()
-        y_true = y_true.float()
-        y_std = y_std.float().clamp(min=1e-9)
+        if not 0.0 < alpha < 1.0:
+            raise ValueError(f"alpha must be in (0, 1); got {alpha}")
+        y_pred, y_true, y_std = _prepare(y_pred, y_true, y_std)
 
         z_alpha = _normal_ppf(1.0 - alpha / 2.0)
         lower = y_pred - z_alpha * y_std
         upper = y_pred + z_alpha * y_std
         within = (y_true >= lower) & (y_true <= upper)
-
-        if within.dim() > 1:
-            within = within.all(dim=1)
-        return float(within.float().mean().item())
+        return float(within.double().mean().item())
 
     # ------------------------------------------------------------------
     # Calibration plot data
@@ -175,7 +192,7 @@ class CalibrationMetrics:
         y_true: Tensor,
         y_std: Tensor,
         n_bins: int = 15,
-    ) -> Dict[str, List[float]]:
+    ) -> dict[str, list[float]]:
         """Compute data for a reliability / calibration diagram.
 
         Returns a dict with ``"expected"`` and ``"observed"`` confidence
@@ -200,19 +217,17 @@ class CalibrationMetrics:
             ``"ece"`` — scalar ECE (float wrapped in a single-element list for
             consistency).
         """
-        y_pred = y_pred.float()
-        y_true = y_true.float()
-        y_std = y_std.float().clamp(min=1e-9)
+        y_pred, y_true, y_std = _prepare(y_pred, y_true, y_std)
 
-        z = (y_true - y_pred) / y_std
+        pit = _normal_cdf((y_true - y_pred) / y_std)
         levels = torch.linspace(0.0, 1.0, n_bins + 2)[1:-1].tolist()
 
-        observed: List[float] = []
+        observed: list[float] = []
         for p in levels:
-            empirical = float((_normal_cdf(z) <= p).float().mean().item())
+            empirical = float((pit <= p).double().mean().item())
             observed.append(empirical)
 
-        ece = sum(abs(o - e) for o, e in zip(observed, levels)) / n_bins
+        ece = sum(abs(o - e) for o, e in zip(observed, levels, strict=True)) / n_bins
 
         return {
             "expected": list(levels),
@@ -242,7 +257,8 @@ class CalibrationMetrics:
         float
             Mean predictive std, averaged over all elements.
         """
-        return float(y_std.float().mean().item())
+        return float(torch.as_tensor(y_std.detach() if hasattr(y_std, "detach") else y_std,
+                                     dtype=torch.float64).mean().item())
 
     # ------------------------------------------------------------------
     # Gaussian NLL
@@ -278,9 +294,7 @@ class CalibrationMetrics:
         float
             Mean NLL over all samples and output dimensions.
         """
-        y_pred = y_pred.float()
-        y_true = y_true.float()
-        y_std = y_std.float().clamp(min=1e-9)
+        y_pred, y_true, y_std = _prepare(y_pred, y_true, y_std)
 
         var = y_std ** 2
         nll = 0.5 * (torch.log(2.0 * math.pi * var) + ((y_true - y_pred) ** 2) / var)
