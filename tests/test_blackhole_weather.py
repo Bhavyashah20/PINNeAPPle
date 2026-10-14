@@ -203,7 +203,8 @@ def test_rollout_loss_noise_and_mass_penalty_train(tmp_path):
     X, Y = make_blocks(x, 5, out_blocks=2)
     assert Y.shape[1] == 10 and np.array_equal(Y[0], x[5:15])
     codec = DensityCodec(-6.0, 0.0, 16, 0)
-    cfg = TrainConfig(filters=2, epochs=2, residual=True, rollout_blocks=2, noise=0.01, mass_weight=0.1)
+    cfg = TrainConfig(filters=2, epochs=2, residual=True, rollout_blocks=2, noise=0.01, mass_weight=0.1,
+                      mass_rate_weight=1.0, padding="replicate")
     hist = train_forecaster(X, Y, X[:4], Y[:4], cfg, codec, str(tmp_path), log=lambda s: None,
                             cell_volume=np.ones((16, 16)))
     assert len(hist["val"]) == 2 and all(np.isfinite(hist["val"]))

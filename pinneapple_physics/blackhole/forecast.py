@@ -256,9 +256,9 @@ def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarra
             if cfg.mass_weight > 0:
                 loss = loss + cfg.mass_weight * (_log_mass(pred, codec, log_vol) - _log_mass(yb, codec, log_vol)).abs().mean()
             if cfg.mass_rate_weight > 0:
-                last = Xt[b][:, -1:]
-                lm_p = _log_mass(torch.cat([last, pred], 1), codec, log_vol)
-                lm_t = _log_mass(torch.cat([last, yb], 1), codec, log_vol)
+                x_last = Xt[b][:, -1:]
+                lm_p = _log_mass(torch.cat([x_last, pred], 1), codec, log_vol)
+                lm_t = _log_mass(torch.cat([x_last, yb], 1), codec, log_vol)
                 loss = loss + cfg.mass_rate_weight * (lm_p.diff(dim=1) - lm_t.diff(dim=1)).abs().mean()
             opt.zero_grad()
             loss.backward()
