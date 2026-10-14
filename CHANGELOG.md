@@ -14,6 +14,12 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Residual-to-error calibration (`pinneapple_analysis.uncertainty.residual_bound`, #699): a guaranteed a-posteriori
+  bound `||u_h - u||_A <= ||r||_{L^-1} / sqrt(min k)` for Darcy and steady heat conduction in the discretisation of
+  the reference solver, and a split-conformal map residual -> error (`ResidualErrorCalibrator`, `coverage_study`)
+  whose coverage is measured and reported as broken under an input shift; `to_check` for trust reports.
+  `operator_benchmarks.darcy_matrix` exposes the finite-volume matrix of `darcy_2d`. Docs: "From residual to error
+  bound".
 - `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
   benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
   levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves
