@@ -37,7 +37,12 @@ def main(argv=None):
     for name, v in report["scalars"].items():
         row = "  ".join(f"{n}: {d['mean']:.4g} +- {d['ci95']:.2g}" for n, d in v["by_level"].items())
         r = v["richardson"]
-        extra = f"p {r['observed_order']:.2f} GCI {r['gci_fine']:.2%}" if r.get("gci_fine") else "not monotone"
+        if r.get("gci_fine"):
+            extra = f"p {r['observed_order']:.2f} GCI {r['gci_fine']:.2%}"
+        elif r.get("monotone"):
+            extra = f"diverging (p {r['observed_order']:.2f})"
+        else:
+            extra = "not monotone"
         print(f"{name:26s} {row}  | {extra} | stat. converged {v['statistically_converged']}")
     for kind in ("profiles", "fields"):
         for name, v in report[kind].items():
