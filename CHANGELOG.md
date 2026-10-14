@@ -401,6 +401,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- `TrustGate` OOD score (`pinneapple_analysis.trust`): a batch of query points was scored by the chi-squared p-value
+  of its mean point, so two points 50 standard deviations on either side of the training mean averaged to the mean
+  and scored 0.9998, "in distribution". **Behavior:** each point is now tested on its own and `ood_score` is the
+  fraction of query points whose Mahalanobis p-value is at least `ood_level` (new argument, default 0.01: inside the
+  99 % region of the fitted Gaussian). `TrustGate.ood_p_values(x)` returns the per-point p-values; NaN coordinates
+  count as outside and a wrong number of coordinates raises a clear `ValueError`. `TrustScore.details` reports
+  `ood_fraction_inside`, `ood_p_value_min` and `ood_level` (replacing `ood_p_value`).
 - `pp.trust_card` / `field_checks`: an exactly harmonic field that is linear along an axis (`u = x + 2y`,
   `T = 300 + x + y`) failed the critical PDE-residual check and was rejected, because its finite-difference terms are
   pure round-off and the residual was judged against that round-off. The residual scale now has a floor at the
