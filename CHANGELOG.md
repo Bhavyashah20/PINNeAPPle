@@ -397,6 +397,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- Veriphysics robustness studies (`pinneapple_veriphysics.robustness`): an extrapolation margin of 0 (or a negative
+  one) left no point outside the training box and `_sample_shell` looped forever, hanging `ensemble_study` and
+  `extrapolation_study`; it now raises a clear `ValueError`. The evaluation points came from the global NumPy
+  random state, so the same study gave different evidence on every run; sampling is now seeded and reproducible.
 - Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
   repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
