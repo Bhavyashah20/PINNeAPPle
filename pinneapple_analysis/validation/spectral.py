@@ -30,8 +30,9 @@ Layout: arrays are ``(..., *space)``: any leading axes followed by ``ndim`` spat
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -245,7 +246,7 @@ def structure_functions(u: np.ndarray, ndim: int, *, orders: Sequence[int] = (2,
 
 def _grad(u: np.ndarray, ndim: int, spacing: Sequence[float], periodic: bool) -> list[np.ndarray]:
     out = []
-    for ax, h in zip(_axes(ndim), spacing):
+    for ax, h in zip(_axes(ndim), spacing, strict=True):
         if periodic:
             out.append((np.roll(u, -1, axis=ax) - np.roll(u, 1, axis=ax)) / (2 * h))
         else:

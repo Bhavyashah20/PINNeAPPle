@@ -40,14 +40,17 @@ print(report.passed)                                   # False when |bias| > tol
 - a synthetic field with a prescribed `k^-5/3` spectrum: every shell within 1 % (the construction makes it exact to
   round-off) and the fitted slope within 1 %;
 - a 2-D decaying-turbulence velocity field from the pseudo-spectral solver (`pinneapple_physics.multiscale.ns2d`,
-  64², `nu = 5e-4`): the field against itself has zero bias, zero phase error and unit coherence; a copy through a
-  one-cell Gaussian filter has a relative L2 error below 5 % and a high-wavenumber bias below `-0.5` (flagged); 2 %
-  white noise gives a positive bias above 0.25;
+  64², `nu = 5e-4`, `t = 3`, spectrum slope about -3.3): the field against itself has zero bias, zero phase error and
+  unit coherence; a copy through a Gaussian filter of half a cell has a relative L2 error of 2.5 % and a
+  high-wavenumber bias of -0.68 (flagged; -0.92 at 0.75 cell, where L2 is 4.9 %); 5 % white noise gives a positive
+  bias above 0.25;
 - closed forms: `S_2(r)` of a linear field, flatness 3 of Gaussian noise, vorticity and strain of an analytic
   velocity field, and the wall flux of `x^2 + y`.
 
 ## Limits
 
+- Small added noise is below the default tolerance: 2 % white noise on the turbulence field gives a bias of +0.19
+  (not flagged at 0.25), 5 % gives +1.09. Lower `tol` if noise matters for the use.
 - The bias compares energies, not positions: a field shifted by a few cells keeps a zero bias. The phase error and
   coherence catch that.
 - The band edges are fractions of the resolved range of the *reference*. A reference with almost no energy at high

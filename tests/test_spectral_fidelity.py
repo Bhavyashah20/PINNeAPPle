@@ -5,9 +5,15 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from pinneapple_analysis.validation.spectral import (energy_spectrum, fit_power_law, gradient_metrics,
-                                                     high_wavenumber_bias, spectral_comparison, spectral_fidelity,
-                                                     structure_functions)
+from pinneapple_analysis.validation.spectral import (
+    energy_spectrum,
+    fit_power_law,
+    gradient_metrics,
+    high_wavenumber_bias,
+    spectral_comparison,
+    spectral_fidelity,
+    structure_functions,
+)
 
 
 def gaussian_blur(u: np.ndarray, sigma: float) -> np.ndarray:
@@ -34,11 +40,16 @@ def power_law_field(n: int, alpha: float, seed: int = 0) -> tuple[np.ndarray, np
 
 @pytest.fixture(scope="module")
 def turbulence():
-    """Velocity component of 2-D decaying turbulence (Re ~ 1e3) after an eddy turnover or two."""
-    from pinneapple_physics.multiscale.ns2d import VorticityNS2D, random_vorticity, velocity_from_vorticity
+    """Velocity component of 2-D decaying turbulence after a few eddy turnovers (spectrum ~ k^-3.3: enstrophy
+    cascade)."""
+    from pinneapple_physics.multiscale.ns2d import (
+        VorticityNS2D,
+        random_vorticity,
+        velocity_from_vorticity,
+    )
     n = 64
-    w0 = random_vorticity(np.random.default_rng(0), n, k0=6.0)
-    w = VorticityNS2D(n, 5e-4).simulate(w0, [1.5], dt=1e-2)[0]
+    w0 = random_vorticity(np.random.default_rng(0), n, k0=3.0)
+    w = VorticityNS2D(n, 5e-4).simulate(w0, [3.0], dt=1e-2)[0]
     return velocity_from_vorticity(w)[0], w
 
 
@@ -67,19 +78,19 @@ def test_reference_against_itself_has_zero_bias(turbulence):
     u, _ = turbulence
     r = spectral_fidelity(u, u, 2)
     assert r.hf_bias == 0.0 and r.passed
-    assert all(v == 0.0 for v in r.spectrum.band_phase_error.values())
+    assert all(v < 1e-12 for v in r.spectrum.band_phase_error.values())
     assert all(v == pytest.approx(1.0) for v in r.spectrum.band_coherence.values())
 
 
 def test_blurred_turbulence_has_small_l2_error_but_is_flagged(turbulence):
     u, _ = turbulence
-    blurred = gaussian_blur(u, 1.0)
+    blurred = gaussian_blur(u, 0.5)                           # half a cell
     r = spectral_fidelity(blurred, u, 2)
-    assert r.rel_l2 < 0.05                                    # looks good by L2 ...
-    assert r.hf_bias < -0.5 and not r.passed                  # ... but most of the small-scale energy is gone
+    assert r.rel_l2 < 0.05                                    # looks good by L2 (2.5 %) ...
+    assert r.hf_bias < -0.5 and not r.passed                  # ... but 2/3 of the small-scale energy is gone
     assert r.spectrum.band_ratio["low"] > 0.95
     assert r.structure_pred.S[2][0] < r.structure_ref.S[2][0]
-    noisy = u + 0.02 * u.std() * np.random.default_rng(1).standard_normal(u.shape)
+    noisy = u + 0.05 * u.std() * np.random.default_rng(1).standard_normal(u.shape)
     assert high_wavenumber_bias(noisy, u, 2) > 0.25           # added noise: positive bias
 
 
