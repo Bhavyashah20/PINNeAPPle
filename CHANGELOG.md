@@ -397,6 +397,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- Physics validity monitor (`pinneapple_physics.physics_audit`): `boundary_check` divided the boundary mismatch by
+  the RMS of the boundary prediction itself, so a homogeneous condition (u = 0 on the boundary) was a 100 % mismatch
+  for any non-zero value, even 1e-9, and could never pass. **Behavior:** the mismatch is now divided by the larger
+  of the RMS of the condition and the RMS of the whole prediction, or by an explicit `scale=`.
+  `conservation_check` and `invariant_check` take `abs_tol=` for an expected value of zero (net charge, net
+  momentum, an antisymmetry measure), where a purely relative tolerance cannot pass; the documented relative
+  behaviour is unchanged when `abs_tol` is not given.
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
