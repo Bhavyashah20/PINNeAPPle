@@ -14,6 +14,29 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- PhysicsNeMo trains, PINNeAPPle checks (2-D Darcy):
+  - `pinneapple_physics.darcy_checks`: physics checks of a predicted Darcy field `-div(a grad u) = f`. They use
+    the reference solver's own finite-volume discretisation and need no reference solution. `residual_error_bound`
+    turns the residual into a guaranteed bound on the energy-norm error (one fast sine transform). The module also
+    checks the boundary condition, net boundary flux against the source, and positivity. `CoefficientEnvelope`
+    checks applicability against the training coefficients. `darcy_checks` / `darcy_trust_report` give the deploy
+    decision for a batch.
+  - `check_nodal_darcy_batch` (and `nodal_darcy_residual`, `solve_nodal_darcy`, `distinct_fields`): the same kind
+    of checks for node-based training data, such as PhysicsNeMo's `Darcy2D` datapipe, before anyone trains on it.
+  - `pinneapple_neural.physicsnemo_bridge.field_operators`: `physicsnemo_fno` and `physicsnemo_meshgraphnet` (on the
+    grid graph, `grid_graph`) build PhysicsNeMo's own models as NumPy predictors (`GridFieldPredictor`, with
+    save / load). `train_grid_operator` trains them under a `ComputeBudget`.
+  - `pinneapple check`: `physics = "darcy"` for cell-centred grid results with fields `a` and `u` (PC301 error
+    bound, PC101 flux balance, PC201 `u = 0`, PC402 positivity), with tolerances `darcy-energy`, `darcy-flux`,
+    `darcy-bc` and `darcy-positivity`.
+  - `pinneapple_analysis.cost.equal_budget` (`ComputeBudget`, `train_within_budget`, `count_flops`, ...), taken
+    unchanged from the equal-budget benchmark branch, which `pinneapple_hub.zoo._bench` already imports.
+  - `operator_datasets.darcy_set` (Darcy pairs from shifted input distributions, solved like the zoo dataset) and
+    `block_average`. `darcy_inputs` takes `tau`, `high` and `low`.
+  - `pinneapple_tools.visualization.trust_panels`: field panels with a trust verdict per model, as PNG or GIF.
+  - Example `examples/vs_physicsnemo/07_physicsnemo_trains_pinneapple_checks` and the guide
+    `docs/guides/physicsnemo_trust.md`. The `darcy-trust` job of the physics-check workflow runs the GitHub Action
+    on the exported predictions.
 - `CONTRIBUTING.md` explains who reviews pull requests, the best-effort response targets, and how someone becomes a
   maintainer.
 - `pp.zoo.catalogue()` and the docs page `docs/guides/zoo_catalogue.md` generated from it. The page lists every zoo

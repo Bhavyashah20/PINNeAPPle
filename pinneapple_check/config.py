@@ -45,11 +45,12 @@ __all__ = ["ConfigError", "Config", "ResultTarget", "ModelTarget", "Integrity", 
 
 CONFIG_NAMES = ("pinneapple-check.toml", ".pinneapple-check.toml")
 
-PHYSICS = ("incompressible-flow", "heat", "elasticity", "conservation", "none")
+PHYSICS = ("incompressible-flow", "heat", "elasticity", "conservation", "darcy", "none")
 _PHYSICS_ALIASES = {"incompressible": "incompressible-flow", "flow": "incompressible-flow", "navier-stokes":
                     "incompressible-flow", "stokes": "incompressible-flow", "heat-conduction": "heat",
                     "thermal": "heat", "diffusion": "heat", "linear-elasticity": "elasticity", "solid": "elasticity",
-                    "conservation-law": "conservation", "generic": "conservation"}
+                    "conservation-law": "conservation", "generic": "conservation", "darcy-flow": "darcy",
+                    "porous-media": "darcy"}
 
 #: Default tolerances (all relative, dimensionless). Override per target under ``tolerances``.
 DEFAULT_TOLERANCES: dict[str, float] = {
@@ -67,6 +68,10 @@ DEFAULT_TOLERANCES: dict[str, float] = {
     "rel-l2": 1e-2,            # PC701 relative L2 against the reference
     "qoi": 1e-2,               # PC702 relative tolerance of a quantity of interest (default)
     "fraction-slack": 1e-6,    # PC402 slack on [0, 1] for fractions
+    "darcy-energy": 1e-1,      # PC301 darcy: certified relative energy-norm error bound from the FV residual
+    "darcy-flux": 2e-2,        # PC101 darcy: |net boundary flux - source integral| / source integral
+    "darcy-bc": 2e-2,          # PC201 darcy: RMS of u extrapolated to the boundary / max |u|
+    "darcy-positivity": 1e-2,  # PC402 darcy: most negative u / max |u| (maximum principle, f >= 0)
 }
 
 

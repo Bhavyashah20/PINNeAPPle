@@ -64,7 +64,7 @@ RULES: dict[str, Rule] = {r.id: r for r in [
        the flux through every boundary face (from `phi` when the solver wrote it, else from the face velocity) or,
        for a model, integrates u.n over the faces of the domain box, and divides the net flux by the total absolute
        flux. A non-zero value means a leaking boundary condition, an unconverged run or a model that creates or
-       destroys mass.""",
+       destroys mass. For `darcy` it compares the net outward Darcy flux with the integral of the source.""",
        """Look at the inlet/outlet patches named in the message; check that the run converged (residuals) and that
        the outlet is not a fixed-value velocity. For a PINN, add a mass-balance or divergence penalty, or use a
        divergence-free architecture (stream function)."""),
@@ -115,7 +115,8 @@ RULES: dict[str, Rule] = {r.id: r for r in [
        """The governing equation of the declared physics is evaluated on the stored fields and its RMS residual is
        divided by the RMS of the sum of the absolute values of its terms: 0 means the equation holds exactly, 1
        means the terms do not balance at all. Discretisation error makes it non-zero on coarse meshes, so the
-       default tolerance is loose.""",
+       default tolerance is loose. For `darcy` the residual of the finite-volume discretisation is turned into a
+       guaranteed bound on the relative energy-norm error (tolerance `darcy-energy`).""",
        """Converge the solver, refine the mesh where the residual is largest, or check the declared parameters
        (viscosity, conductivity, source) match the ones used in the run."""),
     _r("PC302", "model-residual", "PDE residual of a model's predictions is too large", ERROR, "physics",

@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 
-from .. import balances
+from .. import _reuse, balances
 from ..config import ResultTarget
 from ..fields import FieldData, LoadError, load_result
 from ..numerics import GridD, PointD, components, rel_rms
@@ -92,6 +92,8 @@ def _used_fields(physics, fd) -> set[str]:
         return {"T"} & set(fd.fields)
     if physics == "elasticity":
         return {n for n in fd.fields if n in ("D", "disp", "displacement", "ux", "uy", "uz")}
+    if physics == "darcy":
+        return {n for n in fd.fields if n in DARCY_COEF + DARCY_SOL}
     return set()
 
 
@@ -225,6 +227,9 @@ def _grid_slices(fd: FieldData):
 
 
 def _physics_grid(ctx: Ctx, t: ResultTarget, fd: FieldData, physics: str, params: dict[str, Any]) -> None:
+    if physics == "darcy":
+        _darcy(ctx, t, fd, params)
+        return
     nd_all = len(fd.axes)
     comps = components(fd.fields, vector_ndim=nd_all + 1)
     D = GridD(fd.axes, comps)
@@ -290,6 +295,64 @@ def _total_drift(ctx: Ctx, t: ResultTarget, fd: FieldData, coords, sp, loc) -> N
                                  + ("" if ok else f" (worst at t={tt[k]:.4g})"), loc, value=rel,
                  threshold=t.tol("total-drift"))
     _ = trapz
+
+
+# ---------------------------------------------------------------------------------------------- darcy
+DARCY_COEF = ("a", "K", "k", "permeability")
+DARCY_SOL = ("u", "p", "pressure", "h")
+
+
+def _darcy(ctx: Ctx, t: ResultTarget, fd: FieldData, params: dict[str, Any]) -> None:
+    """-div(a grad u) = f, u = 0 on the boundary of the unit square, on the reference solver's cell-centred
+    finite-volume discretisation: certified error bound from the residual (PC301), net boundary flux against the
+    source (PC101), boundary condition (PC201), maximum principle (PC402)."""
+    loc = ctx.default_location() if t.declared else ctx.file_location(fd.source)
+    coef = next((n for n in DARCY_COEF if n in fd.fields), None)
+    sol = next((n for n in (t.fields or []) if n in DARCY_SOL and n in fd.fields), None) or \
+        next((n for n in DARCY_SOL if n in fd.fields), None)
+    sp = fd.spatial_axes
+    if coef is None or sol is None or len(sp) != 2 or "t" in fd.axes:
+        ctx.note("darcy: needs a steady 2-D grid with a coefficient field (a or K) and a solution field (u or p)")
+        return
+    x, y = fd.axes[sp[0]], fd.axes[sp[1]]
+    n = len(x)
+    centres = (np.arange(n) + 0.5) / n
+    if len(y) != n or not (np.allclose(x, centres, atol=1e-6) and np.allclose(y, centres, atol=1e-6)):
+        ctx.note(f"darcy: the grid must be the {n} x {n} cell centres of the unit square ((i + 1/2) / n)")
+        return
+    a, u = np.asarray(fd.fields[coef], float), np.asarray(fd.fields[sol], float)
+    if not (np.isfinite(a).all() and np.isfinite(u).all()):
+        return                                                   # PC403 already reported
+    dc = _reuse.darcy_checks()
+    f = float(params.get("f") if params.get("f") is not None else 1.0)
+    eq = f"-div({coef} grad {sol}) = {fmt(f)}"
+    eb = float(dc.residual_error_bound(u, a, f))
+    tol = t.tol("darcy-energy")
+    ok = bool(np.isfinite(eb) and eb <= tol)
+    r = np.abs(dc.darcy_residual(u, a, f))
+    i = int(np.argmax(r))
+    ctx.emit("PC301", "darcy", ok, f"darcy residual ({eq}, finite volumes): certified energy-norm error bound "
+                                   f"{fmt(eb)} {'<=' if ok else '>'} {fmt(tol)}"
+             + ("" if ok else f"; largest residual at {_where(fd)(i)}"), loc, value=eb, threshold=tol)
+    b = dc.boundary_flux_balance(u, a, f)
+    check_balance(ctx, "PC101", "darcy flux through the boundary minus the source",
+                  {"net": float(b["outflow"] - b["source"]), "total": abs(float(b["source"]))},
+                  t.tol("darcy-flux"), loc, subject="darcy-flux")
+    scale = max(float(np.max(np.abs(u))), 1e-300)
+    bv = dc.boundary_values(u)
+    rms = float(np.sqrt(np.mean(bv ** 2))) / scale
+    tol = t.tol("darcy-bc")
+    ok = rms <= tol
+    side = ("x=min", "x=max", "y=min", "y=max")[int(np.argmax(np.sqrt(np.mean(bv ** 2, axis=1))))]
+    ctx.emit("PC201", f"{sol}@boundary", ok, f"{sol} = 0 on the boundary: RMS of the extrapolated boundary value "
+                                             f"{fmt(rms)} of max |{sol}| {'<=' if ok else '>'} {fmt(tol)}"
+             + ("" if ok else f" (worst side {side})"), loc, value=rms, threshold=tol)
+    if f >= 0:
+        neg = max(-float(np.min(u)), 0.0) / scale
+        tol = t.tol("darcy-positivity")
+        ok = neg <= tol
+        ctx.emit("PC402", sol, ok, f"{sol} >= 0 (maximum principle, f >= 0): most negative value {fmt(neg)} of "
+                                   f"max |{sol}| {'<=' if ok else '>'} {fmt(tol)}", loc, value=neg, threshold=tol)
 
 
 # ---------------------------------------------------------------------------------------------- points

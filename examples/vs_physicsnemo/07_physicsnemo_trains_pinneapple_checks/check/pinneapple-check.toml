@@ -1,0 +1,100 @@
+# `pinneapple check` on predictions of the two PhysicsNeMo models (written by ../run.py evaluate).
+# Every file is one predicted field u for one coefficient a on the 128 x 128 cell centres of the unit square.
+# physics = "darcy": -div(a grad u) = f, u = 0 on the boundary, checked with the reference solver's finite volumes;
+# bounds on a = the values seen in training (PC401 flags a coefficient outside them).
+
+[[result]]
+name = "in_distribution/fno_0"
+path = "predictions/in_distribution/fno_0.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
+
+[[result]]
+name = "in_distribution/fno_1"
+path = "predictions/in_distribution/fno_1.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
+
+[[result]]
+name = "in_distribution/meshgraphnet_0"
+path = "predictions/in_distribution/meshgraphnet_0.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
+
+[[result]]
+name = "in_distribution/meshgraphnet_1"
+path = "predictions/in_distribution/meshgraphnet_1.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
+
+[[result]]
+name = "contrast/fno_0"
+path = "predictions/contrast/fno_0.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
+
+[[result]]
+name = "contrast/fno_1"
+path = "predictions/contrast/fno_1.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
+
+[[result]]
+name = "contrast/meshgraphnet_0"
+path = "predictions/contrast/meshgraphnet_0.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
+
+[[result]]
+name = "contrast/meshgraphnet_1"
+path = "predictions/contrast/meshgraphnet_1.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
+
+[[result]]
+name = "length_scale/fno_0"
+path = "predictions/length_scale/fno_0.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
+
+[[result]]
+name = "length_scale/fno_1"
+path = "predictions/length_scale/fno_1.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
+
+[[result]]
+name = "length_scale/meshgraphnet_0"
+path = "predictions/length_scale/meshgraphnet_0.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
+
+[[result]]
+name = "length_scale/meshgraphnet_1"
+path = "predictions/length_scale/meshgraphnet_1.npz"
+physics = "darcy"
+parameters = { f = 1.0 }
+units = { a = "1", u = "1" }
+bounds = { a = [3, 12] }
