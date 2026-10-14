@@ -433,6 +433,15 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   check measures distances about each triangle pair's centre with a size-relative tolerance (no false hits on flat
   caps far from the origin or on nearly parallel neighbours).
 
+### Documentation
+- New guide "Validation methods reference" (`docs/guides/validation_methods_reference.md`, under Guides): every
+  check of `pinneapple check`, `pp.trust_card`, `TrustGate`, `pinneapple_analysis.validation`, `.uncertainty`,
+  `.verification`, veriphysics, the physics audit monitor and the zoo query gate, with what it detects, its
+  assumptions, default thresholds, references and known limitations; a table that maps the status vocabularies of
+  these modules onto pass / warn / fail / not-applicable; and how check power is measured (ASME V&V 40 and
+  NASA-STD-7009A credibility, mutation testing, metamorphic relations, adversarial robustness of neural operators,
+  the arena proposed in #707).
+
 ## [0.7.0] - 2026-10-13
 
 ### Added
