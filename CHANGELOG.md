@@ -14,6 +14,42 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
+  benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
+  levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves
+  and hashes the solver configuration, geometry, data and its cost; validation runs PINNeAPPle's own stack on them
+  (solver verification, GCI, preflight, mesh quality, y+, physics audit, applicability envelope, trust card);
+  correctness gates (architecture, training, determinism) run by default and mark rows INVALID or "did not converge";
+  an advisor lists diagnostics with evidence and configuration edits. Built-in problems: `burgers`, `darcy`,
+  `navier_stokes`, `airfoil`, `inverse_heat`; methods: `pinn`, `fno`, `deeponet`, `mgn`, `mlp`, `mlp_fields`,
+  `pinn_rans`; `ArrayProblem` and `register_problem` / `register_method` for your own. Docs: "Running a benchmark";
+  example: `examples/benchmark/`.
+- `pp.benchmark`: `budget_study` (the best configuration again at longer budgets, a table per instance and
+  `figures/budget_study.png`) and `ablations` (a setup audit: changes to the best configuration at the full budget,
+  next to the unchanged run). The airfoil RANS PINN gets two options, off by default: an exact far field and
+  collocation points even in log r (`airfoil_impl.RANS_FAR`, `RANS_MIX`).
+- `pp.benchmark` gates: the airfoil PINNs' exact-solution check runs their own training residuals on solutions that
+  exercise every term (a harmonic stream function; Kovasznay flow with an eddy viscosity) and must fail with a flipped
+  sign; `Problem.main_metric_for(method)` judges "did not converge" on what each method predicts (Cd for the
+  integrals-only MLP, the velocity field for the field models: potential flow has zero drag by construction).
+- Equal-budget method comparison (#299), `pinneapple_analysis.cost.equal_budget`: `ComputeBudget` (wall clock,
+  FLOPs, steps), `train_within_budget` (stops at the budget, budget-aware schedules, evaluation off the clock),
+  `count_flops` (PyTorch's operator formulas plus FFTs, and unlike `FlopCounterMode` it runs around
+  `torch.autograd.grad`, so PINN residuals are counted), `equal_budget_search` (the same number of trials for every
+  method), `AmortizedCost` (data, training and inference cost per query, break-even), `relative_l2`,
+  `time_per_query`, `hardware_record`.
+- `pinneapple_simulation.numerical_solvers.operator_benchmarks`: the reference solvers of the standard
+  operator-learning benchmarks (Li et al. 2021) written from the equations and checked on exact solutions: batched
+  pseudo-spectral Burgers and 2-D vorticity Navier-Stokes (ETDRK4), finite-volume Darcy, periodic Gaussian random
+  fields, and `FourierInterpolant` (a differentiable periodic interpolant for hard initial conditions in PINNs).
+- `train_within_budget(checkpoint=..., resume=...)`: long budgeted runs save their accounting and continue the same
+  budget after an interruption.
+- `pinneapple_design.aero.panel`: a Hess-Smith panel method (inviscid reference for airfoils: Cl, Cp, Cm, velocity
+  anywhere), checked against thin-airfoil theory.
+- `run_plate` (Inverse Heat Lab) takes an optional `budget=ComputeBudget(...)` and the network and collocation
+  sizes; without them it behaves as before.
+- Docs page "Choosing a method" (`docs/guides/choosing_a_method.md`): a decision table backed by the equal-budget
+  benchmark (PINNeAPPle-Benchmark experiment 09), linking every row to the library entry points.
 - `CONTRIBUTING.md` explains who reviews pull requests, the best-effort response targets, and how someone becomes a
   maintainer.
 - `pp.zoo.catalogue()` and the docs page `docs/guides/zoo_catalogue.md` generated from it. The page lists every zoo
@@ -336,6 +372,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   and `pinneapple_design.design_optimizer.representatives` (best per objective + balanced pick of a Pareto front).
 
 ### Changed
+- **Behavior:** `pinneapple_analysis.cost.measure` now counts FLOPs of code that calls `torch.autograd.grad` with
+  the hook-free counter (`flops_source == "dispatch_counter"`) instead of the profiler's matmul-only lower bound.
 - `compressible_fv.sod_exact` delegates to `astrophysics.sod_exact_solution` (same output to round-off; covers every wave pattern);
   `internal_flow.colebrook` delegates to `closed_form.pipe_flow.colebrook`; the LBM shedding benchmark, the
   cylinder / car / ROM lab experiments, the SSQN benchmarks and the missile example use the library functions above.
@@ -359,6 +397,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- `pinneapple_data.preflight`: `freestreamPressure` / `freestream` fix the pressure level; external-aerodynamics cases
+  were reported as having no pressure reference.
 - Geometry library: `build()` snaps vertices to a 0.1 um grid, so the files rebuilt on another machine (the Hub
   publishing job) are bit-identical to the manifest; the publishing job pins the NumPy / SciPy / manifold3d
   versions the manifest was generated with. All files and the manifest were regenerated. The self-intersection

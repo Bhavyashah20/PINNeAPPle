@@ -569,6 +569,7 @@ _SUBMODULES = {
     "viz":        "pinneapple_tools.visualization.studio",
     # external flow around any body in OpenFOAM (STL -> mesh -> forces, skin fields, streamlines, slices)
     "cfd":        "pinneapple_simulation.numerical_solvers.external_flow",
+    "benchmark":  "pinneapple_analysis.benchmark",
     # CalculiX studies: gmsh or hexahedral meshes, sets by geometry, static / modal / buckling / heat, results
     "fea":        "pinneapple_simulation.external_solvers.calculix.study",
     # CAE files: OpenFOAM, CalculiX/Abaqus, Gmsh, VTK readers, mesh quality, comparison, neutral dataset
@@ -625,6 +626,7 @@ _SUBMODULES = {
 # Lazy functions: resolved on first access, so ``import pinneapple`` does not
 # import their package. ``pinneapple_decision`` itself does not import torch.
 _LAZY_ATTRS = {
+    "ComputeBudget": ("pinneapple_analysis.cost.equal_budget", "ComputeBudget"),
     # physics checks of a field on a grid -> trust card with a deploy decision
     "trust_card": ("pinneapple_analysis.trust.field_card", "trust_card"),
     "PhysicsOptimizer": ("pinneapple_core.optim", "PhysicsOptimizer"),

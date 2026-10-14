@@ -69,7 +69,9 @@ class CostRecord:
 # --------------------------------------------------------------------------- measuring
 def _count_flops(fn: Callable[[], Any]):
     """``(flops, source)``. ``flop_counter`` is exact for the operators it knows; it cannot run around
-    ``torch.autograd.grad``, so there the profiler's count is used (matmul/conv only, a lower bound)."""
+    ``torch.autograd.grad`` (its module hooks fail there), so then ``equal_budget.count_flops`` is used: the same
+    per-operator formulas without module hooks, plus FFTs. The profiler's count (matmul/conv only) is the last
+    resort."""
     try:
         from torch.utils.flop_counter import FlopCounterMode
     except Exception:
@@ -81,6 +83,13 @@ def _count_flops(fn: Callable[[], Any]):
         if total > 0:
             return total, "flop_counter"
         return None, ""
+    except Exception:
+        pass
+    try:
+        from .equal_budget import count_flops
+        total = count_flops(fn)[0]
+        if total > 0:
+            return total, "dispatch_counter"
     except Exception:
         pass
     try:
