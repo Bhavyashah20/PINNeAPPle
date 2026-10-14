@@ -25,6 +25,12 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   counterexample. `pinneapple_hub.zoo.relations.check_zoo_relations` runs the relations of the airfoil and forced
   heat-sink zoo models. `pinneapple check`: new rule PC303 `metamorphic-relation` and a `relations` key on
   `[[model]]`. Docs: "Metamorphic tests".
+- Dataset physics audit (`pinneapple_data.audit`, `pp.datasets.audit`, #700): per-sample consistency with the stated
+  PDE in the dataset's own discretisation (built in for Darcy, reusing `operator_benchmarks.darcy_2d`), declared
+  column constraints, diversity (effective sample count and input spectrum against the stated generator, exact and
+  near duplicates), train/test leakage by nearest neighbour, units and missing values; an audit card (JSON,
+  markdown) stored for the bundled zoo datasets and shown in their Hub card. `pinneapple check`: `[[dataset]]` targets
+  and rules PC451 (physics), PC452 (diversity), PC453 (leakage). Docs: "Dataset physics audit".
 - Zoo dataset `navier_stokes_2d_li2021_nu1e-3` (Hub-only, 919 MB in 12 shards of 100 runs): 2-D incompressible
   Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
   It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.

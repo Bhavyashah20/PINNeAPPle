@@ -77,6 +77,10 @@ def metamorphic():
     return leaf("pinneapple_analysis.validation.metamorphic")
 
 
+def dataset_audit():
+    return leaf("pinneapple_data.audit")
+
+
 def method_catalog():
     return leaf("pinneapple_catalog.methods")
 

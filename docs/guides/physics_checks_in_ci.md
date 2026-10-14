@@ -244,6 +244,9 @@ checker loads them without the package `__init__` files that do, so it starts in
 | [PC401](#pc401) | `out-of-bounds` | error | data_geometry | A field leaves its declared bounds |
 | [PC402](#pc402) | `unphysical-value` | error | data_geometry | A field takes a physically impossible value |
 | [PC403](#pc403) | `non-finite` | error | data_geometry | A field contains NaN or infinite values |
+| [PC451](#pc451) | `dataset-physics` | error | data_geometry | Training data do not solve the stated PDE or break a declared constraint |
+| [PC452](#pc452) | `dataset-diversity` | error | data_geometry | Training data are less diverse than stated or contain duplicates |
+| [PC453](#pc453) | `dataset-leakage` | error | data_geometry | Test samples are copies of training samples |
 | [PC501](#pc501) | `unit-mismatch` | error | data_geometry | A field's unit differs from the declared unit |
 | [PC502](#pc502) | `unit-missing` | warning | data_geometry | A field used by a physics check has no unit |
 | [PC503](#pc503) | `implausible-magnitude` | warning | data_geometry | Values are implausible for the declared unit |
@@ -365,6 +368,24 @@ checker loads them without the package `__init__` files that do, so it starts in
 **`non-finite`** (error). NaN or Inf in a stored field or a model prediction. Every other check on that field is unreliable.
 
 *Fix:* The run diverged or the model was evaluated outside its numeric range; inspect the time step and the residual history.
+
+#### PC451
+
+**`dataset-physics`** (error). Samples of a dataset (`[[dataset]]`) differ from the solution of their own discrete problem (or their boundary values or flux balance are off), or rows break a relation declared between columns. A model trained on such data inherits the error, and model-level checks may never see it (NVIDIA/physicsnemo#2036: Darcy data generated with a wrongly scaled cross term). Guide: [Dataset physics audit](dataset_audit.md).
+
+*Fix:* Regenerate the data with the documented equation and discretisation; the failing samples are listed in the evidence.
+
+#### PC452
+
+**`dataset-diversity`** (error). The effective number of distinct samples (participation ratio of the principal components) collapses, or samples are exact or near copies of each other (NVIDIA/physicsnemo#2035: every Fourier coefficient of a permeability sample shared one value).
+
+*Fix:* Check the sampler: independent random coefficients per mode and per sample, a fresh seed per sample.
+
+#### PC453
+
+**`dataset-leakage`** (error). A test sample's nearest training sample is closer than a thousandth of the typical spacing between training samples: the held-out error measures memorisation, not generalisation.
+
+*Fix:* Split before deduplicating, split by case or geometry rather than by row, and drop the flagged pairs.
 
 ### Units (PC5xx)
 

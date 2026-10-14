@@ -120,6 +120,11 @@ relations = [
   { name = "better-conductor-cooler", kind = "monotonic", input = "k", output = "T", direction = "decreasing" },
   { name = "same-q-L2", kind = "invariant", inputs = { q = "4 * q", L = "L / 2" }, output = "T", tol = 1e-9 },
 ]
+# ---------------------------------------------------------------- datasets
+[[dataset]]
+path = "datasets/darcy.npz"                      # Darcy pairs solved with the documented discretisation
+physics = "darcy"
+constraints = ["u > 0", "u < 1 / 24"]
 
 # ---------------------------------------------------------------- artefacts
 [integrity]

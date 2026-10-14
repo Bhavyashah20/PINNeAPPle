@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .baseline import apply_baseline
-from .checks import Ctx, check_integrity, check_model, check_pin, check_result
+from .checks import Ctx, check_dataset, check_integrity, check_model, check_pin, check_result
 from .config import Config, discover, load_config
 from .result import Report
 from .rules import select_rules
@@ -51,8 +51,12 @@ def run(paths: list[str | Path] | None = None, *, config: Config | str | Path | 
     notes: list[str] = []
     for t in targets:
         ctx = Ctx(cfg, t, enabled, report.outcomes)
-        kind = "model" if t in cfg.models else "result"
-        if kind == "result":
+        kind = "model" if t in cfg.models else "dataset" if t in cfg.datasets else "result"
+        if kind == "dataset":
+            check_dataset(ctx, t)
+            info = {"name": t.name, "kind": "dataset", "path": f"zoo:{t.zoo}" if t.zoo else cfg.rel(t.path),
+                    "physics": t.physics, "declared": True}
+        elif kind == "result":
             fd = check_result(ctx, t)
             info = {"name": t.name, "kind": fd.kind if fd is not None else "unreadable", "path": cfg.rel(t.path),
                     "physics": t.physics, "declared": t.declared}
