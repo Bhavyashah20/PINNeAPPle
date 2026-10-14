@@ -15,9 +15,12 @@ Distinct from two existing, adjacent mechanisms — this is neither of them:
 ``TrustGate`` scores one specific prediction from an already-trained
 model, combining up to three independent [0, 1] sub-scores:
 
-- an out-of-distribution (OOD) score: Mahalanobis distance of the query
-  coordinates to the model's training-coordinate distribution, squashed
-  via ``scipy.stats.chi2.sf`` — the same Mahalanobis-distance +
+- an out-of-distribution (OOD) score: the fraction of query points whose
+  Mahalanobis distance to the model's training-coordinate distribution has
+  a chi-squared p-value (``scipy.stats.chi2.sf``) of at least ``ood_level``
+  (default 0.01: the point lies inside the 99 % region of a Gaussian with
+  the training mean and covariance). Each point is tested on its own -- the
+  same Mahalanobis-distance +
   chi-squared concept ``MahalanobisDetector`` already uses, reimplemented
   here (rather than called directly) because it fits once from a static
   training sample instead of updating per Kalman step, a different call
@@ -32,8 +35,9 @@ model, combining up to three independent [0, 1] sub-scores:
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
@@ -47,24 +51,28 @@ def _unwrap(out: Any) -> torch.Tensor:
 @dataclass
 class TrustScore:
     combined: float
-    ood_score: Optional[float] = None
-    residual_score: Optional[float] = None
-    ensemble_score: Optional[float] = None
-    details: Dict[str, Any] = field(default_factory=dict)
+    ood_score: float | None = None
+    residual_score: float | None = None
+    ensemble_score: float | None = None
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 class TrustGate:
-    def __init__(self, *, ood_weight: float = 0.4, residual_weight: float = 0.4, ensemble_weight: float = 0.2):
+    def __init__(self, *, ood_weight: float = 0.4, residual_weight: float = 0.4, ensemble_weight: float = 0.2,
+                 ood_level: float = 0.01):
+        if not 0.0 < ood_level < 1.0:
+            raise ValueError(f"ood_level must be in (0, 1); got {ood_level}")
+        self.ood_level = float(ood_level)
         self.ood_weight = ood_weight
         self.residual_weight = residual_weight
         self.ensemble_weight = ensemble_weight
-        self._mean: Optional[np.ndarray] = None
-        self._cov_inv: Optional[np.ndarray] = None
-        self._dim: Optional[int] = None
+        self._mean: np.ndarray | None = None
+        self._cov_inv: np.ndarray | None = None
+        self._dim: int | None = None
 
     # -- fitting the OOD reference distribution --------------------------
 
-    def fit(self, training_coords: torch.Tensor) -> "TrustGate":
+    def fit(self, training_coords: torch.Tensor) -> TrustGate:
         """Fit the OOD reference from a real sample of training
         coordinates (mean + covariance)."""
         x = training_coords.detach().cpu().numpy().astype(np.float64)
@@ -74,7 +82,7 @@ class TrustGate:
         self._dim = x.shape[1]
         return self
 
-    def fit_from_bounds(self, domain_bounds: Dict[str, Tuple[float, float]]) -> "TrustGate":
+    def fit_from_bounds(self, domain_bounds: dict[str, tuple[float, float]]) -> TrustGate:
         """Cheap approximation when no real training-coordinate sample is
         kept around: treats the domain as a uniform box and derives a
         diagonal covariance from each axis's range (``var = range**2 / 12``,
@@ -89,7 +97,7 @@ class TrustGate:
         return self
 
     @staticmethod
-    def coord_bounds_from_checkpoint(checkpoint: Dict[str, Any]) -> Dict[str, Tuple[float, float]]:
+    def coord_bounds_from_checkpoint(checkpoint: dict[str, Any]) -> dict[str, tuple[float, float]]:
         """Reads ``checkpoint["metadata"]["domain_bounds"]`` if present —
         the common place a training pipeline in this repo records domain
         bounds. Raises ``KeyError`` (loudly, not a silent empty dict) if
@@ -103,19 +111,30 @@ class TrustGate:
 
     # -- sub-scores --------------------------------------------------------
 
-    def _ood_score(self, x: torch.Tensor) -> float:
+    def ood_p_values(self, x: Any) -> np.ndarray:
+        """Per query point: probability of a Mahalanobis distance this large or larger under the fitted
+        distribution (chi-squared with ``dim`` degrees of freedom). Low => far out of distribution. NaN
+        coordinates give a p-value of 0."""
         if self._mean is None or self._cov_inv is None:
             raise RuntimeError("TrustGate.fit()/.fit_from_bounds() must be called before OOD scoring.")
-        xq = x.detach().cpu().numpy().astype(np.float64)
-        xq = xq.mean(axis=0) if xq.ndim == 2 else xq.reshape(-1)
+        xq = (x.detach().cpu().numpy() if hasattr(x, "detach") else np.asarray(x)).astype(np.float64)
+        if xq.ndim == 1:                          # one point, or a batch of 1-D points
+            xq = xq.reshape(-1, 1) if self._dim == 1 else xq.reshape(1, -1)
+        elif xq.ndim != 2:
+            raise ValueError(f"query points must have shape (n, {self._dim}); got {xq.shape}")
+        if xq.shape[1] != self._dim:
+            raise ValueError(f"query points have {xq.shape[1]} coordinates, the gate was fitted on {self._dim}")
         delta = xq - self._mean
-        d2 = float(delta @ self._cov_inv @ delta)
-        # Probability of a Mahalanobis distance this large or larger under
-        # the fitted distribution — low p-value => far out of distribution
-        # => low trust. 1.0 = perfectly in-distribution.
-        return float(chi2.sf(d2, df=self._dim))
+        d2 = np.einsum("ni,ij,nj->n", delta, self._cov_inv, delta)
+        return np.nan_to_num(chi2.sf(d2, df=self._dim), nan=0.0)
 
-    def _residual_score(self, model: Any, x: torch.Tensor, residual_fn: Callable[..., torch.Tensor], residual_kwargs: Dict[str, Any]) -> float:
+    def _ood_score(self, x: torch.Tensor) -> float:
+        # Each point is tested on its own: the p-value of the batch MEAN let a batch of far-out points that
+        # average to the training mean (x = -50 and x = +50 sigma) score as perfectly in-distribution.
+        p = self.ood_p_values(x)
+        return float(np.mean(p >= self.ood_level)) if p.size else 1.0
+
+    def _residual_score(self, model: Any, x: torch.Tensor, residual_fn: Callable[..., torch.Tensor], residual_kwargs: dict[str, Any]) -> float:
         r = residual_fn(model, x, **residual_kwargs)
         rmse = float(torch.sqrt((r ** 2).mean()).item())
         return 1.0 / (1.0 + rmse)
@@ -133,21 +152,24 @@ class TrustGate:
         model: Any,
         x: torch.Tensor,
         *,
-        residual_fn: Optional[Callable[..., torch.Tensor]] = None,
-        residual_kwargs: Optional[Dict[str, Any]] = None,
-        ensemble: Optional[Any] = None,
+        residual_fn: Callable[..., torch.Tensor] | None = None,
+        residual_kwargs: dict[str, Any] | None = None,
+        ensemble: Any | None = None,
     ) -> TrustScore:
         """Combines whichever sub-scores are available into one [0, 1]
         weighted average (renormalized over only the parts actually
         computed). Raises if none of {fitted OOD, residual_fn, ensemble}
         were provided — a trust score with no evidence is not a score."""
-        details: Dict[str, Any] = {}
+        details: dict[str, Any] = {}
         parts, weights = [], []
 
         ood = None
         if self._mean is not None:
             ood = self._ood_score(x)
-            details["ood_p_value"] = ood
+            pv = self.ood_p_values(x)
+            details["ood_fraction_inside"] = ood
+            details["ood_p_value_min"] = float(pv.min()) if pv.size else None
+            details["ood_level"] = self.ood_level
             parts.append(ood)
             weights.append(self.ood_weight)
 
@@ -172,5 +194,5 @@ class TrustGate:
             )
 
         wsum = sum(weights)
-        combined = sum(p * w for p, w in zip(parts, weights)) / wsum
+        combined = sum(p * w for p, w in zip(parts, weights, strict=True)) / wsum
         return TrustScore(combined=combined, ood_score=ood, residual_score=residual, ensemble_score=ens, details=details)
