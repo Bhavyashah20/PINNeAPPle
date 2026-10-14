@@ -60,6 +60,7 @@
     * [Colab notebooks](guides/colab_notebooks.md)
     * [PINNeAPPle from coding agents (MCP server)](guides/mcp_server.md)
     * [Physics checks in CI](guides/physics_checks_in_ci.md)
+    * [Validation methods reference](guides/validation_methods_reference.md)
     * [A latent surrogate that says when not to trust it](guides/trusted_latent_surrogate.md)
     * [Detect false data injection with physics residuals](guides/physics_residual_attack_detection.md)
     * [The PINNeAPPle Observatory](guides/observatory.md)

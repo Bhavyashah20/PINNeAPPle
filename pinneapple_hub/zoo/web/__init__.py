@@ -77,6 +77,7 @@ def reference_data(zm) -> dict[str, Any]:
 def export_web(name: str, directory: str | Path, *, offline: bool | None = None) -> dict[str, Any]:
     """Write ``<name>.onnx`` and ``<name>.json`` for the browser into ``directory``; returns the JSON content."""
     from .. import load
+    from .._artifacts import manifest
     from ..checks import check_spec
     from ..export import export_onnx
     d = Path(directory)
@@ -91,7 +92,7 @@ def export_web(name: str, directory: str | Path, *, offline: bool | None = None)
                      "inputs": info["inputs"], "input_columns": info["input_columns"], "outputs": info["outputs"],
                      "parity": info["parity"], "checks_parity": info["checks_parity"]},
             "checks": check_spec(zm), "reference": reference_data(zm),
-            "hub": f"https://huggingface.co/PINNeAPPle-Labs/{name}",
+            "hub": f"https://huggingface.co/{manifest()['models'][name]['hf_repo']}",
             "code": {"adapter": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/_models.py",
                      "checks": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/checks.py",
                      "export": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/export.py"}}
