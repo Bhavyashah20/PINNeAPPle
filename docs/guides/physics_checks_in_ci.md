@@ -252,6 +252,7 @@ checker loads them without the package `__init__` files that do, so it starts in
 | [PC701](#pc701) | `field-regression` | error | benchmark | A field differs from the stored reference |
 | [PC702](#pc702) | `qoi-regression` | error | benchmark | A quantity of interest differs from the stored reference |
 | [PC703](#pc703) | `reference-unusable` | warning | benchmark | The reference cannot be compared |
+| [PC704](#pc704) | `spectral-bias` | warning | benchmark | A field loses or gains small-scale energy against the reference |
 | [PC801](#pc801) | `hash-mismatch` | error | data_geometry | An artefact does not match its recorded hash |
 | [PC802](#pc802) | `bad-signature` | error | data_geometry | An artefact's signature does not verify |
 | [PC803](#pc803) | `unsafe-checkpoint` | error | model | A model checkpoint can execute code when loaded |
@@ -418,6 +419,12 @@ checker loads them without the package `__init__` files that do, so it starts in
 
 *Fix:* Regenerate the reference with the same mesh/points and field names, or give `fields` to compare.
 
+#### PC704
+
+**`spectral-bias`** (warning). Energy in the high-wavenumber band of the field differs from the reference's by more than the tolerance (`E_pred / E_ref - 1` over the top third of the resolved shells). A smoothed field has a small relative L2 error and still misses the small scales that carry heat transfer, mixing or loads; added noise shows up as a positive bias. Computed on grid results with the same shape as the reference (`pinneapple_analysis.validation.spectral`). In the failing fixture `fields/mixing_c.npz` the field is blurred by one cell: relative L2 0.18 % (PC701 passes), high-band energy 0.5 % of the reference's.
+
+*Fix:* Check the model's spectral bias (more Fourier modes, a finer output grid, a loss on gradients or spectra), or raise `tolerances.hf-bias` deliberately if the small scales do not matter for the use.
+
 ### Integrity (PC8xx)
 
 #### PC801
@@ -465,6 +472,7 @@ checker loads them without the package `__init__` files that do, so it starts in
 | `wall-velocity` | 1e-6 | PC203 |
 | `residual` / `model-residual` | 5e-2 / 5e-2 | PC301 / PC302 |
 | `rel-l2` / `qoi` | 1e-2 / 1e-2 | PC701 / PC702 |
+| `hf-bias` | 0.25 | PC704 (\|high-band energy ratio - 1\|) |
 | `fraction-slack` | 1e-6 | PC402 (fractions) |
 
 ## The fixtures
