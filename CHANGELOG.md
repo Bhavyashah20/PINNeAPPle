@@ -397,6 +397,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
+  repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
