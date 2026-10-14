@@ -73,3 +73,21 @@ def test_projection_wrapper_keeps_a_rollout_mass_constant():
         x = model(x)
     assert torch.allclose(integral(x, w), m0, atol=1e-10)
     assert not torch.allclose(integral(net(x), w), m0, atol=1e-3)    # the bare network does not conserve
+
+
+def test_positive_projection_rejects_a_negative_target_and_explains_an_all_negative_field():
+    # regression: mode="positive" with a negative target returned a negative field, breaking its own guarantee
+    import pytest
+    import torch
+
+    from pinneapple_physics.conservation import integral, project_integral
+    w = torch.full((4,), 0.25)
+    with pytest.raises(ValueError, match="target integral must be >= 0"):
+        project_integral(torch.tensor([1.0, 2.0, 0.0, 1.0]), w, -1.0, mode="positive")
+    with pytest.raises(ValueError, match="<= 0 everywhere"):
+        project_integral(torch.tensor([-1.0, -2.0, 0.0, 0.0]), w, 1.0, mode="positive")
+    out = project_integral(torch.tensor([-1.0, 3.0, 1.0, 0.0]), w, 2.0, mode="positive")
+    assert bool((out >= 0).all()) and float(integral(out, w)) == pytest.approx(2.0)
+    # a zero field with a zero target is already conserved (used to divide 0 by 0)
+    z = project_integral(torch.zeros(2, 4), w, torch.zeros(2), mode="multiplicative")
+    assert torch.equal(z, torch.zeros(2, 4))

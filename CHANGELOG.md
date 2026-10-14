@@ -411,6 +411,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   training range was rejected as "outside the validity range". `T1 = 0.08` on `airfoil_cst_rans_mlp`, a value in
   its training data, arrived as 0.0799999982 and failed PC601. The slack now covers two float32 epsilons; the
   browser bundles in `data/web/zoo/` carry the new limits.
+- `pinneapple_physics.conservation.project_integral(mode="positive")` returned a negative field when the target
+  integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
+  for a field that is <= 0 everywhere. A zero field with a zero target is returned unchanged in the multiplicative
+  modes instead of dividing 0 by 0.
 - `TrustGate` OOD score (`pinneapple_analysis.trust`): a batch of query points was scored by the chi-squared p-value
   of its mean point, so two points 50 standard deviations on either side of the training mean averaged to the mean
   and scored 0.9998, "in distribution". **Behavior:** each point is now tested on its own and `ood_score` is the
