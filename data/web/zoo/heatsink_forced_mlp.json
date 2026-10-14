@@ -622,7 +622,7 @@
   "templates": "Python str.format fields {value}, {limit}, and the aux names; formats .Ng .Nf .N%"
  },
  "reference": {},
- "hub": "https://huggingface.co/PINNeAPPle-Labs/heatsink_forced_mlp",
+ "hub": "https://huggingface.co/PINNeAPPle-Labs/heatsink-forced-mlp",
  "code": {
   "adapter": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/_models.py",
   "checks": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/checks.py",
