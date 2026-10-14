@@ -91,6 +91,10 @@ path = "fields/corrupt.vtu"                 # a truncated file
 [[result]]
 path = "fields/stream.npz"                  # declared, but nothing applies to it
 
+[[result]]
+path = "fields/mixing_c.npz"                     # blurred by one cell: rel. L2 0.2 %, high-wavenumber energy -99 %
+reference = "reference/mixing_c.npz"
+
 # ---------------------------------------------------------------- quantities of interest
 [[result]]
 path = "qoi/airfoil.csv"                    # Cd moved by 5 %
