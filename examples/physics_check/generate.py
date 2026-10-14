@@ -334,6 +334,22 @@ def predict(X):
 '''
 
 
+PEAK = '''"""A stand-in for a surrogate of the peak temperature of a slab with uniform heating q, thickness L and
+conductivity k, cooled to T0 on both faces (exact: T0 + q L^2 / (8 k)).{note}"""
+
+
+def predict(X):
+    q, L, k, T0 = X.T
+    return (T0 + q * L ** 2 / (8 * {k_term})).reshape(-1, 1)
+'''
+
+
+def peak_temperature(path: Path, *, sign_error: bool) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(PEAK.format(note=" A unit slip divides by 1/k instead of k." if sign_error else "",
+                                k_term="(1e4 / k)" if sign_error else "k"))
+
+
 def kovasznay_reference(path: Path) -> None:
     g = np.random.default_rng(3)
     lam = 20 - np.sqrt(400 + 4 * np.pi ** 2)
@@ -453,6 +469,7 @@ def main() -> None:
         qoi(d / "qoi/airfoil.csv", cd=0.0129 if bad else 0.01231, cl=0.802)
         qoi(d / "reference/airfoil.csv", cd=0.01230, cl=0.801)
         models(d, broken=bad)
+        peak_temperature(d / "surrogates/peak_temperature.py", sign_error=bad)
         integrity(d, tamper=bad)
     np.savez_compressed(FAIL / "fields/unlabelled_T.npz", x=np.linspace(0, 1, 20), y=np.linspace(0, 1, 20),
                         T=300 + np.linspace(0, 5, 20)[:, None] * np.ones((20, 20)))

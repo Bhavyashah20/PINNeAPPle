@@ -19,6 +19,12 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
   wall flux. Reported by `pinneapple check` (new rule PC704 `spectral-bias`, tolerance `hf-bias`) and by the
   `pp.benchmark` field problems ("HF energy bias" column). Docs: "Spectral fidelity".
+- Metamorphic tests for surrogates (`pinneapple_analysis.validation.metamorphic`, #698): symmetry, similarity
+  scaling, invariance, monotonicity, superposition and resolution consistency as declarative relations with a
+  tolerance and a sampler; random and (with `hypothesis`) property-based search; the worst violation is returned as a
+  counterexample. `pinneapple_hub.zoo.relations.check_zoo_relations` runs the relations of the airfoil and forced
+  heat-sink zoo models. `pinneapple check`: new rule PC303 `metamorphic-relation` and a `relations` key on
+  `[[model]]`. Docs: "Metamorphic tests".
 - Zoo dataset `navier_stokes_2d_li2021_nu1e-3` (Hub-only, 919 MB in 12 shards of 100 runs): 2-D incompressible
   Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
   It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
