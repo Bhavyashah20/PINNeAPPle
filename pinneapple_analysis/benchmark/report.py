@@ -308,7 +308,7 @@ def markdown(plan, tables, checks, validation, trust, diagnoses, banners, studie
 
 
 def _metric_label(m: str) -> str:
-    return {"rel_l2": "Rel. L2", "qoi_rel_err": "Integral rel. err"}.get(m, m)
+    return {"rel_l2": "Rel. L2", "qoi_rel_err": "Integral rel. err", "hf_bias": "HF energy bias"}.get(m, m)
 
 
 def _n_in_label(label: str):
