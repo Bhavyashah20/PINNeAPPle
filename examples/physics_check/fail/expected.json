@@ -68,6 +68,11 @@
   "PC601",
   "PC602"
  ],
+ "datasets/darcy.npz": [
+  "PC451",
+  "PC452",
+  "PC453"
+ ],
  "legacy-model": [
   "PC803"
  ],
