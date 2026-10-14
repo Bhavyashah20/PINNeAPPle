@@ -14,6 +14,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Zoo dataset `navier_stokes_2d_li2021_nu1e-3` (Hub-only, 919 MB in 12 shards of 100 runs): 2-D incompressible
+  Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
+  It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
+  `pp.datasets.load(name, split="test")` downloads only the two test shards.
 - `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
   benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
   levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves
@@ -401,6 +405,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   one) left no point outside the training box and `_sample_shell` looped forever, hanging `ensemble_study` and
   `extrapolation_study`; it now raises a clear `ValueError`. The evaluation points came from the global NumPy
   random state, so the same study gave different evidence on every run; sampling is now seeded and reproducible.
+- `pinneapple check` on tensor-product grids (`pinneapple_check.numerics.GridD`): second derivatives were the
+  derivative of the derivative, which next to the boundary divides the one-sided edge value by h (an O(h) error),
+  so the PDE residual (PC301) converged at order 1.5 instead of 2 and an exact harmonic field on a 17 x 17 grid
+  scored 0.095, above the 0.05 default. Pure second derivatives now use the three-point stencil (non-uniform
+  spacing allowed); the residual of the same field is 0.017 and converges at order 2 on uniform and stretched grids.
 - Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
   repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
@@ -432,6 +441,15 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   versions the manifest was generated with. All files and the manifest were regenerated. The self-intersection
   check measures distances about each triangle pair's centre with a size-relative tolerance (no false hits on flat
   caps far from the origin or on nearly parallel neighbours).
+
+### Documentation
+- New guide "Validation methods reference" (`docs/guides/validation_methods_reference.md`, under Guides): every
+  check of `pinneapple check`, `pp.trust_card`, `TrustGate`, `pinneapple_analysis.validation`, `.uncertainty`,
+  `.verification`, veriphysics, the physics audit monitor and the zoo query gate, with what it detects, its
+  assumptions, default thresholds, references and known limitations; a table that maps the status vocabularies of
+  these modules onto pass / warn / fail / not-applicable; and how check power is measured (ASME V&V 40 and
+  NASA-STD-7009A credibility, mutation testing, metamorphic relations, adversarial robustness of neural operators,
+  the arena proposed in #707).
 
 ## [0.7.0] - 2026-10-13
 
