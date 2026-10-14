@@ -412,6 +412,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   (range 1–24, `?size=` in the URL), the glow halo is brighter, and the Earth follows the slider (its hand-set
   orientation matrix used to drop the scale). The Moon's exaggerated distance and the observer pin scale with it,
   so the Moon stays outside the enlarged Earth. Screenshot `docs/assets/apps/14-observatory-system.jpg` regenerated.
+- Observatory, solar-system view: the overview now frames every planet inside the free part of the canvas (left of
+  the side panel, above the time controls; Jupiter used to sit under the panel). It looks from 50° above the
+  ecliptic, from the side opposite the Earth, and fits the projected planets by iteration. The Earth shader lacked
+  the linear-to-sRGB output conversion, so the Earth rendered several times too dark; it now has it, plus the blue of
+  the sunlit atmosphere on the day side. The Sun's light and an ambient floor were raised so that Mercury and Venus
+  show their sunlit side and their surface at large phase angles. Screenshot
+  `docs/assets/apps/14-observatory-system.jpg` regenerated.
 - `pinneapple_data.preflight`: `freestreamPressure` / `freestream` fix the pressure level; external-aerodynamics cases
   were reported as having no pressure reference.
 - Geometry library: `build()` snaps vertices to a 0.1 um grid, so the files rebuilt on another machine (the Hub
