@@ -10412,7 +10412,7 @@
    "phi_deg": 38.0
   }
  },
- "hub": "https://huggingface.co/PINNeAPPle-Labs/rover_contact_grc1_viper",
+ "hub": "https://huggingface.co/PINNeAPPle-Labs/rover-contact-grc1-viper",
  "code": {
   "adapter": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/_models.py",
   "checks": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/checks.py",
