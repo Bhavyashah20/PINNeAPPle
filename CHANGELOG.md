@@ -405,6 +405,14 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   one) left no point outside the training box and `_sample_shell` looped forever, hanging `ensemble_study` and
   `extrapolation_study`; it now raises a clear `ValueError`. The evaluation points came from the global NumPy
   random state, so the same study gave different evidence on every run; sampling is now seeded and reproducible.
+- `pp.trust_card` / `field_checks`: an exactly harmonic field that is linear along an axis (`u = x + 2y`,
+  `T = 300 + x + y`) failed the critical PDE-residual check and was rejected, because its finite-difference terms are
+  pure round-off and the residual was judged against that round-off. The residual scale now has a floor at the
+  round-off of the stencil, computed from the dtype of the data as written (float32 fields get float32 epsilon).
+  Grids with 2 points on an axis now report the conservation check as not run instead of raising NumPy's
+  "Shape of array too small" error, and torch tensors (including ones that require grad) are accepted as values.
+  New tests check the residual against exact Laplace, Poisson and heat solutions (second-order convergence on
+  uniform and stretched grids) and the conservation check against the divergence theorem.
 - `pinneapple check` on tensor-product grids (`pinneapple_check.numerics.GridD`): second derivatives were the
   derivative of the derivative, which next to the boundary divides the one-sided edge value by h (an O(h) error),
   so the PDE residual (PC301) converged at order 1.5 instead of 2 and an exact harmonic field on a 17 x 17 grid
