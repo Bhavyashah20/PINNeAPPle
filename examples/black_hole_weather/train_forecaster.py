@@ -69,6 +69,8 @@ def main(argv=None):
     ap.add_argument("--bf16", action="store_true", help="bfloat16 autocast (fast on CPUs with AMX)")
     ap.add_argument("--init", help="start from this forecaster.pt (fine-tuning)")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--samples-per-epoch", type=int, default=0, help="random subset of blocks per epoch (0: all)")
+    ap.add_argument("--val-stride", type=int, default=1, help="use every n-th validation block")
     a = ap.parse_args(argv)
     torch.set_num_threads(a.threads)
     if a.dataset:
@@ -105,14 +107,16 @@ def main_dataset(a):
     tr, va = load_trajectories("train", path), load_trajectories("val", path)
     cfg = TrainConfig(filters=a.filters, epochs=a.epochs, batch_size=a.batch_size, alpha=a.alpha, lr=a.lr,
                       residual=a.residual, loss=a.loss, clip=a.clip, max_minutes=a.max_minutes, seed=a.seed,
-                      rollout_blocks=a.rollout_blocks, noise=a.noise, mass_weight=a.mass_weight, bf16=a.bf16)
+                      rollout_blocks=a.rollout_blocks, noise=a.noise, mass_weight=a.mass_weight, bf16=a.bf16,
+                      samples_per_epoch=a.samples_per_epoch)
     os.makedirs(a.out, exist_ok=True)
     with open(os.path.join(a.out, "setup.json"), "w") as f:
         json.dump({"dataset": a.dataset, "train_seeds": sorted(tr), "val_seeds": sorted(va),
                    "frame_dt": float(np.diff(next(iter(tr.values()))["t"]).mean()), "stride": 1, "one_sim": False,
                    "args": vars(a)}, f, indent=1)
     train_on_trajectories([v["log10_rho"] for v in tr.values()], [v["log10_rho"] for v in va.values()], cfg, a.out,
-                          cell_volume=window_volumes(path), val_blocks=a.val_blocks, init=a.init,
+                          cell_volume=window_volumes(path), val_blocks=a.val_blocks, val_stride=a.val_stride,
+                          init=a.init,
                           log=lambda s: print(s, flush=True))
 
 if __name__ == "__main__":

@@ -178,6 +178,7 @@ class TrainConfig:
     bf16: bool = False                 # CPU autocast (helps only on CPUs with AMX)
     seed: int = 0
     max_minutes: float = 1e9
+    samples_per_epoch: int = 0         # > 0: a random subset of this many blocks per epoch (blocks overlap heavily)
 
 
 def _log_mass(x: torch.Tensor, codec: DensityCodec, log_vol: torch.Tensor) -> torch.Tensor:
@@ -216,11 +217,23 @@ def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarra
     Xt, Yt = torch.from_numpy(X), torch.from_numpy(Y)
     Xvt, Yvt = torch.from_numpy(Xv), torch.from_numpy(Yv)
     hist = {"train": [], "val": [], "seconds": []}
-    best, t0 = math.inf, time.time()
+    best, t0, ep0 = math.inf, time.time(), 0
     rng = np.random.default_rng(cfg.seed)
-    for ep in range(cfg.epochs):
+    last = os.path.join(out_dir, "last.pt")
+    if os.path.exists(last):                            # resume an interrupted run where it stopped
+        st = torch.load(last, map_location="cpu", weights_only=False)
+        model.load_state_dict(st["model"])
+        opt.load_state_dict(st["opt"])
+        hist, best, ep0 = st["hist"], st["best"], st["epoch"] + 1
+        rng.bit_generator.state = st["rng"]
+        torch.set_rng_state(st["torch_rng"])
+        t0 -= hist["seconds"][-1] if hist["seconds"] else 0.0
+        log(f"resuming at epoch {ep0} (best val {best:.4f})")
+    for ep in range(ep0, cfg.epochs):
         model.train()
         perm = rng.permutation(len(Xt))
+        if cfg.samples_per_epoch:
+            perm = perm[:cfg.samples_per_epoch]
         tot = 0.0
         for i in range(0, len(perm), cfg.batch_size):
             b = perm[i:i + cfg.batch_size]
@@ -241,13 +254,15 @@ def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarra
             opt.step()
             tot += loss.item() * len(b)
         val = evaluate_loss(model, Xvt, Yvt, cfg)
-        hist["train"].append(tot / len(Xt))
+        hist["train"].append(tot / len(perm))
         hist["val"].append(val)
         hist["seconds"].append(time.time() - t0)
         if val < best:
             best = val
             save_forecaster(os.path.join(out_dir, "forecaster.pt"), model, cfg, codec, {"epoch": ep, "val": val})
         log(f"epoch {ep:3d}  train {hist['train'][-1]:.4f}  val {val:.4f}  ({hist['seconds'][-1]/60:.1f} min)")
+        torch.save({"model": model.state_dict(), "opt": opt.state_dict(), "hist": hist, "best": best, "epoch": ep,
+                    "rng": rng.bit_generator.state, "torch_rng": torch.get_rng_state()}, last)
         if (time.time() - t0) / 60 > cfg.max_minutes:
             log("time budget reached")
             break
@@ -257,7 +272,8 @@ def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarra
 
 
 def train_on_trajectories(train: Sequence[np.ndarray], val: Sequence[np.ndarray], cfg: TrainConfig, out_dir: str, *,
-                          cell_volume: np.ndarray | None = None, val_blocks: int = 1, init: str | None = None,
+                          cell_volume: np.ndarray | None = None, val_blocks: int = 1, val_stride: int = 1,
+                          init: str | None = None,
                           log=print) -> tuple[DensityCodec, dict[str, list]]:
     """Train on whole trajectories of log10 density frames (T, H, W), already cropped to the forecast window and
     ``frame_dt`` apart: blocks never cross trajectories, and validation trajectories are separate ones.
@@ -273,7 +289,7 @@ def train_on_trajectories(train: Sequence[np.ndarray], val: Sequence[np.ndarray]
         return ((np.asarray(lg, np.float32) - codec.log_min) / (codec.log_max - codec.log_min)).astype(np.float32)
 
     X, Y = zip(*[make_blocks(enc(t), cfg.frames, out_blocks=cfg.rollout_blocks) for t in train], strict=True)
-    Xv, Yv = zip(*[make_blocks(enc(t), cfg.frames, out_blocks=val_blocks) for t in val], strict=True)
+    Xv, Yv = zip(*[make_blocks(enc(t), cfg.frames, stride=val_stride, out_blocks=val_blocks) for t in val], strict=True)
     X, Y, Xv, Yv = (np.concatenate(z) for z in (X, Y, Xv, Yv))
     log(f"train {X.shape} -> {Y.shape}  val {Xv.shape} -> {Yv.shape}  codec {codec}")
     hist = train_forecaster(X, Y, Xv, Yv, cfg, codec, out_dir, log=log, cell_volume=cell_volume, init=model0)
