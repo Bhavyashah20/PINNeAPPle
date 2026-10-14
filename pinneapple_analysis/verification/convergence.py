@@ -57,10 +57,17 @@ solution's quantity of interest computed on each grid.
 
        p = ln(|(f_coarse - f_medium) / (f_medium - f_fine)|) / ln(r)
 
-   (this is the constant-refinement-ratio special case of Roache/Celik's
-   general formula, which also handles non-constant ``r`` via an
-   iteratively-solved correction term ``q(p)`` that vanishes identically
-   when ``r`` is constant, as it always is here).
+   This is the constant-refinement-ratio special case. When the ratios
+   differ (``r21 = h_medium/h_fine`` and ``r32 = h_coarse/h_medium``, pass
+   ``r=(r21, r32)``), ``p`` is the fixed point of Celik et al. (2008),
+   Eq. (3)::
+
+       p = |ln|eps32/eps21| + q(p)| / ln(r21)
+       q(p) = ln((r21^p - s) / (r32^p - s)),  s = sign(eps32/eps21)
+
+   with ``eps32 = f_coarse - f_medium`` and ``eps21 = f_medium - f_fine``;
+   ``q`` vanishes identically when ``r21 == r32``. The extrapolation and
+   the fine-grid GCI use ``r21``, the coarse-grid GCI uses ``r32``.
 
 2. **Richardson-extrapolated ("exact", grid-independent) value**::
 
@@ -101,12 +108,13 @@ the caller knows the asymptotic assumption behind ``p``/GCI may not hold.
 from __future__ import annotations
 
 import warnings
-from dataclasses import dataclass, field
-from typing import Any, Callable, List, Optional, Sequence, Union
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from typing import Any, Union
 
 import numpy as np
 
-QuantityArray = Union[float, np.ndarray]
+QuantityArray = Union[float, np.ndarray]  # noqa: UP007 (runtime alias)
 
 __all__ = [
     "ConvergenceResult",
@@ -144,7 +152,8 @@ class ConvergenceResult:
     gci_coarse: float
     asymptotic_ratio: float
     is_asymptotic: bool
-    refinement_ratio: float = 0.0
+    refinement_ratio: float = 0.0          # r21 = h_medium / h_fine
+    refinement_ratio_coarse: float = 0.0   # r32 = h_coarse / h_medium (equal to r21 for constant refinement)
     safety_factor: float = _DEFAULT_SAFETY_FACTOR
     asymptotic_tolerance: float = _DEFAULT_ASYMPTOTIC_TOLERANCE
     citation: str = (
@@ -159,9 +168,9 @@ class MeshIndependenceStudyResult:
     plotting a convergence curve) plus the three-finest-grid
     :class:`ConvergenceResult`."""
 
-    resolutions: List[Any]
-    values: List[QuantityArray]
-    refinement_ratios: List[float]
+    resolutions: list[Any]
+    values: list[QuantityArray]
+    refinement_ratios: list[float]
     refinement_ratio_used: float
     convergence: ConvergenceResult
 
@@ -179,13 +188,36 @@ def _flat_norm(x: np.ndarray) -> float:
     return float(np.linalg.norm(arr))
 
 
+def _observed_order(norm_32: float, norm_21: float, sign: float, r21: float, r32: float) -> float:
+    """Celik et al. (2008), Eq. (3): fixed-point iteration for the apparent order with refinement ratios
+    ``r21`` (fine pair) and ``r32`` (coarse pair); one step, exact, when they are equal."""
+    p = float(np.log(norm_32 / norm_21) / np.log(r21))
+    if np.isclose(r21, r32, rtol=1e-12, atol=0.0):
+        return p
+    p = abs(p)
+    for _ in range(200):
+        a, b = r21 ** p - sign, r32 ** p - sign
+        if a <= 0 or b <= 0:
+            raise ValueError(
+                f"the observed-order iteration of Celik et al. (2008) has no solution here (r21={r21:g}, "
+                f"r32={r32:g}, oscillatory={sign < 0}); the three values do not support an order estimate."
+            )
+        p_new = abs(np.log(norm_32 / norm_21) + np.log(a / b)) / np.log(r21)
+        if abs(p_new - p) <= 1e-12 * max(1.0, abs(p)):
+            return float(p_new)
+        p = float(p_new)
+    warnings.warn(f"richardson_extrapolate: the observed-order iteration did not converge (last p={p:.6g})",
+                  UserWarning, stacklevel=3)
+    return p
+
+
 def richardson_extrapolate(
     f_coarse: QuantityArray,
     f_medium: QuantityArray,
     f_fine: QuantityArray,
-    r: float,
+    r: float | Sequence[float],
     *,
-    p_assumed: Optional[float] = None,
+    p_assumed: float | None = None,
     safety_factor: float = _DEFAULT_SAFETY_FACTOR,
     asymptotic_tolerance: float = _DEFAULT_ASYMPTOTIC_TOLERANCE,
 ) -> ConvergenceResult:
@@ -202,9 +234,10 @@ def richardson_extrapolate(
         computed from the L2 norm of the pairwise differences (see
         :func:`_flat_norm`), while ``extrapolated_value`` is computed
         elementwise and keeps the input's shape.
-    r : the constant refinement ratio between successive grids
-        (``h_coarse/h_medium == h_medium/h_fine == r``), e.g. ``r=2`` for
-        grid doubling. Must be > 1.
+    r : the refinement ratio between successive grids, e.g. ``r=2`` for
+        grid doubling (``h_coarse/h_medium == h_medium/h_fine == r``), or a
+        pair ``(r21, r32) = (h_medium/h_fine, h_coarse/h_medium)`` when the
+        refinement is not constant (Celik et al. 2008). Each must be > 1.
     p_assumed : if given, skip solving for the observed order from the
         three solution values and use this value directly for the
         extrapolation and GCI formulas instead (useful when the scheme's
@@ -225,8 +258,14 @@ def richardson_extrapolate(
         so the caller knows the three solves did not actually differ
         enough to support a convergence-order estimate.
     """
-    if not (r > 1.0):
-        raise ValueError(f"refinement ratio r must be > 1 (constant refinement, coarse->fine); got r={r}")
+    if np.ndim(r) == 0:
+        r21 = r32 = float(r)
+    else:
+        if len(r) != 2:
+            raise ValueError(f"r must be a number or a pair (h_medium/h_fine, h_coarse/h_medium); got {r!r}")
+        r21, r32 = float(r[0]), float(r[1])
+    if not (r21 > 1.0 and r32 > 1.0):
+        raise ValueError(f"refinement ratio r must be > 1 (coarse->fine); got r={r}")
 
     f_c = np.asarray(f_coarse, dtype=np.float64)
     f_m = np.asarray(f_medium, dtype=np.float64)
@@ -264,13 +303,18 @@ def richardson_extrapolate(
             stacklevel=2,
         )
 
+    if not (np.isfinite(norm_32) and np.isfinite(norm_21)):
+        raise ValueError("f_coarse, f_medium and f_fine must be finite (NaN or Inf in the quantity of interest)")
+
     if p_assumed is None:
-        p = float(np.log(norm_32 / norm_21) / np.log(r))
+        sign = float(np.sign(np.vdot(diff_32.ravel(), diff_21.ravel()))) or 1.0
+        p = _observed_order(norm_32, norm_21, sign, r21, r32)
     else:
         p = float(p_assumed)
 
-    r_p = r ** p
-    if np.isclose(r_p, 1.0):
+    r_p = r21 ** p
+    r32_p = r32 ** p
+    if np.isclose(r_p, 1.0) or np.isclose(r32_p, 1.0):
         raise ValueError(
             f"r^observed_order is numerically 1.0 (r={r}, p={p}) -- the extrapolation/GCI formulas "
             "divide by (r^p - 1) and would be singular here; check that r and the solution values "
@@ -292,7 +336,7 @@ def richardson_extrapolate(
     e_coarse = abs(norm_32 / norm_f_medium)  # |(f_medium - f_coarse) / f_medium|, via norms
 
     gci_fine = safety_factor * e_fine / (r_p - 1.0)
-    gci_coarse = safety_factor * e_coarse / (r_p - 1.0)
+    gci_coarse = safety_factor * e_coarse / (r32_p - 1.0)
 
     asymptotic_ratio = float(gci_coarse / (r_p * gci_fine))
     is_asymptotic = bool(abs(asymptotic_ratio - 1.0) <= asymptotic_tolerance)
@@ -304,7 +348,8 @@ def richardson_extrapolate(
         gci_coarse=float(gci_coarse),
         asymptotic_ratio=asymptotic_ratio,
         is_asymptotic=is_asymptotic,
-        refinement_ratio=float(r),
+        refinement_ratio=r21,
+        refinement_ratio_coarse=r32,
         safety_factor=float(safety_factor),
         asymptotic_tolerance=float(asymptotic_tolerance),
     )
@@ -319,8 +364,8 @@ def mesh_independence_study(
     resolutions: Sequence[Any],
     quantity_extractor: Callable[[Any], QuantityArray],
     *,
-    refinement_ratio: Optional[float] = None,
-    p_assumed: Optional[float] = None,
+    refinement_ratio: float | None = None,
+    p_assumed: float | None = None,
     safety_factor: float = _DEFAULT_SAFETY_FACTOR,
     asymptotic_tolerance: float = _DEFAULT_ASYMPTOTIC_TOLERANCE,
 ) -> MeshIndependenceStudyResult:
@@ -383,12 +428,12 @@ def mesh_independence_study(
             "observed order of accuracy and GCI (Roache, 1994)."
         )
     numeric_resolutions = [float(r) for r in resolutions]
-    if any(b <= a for a, b in zip(numeric_resolutions, numeric_resolutions[1:])):
+    if any(b <= a for a, b in zip(numeric_resolutions[:-1], numeric_resolutions[1:], strict=True)):
         raise ValueError(
             f"resolutions must be strictly ascending (coarsest first, finest last); got {resolutions}"
         )
 
-    values: List[QuantityArray] = []
+    values: list[QuantityArray] = []
     for res in resolutions:
         solution = solve_fn(res)
         qty = quantity_extractor(solution)
@@ -396,28 +441,29 @@ def mesh_independence_study(
         values.append(float(qty_arr) if qty_arr.ndim == 0 else qty_arr)
 
     consecutive_ratios = [
-        b / a for a, b in zip(numeric_resolutions, numeric_resolutions[1:])
+        b / a for a, b in zip(numeric_resolutions[:-1], numeric_resolutions[1:], strict=True)
     ]
 
     if refinement_ratio is None:
-        r_used = float(consecutive_ratios[-1])  # ratio between the two finest resolutions -- what the extrapolation actually uses
-        if len(consecutive_ratios) > 1:
-            ratios_arr = np.asarray(consecutive_ratios, dtype=np.float64)
-            if not np.allclose(ratios_arr, ratios_arr[0], rtol=0.05, atol=1e-9):
-                warnings.warn(
-                    f"mesh_independence_study: inferred refinement ratios between consecutive "
-                    f"resolutions are not roughly constant ({consecutive_ratios}) -- Roache's (1994) "
-                    "Richardson extrapolation/GCI formulas assume a SYSTEMATIC, constant-ratio "
-                    f"refinement; using the ratio between the two finest resolutions ({r_used:.4g}) "
-                    "for the extrapolation. Consider using resolutions with a constant refinement ratio.",
-                    UserWarning,
-                    stacklevel=2,
-                )
+        r_used = float(consecutive_ratios[-1])  # ratio between the two finest resolutions
+        # the three finest grids: (h_medium/h_fine, h_coarse/h_medium); unequal ratios use Celik et al. (2008)
+        r_arg: float | tuple = (consecutive_ratios[-1], consecutive_ratios[-2])
+        ratios_arr = np.asarray(consecutive_ratios, dtype=np.float64)
+        if not np.allclose(ratios_arr, ratios_arr[0], rtol=0.05, atol=1e-9):
+            warnings.warn(
+                f"mesh_independence_study: inferred refinement ratios between consecutive "
+                f"resolutions are not roughly constant ({consecutive_ratios}); the observed order uses "
+                "the non-constant-ratio iteration of Celik et al. (2008). A systematic, constant-ratio "
+                "refinement (r >= 1.3) is still the recommended design.",
+                UserWarning,
+                stacklevel=2,
+            )
     else:
         r_used = float(refinement_ratio)
+        r_arg = r_used
 
     convergence = richardson_extrapolate(
-        values[-3], values[-2], values[-1], r_used,
+        values[-3], values[-2], values[-1], r_arg,
         p_assumed=p_assumed, safety_factor=safety_factor, asymptotic_tolerance=asymptotic_tolerance,
     )
 
