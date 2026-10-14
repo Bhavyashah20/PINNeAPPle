@@ -397,6 +397,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- Grid convergence (`pinneapple_analysis.verification.richardson_extrapolate`, `mesh_independence_study`): with
+  unequal refinement ratios the observed order, the extrapolated value and the GCI were computed as if both grid
+  pairs had the finest ratio; a second-order scheme refined by 2 then 3 was reported as order 1.1.
+  `richardson_extrapolate` now takes `r=(r21, r32)` and solves the observed order with the fixed-point iteration of
+  Celik et al. (2008), Eq. (3); `mesh_independence_study` passes the inferred ratios. The coarse-grid GCI uses
+  `r32`, and `ConvergenceResult.refinement_ratio_coarse` records it. NaN or Inf values raise a clear `ValueError`.
+  The new test reproduces Celik et al. (2008) Table 1 (p = 1.53, extrapolated 6.1685, GCI_fine = 2.17 %).
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
