@@ -34,6 +34,7 @@ On Colab: the notebooks in [`notebooks/colab/`](notebooks/colab/README.md) insta
 | Equal-budget benchmark | `pp.compare` with the same epochs / collocation / seeds per method (below); `pp.benchmark.run(...)` where installed |
 | Animations with synced charts | `pp.dashboard.Dashboard(...)`: `.to_png`, `.to_html`, `.to_video(gif=...)` |
 | Lint results and models for physics in CI | `pinneapple check [paths]` (conservation, BCs, residual, units, OOD, regression; [docs](docs/guides/physics_checks_in_ci.md)) |
+| Helpers that used to live in apps and examples | `pp.to_jsonable`, `pp.as_tensor`, `pp.dominant_frequency`, `pp.closed_form` (pipe flow, compressible, heat), `pp.uncertainty` (resampling, drift, tolerances), `pp.assess_drift`, `pp.propagate_tolerances`, `pp.score_against_reference`, `pp.excitation`, `pp.reporting.paperkit` ([inventory](docs/dev/LIBRARY_CONSOLIDATION.md)) |
 | Everything from an agent tool call | the MCP server `pinneapple-mcp` ([docs](docs/guides/mcp_server.md)) |
 
 Check the zoo before training a surrogate: a zoo model comes with its held-out errors, physics checks and validity

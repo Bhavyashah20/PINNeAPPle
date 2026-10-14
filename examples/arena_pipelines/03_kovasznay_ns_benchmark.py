@@ -49,6 +49,9 @@ from pinneapple_neural.architectures.neural_operators.fno import FNO2d
 from pinneapple_neural.architectures.graphnn.mesh_graph_net import MeshGraphNet
 from pinneapple_neural.architectures.graphnn.base import GraphBatch
 from pinneapple_tools.visualization.fields import plot_streamlines, plot_scalar
+from pinneapple_physics.metrics import relative_l2, relative_linf
+from pinneapple_physics.pinn_solver.compiler.autograd_ops import grad
+from pinneapple_neural.trainer.parallel import best_device
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 RE           = 40.0          # Reynolds number
@@ -61,7 +64,7 @@ EPOCHS_FNO   = 600           # FNO-2D training epochs
 LR_FNO       = 1e-3          # FNO-2D learning rate
 EPOCHS_MGN   = 600           # MeshGraphNet training epochs
 LR_MGN       = 1e-3          # MeshGraphNet learning rate
-DEVICE       = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE       = best_device()
 OUT_DIR      = "outputs"
 
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -195,13 +198,6 @@ UV_nodes_T  = torch.from_numpy(
 # 3. PHYSICS RESIDUALS FOR VANILLA PINN (NS 2D)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _grad(y: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
-    return torch.autograd.grad(
-        y, x, grad_outputs=torch.ones_like(y),
-        create_graph=True, retain_graph=True
-    )[0]
-
-
 def ns_residuals(
     net: nn.Module,          # model.net (raw MLP, no physics callback)
     xy_int: torch.Tensor,    # (N, 2)
@@ -214,12 +210,12 @@ def ns_residuals(
     out = net(xy)                    # (N, 3): [u, v, p]
     u, v, p = out[:, 0:1], out[:, 1:2], out[:, 2:3]
 
-    u_x = _grad(u, xy)[:, 0:1];  u_y = _grad(u, xy)[:, 1:2]
-    v_x = _grad(v, xy)[:, 0:1];  v_y = _grad(v, xy)[:, 1:2]
-    p_x = _grad(p, xy)[:, 0:1];  p_y = _grad(p, xy)[:, 1:2]
+    u_x = grad(u, xy)[:, 0:1];  u_y = grad(u, xy)[:, 1:2]
+    v_x = grad(v, xy)[:, 0:1];  v_y = grad(v, xy)[:, 1:2]
+    p_x = grad(p, xy)[:, 0:1];  p_y = grad(p, xy)[:, 1:2]
 
-    u_xx = _grad(u_x, xy)[:, 0:1];  u_yy = _grad(u_y, xy)[:, 1:2]
-    v_xx = _grad(v_x, xy)[:, 0:1];  v_yy = _grad(v_y, xy)[:, 1:2]
+    u_xx = grad(u_x, xy)[:, 0:1];  u_yy = grad(u_y, xy)[:, 1:2]
+    v_xx = grad(v_x, xy)[:, 0:1];  v_yy = grad(v_y, xy)[:, 1:2]
 
     res_u    = u * u_x + v * u_y + p_x - nu * (u_xx + u_yy)
     res_v    = u * v_x + v * v_y + p_y - nu * (v_xx + v_yy)
@@ -382,11 +378,7 @@ print(f"  Done in {mgn_time:.1f}s\n")
 # 6. EVALUATION ON THE REFERENCE GRID
 # ══════════════════════════════════════════════════════════════════════════════
 
-def l2_rel(pred: np.ndarray, ref: np.ndarray) -> float:
-    return float(np.linalg.norm(pred - ref) / (np.linalg.norm(ref) + 1e-12))
-
-def linf_rel(pred: np.ndarray, ref: np.ndarray) -> float:
-    return float(np.max(np.abs(pred - ref)) / (np.max(np.abs(ref)) + 1e-12))
+# relative errors of whole fields: pinneapple_physics.metrics on the flattened grids
 
 
 # — VanillaPINN ----------------------------------------------------------------
@@ -457,8 +449,8 @@ print("=" * 70)
 print(f"{'Model':<15} {'L2-rel u':>10} {'L2-rel v':>10} {'Linf u':>10} {'Time(s)':>10} {'Params':>10}")
 print("-" * 70)
 for name, (up, vp) in models_eval.items():
-    l2u = l2_rel(up, U_ref); l2v = l2_rel(vp, V_ref)
-    liu = linf_rel(up, U_ref)
+    l2u = relative_l2(np.ravel(up), np.ravel(U_ref)); l2v = relative_l2(np.ravel(vp), np.ravel(V_ref))
+    liu = relative_linf(np.ravel(up), np.ravel(U_ref))
     print(f"{name:<15} {l2u:>10.4f} {l2v:>10.4f} {liu:>10.4f} "
           f"{train_times[name]:>10.1f} {params[name]:>10,}")
 print("=" * 70)
@@ -524,7 +516,7 @@ fig.colorbar(im, ax=ax, fraction=0.04, pad=0.01, format="%.2f").ax.yaxis.set_tic
 for col, (name, (up, vp), color) in enumerate(zip(MODEL_LABELS, PRED_UV, COLORS)):
     ax = fig.add_subplot(gs_main[0, col + 1])
     im = _imshow(ax, up, CMAP_FIELD, u_vmin, u_vmax, title=f"{name}  u")
-    l2u = l2_rel(up, U_ref)
+    l2u = relative_l2(np.ravel(up), np.ravel(U_ref))
     ax.text(0.97, 0.04, f"L₂={l2u:.3f}", transform=ax.transAxes,
             ha="right", va="bottom", color=color, fontsize=8, fontweight="bold",
             bbox=dict(boxstyle="round,pad=0.2", fc="#111", ec=color, lw=0.8))
@@ -533,7 +525,7 @@ for col, (name, (up, vp), color) in enumerate(zip(MODEL_LABELS, PRED_UV, COLORS)
 # Column 4: Error bar chart for u (L2)
 ax_bar = fig.add_subplot(gs_main[0, 4])
 ax_bar.set_facecolor("#0d1117")
-l2_u_vals = [l2_rel(up, U_ref) for up, _ in PRED_UV]
+l2_u_vals = [relative_l2(np.ravel(up), np.ravel(U_ref)) for up, _ in PRED_UV]
 bars = ax_bar.barh(MODEL_LABELS[::-1], l2_u_vals[::-1], color=COLORS[::-1], alpha=0.85, height=0.5)
 ax_bar.set_xlabel("L₂ relative error  (u)", color="#aaa", fontsize=8)
 ax_bar.tick_params(colors="white", labelsize=8)
@@ -556,7 +548,7 @@ fig.colorbar(im, ax=ax, fraction=0.04, pad=0.01, format="%.2f").ax.yaxis.set_tic
 for col, (name, (up, vp), color) in enumerate(zip(MODEL_LABELS, PRED_UV, COLORS)):
     ax = fig.add_subplot(gs_main[1, col + 1])
     im = _imshow(ax, vp, CMAP_FIELD, v_vmin, v_vmax, title=f"{name}  v")
-    l2v = l2_rel(vp, V_ref)
+    l2v = relative_l2(np.ravel(vp), np.ravel(V_ref))
     ax.text(0.97, 0.04, f"L₂={l2v:.3f}", transform=ax.transAxes,
             ha="right", va="bottom", color=color, fontsize=8, fontweight="bold",
             bbox=dict(boxstyle="round,pad=0.2", fc="#111", ec=color, lw=0.8))
@@ -565,7 +557,7 @@ for col, (name, (up, vp), color) in enumerate(zip(MODEL_LABELS, PRED_UV, COLORS)
 # Column 4: Error bar for v
 ax_bar2 = fig.add_subplot(gs_main[1, 4])
 ax_bar2.set_facecolor("#0d1117")
-l2_v_vals = [l2_rel(vp, V_ref) for _, vp in PRED_UV]
+l2_v_vals = [relative_l2(np.ravel(vp), np.ravel(V_ref)) for _, vp in PRED_UV]
 bars2 = ax_bar2.barh(MODEL_LABELS[::-1], l2_v_vals[::-1], color=COLORS[::-1], alpha=0.85, height=0.5)
 ax_bar2.set_xlabel("L₂ relative error  (v)", color="#aaa", fontsize=8)
 ax_bar2.tick_params(colors="white", labelsize=8)
@@ -695,7 +687,7 @@ def _streamax(ax, u, v, name, col):
         sp.set_edgecolor("#333")
 
     if name != "Reference":
-        l2u = l2_rel(u, U_ref)
+        l2u = relative_l2(np.ravel(u), np.ravel(U_ref))
         ax.text(0.97, 0.04, f"L₂={l2u:.3f}", transform=ax.transAxes,
                 ha="right", va="bottom", color=col, fontsize=9, fontweight="bold",
                 bbox=dict(boxstyle="round,pad=0.25", fc="#0d1117cc", ec=col, lw=1.0))

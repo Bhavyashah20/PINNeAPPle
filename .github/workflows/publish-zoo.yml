@@ -9,6 +9,11 @@ name: Publish zoo to the Hugging Face Hub
 
 on:
   workflow_dispatch:
+    inputs:
+      staging_ref:
+        description: "Branch holding the files of Hub-only items as <name>/<file> (empty: bundled items only)"
+        required: false
+        default: ""
   push:
     branches: ["main"]
     paths:
@@ -52,7 +57,8 @@ jobs:
         run: python scripts/zoo/publish_to_hub.py ${STAGING_REF:+--staging _zoo_staging}
       - name: Verify the published files (anonymous download, SHA-256 against the manifest)
         if: ${{ env.HAS_TOKEN == 'true' }}
-        run: python scripts/zoo/publish_to_hub.py --verify ${STAGING_REF:---allow-unpublished}
+        # without staging files, Hub-only items not uploaded yet are reported, not failed; with them, verify everything
+        run: python scripts/zoo/publish_to_hub.py --verify $([ -z "$STAGING_REF" ] && echo --allow-unpublished)
 
   geometries:
     runs-on: ubuntu-latest

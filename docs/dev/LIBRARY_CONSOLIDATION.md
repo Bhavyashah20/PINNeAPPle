@@ -14,7 +14,7 @@ it, and the verdict:
 - **glue**: app- or example-specific (routes, UI, deploy, narrative demo code); stays;
 - **stays**: kept on purpose for the reason given (frozen record, release tooling, external reference replica, ...).
 
-The status column is updated as the pull requests land. `scripts/check_app_helpers.py` (run in CI) keeps new
+The pull requests that implemented it and what is still to do are at the end. `scripts/check_app_helpers.py` (run in CI) keeps new
 duplicates out; see [AGENTS.md](../../AGENTS.md) and [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 Work streams that were in flight during the audit are left alone and audited after they merge: observatory AI
@@ -175,10 +175,50 @@ cases, geometry, campaigns, reports and deployment code stay private.
 - About eight private JSON sanitisers and eight private model-output unwrappers (replaced by `to_jsonable` and
   `as_tensor`).
 
+## Work streams merged during the consolidation (audited against main 4966ee6)
+
+Playground (#649), multiscale ensemble (#661), zoo v2 (#654), rover dashboard v3 (#650) and rover zoo v1.1 (#651) put their
+reusable logic in the library (`pinneapple_hub/zoo/{checks,export,web}`, `pinneapple_design/aero/geometry_onnx.py`,
+`pinneapple_design/geometry_library/web.py`, `pinneapple_physics/multiscale`, `pinneapple_design/thermal/heatsink/monotone.py`,
+`pinneapple_neural/trainer/monotonic.py`, `pinneapple_simulation/terramechanics`). What they added outside it is glue:
+
+| Where | What it does | Verdict |
+|---|---|---|
+| `apps/playground/build.py`, `site/js/*`, `tools/`, deploy files | static-site build, browser UI over the zoo web bundle (checks come from the ONNX graph) | glue |
+| `examples/physics_ensemble/multiscale_turbulence.py` | wires `pinneapple_physics.multiscale` and the architectures for one benchmark | glue |
+| `examples/studio/07_lunar_rover_dashboard.py` | loads the zoo contact model, renders the dashboard | glue |
+| `scripts/zoo/build_assets.py` `hub_only_entry`, `_carry_versions`; `scripts/zoo/publish_to_hub.py` `plan`, `verify` | zoo release manifest and Hub checksum verification | stays for now; candidate for `pinneapple_hub.zoo._artifacts` once the open zoo PRs (#656, #674) land |
+
 ## Pull requests
 
-Filled in as they land.
+All merged, each with its tests (against closed forms, published values or independent algorithms) and green CI.
 
-| Area | Pull request | Status |
-|---|---|---|
-| Inventory, AGENTS.md / CONTRIBUTING.md rule, CI guard | this one | |
+| Area | Pull request |
+|---|---|
+| Inventory, rule in AGENTS.md / CONTRIBUTING.md, CI guard `scripts/check_app_helpers.py` | [#652](https://github.com/PINNeAPPle-Labs/PINNeAPPle/pull/652) |
+| Data and CAE apps: `to_jsonable`, CAE preview / worst cells / tolerance verdicts, lineage report, pre-flight snippets, form compilation, unified before/after series | [#653](https://github.com/PINNeAPPle-Labs/PINNeAPPle/pull/653) |
+| Satellite helpers: resampling CIs, `score_against_reference`, `DMDc`, rollout L2, `fetch_cached`, OpenRadioss energy error | [#655](https://github.com/PINNeAPPle-Labs/PINNeAPPle/pull/655) |
+| Closed forms (pipe flow, compressible, heat, inviscid Burgers), `dominant_frequency`, layer sizing, FV Courant / wall distance, `.dat` reader, LPM designs, one Sod and one Colebrook | [#657](https://github.com/PINNeAPPle-Labs/PINNeAPPle/pull/657) |
+| `pinneapple_tools.reporting.paperkit` | [#658](https://github.com/PINNeAPPle-Labs/PINNeAPPle/pull/658) |
+| Example helpers: `as_tensor`, DeepMind MGN reader and training, excitation signals, NASA POWER / Open-Meteo, axisymmetric elasticity, periodic Burgers pairs | [#659](https://github.com/PINNeAPPle-Labs/PINNeAPPle/pull/659) |
+| Aero optimizer: training, dataset, verification, Pareto representatives, case zip | [#660](https://github.com/PINNeAPPle-Labs/PINNeAPPle/pull/660) |
+| Examples, benchmarks, scripts and a notebook switched to existing library helpers | [#678](https://github.com/PINNeAPPle-Labs/PINNeAPPle/pull/678) |
+| Drift monitoring, tolerance propagation, GP sensor placement | [#679](https://github.com/PINNeAPPle-Labs/PINNeAPPle/pull/679) |
+| `PhysicsEnsemble.run_delayed`, `hstack_gifs` | [#680](https://github.com/PINNeAPPle-Labs/PINNeAPPle/pull/680) |
+| `pp.` shortcuts | [#681](https://github.com/PINNeAPPle-Labs/PINNeAPPle/pull/681) |
+| PINNeAPPle-Benchmark: experiments use the library helpers; paperkit from the library | [Benchmark#7](https://github.com/PINNeAPPle-Labs/PINNeAPPle-Benchmark/pull/7), [Benchmark#8](https://github.com/PINNeAPPle-Labs/PINNeAPPle-Benchmark/pull/8) |
+| PINNeAPPle-Climate: library helpers, paperkit, `run_delayed` | [Climate#16](https://github.com/PINNeAPPle-Labs/PINNeAPPle-Climate/pull/16), [Climate#17](https://github.com/PINNeAPPle-Labs/PINNeAPPle-Climate/pull/17), [Climate#18](https://github.com/PINNeAPPle-Labs/PINNeAPPle-Climate/pull/18) |
+
+## Still to do
+
+| Item | Why it waits |
+|---|---|
+| Observatory analyses (`observing_window`, `resolve_target`, `body_summary`, `events`, `compare_integrators`, `load_tles`) | the observatory AI work stream is still open |
+| Black-hole run storage (`load_run`, checkpoint loop) | the black-hole zoo work stream is still open |
+| `apps/inverse_heat/engine.py` alias | the benchmark-API stream edits `inverse_problems/heat_transfer.py` |
+| Zoo manifest and Hub verification in `scripts/zoo/` | open zoo PRs #656, #674 |
+| Physics-ensemble examples: `ic_coefficients`, `ParametricPINN`, the Adam + cosine training loop, ring-graph adapters, selection timeline (duplicated between `five_model_families_gif.py`, `fno_pinn_gnn_solvers.py`, `compare_lookahead_gif.py`, `sensor_noise_gif.py`) | next pass |
+| Unstructured-mesh streamlines, strict OpenFOAM dictionary editor, particle-erosion models, MCMC inverse with identifiability, rollout evaluator against persistence | larger items that need their own validation; to be written from the literature |
+| Abramowicz–Jones crush, the 2-D demo solvers of `benchmark_suite/14` | need a published reference test before they move |
+| `airfoil_case.residuals`, trough boundary reader, time-series LSTM / rolling evaluation | the library versions behave differently; the examples keep theirs |
+| `pinneapple_simulation/.../pipe_network_1d.colebrook_white_f`, three library `latin_hypercube` functions, private model-output unwrappers | library-side duplicates with different edge behaviour; to be unified with care |

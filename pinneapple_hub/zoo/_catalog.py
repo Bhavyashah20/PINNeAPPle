@@ -378,6 +378,76 @@ DATASETS = {
     },
 }
 
+LI2021 = ("Li Z., Kovachki N., Azizzadenesheli K., Liu B., Bhattacharya K., Stuart A., Anandkumar A. (2021). Fourier "
+          "Neural Operator for Parametric Partial Differential Equations. ICLR 2021, arXiv:2010.08895. Data generated "
+          "with PINNeAPPle's reference solvers (pinneapple_simulation.numerical_solvers.operator_benchmarks); "
+          "PINNeAPPle, Zenodo DOI 10.5281/zenodo.23343062.")
+_OB_SOURCE = ("python scripts/zoo/operator_data.py generate --out DIR (inputs drawn from fixed seeds in the parent "
+              "process, so the data do not depend on the number of workers); solvers in "
+              "pinneapple_simulation.numerical_solvers.operator_benchmarks, written from the equations")
+_OB_SPLIT = "rows 0-999 are train, 1000-1199 test; inputs are i.i.d. draws, so the contiguous split is a random split"
+
+OPERATOR_DATASETS = {
+    "burgers_1d_li2021": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "1-D viscous Burgers, Li et al. (2021) operator-learning benchmark (1200 trajectories, 1024 points)",
+        "description": (
+            "u_t + (u^2/2)_x = nu u_xx on the periodic interval [0, 1), nu = 0.1, t in [0, 1]. Initial conditions "
+            "u0 ~ N(0, 625 (-Laplacian + 25 I)^-2), the input distribution stated in Li et al. (2021), section 5.1 "
+            "(their released generator used alpha 2.5, tau 7, sigma 49 instead; this dataset follows the paper's text). "
+            "The standard task maps u0 to u(., 1); the 11 snapshots t = 0, 0.1, ..., 1 are stored for time-dependent "
+            "models. Grid x_j = j / 1024, j = 0..1023; u[:, 0] equals u0."),
+        "license": "cc-by-4.0",
+        "source": _OB_SOURCE + "; seed 20211",
+        "verification": (
+            "Solver (Fourier pseudo-spectral, 2/3 dealiasing, ETDRK4) checked in tests/test_operator_benchmarks.py "
+            "against the Cole-Hopf exact solution (max error < 1e-8) and for exact mean conservation. Resolution and "
+            "time-step study on 4 held-aside inputs against a reference with 4096 points and dt 2.5e-5, all 10 saved "
+            "times: the dataset setting (1024 points, dt 1e-4) has max rel. L2 error 4.4e-12; halving dt gives "
+            "6.3e-13, doubling the points 4.4e-12 (time-step limited, spectrally converged in space). Mean "
+            "conserved to 8e-17. Stored in float32 (rounding ~6e-8 relative), far below the 1e-3 to 1e-2 errors "
+            "operator-learning methods reach on this task (scripts/zoo/operator_data.py convergence)."),
+        "splits": {"train": "1000 trajectories", "test": "200 trajectories (held out)"},
+        "split_rule": _OB_SPLIT,
+        "columns": {"index": ("-", "sample index (row of the generated set)"),
+                    "u0": ("-", "initial condition u(x, 0) on the 1024-point grid"),
+                    "u": ("-", "solution u(x, t) at t = 0, 0.1, ..., 1 (11 snapshots x 1024 points)")},
+        "tags": ["operator learning", "neural operator", "Burgers", "benchmark", "FNO"],
+        "citation": LI2021,
+    },
+    "darcy_2d_li2021": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "2-D Darcy flow, Li et al. (2021) operator-learning benchmark (1200 coefficient / pressure pairs, 128 x 128)",
+        "description": (
+            "-div(a grad u) = 1 on the unit square, u = 0 on the boundary. Coefficients a = 12 where g >= 0 and 3 "
+            "where g < 0, g ~ N(0, (-Laplacian + 9 I)^-2) (Li et al. 2021, section 5.2). g is drawn as a periodic "
+            "Gaussian random field on the 128 x 128 cell grid (Li et al. use a cosine expansion on 421 nodes), so "
+            "a is piecewise constant on the cells of the stored grid. The task maps a to u. Cell centres "
+            "((i + 1/2) / 128, (j + 1/2) / 128); u is the cell average of the solution."),
+        "license": "cc-by-4.0",
+        "source": _OB_SOURCE + "; seed 20212",
+        "verification": (
+            "Solver (cell-centred two-point-flux finite volumes, harmonic face coefficients, sparse direct solve) "
+            "checked in tests/test_operator_benchmarks.py on a manufactured variable-coefficient solution (second "
+            "order, max error < 2e-3 at 64^2). Each sample is solved on the 512^2 grid (the piecewise-constant "
+            "coefficient is represented exactly on every refinement) and averaged onto its 128^2 cells. Grid study "
+            "on 4 held-aside inputs against 1024^2: max rel. L2 error 4.6e-3 (128^2), 1.6e-3 (256^2), 4.3e-4 "
+            "(512^2, the dataset); observed order 1.36 / 1.21 (reduced from 2 by the coefficient jumps); Richardson "
+            "estimate of the dataset's discretisation error ~8e-4 rel. L2, ten times below the ~1e-2 operator-"
+            "learning methods reach on this task. u > 0 and below the a = 3 bound 1/24 in every sample."),
+        "splits": {"train": "1000 pairs", "test": "200 pairs (held out)"},
+        "split_rule": _OB_SPLIT,
+        "columns": {"index": ("-", "sample index (row of the generated set)"),
+                    "a": ("-", "permeability on the 128 x 128 cells (values 3 and 12)"),
+                    "u": ("-", "pressure, cell averages on the 128 x 128 cells")},
+        "tags": ["operator learning", "neural operator", "Darcy", "benchmark", "FNO"],
+        "citation": LI2021,
+    },
+}
+DATASETS.update(OPERATOR_DATASETS)
+
 
 def hf_repo(kind: str, name: str) -> str:
     """Hub repo of a model/dataset: PINNeAPPle-Labs/<name with dashes>."""

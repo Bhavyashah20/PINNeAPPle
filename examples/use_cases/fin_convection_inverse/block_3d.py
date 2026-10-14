@@ -8,7 +8,7 @@ the adiabatic sides and the nine readings, and so gives the temperature under th
     T_xx + T_yy + T_zz = 0,   -k T_z = q''(x, y) at z = 0,   -k T_z = h (T - T_air) at z = H
 
 Checks (the PINN never sees them): h vs the true value, the 3D field and the device temperature vs an independent
-finite-volume solution (fv_reference.py), and the classical alternative of fitting h by re-running that model.
+finite-volume solution (pinneapple_simulation.numerical_solvers.heat_fv_reference), and the classical alternative of fitting h by re-running that model.
 
 What the run shows: the field and the device temperature come out right (within 0.4 °C), but the network's own h
 parameter settles ~7 % low, because the flux that pins h is a ~1 K gradient across 10 mm of steel and a small field
@@ -35,7 +35,7 @@ for p in (_ROOT, _HERE):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from fv_reference import _footprint_area, block_3d, convergence  # noqa: E402
+from pinneapple_simulation.numerical_solvers.heat_fv_reference import block_3d, convergence, footprint_area  # noqa: E402
 from pinneapple_physics.pinn_solver.factory.pinn_factory import PINN, PINNFactory, PINNProblemSpec  # noqa: E402
 
 OUT = os.path.join(_HERE, "results", "3d")
@@ -49,7 +49,7 @@ NOISE_C, N_DRAWS = 0.5, 3
 L, DT = LX, 50.0
 FV = dict(lx=LX, ly=LY, lz=LZ, k=K, power=POWER, t_air=T_AIR, device=DEVICE)
 
-Q_FLUX = POWER / _footprint_area(*DEVICE, LX, LY)
+Q_FLUX = POWER / footprint_area(*DEVICE, LX, LY)
 C_Q = Q_FLUX * L / (K * DT)                           # scaled bottom flux
 C_T = L / K                                           # top Biot number = C_T * h
 ZH = LZ / L                                           # scaled thickness

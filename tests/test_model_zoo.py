@@ -19,7 +19,7 @@ from pinneapple_hub.zoo import _artifacts as art  # noqa: E402
 MODELS = ["airfoil_cst_rans_mlp", "heatsink_forced_mlp", "heatsink_natural_mlp", "rover_contact_grc1_viper"]
 BUNDLED_DATASETS = ["airfoil_rans_cst_re4e6", "heatsink_forced_convection", "heatsink_natural_convection",
                     "rover_contact_grc1_viper", "single_wheel_tests"]
-HUB_ONLY_DATASETS: list[str] = []                    # downloaded on first use, never bundled
+HUB_ONLY_DATASETS = ["burgers_1d_li2021", "darcy_2d_li2021"]       # downloaded on first use, never bundled
 DATASETS = BUNDLED_DATASETS + HUB_ONLY_DATASETS
 
 
@@ -244,6 +244,17 @@ def test_not_yet_published_gives_a_clear_message(monkeypatch, isolated_cache):
     monkeypatch.setattr(urllib.request, "urlopen", no_hub)
     with pytest.raises(zoo.ArtifactNotPublishedError, match="not published on the Hugging Face Hub yet"):
         pp.datasets.load("single_wheel_tests", split="all")
+
+
+@pytest.mark.parametrize("name", HUB_ONLY_DATASETS)
+def test_hub_only_dataset_is_documented(name):
+    info = pp.datasets.info(name)
+    assert set(info.splits) == {"train", "test"} and info.splits["train"]["n"] == 1000
+    assert info.splits["test"]["n"] == 200 and info.license == "cc-by-4.0"
+    assert "Li" in info.citation and "rel. L2" in info.verification
+    assert {f for s in info.splits for f in pp.datasets.split_files(name, s)} == set(info.files)
+    assert all(d["dtype"] and d["description"] for d in info.columns.values())
+    assert all(not f.get("bundled") for f in info.files.values())
 
 
 def test_hub_only_sharded_dataset_downloads_only_the_split(tmp_path, monkeypatch, isolated_cache):

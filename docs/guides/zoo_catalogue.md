@@ -22,8 +22,10 @@ Metric names are `<split>/<metric>`; the full set, the validity range and the ph
 | `heatsink_natural_convection` | 1.0.0 | Plate-fin heat sinks in natural convection (5000 physics-engine solves) | test 750, cal 500, val 500, train 3250 | cc-by-4.0 | 0.55 MB (bundled) | [PINNeAPPle-Labs/heatsink-natural-convection](https://huggingface.co/datasets/PINNeAPPle-Labs/heatsink-natural-convection/tree/v1.0.0) |
 | `rover_contact_grc1_viper` | 1.1.0 | Wong-Reece wheel-soil contact forces, GRC-1 simulant, VIPER wheel | train 3600, test 2000 | cc-by-4.0 | 0.19 MB (bundled) | [PINNeAPPle-Labs/rover-contact-grc1-viper](https://huggingface.co/datasets/PINNeAPPle-Labs/rover-contact-grc1-viper/tree/v1.1.0) |
 | `single_wheel_tests` | 1.0.0 | Published single-wheel testbed points (drawbar pull, sinkage, torque vs slip) | all 27 | mit | 3 kB (bundled) | [PINNeAPPle-Labs/single-wheel-tests](https://huggingface.co/datasets/PINNeAPPle-Labs/single-wheel-tests/tree/v1.0.0) |
+| `burgers_1d_li2021` | 1.0.0 | 1-D viscous Burgers, Li et al. (2021) operator-learning benchmark (1200 trajectories, 1024 points) | train 1000, test 200 | cc-by-4.0 | 55 MB (Hub-only) | [PINNeAPPle-Labs/burgers-1d-li2021](https://huggingface.co/datasets/PINNeAPPle-Labs/burgers-1d-li2021/tree/v1.0.0) |
+| `darcy_2d_li2021` | 1.0.0 | 2-D Darcy flow, Li et al. (2021) operator-learning benchmark (1200 coefficient / pressure pairs, 128 x 128) | train 1000, test 200 | cc-by-4.0 | 71 MB (Hub-only) | [PINNeAPPle-Labs/darcy-2d-li2021](https://huggingface.co/datasets/PINNeAPPle-Labs/darcy-2d-li2021/tree/v1.0.0) |
 
-4 models and 5 datasets, 2.7 MB in total (2.7 MB bundled with the package; the rest is downloaded on first use and checked against its SHA-256).
+4 models and 7 datasets, 128.4 MB in total (2.7 MB bundled with the package; the rest is downloaded on first use and checked against its SHA-256).
 
 ## Cite
 

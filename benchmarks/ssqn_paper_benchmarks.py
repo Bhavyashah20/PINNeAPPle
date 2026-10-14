@@ -37,7 +37,9 @@ import torch
 
 from pinneapple_neural.trainer.self_scaled_qn import SelfScaledQuasiNewton
 from pinneapple_physics.closed_form.burgers import burgers_sine_inviscid_exact
-from pinneapple_simulation.numerical_solvers.compressible_fv import sod_exact as _sod_exact
+from pinneapple_physics.metrics import relative_l2
+from pinneapple_physics.pinn_solver.compiler.autograd_ops import grad
+from pinneapple_simulation.numerical_solvers.compressible_fv import sod_exact
 
 
 def mlp(n_in, n_out, width, depth, seed):
@@ -48,14 +50,6 @@ def mlp(n_in, n_out, width, depth, seed):
         d = width
     layers.append(torch.nn.Linear(d, n_out))
     return torch.nn.Sequential(*layers).double()
-
-
-def grad(y, x):
-    return torch.autograd.grad(y, x, grad_outputs=torch.ones_like(y), create_graph=True)[0]
-
-
-def rel_l2(pred, ref):
-    return float(np.linalg.norm(pred - ref) / np.linalg.norm(ref))
 
 
 # ── Helmholtz ───────────────────────────────────────────────────────────
@@ -86,7 +80,7 @@ class Helmholtz:
         X, Y = torch.meshgrid(s, s, indexing="ij")
         xy = torch.stack([X.reshape(-1), Y.reshape(-1)], 1)
         with torch.no_grad():
-            return rel_l2(self.u(xy).numpy(), self.exact(xy).numpy())
+            return relative_l2(self.u(xy).numpy().ravel(), self.exact(xy).numpy().ravel())
 
 
 # ── PK-PD (Simeoni tumour growth inhibition + 2-compartment PK) ─────────
@@ -154,7 +148,7 @@ class PKPD:
     def error(self):
         tn = torch.as_tensor(self.t_ref / self.T).reshape(-1, 1)
         with torch.no_grad():
-            return rel_l2(self.x(tn).numpy(), self.y_ref)
+            return relative_l2(self.x(tn).numpy().ravel(), self.y_ref.ravel())   # all four states pooled
 
 
 # ── Inviscid Burgers ────────────────────────────────────────────────────
@@ -186,16 +180,10 @@ class Burgers:
         ref = burgers_sine_inviscid_exact(X, T)
         tx = torch.as_tensor(np.stack([T.ravel(), X.ravel()], 1))
         with torch.no_grad():
-            return rel_l2(self.u(tx).numpy().reshape(ref.shape), ref)
+            return relative_l2(self.u(tx).numpy().ravel(), ref.ravel())
 
 
 # ── Sod shock tube ──────────────────────────────────────────────────────
-def sod_exact(x, t, gamma=1.4, left=(1.0, 0.0, 1.0), right=(0.125, 0.0, 0.1), x0=0.5):
-    """Exact Riemann solution (Toro ch. 4) as an (N, 3) array of rho, u, p:
-    :func:`pinneapple_simulation.numerical_solvers.compressible_fv.sod_exact`."""
-    return np.stack(_sod_exact(x, t, left=left, right=right, gamma=gamma, x0=x0), 1)
-
-
 class Sod:
     gamma, T = 1.4, 0.2
 
@@ -225,11 +213,11 @@ class Sod:
 
     def error(self):
         xs = np.linspace(0, 1, 401)
-        ref = sod_exact(xs, self.T, self.gamma)
+        ref_rho = sod_exact(xs, self.T, gamma=self.gamma)[0]
         tx = torch.as_tensor(np.stack([np.full_like(xs, self.T), xs], 1))
         with torch.no_grad():
             rho, u, p = self.prim(tx)
-        return rel_l2(rho.numpy().ravel(), ref[:, 0])  # density error at t = T
+        return relative_l2(rho.numpy().ravel(), ref_rho)  # density error at t = T
 
 
 PROBLEMS = {"helmholtz": Helmholtz, "pkpd": PKPD, "burgers": Burgers, "sod": Sod}
