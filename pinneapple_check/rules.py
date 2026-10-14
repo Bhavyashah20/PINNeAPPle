@@ -141,6 +141,25 @@ RULES: dict[str, Rule] = {r.id: r for r in [
        """The run diverged or the model was evaluated outside its numeric range; inspect the time step and the
        residual history."""),
     # ------------------------------------------------------------------ PC5 units
+    # ---- datasets (pinneapple_data.audit)
+    _r("PC451", "dataset-physics", "Training data do not solve the stated PDE or break a declared constraint", ERROR,
+       "data_geometry", "",
+       """Samples of a dataset differ from the solution of their own discrete problem (or their boundary values or
+       flux balance are off), or rows break a relation declared between columns. A model trained on such data
+       inherits the error, and model-level checks may never see it (NVIDIA/physicsnemo#2036: Darcy data generated
+       with a wrongly scaled cross term).""",
+       """Regenerate the data with the documented equation and discretisation; the failing samples are listed in
+       the evidence."""),
+    _r("PC452", "dataset-diversity", "Training data are less diverse than stated or contain duplicates", ERROR,
+       "data_geometry", "",
+       """The effective number of distinct samples (participation ratio of the principal components) collapses, or
+       samples are exact or near copies of each other (NVIDIA/physicsnemo#2035: every Fourier coefficient of a
+       permeability sample shared one value).""",
+       """Check the sampler: independent random coefficients per mode and per sample, a fresh seed per sample."""),
+    _r("PC453", "dataset-leakage", "Test samples are copies of training samples", ERROR, "data_geometry", "",
+       """A test sample's nearest training sample is closer than a thousandth of the typical spacing between
+       training samples: the held-out error measures memorisation, not generalisation.""",
+       """Split before deduplicating, split by case or geometry rather than by row, and drop the flagged pairs."""),
     _r("PC501", "unit-mismatch", "A field's unit differs from the declared unit", ERROR, "data_geometry",
        "dimensional_analysis",
        """The unit written in the file (OpenFOAM `dimensions`, a CSV header `T [degC]`, an HDF5 `units` attribute)

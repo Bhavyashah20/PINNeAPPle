@@ -105,6 +105,12 @@ train-samples = "models/drag_training_points.csv"
 queries = "models/queries.csv"
 bounds = { Cd = [0, 1] }
 
+# ---------------------------------------------------------------- datasets
+[[dataset]]
+path = "datasets/darcy.npz"                      # Darcy pairs solved with the documented discretisation
+physics = "darcy"
+constraints = ["u > 0", "u < 1 / 24"]
+
 # ---------------------------------------------------------------- artefacts
 [integrity]
 manifest = "models/manifest.json"
