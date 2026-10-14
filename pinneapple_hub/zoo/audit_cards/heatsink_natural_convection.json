@@ -1,0 +1,135 @@
+{
+ "schema": "dataset-audit/v1",
+ "dataset": "heatsink_natural_convection",
+ "splits": {
+  "cal": 500,
+  "test": 750,
+  "train": 3250,
+  "val": 500
+ },
+ "physics": null,
+ "decision": "pass",
+ "tolerances": {
+  "physics": 0.02,
+  "bc": 0.02,
+  "flux": 0.02,
+  "duplicates": 0.0,
+  "leakage": 0.0,
+  "near": 0.001,
+  "diversity": 0.5,
+  "spectrum": 2.0,
+  "min_effective": 2.0
+ },
+ "checks": [
+  {
+   "id": "finite",
+   "status": "pass",
+   "summary": "every value finite",
+   "value": null,
+   "threshold": null,
+   "evidence": {}
+  },
+  {
+   "id": "physics",
+   "status": "not-applicable",
+   "summary": "no PDE stated for this dataset",
+   "value": null,
+   "threshold": null,
+   "evidence": {}
+  },
+  {
+   "id": "constraint: r_base_k_w > 0",
+   "status": "pass",
+   "summary": "0 of 5000 rows violate it",
+   "value": 0,
+   "threshold": 0,
+   "evidence": {}
+  },
+  {
+   "id": "constraint: source_width_mm == source_frac_w * base_width_mm",
+   "status": "pass",
+   "summary": "0 of 5000 rows violate it",
+   "value": 0,
+   "threshold": 0,
+   "evidence": {}
+  },
+  {
+   "id": "constraint: source_depth_mm == source_frac_d * base_depth_mm",
+   "status": "pass",
+   "summary": "0 of 5000 rows violate it",
+   "value": 0,
+   "threshold": 0,
+   "evidence": {}
+  },
+  {
+   "id": "diversity.duplicates",
+   "status": "pass",
+   "summary": "train: 0 exact, 0 near copies of 3250; cal: 0 exact, 0 near copies of 500; test: 0 exact, 0 near copies of 750; val: 0 exact, 0 near copies of 500",
+   "value": 0.0,
+   "threshold": 0.0,
+   "evidence": {
+    "train": {
+     "exact": 0,
+     "near": 0,
+     "pairs": [],
+     "median_nn": 1.6002960421492682
+    },
+    "cal": {
+     "exact": 0,
+     "near": 0,
+     "pairs": [],
+     "median_nn": 2.0182029211197943
+    },
+    "test": {
+     "exact": 0,
+     "near": 0,
+     "pairs": [],
+     "median_nn": 1.8736302334420605
+    },
+    "val": {
+     "exact": 0,
+     "near": 0,
+     "pairs": [],
+     "median_nn": 1.9868931265822738
+    }
+   }
+  },
+  {
+   "id": "diversity.effective",
+   "status": "pass",
+   "summary": "effective sample count 11 of 3250 (no generator stated: only a collapse to one pattern is flagged)",
+   "value": 10.96830526274571,
+   "threshold": 2.0,
+   "evidence": {
+    "effective": 10.96830526274571,
+    "n": 3250
+   }
+  },
+  {
+   "id": "leakage",
+   "status": "pass",
+   "summary": "0 of 750 test samples are (near) copies of train samples (closest: 0.458 x the median train spacing)",
+   "value": 0.0,
+   "threshold": 0.0,
+   "evidence": {
+    "n_test": 750,
+    "n_flagged": 0,
+    "fraction": 0.0,
+    "pairs": [],
+    "median_train_nn": 1.6002960421492682,
+    "min_ratio": 0.4581123790492912
+   }
+  },
+  {
+   "id": "units",
+   "status": "pass",
+   "summary": "16 column units parse",
+   "value": null,
+   "threshold": null,
+   "evidence": {
+    "unparseable": [],
+    "mismatch": []
+   }
+  }
+ ]
+}
