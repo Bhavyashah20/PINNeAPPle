@@ -89,6 +89,12 @@ from pinneapple_analysis.uncertainty.resampling import (
     jackknife,
     skill_score,
 )
+from pinneapple_analysis.uncertainty.residual_bound import (
+    ResidualErrorCalibrator,
+    coverage_study,
+    darcy_problem,
+    energy_error_bound,
+)
 from pinneapple_analysis.uncertainty.tolerance import ToleranceResult, propagate, wilson_interval
 
 __all__ = [
@@ -128,4 +134,8 @@ __all__ = [
     "propagate",
     "ToleranceResult",
     "wilson_interval",
+    "ResidualErrorCalibrator",
+    "coverage_study",
+    "darcy_problem",
+    "energy_error_bound",
 ]
