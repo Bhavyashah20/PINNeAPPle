@@ -25,10 +25,9 @@ import pytest
 from pinneapple_analysis.verification.convergence import (
     ConvergenceResult,
     MeshIndependenceStudyResult,
-    richardson_extrapolate,
     mesh_independence_study,
+    richardson_extrapolate,
 )
-
 
 # ---------------------------------------------------------------------------
 # Synthetic known-order problems
@@ -222,6 +221,44 @@ def test_mesh_independence_study_warns_on_non_constant_refinement_ratio():
     with pytest.warns(UserWarning, match="not roughly constant"):
         study = mesh_independence_study(solve_fn, resolutions, lambda s: s)
     assert study.refinement_ratio_used == pytest.approx(3.0)  # ratio between the two finest
+    # regression: both pairs used to be treated as r = 3, which reported this second-order scheme as order 1.1
+    assert study.convergence.observed_order == pytest.approx(2.0, abs=0.01)
+    assert study.convergence.extrapolated_value == pytest.approx(_TRUE_DERIVATIVE, abs=1e-6)
+    assert study.convergence.refinement_ratio_coarse == pytest.approx(2.0)
+
+
+def test_richardson_extrapolate_reproduces_celik_2008_table_1():
+    """Celik et al. (2008), ASME J. Fluids Eng. 130(7) 078001, Table 1, column phi: N = 18000, 8000, 4500 cells
+    (r21 = 1.5, r32 = 1.333), phi = 6.063, 5.972, 5.863 -> p = 1.53, phi_ext = 6.1685, e_a21 = 1.5 %,
+    GCI_fine = 2.17 %."""
+    res = richardson_extrapolate(5.863, 5.972, 6.063, r=(1.5, 4.0 / 3.0))
+    assert res.observed_order == pytest.approx(1.53, abs=0.005)
+    assert res.extrapolated_value == pytest.approx(6.1685, abs=5e-4)
+    assert res.gci_fine == pytest.approx(0.0217, abs=5e-4)
+
+
+def test_richardson_extrapolate_non_constant_ratio_known_order():
+    # f(h) = 1 + 0.3 h^2 on h = 0.3, 0.1, 0.05: ratios 3 and 2, exact order 2 and exact limit 1
+    f = lambda h: 1.0 + 0.3 * h ** 2  # noqa: E731
+    res = richardson_extrapolate(f(0.3), f(0.1), f(0.05), r=(2.0, 3.0))
+    assert res.observed_order == pytest.approx(2.0, abs=1e-9)
+    assert res.extrapolated_value == pytest.approx(1.0, abs=1e-12)
+    assert res.asymptotic_ratio == pytest.approx(1.0, abs=5e-3)   # exactly f_fine / f_medium (relative errors)
+    # a constant-ratio call gives the same answer as the general formula
+    g = richardson_extrapolate(f(0.2), f(0.1), f(0.05), r=2.0)
+    assert g.observed_order == pytest.approx(2.0) and g.refinement_ratio_coarse == 2.0
+
+
+def test_richardson_extrapolate_rejects_non_finite_values():
+    with pytest.raises(ValueError, match="finite"):
+        richardson_extrapolate(1.0, float("nan"), 1.5, r=2.0)
+
+
+def test_richardson_extrapolate_rejects_bad_ratio_pair():
+    with pytest.raises(ValueError):
+        richardson_extrapolate(1.0, 1.2, 1.3, r=(2.0, 1.0))
+    with pytest.raises(ValueError):
+        richardson_extrapolate(1.0, 1.2, 1.3, r=(2.0, 2.0, 2.0))
 
 
 def test_mesh_independence_study_accepts_explicit_refinement_ratio():
@@ -255,5 +292,5 @@ def test_mesh_independence_study_is_solver_agnostic_and_never_imports_solvers():
             imported_modules.add(node.module)
 
     assert not any(m.startswith("pinneapple_simulation") for m in imported_modules)
-    allowed = {"__future__", "warnings", "dataclasses", "typing", "numpy"}
+    allowed = {"__future__", "warnings", "dataclasses", "typing", "collections.abc", "numpy"}
     assert imported_modules <= allowed, f"unexpected import(s) coupling convergence.py to something solver-specific: {imported_modules - allowed}"

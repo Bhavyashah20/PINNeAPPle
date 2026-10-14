@@ -39,6 +39,7 @@ test("Portuguese: the main panels have no English left, and switching back resto
   expect(page.url()).toContain("lang=pt");
   expect(await page.evaluate(() => localStorage.getItem("obs.lang"))).toBe("pt");
   await expect(page.locator(".ptabs button[data-tab=tonight]")).toHaveText("Hoje à noite");
+  await expect(page.locator("#clockSub")).toContainText("TSL");             // the clock is redrawn every frame
   await expect(page.locator("#tab-object h3").first()).toContainText("Saturno");
 
   const check = async (selector) => {
