@@ -143,6 +143,19 @@ class FormSpec:
         return list(dict.fromkeys(names))
 
     # ------------------------------------------------------------------ JSON
+    def describe(self) -> Dict[str, Any]:
+        """What a front end needs to show the form: identity, sections, and per field its label, kind, options,
+        whether it is required and whether the extraction rules can read it from a document; per table its
+        columns and number of rows."""
+        return {"id": self.id, "title": self.title, "standard": self.standard, "output": self.output,
+                "sections": self.sections, "left_blank": list(self.left_blank), "notes_field": bool(self.notes_field),
+                "columns": list(self.columns),
+                "fields": [{"key": f.key, "label": f.label, "section": f.section, "kind": f.kind,
+                            "options": list(f.options), "required": f.required, "hint": f.source_hint,
+                            "readable": bool(f.patterns), "column": f.column} for f in self.fields],
+                "tables": [{"key": t.key, "label": t.label, "columns": list(t.output_columns),
+                            "rows": len(t.pdf_rows)} for t in self.tables]}
+
     def to_dict(self) -> Dict[str, Any]:
         return {"id": self.id, "title": self.title, "standard": self.standard, "summary": self.summary,
                 "description": self.description, "inputs": list(self.inputs), "output": self.output,

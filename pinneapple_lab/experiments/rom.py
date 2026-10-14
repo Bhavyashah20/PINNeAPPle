@@ -111,6 +111,7 @@ class ROMStudy(Experiment):
             DynamicModeDecomposition,
             OperatorInference,
         )
+        from pinneapple_physics.physics_audit.regime import dominant_frequency
         p = ctx.params
         with ctx.stage("simulate"):
             ux, uy, solid, g = _wake(p["Re"], int(p["steps"]), int(p["save_every"]))
@@ -122,11 +123,7 @@ class ROMStudy(Experiment):
         n_tr = int(0.6 * T)
         # shedding frequency from a wake probe on the whole periodic record (the reference for DMD)
         probe = uy[start:, int(g["cx"] + 2 * g["D"]), int(g["ny"] / 2)]
-        pr = probe - probe.mean()
-        nfft = 16 * len(pr)
-        spec = np.abs(np.fft.rfft(pr * np.hanning(len(pr)), nfft))
-        fr = np.fft.rfftfreq(nfft, d=dt)
-        f_probe = float(fr[np.argmax(spec[1:]) + 1])
+        f_probe = dominant_frequency(probe, dt=dt, discard=0.0, window=True, refine=False, pad=16)
         St_probe = f_probe * g["D"] / g["u_in"]
         period = 1.0 / f_probe / dt                                    # snapshots per shedding period
         Xtr = torch.tensor(U[:n_tr], dtype=torch.float64)

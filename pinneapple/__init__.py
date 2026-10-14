@@ -569,6 +569,7 @@ _SUBMODULES = {
     "viz":        "pinneapple_tools.visualization.studio",
     # external flow around any body in OpenFOAM (STL -> mesh -> forces, skin fields, streamlines, slices)
     "cfd":        "pinneapple_simulation.numerical_solvers.external_flow",
+    "benchmark":  "pinneapple_analysis.benchmark",
     # CalculiX studies: gmsh or hexahedral meshes, sets by geometry, static / modal / buckling / heat, results
     "fea":        "pinneapple_simulation.external_solvers.calculix.study",
     # CAE files: OpenFOAM, CalculiX/Abaqus, Gmsh, VTK readers, mesh quality, comparison, neutral dataset
@@ -609,15 +610,25 @@ _SUBMODULES = {
     "loss":       "pinneapple_core.loss",
     "transforms": "pinneapple_core.transforms",
     "func":       "pinneapple_core.func",
+    # positional astronomy, satellites, small bodies, space weather, stellar ML, orbit PINNs (validated vs JPL/USNO)
+    "astro":      "pinneapple_physics.astro",
     # model zoo: pre-trained, verified models (load / predict / evaluate / validate / benchmark / finetune)
     "zoo":        "pinneapple_hub.zoo",
     # dataset hub: verified datasets with schema, splits, checksums, caching and lazy download
     "datasets":   "pinneapple_hub.zoo.datasets",
+    # helpers consolidated from apps, examples and satellite repos (docs/dev/LIBRARY_CONSOLIDATION.md)
+    "uncertainty": "pinneapple_analysis.uncertainty",
+    "closed_form": "pinneapple_physics.closed_form",
+    "excitation": "pinneapple_systems.excitation",
+    "reporting":  "pinneapple_tools.reporting",
 }
 
 # Lazy functions: resolved on first access, so ``import pinneapple`` does not
 # import their package. ``pinneapple_decision`` itself does not import torch.
 _LAZY_ATTRS = {
+    "ComputeBudget": ("pinneapple_analysis.cost.equal_budget", "ComputeBudget"),
+    # physics checks of a field on a grid -> trust card with a deploy decision
+    "trust_card": ("pinneapple_analysis.trust.field_card", "trust_card"),
     "PhysicsOptimizer": ("pinneapple_core.optim", "PhysicsOptimizer"),
     "compile": ("pinneapple_physics.compile_api", "compile"),
     "PhysicsModule": ("pinneapple_core.module", "PhysicsModule"),
@@ -639,6 +650,14 @@ _LAZY_ATTRS = {
     "verify":          ("pinneapple_decision.api", "verify"),
     "run_tree":        ("pinneapple_decision.api", "run_tree"),
     "decision_engine": ("pinneapple_decision.api", "decision_engine"),
+    # helpers consolidated from apps, examples and satellite repos (docs/dev/LIBRARY_CONSOLIDATION.md)
+    "as_tensor":       ("pinneapple_neural.utils", "as_tensor"),
+    "to_jsonable":     ("pinneapple_core.jsonable", "to_jsonable"),
+    "dominant_frequency": ("pinneapple_physics.physics_audit.regime", "dominant_frequency"),
+    "assess_drift":    ("pinneapple_analysis.uncertainty.drift", "assess_drift"),
+    "propagate_tolerances": ("pinneapple_analysis.uncertainty.tolerance", "propagate"),
+    "score_against_reference": ("pinneapple_analysis.verification.physics_confidence_score",
+                                "score_against_reference"),
 }
 
 

@@ -20,8 +20,8 @@ Boundary conditions (per face): "supersonic_inflow" (Dirichlet on every primitiv
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -31,16 +31,16 @@ __all__ = ["CompressibleConfig", "CompressibleFV", "sod_exact"]
 
 @dataclass
 class CompressibleConfig:
-    shape: Tuple[int, ...]                  # interior cells per dimension, e.g. (nx, ny) or (nx, ny, nz)
-    lengths: Tuple[float, ...]              # domain lengths
+    shape: tuple[int, ...]                  # interior cells per dimension, e.g. (nx, ny) or (nx, ny, nz)
+    lengths: tuple[float, ...]              # domain lengths
     gamma: float = 1.4
     Pr: float = 0.72
     mu_ref: float = 0.0                      # 0 -> Euler
     omega: float = 0.76                      # mu = mu_ref * T**omega
     cfl: float = 0.4
     limiter: str = "minmod"                  # "minmod" | "vanleer"
-    bc: Dict[str, str] = field(default_factory=dict)   # keys "x-", "x+", "y-", "y+", ("z-", "z+")
-    inflow: Optional[Sequence[float]] = None            # primitive state (rho, u..., p) for supersonic inflow
+    bc: dict[str, str] = field(default_factory=dict)   # keys "x-", "x+", "y-", "y+", ("z-", "z+")
+    inflow: Sequence[float] | None = None            # primitive state (rho, u..., p) for supersonic inflow
     p_out: float = 1.0 / 1.4                            # static pressure for "pressure_outlet"
     device: str = "cpu"
     dtype: torch.dtype = torch.float64
@@ -61,7 +61,7 @@ class CompressibleFV:
         self.cfg = c = cfg
         self.nd = len(c.shape)
         self.nv = self.nd + 2
-        self.dx = [L / n for L, n in zip(c.lengths, c.shape)]
+        self.dx = [L / n for L, n in zip(c.lengths, c.shape, strict=True)]
         self.g = c.gamma
         self.dev = torch.device(c.device)
         self.lim = _minmod if c.limiter == "minmod" else _vanleer
@@ -199,8 +199,10 @@ class CompressibleFV:
             s = self.lim(dm, dp)                                     # slopes for padded 1..n+2
             WL = self._shift(Q, d, 1, -2) + 0.5 * self._shift(s, d, 0, -1)
             WR = self._shift(Q, d, 2, -1) - 0.5 * self._shift(s, d, 1, 0)
-            WL[0] = WL[0].clamp(min=c.rho_floor); WR[0] = WR[0].clamp(min=c.rho_floor)
-            WL[-1] = WL[-1].clamp(min=c.p_floor); WR[-1] = WR[-1].clamp(min=c.p_floor)
+            WL[0] = WL[0].clamp(min=c.rho_floor)
+            WR[0] = WR[0].clamp(min=c.rho_floor)
+            WL[-1] = WL[-1].clamp(min=c.p_floor)
+            WR[-1] = WR[-1].clamp(min=c.p_floor)
             F = self._hllc(WL, WR, d)
             if c.mu_ref > 0:
                 F = F - self._viscous_flux(W, grads, d)
@@ -215,8 +217,12 @@ class CompressibleFV:
         grads = []
         for e in range(self.nd):
             gq = torch.zeros_like(q)
-            idx_c = [slice(None)] * q.dim(); idx_p = list(idx_c); idx_m = list(idx_c)
-            idx_c[1 + e] = slice(1, -1); idx_p[1 + e] = slice(2, None); idx_m[1 + e] = slice(0, -2)
+            idx_c = [slice(None)] * q.dim()
+            idx_p = list(idx_c)
+            idx_m = list(idx_c)
+            idx_c[1 + e] = slice(1, -1)
+            idx_p[1 + e] = slice(2, None)
+            idx_m[1 + e] = slice(0, -2)
             gq[tuple(idx_c)] = (q[tuple(idx_p)] - q[tuple(idx_m)]) / (2 * self.dx[e])
             grads.append(gq)
         return q, grads
@@ -259,14 +265,14 @@ class CompressibleFV:
 
     def step(self, dt=None):
         dt = dt or self.dt()
-        I = self.interior()
-        U0 = self.prim_to_cons(self.W[I])
+        inner = self.interior()
+        U0 = self.prim_to_cons(self.W[inner])
         U1 = U0 + dt * self.rhs(self.W)
         W1 = self.W.clone()
-        W1[I] = self.cons_to_prim(U1)
+        W1[inner] = self.cons_to_prim(U1)
         self.apply_bc(W1)
         U2 = 0.5 * (U0 + U1 + dt * self.rhs(W1))
-        self.W[I] = self.cons_to_prim(U2)
+        self.W[inner] = self.cons_to_prim(U2)
         self.apply_bc(self.W)
         self.t += dt
         return dt
@@ -278,38 +284,15 @@ class CompressibleFV:
 
 # ------------------------------------------------------------------ exact Riemann solution (Sod verification)
 def sod_exact(x, t, left=(1.0, 0.0, 1.0), right=(0.125, 0.0, 0.1), gamma=1.4, x0=0.5):
-    """Exact solution of the 1-D Riemann problem (Toro ch. 4); returns rho, u, p on x."""
-    rL, uL, pL = left
-    rR, uR, pR = right
-    cL, cR = np.sqrt(gamma * pL / rL), np.sqrt(gamma * pR / rR)
-    g1, g2 = (gamma - 1) / (2 * gamma), (gamma + 1) / (2 * gamma)
+    """Exact solution of the 1-D Riemann problem (Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*,
+    3rd ed., 2009, ch. 4); returns rho, u, p on x for ``left``/``right`` = (rho, u, p).
 
-    def f(p, r, pk, ck):
-        if p > pk:
-            A, B = 2 / ((gamma + 1) * r), (gamma - 1) / (gamma + 1) * pk
-            return (p - pk) * np.sqrt(A / (p + B))
-        return 2 * ck / (gamma - 1) * ((p / pk) ** g1 - 1)
+    Delegates to :func:`pinneapple_physics.pde_environment.presets.astrophysics.sod_exact_solution`, which covers
+    every wave pattern (shock or rarefaction on either side).
+    """
+    from pinneapple_physics.pde_environment.presets.astrophysics import sod_exact_solution
 
-    from scipy.optimize import brentq
-    ps = brentq(lambda p: f(p, rL, pL, cL) + f(p, rR, pR, cR) + uR - uL, 1e-8, 10 * max(pL, pR))
-    us = 0.5 * (uL + uR) + 0.5 * (f(ps, rR, pR, cR) - f(ps, rL, pL, cL))
-    rsL = rL * (ps / pL) ** (1 / gamma)                                   # left rarefaction
-    rsR = rR * ((ps / pR) + (gamma - 1) / (gamma + 1)) / ((gamma - 1) / (gamma + 1) * ps / pR + 1)   # right shock
-    SR = uR + cR * np.sqrt(g2 * ps / pR + g1)
-    csL = cL * (ps / pL) ** g1
-    rho, u, p = np.empty_like(x), np.empty_like(x), np.empty_like(x)
-    for i, xi in enumerate(x):
-        s = (xi - x0) / max(t, 1e-12)
-        if s < uL - cL:
-            rho[i], u[i], p[i] = rL, uL, pL
-        elif s < us - csL:
-            uu = 2 / (gamma + 1) * (cL + (gamma - 1) / 2 * uL + s)
-            cc = 2 / (gamma + 1) * (cL + (gamma - 1) / 2 * (uL - s))
-            rho[i], u[i], p[i] = rL * (cc / cL) ** (2 / (gamma - 1)), uu, pL * (cc / cL) ** (2 * gamma / (gamma - 1))
-        elif s < us:
-            rho[i], u[i], p[i] = rsL, us, ps
-        elif s < SR:
-            rho[i], u[i], p[i] = rsR, us, ps
-        else:
-            rho[i], u[i], p[i] = rR, uR, pR
-    return rho, u, p
+    (rL, uL, pL), (rR, uR, pR) = left, right
+    sol = sod_exact_solution(np.asarray(x, dtype=np.float64), t, gamma=gamma, rho_l=rL, u_l=uL, p_l=pL,
+                             rho_r=rR, u_r=uR, p_r=pR, x0=x0)
+    return sol["rho"], sol["u"], sol["p"]

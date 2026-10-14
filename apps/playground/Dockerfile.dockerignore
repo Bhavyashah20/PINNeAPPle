@@ -1,0 +1,14 @@
+.git
+**/__pycache__
+**/node_modules
+apps/playground/dist*
+apps/playground/test-results
+apps/playground/playwright-report
+data
+!data/geometries/**/*.light.glb
+!data/web/**
+examples
+notebooks
+benchmarks
+docs
+tests

@@ -17,10 +17,11 @@ from .fill import fill_pdf, form_values, pdf_widgets, read_filled
 from .ocr import ocr_available
 from .report import render_datasheet
 from .llm import OllamaClient, OllamaError, extract_with_llm, verify_quote
+from .pipeline import check_overrides, compile_documents, output_filename
 from .spec import Field, FormSpec, TableSpec
 from .specs import get_spec, list_specs
 
-__all__ = ["Field", "FormSpec", "TableSpec", "get_spec", "list_specs", "Candidate", "Compilation", "Decision",
+__all__ = ["compile_documents", "check_overrides", "output_filename", "Field", "FormSpec", "TableSpec", "get_spec", "list_specs", "Candidate", "Compilation", "Decision",
            "Document", "check_answer", "compile", "extract_rules", "parse_value", "read_document", "fill_pdf",
            "form_values", "pdf_widgets", "read_filled", "render_datasheet", "ocr_available", "OllamaClient", "OllamaError", "extract_with_llm",
            "verify_quote"]

@@ -110,6 +110,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from pinneapple_tools.visualization.style import make_figure, use_cfd_style
+
 import trimesh
 from scipy.ndimage import distance_transform_edt
 
@@ -562,24 +564,11 @@ def compute_aero_coefficients(
 # 6. PLOTTING
 # ══════════════════════════════════════════════════════════════════════════
 
-def _dark_fig(nrows=1, ncols=1, figsize=(10, 4)):
-    fig, axes = plt.subplots(nrows, ncols, figsize=figsize, facecolor=DARK_BG)
-    axes_arr = np.atleast_1d(axes)
-    for ax in np.ravel(axes_arr):
-        ax.set_facecolor(DARK_BG)
-        ax.tick_params(colors="white")
-        for spine in ax.spines.values():
-            spine.set_edgecolor("#444")
-        ax.xaxis.label.set_color("white")
-        ax.yaxis.label.set_color("white")
-        ax.title.set_color("white")
-    return fig, axes
-
-
 def plot_geometry(geom: AircraftGeometry, out_path: Path):
     """Top-view planform (real CSG union) + a 3-D wireframe preview of the
     simplified stand-in aircraft, explicitly labelled as such."""
-    fig, axes = _dark_fig(1, 2, figsize=(13, 5.5))
+    use_cfd_style(dark=True)
+    fig, axes = make_figure(1, 2, figsize=(13, 5.5))
 
     interior = geom.planform_union.sample_interior(4000, seed=0)
     boundary = geom.planform_union.sample_boundary(1500, seed=0)
@@ -610,7 +599,8 @@ def plot_geometry(geom: AircraftGeometry, out_path: Path):
 
 
 def plot_obstacle_mask(run: AoARun, out_path: Path):
-    fig, axes = _dark_fig(1, 2, figsize=(12, 5))
+    use_cfd_style(dark=True)
+    fig, axes = make_figure(1, 2, figsize=(12, 5))
     nx, ny, nz = run.obstacle_mask.shape
     axes[0].imshow(run.obstacle_mask[:, :, nz // 2].T, origin="lower", cmap="bone")
     axes[0].set_title(f"Obstacle mask, mid z-plane (AoA={run.aoa_deg:.0f} deg)")
@@ -667,7 +657,8 @@ def plot_vortex_field(
     except ImportError:
         print("  scikit-image not installed -- falling back to 2-D Q-criterion slices "
               "(same compute_q_criterion_3d field, different presentation)")
-        fig, axes = _dark_fig(1, 2, figsize=(12, 5))
+        use_cfd_style(dark=True)
+        fig, axes = make_figure(1, 2, figsize=(12, 5))
         nz = diag.Q.shape[2]
         ny = diag.Q.shape[1]
 
@@ -700,7 +691,8 @@ def plot_vortex_field(
 
 
 def plot_polar(sweep_results: List[Dict[str, Any]], out_path: Path):
-    fig, axes = _dark_fig(1, 3, figsize=(15, 4.5))
+    use_cfd_style(dark=True)
+    fig, axes = make_figure(1, 3, figsize=(15, 4.5))
     alphas = [r["aoa_deg"] for r in sweep_results]
     CL = [r["CL"] for r in sweep_results]
     CD = [r["CD"] for r in sweep_results]

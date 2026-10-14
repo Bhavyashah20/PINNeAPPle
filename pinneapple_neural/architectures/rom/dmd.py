@@ -1,14 +1,15 @@
-from __future__ import annotations
 """Dynamic Mode Decomposition (DMD) — batch-capable, stabilised, with spectral analysis."""
 
-from typing import Dict, Literal, Optional, Tuple, Union
+from __future__ import annotations
 
+from typing import Literal
+
+import numpy as np
 import torch
 
 from .base import ROMBase, ROMOutput
 
-
-CenterMode = Union[bool, Literal["global", "sequence"]]
+CenterMode = bool | Literal["global", "sequence"]
 
 
 class DynamicModeDecomposition(ROMBase):
@@ -43,7 +44,7 @@ class DynamicModeDecomposition(ROMBase):
         self.register_buffer("basis_", torch.zeros(1))
         self.register_buffer("A_",     torch.zeros(1))
         self._fitted = False
-        self._singular_values: Optional[torch.Tensor] = None  # (r,) for explained variance
+        self._singular_values: torch.Tensor | None = None  # (r,) for explained variance
 
     # ------------------------------------------------------------------
     # Helpers
@@ -56,7 +57,7 @@ class DynamicModeDecomposition(ROMBase):
             return X
         raise ValueError(f"Expected X with shape (T,D) or (B,T,D), got {tuple(X.shape)}")
 
-    def _center_mean(self, Xseq: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _center_mean(self, Xseq: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return (Xc, mu) based on self.center mode."""
         B, T, D = Xseq.shape
         if self.center is False:
@@ -70,7 +71,7 @@ class DynamicModeDecomposition(ROMBase):
             Xc = Xseq - mu_seq
             mu = mu_seq.mean(dim=0).view(1, D)
             return Xc, mu
-        raise ValueError(f'center must be False, "global", "sequence", or True.')
+        raise ValueError('center must be False, "global", "sequence", or True.')
 
     @staticmethod
     def _build_operator(
@@ -78,7 +79,7 @@ class DynamicModeDecomposition(ROMBase):
         X1: torch.Tensor,  # (D, N)
         r: int,
         l2: float,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Core DMD computation from paired snapshot matrices.
         Returns (Ur, A_tilde, S_r).
@@ -101,7 +102,7 @@ class DynamicModeDecomposition(ROMBase):
     # ------------------------------------------------------------------
 
     @torch.no_grad()
-    def fit(self, X: torch.Tensor) -> "DynamicModeDecomposition":
+    def fit(self, X: torch.Tensor) -> DynamicModeDecomposition:
         """Fit from sequential snapshots (T,D) or (B,T,D)."""
         Xseq = self._as_btd(X)
         B, T, D = Xseq.shape
@@ -128,7 +129,7 @@ class DynamicModeDecomposition(ROMBase):
         X1: torch.Tensor,
         *,
         center: bool = True,
-    ) -> "DynamicModeDecomposition":
+    ) -> DynamicModeDecomposition:
         """
         Fit from explicit (N, D) snapshot pairs.
 
@@ -175,7 +176,7 @@ class DynamicModeDecomposition(ROMBase):
 
     def eig(
         self,
-    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
         """
         Eigendecomposition of the reduced operator A_tilde.
 
@@ -193,14 +194,14 @@ class DynamicModeDecomposition(ROMBase):
         return lam, W, Phi
 
     @property
-    def explained_variance_ratio_(self) -> Optional[torch.Tensor]:
+    def explained_variance_ratio_(self) -> torch.Tensor | None:
         """Energy fraction captured by each singular value (after fit)."""
         if self._singular_values is None:
             return None
         s2 = self._singular_values ** 2
         return s2 / s2.sum().clamp_min(1e-12)
 
-    def frequencies(self, dt: float = 1.0) -> Optional[torch.Tensor]:
+    def frequencies(self, dt: float = 1.0) -> torch.Tensor | None:
         """
         Continuous-time frequencies from DMD eigenvalues: f = imag(log(lam)) / (2pi*dt).
         Returns real tensor of shape (r,).  dt is the physical time step.
@@ -246,7 +247,7 @@ class DynamicModeDecomposition(ROMBase):
         B, T, D = Xseq.shape
         yhat = self.rollout(Xseq[:, 0], steps=T - 1)
 
-        losses: Dict[str, torch.Tensor] = {"total": torch.tensor(0.0, device=Xseq.device)}
+        losses: dict[str, torch.Tensor] = {"total": torch.tensor(0.0, device=Xseq.device)}
         if return_loss:
             losses["mse"]   = self.mse(yhat, Xseq)
             losses["total"] = losses["mse"]
@@ -260,3 +261,85 @@ class DynamicModeDecomposition(ROMBase):
                 "rank":   int(self.basis_.shape[-1]) if self._fitted else 0,
             },
         )
+
+
+class DMDc:
+    """Dynamic Mode Decomposition with control (Proctor, Brunton & Kutz 2016), NumPy.
+
+    Identifies the linear, input-driven model
+
+        x_{k+1} = A x_k + B u_k (+ c)
+
+    from snapshot pairs by least squares on the stacked data ``[X, U] W = Y`` (the formulation with unknown ``B`` of
+    Proctor et al. 2016, solved without SVD truncation), optionally with a ridge penalty
+    ``ridge * ||W||_F^2``. With ``affine=True`` a constant column is appended and a bias ``c`` is identified too
+    (useful for states that are not centred, e.g. POD coefficients of a heated flow). Rows are samples:
+    ``X`` is ``(N, n)``, ``U`` is ``(N, m)``. To work in a reduced space, encode the snapshots first (for example
+    with :class:`~pinneapple_neural.architectures.rom.pod.POD`) and decode the rollout.
+
+    Reference: J. L. Proctor, S. L. Brunton, J. N. Kutz (2016), Dynamic mode decomposition with control,
+    *SIAM J. Applied Dynamical Systems* 15(1), 142-161.
+
+    Attributes (after :meth:`fit`): ``A_`` (n, n), ``B_`` (n, m), ``c_`` (n,) (zeros unless ``affine``).
+    """
+
+    def __init__(self, affine: bool = False):
+        self.affine = bool(affine)
+        self.A_: np.ndarray | None = None
+        self.B_: np.ndarray | None = None
+        self.c_: np.ndarray | None = None
+
+    def fit(self, X, U, Y=None, ridge: float = 0.0) -> DMDc:
+        """Fit ``A``, ``B`` (and ``c``).
+
+        Parameters
+        ----------
+        X : (T, n) one trajectory when ``Y`` is None (pairs ``X[k] -> X[k+1]``), else (N, n) current states.
+        U : (T - 1, m) or (T, m) inputs of the trajectory (only the first ``T - 1`` are used), else (N, m).
+        Y : (N, n) next states, or None.
+        ridge : Tikhonov weight on all coefficients (including the bias); 0 gives plain least squares.
+        """
+        X = np.atleast_2d(np.asarray(X, dtype=np.float64))
+        U = np.asarray(U, dtype=np.float64)
+        U = U.reshape(len(U), -1)
+        if Y is None:
+            if len(U) < len(X) - 1:
+                raise ValueError(f"a trajectory of {len(X)} states needs at least {len(X) - 1} inputs, got {len(U)}")
+            X, Y, U = X[:-1], X[1:], U[: len(X) - 1]
+        else:
+            Y = np.atleast_2d(np.asarray(Y, dtype=np.float64))
+        if not (len(X) == len(U) == len(Y)) or X.shape != Y.shape:
+            raise ValueError(f"inconsistent shapes X {X.shape}, U {U.shape}, Y {Y.shape}")
+        n, m = X.shape[1], U.shape[1]
+        cols = [X, U] + ([np.ones((len(X), 1))] if self.affine else [])
+        Z = np.concatenate(cols, axis=1)
+        if ridge > 0:
+            W = np.linalg.solve(Z.T @ Z + ridge * np.eye(Z.shape[1]), Z.T @ Y)
+        else:
+            W = np.linalg.lstsq(Z, Y, rcond=None)[0]
+        self.A_, self.B_ = W[:n].T.copy(), W[n:n + m].T.copy()
+        self.c_ = W[n + m].copy() if self.affine else np.zeros(n)
+        return self
+
+    def _check(self):
+        if self.A_ is None:
+            raise RuntimeError("DMDc not fitted.")
+
+    def predict(self, x, u) -> np.ndarray:
+        """One step: ``x`` (n,) or (N, n), ``u`` (m,) or (N, m) -> next state(s), same leading shape as ``x``."""
+        self._check()
+        x = np.asarray(x, dtype=np.float64)
+        u = np.asarray(u, dtype=np.float64)
+        u = u.reshape(x.shape[:-1] + (self.B_.shape[1],))
+        return x @ self.A_.T + u @ self.B_.T + self.c_
+
+    def rollout(self, x0, U) -> np.ndarray:
+        """Free-run from ``x0`` (n,) under the input sequence ``U`` (K, m); returns (K + 1, n) starting with ``x0``."""
+        self._check()
+        x = np.asarray(x0, dtype=np.float64).reshape(-1)
+        U = np.asarray(U, dtype=np.float64).reshape(len(U), -1)
+        out = [x]
+        for u in U:
+            x = self.predict(x, u)
+            out.append(x)
+        return np.stack(out)

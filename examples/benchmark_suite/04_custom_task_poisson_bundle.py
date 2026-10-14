@@ -35,6 +35,7 @@ from pinneapple_arena.bundle.loader import BundleData, load_bundle
 from pinneapple_arena.bundle.schema import load_bundle_schema
 from pinneapple_arena.registry import register_backend, register_task
 from pinneapple_arena.runner.run_benchmark import run_benchmark
+from pinneapple_physics.pinn_solver.compiler.autograd_ops import laplacian
 
 
 def _require_pyarrow() -> None:
@@ -144,10 +145,6 @@ class Poisson2DTask:
     n_eval_col: int = 4096
     n_eval_bnd: int = 2048
 
-    @staticmethod
-    def _grad(y: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
-        return torch.autograd.grad(y, x, grad_outputs=torch.ones_like(y), retain_graph=True, create_graph=True)[0]
-
     def compute_metrics(self, bundle: BundleData, backend_outputs: Dict[str, Any]) -> Dict[str, float]:
         model = backend_outputs.get("model")
         device = str(backend_outputs.get("device", "cpu"))
@@ -163,17 +160,13 @@ class Poisson2DTask:
         xy_col.requires_grad_(True)
         u = model(xy_col)
 
-        gu = self._grad(u, xy_col)
-        u_x = gu[:, 0:1]
-        u_y = gu[:, 1:2]
-        u_xx = self._grad(u_x, xy_col)[:, 0:1]
-        u_yy = self._grad(u_y, xy_col)[:, 1:2]
+        lap_u = laplacian(u, xy_col)
 
         x = xy_col[:, 0:1].detach().cpu().numpy()
         y = xy_col[:, 1:2].detach().cpu().numpy()
         f = torch.tensor(_f_rhs(x, y), dtype=torch.float32, device=device)
 
-        res = -(u_xx + u_yy) - f
+        res = -lap_u - f
         test_pde_rms = torch.sqrt(res.pow(2).mean()).detach().cpu().item()
 
         with torch.inference_mode():
@@ -247,9 +240,6 @@ class PoissonPINNBackend:
             df = bnd_df.sample(n=min(n, len(bnd_df)), replace=(len(bnd_df) < n), random_state=None)
             return df[["x", "y"]].to_numpy(dtype=np.float32)
 
-        def grad(y: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
-            return torch.autograd.grad(y, x, grad_outputs=torch.ones_like(y), retain_graph=True, create_graph=True)[0]
-
         last = {"total": float("nan"), "pde": float("nan"), "bc": float("nan")}
 
         for step in range(epochs):
@@ -259,16 +249,12 @@ class PoissonPINNBackend:
             xy = torch.tensor(sample_col(n_col), dtype=torch.float32, device=dev)
             xy.requires_grad_(True)
             u = model(xy)
-            gu = grad(u, xy)
-            u_x = gu[:, 0:1]
-            u_y = gu[:, 1:2]
-            u_xx = grad(u_x, xy)[:, 0:1]
-            u_yy = grad(u_y, xy)[:, 1:2]
+            lap_u = laplacian(u, xy)
 
             x = xy[:, 0:1].detach().cpu().numpy()
             y = xy[:, 1:2].detach().cpu().numpy()
             f = torch.tensor(_f_rhs(x, y), dtype=torch.float32, device=dev)
-            res = -(u_xx + u_yy) - f
+            res = -lap_u - f
             pde_loss = res.pow(2).mean()
 
             # Boundary loss

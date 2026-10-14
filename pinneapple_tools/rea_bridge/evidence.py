@@ -194,3 +194,28 @@ def locate(fmap: FeatureMap, keywords: Iterable[str], *, root: Optional[str | Pa
             callers=[fmap.functions[c].label for c in fmap.callers.get(f.node_id, [])],
         ))
     return hits
+
+
+def exported_functions_from_layout(evidence: Dict[str, Any]) -> List[str]:
+    """Exported functions recorded by ``rea inspect-binary-layout`` (ELF):
+    entries of the ``SHT_DYNSYM`` table that are defined, global/weak,
+    default-visibility FUNC/GNU_IFUNC symbols.
+
+    Lets a check done in Python (``fmu_inspect.elf_exported_functions``) be
+    confirmed against REA's independent parser, with REA's Evidence id."""
+    nr = evidence.get("normalized_result") or {}
+    dynsym = {s.get("index") for s in nr.get("sections", []) if s.get("type") == "SHT_DYNSYM"}
+    out = set()
+    for sym in nr.get("symbols", []):
+        if sym.get("table_index") not in dynsym:
+            continue
+        if sym.get("section_index") in ("SHN_UNDEF", 0, None):
+            continue
+        if sym.get("binding") not in ("STB_GLOBAL", "STB_WEAK"):
+            continue
+        if sym.get("type") not in ("STT_FUNC", "STT_GNU_IFUNC") or sym.get("visibility") != "STV_DEFAULT":
+            continue
+        name = (sym.get("name") or {}).get("display")
+        if name:
+            out.add(name)
+    return sorted(out)

@@ -43,6 +43,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from pinneapple_physics.metrics import relative_l2, summary
+
 try:
     import torch
     import torch.nn as nn
@@ -1019,20 +1021,6 @@ def train_surrogate(
 # 11.  METRICS
 # =============================================================================
 
-def compute_metrics(Yg: np.ndarray, Yp: np.ndarray, field_names: List[str]) -> Dict:
-    metrics = {}
-    for i, name in enumerate(field_names):
-        yg = Yg[:, i]; yp = Yp[:, i]
-        mae    = np.mean(np.abs(yg - yp))
-        rmse   = np.sqrt(np.mean((yg - yp)**2))
-        rel_l2 = np.linalg.norm(yg - yp) / (np.linalg.norm(yg) + 1e-10)
-        ss_res = np.sum((yg - yp)**2)
-        ss_tot = np.sum((yg - yg.mean())**2) + 1e-10
-        r2     = 1.0 - ss_res / ss_tot
-        metrics[name] = dict(mae=mae, rmse=rmse, rel_l2=rel_l2, r2=r2)
-    return metrics
-
-
 def print_leaderboard(all_results: List[Dict], field_names: List[str]):
     _hdr("SURROGATE LEADERBOARD")
     header = f"  {'Model':<14}" + "".join(
@@ -1043,10 +1031,10 @@ def print_leaderboard(all_results: List[Dict], field_names: List[str]):
     for r in all_results:
         if not r:
             continue
-        m = compute_metrics(r["Yg"], r["Yp"], field_names)
+        rl2 = np.atleast_1d(relative_l2(r["Yp"], r["Yg"]))      # one value per field
         row = f"  {r['model_name']:<14}"
-        for name in field_names:
-            row += f"  {m[name]['rel_l2']:>14.3e}"
+        for v in rl2:
+            row += f"  {v:>14.3e}"
         row += f"  {r['elapsed']:>8.1f}"
         print(row)
 
@@ -1485,12 +1473,10 @@ class WorkflowPipeline:
         for r in results:
             if not r:
                 continue
-            m = compute_metrics(r["Yg"], r["Yp"], fields)
             out["models"].append({
                 "name": r["model_name"],
                 "elapsed_s": r["elapsed"],
-                "metrics": {k: {mk: float(mv) for mk, mv in v.items()}
-                            for k, v in m.items()},
+                "metrics": summary(r["Yp"], r["Yg"], fields, names=("mae", "rmse", "relative_l2", "r2")),
             })
         path = self.save_dir / f"{self.problem}_results.json"
         path.write_text(json.dumps(out, indent=2))
@@ -1529,14 +1515,12 @@ def main():
 
     _hdr("WORKFLOW COMPLETE")
     for prob, res in all_problem_results.items():
-        fields  = res["fields"]
         results = res["results"]
         if results:
             print(f"\n  {prob.upper()}")
             m_all = [
                 (r["model_name"],
-                 np.mean([compute_metrics(r["Yg"], r["Yp"], fields)[f]["rel_l2"]
-                          for f in fields]))
+                 float(np.mean(relative_l2(r["Yp"], r["Yg"]))))
                 for r in results if r
             ]
             m_all.sort(key=lambda x: x[1])

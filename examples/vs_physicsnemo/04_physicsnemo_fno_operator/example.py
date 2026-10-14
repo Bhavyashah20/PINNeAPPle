@@ -42,6 +42,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.fft as fft
 
+from pinneapple_data.datasets.physics import burgers_periodic_pairs
+
 # ---------------------------------------------------------------------------
 # Detectar PhysicsNeMo
 # ---------------------------------------------------------------------------
@@ -140,41 +142,12 @@ def build_fno(n_modes=16, width=64, n_layers=4):
 
 def generate_burgers_data(n_samples: int, n_grid: int = 128,
                           nu: float = 0.01, seed: int = 0) -> tuple:
-    """Gera pares (condição inicial, solução em T=1) via método espectral."""
-    rng = np.random.default_rng(seed)
-    x   = np.linspace(0, 1, n_grid, dtype=np.float32)
-    dt  = 0.001
-    n_steps = int(1.0 / dt)
+    """Gera pares (condição inicial, solução em T=1) de Burgers periódico em [0, 1).
 
-    u0_all = np.zeros((n_samples, n_grid), dtype=np.float32)
-    uT_all = np.zeros((n_samples, n_grid), dtype=np.float32)
-
-    for i in range(n_samples):
-        # IC aleatória (soma de senoides)
-        n_modes = rng.integers(3, 8)
-        u = np.zeros(n_grid, dtype=np.float64)
-        for k in range(1, n_modes + 1):
-            a = rng.uniform(-1, 1)
-            phi = rng.uniform(0, 2 * np.pi)
-            u += a * np.sin(2 * np.pi * k * x + phi)
-        u0_all[i] = u.astype(np.float32)
-
-        # Integração pseudo-espectral simples
-        for _ in range(n_steps):
-            u_hat = np.fft.rfft(u)
-            k_arr = np.fft.rfftfreq(n_grid, d=1.0 / n_grid)
-            # Difusão
-            u_hat = u_hat * np.exp(-nu * (2 * np.pi * k_arr) ** 2 * dt)
-            u = np.fft.irfft(u_hat, n=n_grid)
-            # Advecção (upwind simples)
-            u_neg = np.roll(u, -1) - u
-            u_pos = u - np.roll(u, 1)
-            adv   = u * np.where(u >= 0, u_pos, u_neg) / (x[1] - x[0])
-            u     = u - dt * adv
-
-        uT_all[i] = u.astype(np.float32)
-
-    return x, u0_all, uT_all
+    pinneapple_data.datasets.physics.burgers_periodic_pairs: pseudo-espectral com dealiasing e RK4 com fator
+    integrante, verificado contra a solução exata de Cole-Hopf.
+    """
+    return burgers_periodic_pairs(n_samples, nx=n_grid, T=1.0, nu=nu, seed=seed)
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +163,7 @@ def train_fno(model: nn.Module, u0: np.ndarray, uT: np.ndarray,
     sched = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=n_epochs)
 
     n_grid = u0.shape[1]
-    x_grid = np.linspace(0, 1, n_grid, dtype=np.float32)
+    x_grid = (np.arange(n_grid) / n_grid).astype(np.float32)   # periodic grid of burgers_periodic_pairs
 
     # Preparar tensors: input = [u0, x_grid]
     X = np.stack([u0, np.tile(x_grid, (len(u0), 1))], axis=-1)   # (N, n_grid, 2)

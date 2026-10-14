@@ -16,6 +16,9 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 
+from pinneapple_tools.visualization.style import use_cfd_style  # noqa: E402
+
+use_cfd_style(dark=True)                   # dark theme: text, ticks, spines, grid
 plt.rcParams.update({
     "font.size": 12,
     "axes.labelsize": 12,
@@ -37,16 +40,6 @@ PURPLE = "#d2a8ff"
 OUT = os.path.join(os.path.dirname(__file__), "_out", "3d_pinn")
 os.makedirs(OUT, exist_ok=True)
 DEVICE = "cpu"
-
-
-def dark_ax(ax, fc=BG):
-    ax.set_facecolor(fc)
-    for sp in ax.spines.values():
-        sp.set_color(BORD)
-    ax.tick_params(colors=MUTED, which="both")
-    ax.xaxis.label.set_color(TEXT)
-    ax.yaxis.label.set_color(TEXT)
-    ax.title.set_color(TEXT)
 
 
 class MLP(nn.Module):
@@ -149,7 +142,7 @@ for col_i, z_val in enumerate([0.25, 0.50, 0.75]):
     vmax_z = max(u_t.max(), u_p.max())
 
     # Row 0 — exact
-    ax = axes[0, col_i]; dark_ax(ax, fc=SURF)
+    ax = axes[0, col_i]; ax.set_facecolor(SURF)
     cf = ax.contourf(XE, YE, u_t, levels=50, cmap="plasma",
                      vmin=vmin_z, vmax=vmax_z)
     ax.contour(XE, YE, u_t, levels=8, colors=[BORD], linewidths=0.7, alpha=0.7)
@@ -160,7 +153,7 @@ for col_i, z_val in enumerate([0.25, 0.50, 0.75]):
     ax.set_aspect("equal")
 
     # Row 1 — PINN
-    ax = axes[1, col_i]; dark_ax(ax, fc=SURF)
+    ax = axes[1, col_i]; ax.set_facecolor(SURF)
     cf2 = ax.contourf(XE, YE, u_p, levels=50, cmap="plasma",
                       vmin=vmin_z, vmax=vmax_z)
     ax.contour(XE, YE, u_p, levels=8, colors=[BORD], linewidths=0.7, alpha=0.7)
@@ -263,7 +256,7 @@ fig.suptitle("Spherical Heat Conduction — ∇²T = −2/r  (T = 1 − r)\n"
              color=ACCENT, fontsize=14, fontweight="bold")
 
 # Radial profile
-ax = axes[0]; dark_ax(ax, fc=SURF)
+ax = axes[0]; ax.set_facecolor(SURF)
 ax.plot(r_v, T_true_1d, color=ACCENT, lw=2.5, label="Exact  T = 1 − r")
 ax.plot(r_v, T_pred_1d, color=ORANGE, lw=1.8, ls="--", label="PINN")
 ax.fill_between(r_v, T_true_1d, T_pred_1d, alpha=0.2, color=ORANGE)
@@ -278,7 +271,7 @@ ax.text(0.97, 0.55, f"rel-L² = {rel_l2_S:.5f}",
         bbox=dict(boxstyle="round,pad=0.3", facecolor=BG, edgecolor=BORD, alpha=0.85))
 
 # True midplane
-ax = axes[1]; dark_ax(ax, fc=SURF)
+ax = axes[1]; ax.set_facecolor(SURF)
 cf = ax.contourf(X_MP, Y_MP, T_mp_true, levels=50, cmap="plasma", vmin=0, vmax=1)
 ax.contour(X_MP, Y_MP, T_mp_true, levels=10, colors=[BORD], lw=0.7, alpha=0.7)
 circle = plt.Circle((0,0), 1.0, color=ACCENT, fill=False, lw=1.5, zorder=5)
@@ -290,7 +283,7 @@ ax.set_xlabel("x"); ax.set_ylabel("y")
 ax.set_aspect("equal"); ax.set_xlim(-1.2, 1.2); ax.set_ylim(-1.2, 1.2)
 
 # PINN midplane
-ax = axes[2]; dark_ax(ax, fc=SURF)
+ax = axes[2]; ax.set_facecolor(SURF)
 cf2 = ax.contourf(X_MP, Y_MP, T_mp_pred, levels=50, cmap="plasma", vmin=0, vmax=1)
 ax.contour(X_MP, Y_MP, T_mp_pred, levels=10, colors=[BORD], lw=0.7, alpha=0.7)
 circle2 = plt.Circle((0,0), 1.0, color=ACCENT, fill=False, lw=1.5, zorder=5)

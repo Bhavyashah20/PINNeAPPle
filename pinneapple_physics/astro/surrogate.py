@@ -15,6 +15,7 @@ numbers with fixed, published thresholds.
 from __future__ import annotations
 
 import math
+import threading
 import time
 
 import numpy as np
@@ -38,6 +39,28 @@ def reference_trajectory(body: str, jd_tdb: float, days: float, n: int = 400, ep
     return out["t_s"] / 86400.0, r, v, out
 
 
+def _smallbody_reference(body, jd_tdb: float, days: float, eph=None, n: int = 400):
+    """Planets (heliocentric, from DE421) plus the small body (from :class:`.smallbodies.Trajectory`), in the same
+    layout as :func:`reference_trajectory` with the small body appended as the last column."""
+    from .ephemeris import default_ephemeris
+    from .smallbodies import Trajectory
+    eph = eph or default_ephemeris()
+    t = np.linspace(0.0, days, n)
+    jd = jd_tdb + t
+    R = np.zeros((n, len(SOLAR_SYSTEM) + 1, 3))
+    V = np.zeros_like(R)
+    sp, sv = eph.barycentric("sun", jd)
+    for j, b in enumerate(SOLAR_SYSTEM):
+        p, v = eph.barycentric(b, jd)
+        R[:, j], V[:, j] = (p - sp) / AU_KM, (v - sv) / AU_KM * 86400.0
+    tr = Trajectory(body, min(jd_tdb, body.epoch_jd), max(jd_tdb + days, body.epoch_jd), eph)
+    r, v = tr.heliocentric(jd)
+    R[:, -1], V[:, -1] = r / AU_KM, v / AU_KM * 86400.0
+    info = {"rel_energy_error": np.zeros(1), "rel_angmom_error": np.zeros(1), "n_force_evals": 0,
+            "method": "DOP853 test particle in the DE421 field (Sun, planets, Moon) + solar 1PN"}
+    return t, R, V, info
+
+
 def _kepler_track(r0, v0, mu, t):
     """Two-body positions and accelerations (AU, AU/day^2) from the initial state, analytic."""
     from .orbits import elements_from_state, state_from_elements
@@ -48,9 +71,20 @@ def _kepler_track(r0, v0, mu, t):
     return p, a
 
 
-def train_orbit_pinn(body: str = "mars", jd_tdb: float = 2461327.0, days: float = 365.0, *, n_anchor: int = 8,
-                     n_colloc: int = 400, iters: int = 1500, width: int = 48, depth: int = 3, seed: int = 0,
-                     alpha: float = 0.1, eph=None) -> dict:
+# torch.func's forward-mode AD keeps its dual levels in global state: two trainings in different threads (a web
+# server's worker pool) corrupt each other's levels, so trainings run one at a time.
+_TRAIN_LOCK = threading.Lock()
+
+
+def train_orbit_pinn(body: str = "mars", jd_tdb: float = 2461327.0, days: float = 365.0, **kwargs) -> dict:
+    """Train the PINN orbit surrogate (thread-safe; see ``_train_orbit_pinn``)."""
+    with _TRAIN_LOCK:
+        return _train_orbit_pinn(body, jd_tdb, days, **kwargs)
+
+
+def _train_orbit_pinn(body: str = "mars", jd_tdb: float = 2461327.0, days: float = 365.0, *, n_anchor: int = 8,
+                      n_colloc: int = 400, iters: int = 1500, width: int = 48, depth: int = 3, seed: int = 0,
+                      alpha: float = 0.1, eph=None) -> dict:
     """Train the PINN orbit surrogate and return its evaluation report (JSON-serialisable).
 
     Ansatz: r(t) = r_Kepler(t) + s tau^2 g_theta(tau), tau = t / T. The Kepler term is the exact two-body solution
@@ -66,10 +100,16 @@ def train_orbit_pinn(body: str = "mars", jd_tdb: float = 2461327.0, days: float 
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     started = time.time()
-    t_ref, R_all, V_all, nb = reference_trajectory(body, jd_tdb, days, eph=eph)
-    k = SOLAR_SYSTEM.index(body)
+    if isinstance(body, str):
+        t_ref, R_all, V_all, nb = reference_trajectory(body, jd_tdb, days, eph=eph)
+        k = SOLAR_SYSTEM.index(body)
+        name = body
+    else:                       # a small body (asteroid, comet): reference = the high-accuracy propagator
+        t_ref, R_all, V_all, nb = _smallbody_reference(body, jd_tdb, days, eph)
+        k = len(SOLAR_SYSTEM)
+        name = body.name
     r_ref, v_ref = R_all[:, k], V_all[:, k]
-    mu = (GM_SUN + GM.get(body, 0.0)) / AU_KM**3 * 86400.0**2          # AU^3 / day^2
+    mu = (GM_SUN + (GM.get(body, 0.0) if isinstance(body, str) else 0.0)) / AU_KM**3 * 86400.0**2   # AU^3/day^2
     others = [j for j, b in enumerate(SOLAR_SYSTEM) if b not in ("sun", body)]
     mu_o = np.array([GM[SOLAR_SYSTEM[j]] for j in others]) / AU_KM**3 * 86400.0**2
     T = float(days)
@@ -203,11 +243,11 @@ def train_orbit_pinn(body: str = "mars", jd_tdb: float = 2461327.0, days: float 
     n_warn = sum(c["status"] == "warn" for c in checks)
     status = "trustworthy" if n_fail == n_warn == 0 else "use_with_caution" if n_fail == 0 else "not_trustworthy"
     return {
-        "body": body, "jd_tdb": jd_tdb, "days": days, "train_seconds": time.time() - started,
+        "body": name, "jd_tdb": jd_tdb, "days": days, "train_seconds": time.time() - started,
         "model": {"kind": "PINN: Kepler + tau^2 x Fourier-feature MLP", "width": width, "depth": depth,
                   "fourier_modes": n_freq, "params": int(sum(p.numel() for p in net.parameters())),
                   "anchors": int(len(anchors)), "collocation": n_colloc, "iterations": iters},
-        "reference": {"method": "Yoshida 4th-order symplectic N-body (Sun, 8 planets, Moon), dt = 6 h",
+        "reference": {"method": nb.get("method", "Yoshida 4th-order symplectic N-body (Sun, 8 planets, Moon), dt = 6 h"),
                       "energy_drift": float(np.abs(nb["rel_energy_error"]).max()),
                       "angmom_drift": float(nb["rel_angmom_error"].max()),
                       "force_evaluations": nb["n_force_evals"]},

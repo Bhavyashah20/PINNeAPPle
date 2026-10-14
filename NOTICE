@@ -19,3 +19,10 @@ pinneapple_analysis/validation/field_metrics.py
   Metric definitions adapted from PDEBench (pdebench/PDEBench),
   Copyright 2022 NEC Labs Europe GmbH, Stuttgart University, CSIRO and PDEBench
   contributors, MIT License.
+  vrmse / pearson follow The Well (PolymathicAI/the_well),
+  Copyright (c) Polymathic AI, BSD 2-Clause License.
+
+pinneapple_simulation/external_solvers/modelica/fmu_inspect.py
+  Required FMI function names taken from the FMI standard headers
+  (fmi2FunctionTypes.h, fmi3FunctionTypes.h), Copyright (C) 2011 MODELISAR
+  consortium, 2012-2023 Modelica Association Project "FMI", BSD 2-Clause License.

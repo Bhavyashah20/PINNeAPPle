@@ -36,6 +36,10 @@ import numpy as np
 import torch
 
 from pinneapple_neural.trainer.self_scaled_qn import SelfScaledQuasiNewton
+from pinneapple_physics.closed_form.burgers import burgers_sine_inviscid_exact
+from pinneapple_physics.metrics import relative_l2
+from pinneapple_physics.pinn_solver.compiler.autograd_ops import grad
+from pinneapple_simulation.numerical_solvers.compressible_fv import sod_exact
 
 
 def mlp(n_in, n_out, width, depth, seed):
@@ -46,14 +50,6 @@ def mlp(n_in, n_out, width, depth, seed):
         d = width
     layers.append(torch.nn.Linear(d, n_out))
     return torch.nn.Sequential(*layers).double()
-
-
-def grad(y, x):
-    return torch.autograd.grad(y, x, grad_outputs=torch.ones_like(y), create_graph=True)[0]
-
-
-def rel_l2(pred, ref):
-    return float(np.linalg.norm(pred - ref) / np.linalg.norm(ref))
 
 
 # ── Helmholtz ───────────────────────────────────────────────────────────
@@ -84,7 +80,7 @@ class Helmholtz:
         X, Y = torch.meshgrid(s, s, indexing="ij")
         xy = torch.stack([X.reshape(-1), Y.reshape(-1)], 1)
         with torch.no_grad():
-            return rel_l2(self.u(xy).numpy(), self.exact(xy).numpy())
+            return relative_l2(self.u(xy).numpy().ravel(), self.exact(xy).numpy().ravel())
 
 
 # ── PK-PD (Simeoni tumour growth inhibition + 2-compartment PK) ─────────
@@ -152,7 +148,7 @@ class PKPD:
     def error(self):
         tn = torch.as_tensor(self.t_ref / self.T).reshape(-1, 1)
         with torch.no_grad():
-            return rel_l2(self.x(tn).numpy(), self.y_ref)
+            return relative_l2(self.x(tn).numpy().ravel(), self.y_ref.ravel())   # all four states pooled
 
 
 # ── Inviscid Burgers ────────────────────────────────────────────────────
@@ -165,15 +161,8 @@ class Burgers:
 
     @staticmethod
     def exact(t, x):
-        from scipy.optimize import brentq
-        if t == 0:
-            return -math.sin(math.pi * x)
-        if x == 0 or abs(x) >= 1:  # shock location and the fixed walls u(+-1) = 0
-            return 0.0
-        # characteristic from x0 on the same side as x (entropy solution: shock pinned at x = 0)
-        f = lambda x0: x0 - t * math.sin(math.pi * x0) - x
-        lo, hi = (0.0, 1.0) if x > 0 else (-1.0, 0.0)
-        return -math.sin(math.pi * brentq(f, lo, hi, xtol=1e-14))
+        """Entropy solution at one (t, x): :func:`pinneapple_physics.closed_form.burgers.burgers_sine_inviscid_exact`."""
+        return float(burgers_sine_inviscid_exact(x, t))
 
     def u(self, tx):
         t, x = tx[:, :1], tx[:, 1:2]
@@ -187,53 +176,14 @@ class Burgers:
 
     def error(self):
         ts, xs = np.linspace(0, 1, 101), np.linspace(-1, 1, 201)
-        ref = np.array([[self.exact(t, x) for x in xs] for t in ts])
         T, X = np.meshgrid(ts, xs, indexing="ij")
+        ref = burgers_sine_inviscid_exact(X, T)
         tx = torch.as_tensor(np.stack([T.ravel(), X.ravel()], 1))
         with torch.no_grad():
-            return rel_l2(self.u(tx).numpy().reshape(ref.shape), ref)
+            return relative_l2(self.u(tx).numpy().ravel(), ref.ravel())
 
 
 # ── Sod shock tube ──────────────────────────────────────────────────────
-def sod_exact(x, t, gamma=1.4, left=(1.0, 0.0, 1.0), right=(0.125, 0.0, 0.1), x0=0.5):
-    """Exact Riemann solution (Toro ch. 4): returns rho, u, p at positions x and time t > 0."""
-    rl, ul, pl = left
-    rr, ur, pr = right
-    cl, cr = math.sqrt(gamma * pl / rl), math.sqrt(gamma * pr / rr)
-
-    def fk(p, rk, pk, ck):
-        if p > pk:
-            A, B = 2 / ((gamma + 1) * rk), (gamma - 1) / (gamma + 1) * pk
-            return (p - pk) * math.sqrt(A / (p + B))
-        return 2 * ck / (gamma - 1) * ((p / pk) ** ((gamma - 1) / (2 * gamma)) - 1)
-
-    from scipy.optimize import brentq
-    ps = brentq(lambda p: fk(p, rl, pl, cl) + fk(p, rr, pr, cr) + ur - ul, 1e-10, 10.0, xtol=1e-14)
-    us = 0.5 * (ul + ur) + 0.5 * (fk(ps, rr, pr, cr) - fk(ps, rl, pl, cl))
-    g1 = (gamma - 1) / (gamma + 1)
-    rsl = rl * (ps / pl) ** (1 / gamma)  # left rarefaction
-    rsr = rr * ((ps / pr) + g1) / (g1 * ps / pr + 1)  # right shock
-    csl = cl * (ps / pl) ** ((gamma - 1) / (2 * gamma))
-    s_head, s_tail = ul - cl, us - csl
-    s_shock = ur + cr * math.sqrt((gamma + 1) / (2 * gamma) * ps / pr + (gamma - 1) / (2 * gamma))
-    out = np.empty((len(x), 3))
-    for i, xi in enumerate(x):
-        s = (xi - x0) / t
-        if s < s_head:
-            out[i] = rl, ul, pl
-        elif s < s_tail:
-            u = 2 / (gamma + 1) * (cl + (gamma - 1) / 2 * ul + s)
-            c = 2 / (gamma + 1) * (cl + (gamma - 1) / 2 * (ul - s))
-            out[i] = rl * (c / cl) ** (2 / (gamma - 1)), u, pl * (c / cl) ** (2 * gamma / (gamma - 1))
-        elif s < us:
-            out[i] = rsl, us, ps
-        elif s < s_shock:
-            out[i] = rsr, us, ps
-        else:
-            out[i] = rr, ur, pr
-    return out
-
-
 class Sod:
     gamma, T = 1.4, 0.2
 
@@ -256,18 +206,18 @@ class Sod:
         E = p / (self.gamma - 1) + 0.5 * rho * u ** 2
         U = [rho, rho * u, E]
         F = [rho * u, rho * u ** 2 + p, u * (E + p)]
-        r = sum(((grad(Ui, tx)[:, :1] + grad(Fi, tx)[:, 1:2]) ** 2).mean() for Ui, Fi in zip(U, F))
+        r = sum(((grad(Ui, tx)[:, :1] + grad(Fi, tx)[:, 1:2]) ** 2).mean() for Ui, Fi in zip(U, F, strict=True))
         rho0, u0, p0 = self.prim(self.ic_tx)
         ic = ((torch.cat([rho0, u0, p0], 1) - self.ic) ** 2).mean()
         return r + 10 * ic
 
     def error(self):
         xs = np.linspace(0, 1, 401)
-        ref = sod_exact(xs, self.T, self.gamma)
+        ref_rho = sod_exact(xs, self.T, gamma=self.gamma)[0]
         tx = torch.as_tensor(np.stack([np.full_like(xs, self.T), xs], 1))
         with torch.no_grad():
             rho, u, p = self.prim(tx)
-        return rel_l2(rho.numpy().ravel(), ref[:, 0])  # density error at t = T
+        return relative_l2(rho.numpy().ravel(), ref_rho)  # density error at t = T
 
 
 PROBLEMS = {"helmholtz": Helmholtz, "pkpd": PKPD, "burgers": Burgers, "sod": Sod}
@@ -296,9 +246,9 @@ def run(name, variant, args):
 
         def closure():
             qn.zero_grad()
-            l = prob.loss()
-            l.backward()
-            return l
+            loss = prob.loss()
+            loss.backward()
+            return loss
 
         qn.step(closure)
         rec["iters"] = qn.state["n_iter"]

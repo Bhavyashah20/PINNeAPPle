@@ -47,20 +47,14 @@ if _ROOT not in sys.path:
 
 import torch
 from pinneapple_arena import Arena, ArenaConfig, ArenaProblem, register_problem
+from pinneapple_neural.utils import as_tensor  # noqa: E402
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Shared helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _unwrap(out):
-    if torch.is_tensor(out):
-        return out
-    if hasattr(out, "y") and torch.is_tensor(out.y):
-        return out.y
-    if isinstance(out, dict):
-        return torch.stack(list(out.values()), dim=-1)
-    return out
+_unwrap = as_tensor  # PINNOutput / ModelOutput / dict / Tensor -> Tensor
 
 
 def _grad(y, x, idx):

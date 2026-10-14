@@ -1,6 +1,6 @@
 from .base import ROMBase, ROMOutput
 from .pod import POD
-from .dmd import DynamicModeDecomposition
+from .dmd import DMDc, DynamicModeDecomposition
 from .havok import HAVOK
 from .opinf import OperatorInference
 from .rom_hybrid import ROMHybrid
@@ -10,12 +10,14 @@ from .koopman import KoopmanAutoencoder
 from .neural_rom import NeuralROM
 from .parametric import ParametricPOD, latin_hypercube
 from .registry import ROMCatalog
+from .trusted import TrustedLatentSurrogate
 
 __all__ = [
     "ROMBase",
     "ROMOutput",
     "POD",
     "DynamicModeDecomposition",
+    "DMDc",
     "HAVOK",
     "OperatorInference",
     "ROMHybrid",
@@ -26,4 +28,5 @@ __all__ = [
     "ROMCatalog",
     "ParametricPOD",
     "latin_hypercube",
+    "TrustedLatentSurrogate",
 ]

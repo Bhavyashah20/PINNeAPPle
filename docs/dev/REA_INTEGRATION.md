@@ -20,7 +20,7 @@ memória de um LLM.
 | Alvo | REA faz | Neste repo |
 |---|---|---|
 | JavaScript/Electron, bundles web | grafo semântico estático: funções, call graph, linhas exatas | `rea_bridge.evidence` (`summarize_js_evidence`, `locate`) |
-| Binários nativos (.so/.dll/.exe, FMUs compiladas) | pseudocódigo/assembly via Hopper, Ghidra ou IDA | só com um provider instalado (`rea setup`) |
+| Binários nativos (.so/.dll/.exe, FMUs compiladas) | layout ELF (seções, símbolos, relocações) via pwntools sem provider pesado; pseudocódigo/assembly só com Hopper, Ghidra ou IDA | `ReaClient.inspect_binary_layout` + `exported_functions_from_layout` (precisa de `REA_PWNTOOLS_PYTHON`); decompilação depende de `rea setup` com Ghidra |
 | Python/C++/Julia com fonte | **não analisa semântica**; `import-reference-source` só fixa inventário, linguagens, git HEAD e SHA-256 | proveniência; estudo é leitura direta (`Finding.method="manual"`) |
 | Software comercial | tecnicamente possível em binários, mas **as EULAs proíbem engenharia reversa** | não usar; só material público (`reference_only`) |
 
@@ -81,6 +81,26 @@ Ideias registradas (não implementadas nesta rodada): iFNO, MultiAdam, modelos P
 ShardTensor, leitor `.rst` do MAPDL, PyFluent, `UsdPhysics` no export USD, simulador no navegador
 estilo VisualPDE no `pinneapple_app`.
 
+### FMUs compiladas (rodada 2026-10-12)
+
+- As 15 Modelica Reference-FMUs (FMI 2 e 3, BSD-2) foram compiladas localmente e passaram por
+  `rea inspect-artifact` e `rea inspect-binary-layout`.
+- `pinneapple_simulation/external_solvers/modelica/fmu_inspect.py` faz o preflight estático: checa
+  se a FMU exporta todas as funções exigidas pelo padrão para as interfaces declaradas (44 no FMI 2,
+  75 no FMI 3) e roda checagens básicas do `modelDescription.xml`.
+- Três parsers independentes concordam nos 15 binários: o do `fmu_inspect`, o `nm -D` e o
+  REA/pwntools.
+- **Limitação:** a decompilação (ex.: localizar o integrador dentro de `fmi2DoStep`) precisa do
+  provider Ghidra. O download dele (GitHub Releases) é bloqueado neste sandbox, então ficou como a
+  issue `018-rea-native-ghidra`.
+
+### Validação cruzada do ETDRK4
+
+O ETDRK4 bate com o do Exponax (implementação JAX independente, MIT) a **4,5e-14** em
+Kuramoto–Sivashinsky caótico (t = 30), desde que a convenção de dealiasing seja a mesma: manter
+|m| < int(2/3 · N/2). Um erro de um modo na máscara gera uma diferença de ~1e-3 que não depende do
+passo de tempo, e foi assim que a convenção foi identificada.
+
 ## 5. Mapa das ferramentas grandes
 
 Licenças conferidas nos arquivos do próprio repositório em 2026-10-12 (commit no ledger).
@@ -96,8 +116,8 @@ Licenças conferidas nos arquivos do próprio repositório em 2026-10-12 (commit
 | Newton | Apache-2.0 | adapt | já tem bridge |
 | PhysX 5 | BSD-3 | adapt | referência de contato/partículas (build nativo) |
 | Isaac Sim | Apache-2.0 (repo) | adapt | **agora open source**; o runtime Kit embutido segue os termos NVIDIA |
-| Isaac Lab | BSD-3 / Apache | adapt | tarefas sim-to-real para o `pinneapple_worldmodel` |
-| OpenUSD | Apache-2.0 (+MIT/BSD) | adapt | adicionar `UsdPhysics` ao export do `pinneapple_twin3d` |
+| Isaac Lab | BSD-3 / Apache (repo); o pacote PyPI declara termos NVIDIA proprietários | adapt (repo) | tarefas sim-to-real para o `pinneapple_worldmodel` |
+| OpenUSD | TOST-1.0 (Apache-2.0 com §6 modificado) | adapt | **feito:** `UsdPhysics` no export do `pinneapple_twin3d` |
 | Omniverse Kit SDK | NVIDIA Software License | reference_only | integrar por arquivo USD + extensão Kit chamando a API REST do `pinneapple_app` |
 | Earth-2 Studio | Apache-2.0 | adapt | item *Climate Downscaling* do ROADMAP |
 | Cosmos | (já em uso no repo) | — | `physcurator` / world model |
@@ -110,13 +130,13 @@ Licenças conferidas nos arquivos do próprio repositório em 2026-10-12 (commit
 | SU2 | LGPL-2.1 | clean_room | adjoint para otimização de forma: só o método |
 | FEniCSx (dolfinx) | LGPL-3.0 | clean_room | bridge já existe |
 | MOOSE | LGPL-2.1 | clean_room | multifísica acoplada: referência de arquitetura |
-| deal.II | Apache-2.0 | adapt | AMR hp; referência para `fem.py` |
-| Firedrake | BSD-2 | adapt | geração de código UFL→kernels; ideia para o compilador de resíduos |
+| deal.II | Apache-2.0 WITH LLVM-exception OR LGPL-2.1+ | adapt | AMR hp, estimadores DWR; referência para `fem.py` |
+| Firedrake | LGPL-3.0-or-later (a 1ª versão do detector leu BSD-2 de um componente embutido; corrigido para reconhecer o aviso GNU) | clean_room | NN dentro de formas variacionais (issue 030) |
 | Trixi.jl | MIT | adapt | DG para conservação hiperbólica |
 | Oceananigans.jl | MIT | adapt | item *Ocean Physics AI Explorer* |
 | Clawpack | BSD-3 | adapt | volumes finitos de alta resolução (`tvd_advection`) |
 | Genesis / MuJoCo / Brax / Taichi | Apache-2.0 | adapt | já mapeados ou com bridge |
-| ParaView | BSD (arquivo não achado no topo) | reference_only até confirmar | visualização |
+| ParaView | BSD-3 (`Copyright.txt`) | adapt | Catalyst 2 in situ (issue 029) |
 
 ### Plataformas comerciais (só material público; EULAs proíbem engenharia reversa)
 
@@ -146,3 +166,17 @@ Licenças desta lista **ainda não conferidas** — rodar `policy_for_path` ante
 - **Comerciais com API documentada** que valem leitura (só documentação): COMSOL LiveLink,
   Dassault SIMULIA (scripting `abaqus`, cujo reader já existe), Rescale (API de jobs, útil para o
   `pinneapple_orchestration`).
+
+## 6. Rodada final do mapeamento (2026-10-12)
+
+- 53 projetos no ledger, com as licenças conferidas no arquivo de cada repositório. Exceção: Nektar++
+  e Basilisk, conferidos pela página oficial porque o GitLab/darcs deles é bloqueado aqui.
+- 35 issues em `docs/dev/issues/`, publicáveis com `scripts/publish_issues.sh`.
+- Implementado nesta rodada a partir do mapeamento:
+  - CRPS gaussiano e de ensemble (padrão do Earth-2 Studio), em `uncertainty/posterior_metrics.py`;
+  - VRMSE e Pearson (The Well), em `validation/field_metrics.py`;
+  - `fmu_inspect`, preflight estático de FMUs;
+  - `UsdPhysics` no export do twin3d.
+- **Atenção a licenças copyleft** (só via processo separado, nunca importar nem copiar código):
+  Basilisk, waLBerla/lbmpy/pystencils, Code_Saturne, JAX-Fluids, Dedalus (GPL); SU2, MOOSE,
+  Firedrake, DeepXDE, FEniCSx (LGPL).

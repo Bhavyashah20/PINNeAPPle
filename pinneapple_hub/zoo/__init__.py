@@ -9,6 +9,7 @@ reference, validate (physics checks + validity range), benchmark and fine-tune w
     m.predict(T0=0.17, T1=0.15, T2=0.13, M0=0.02, M1=0.05, M2=0.03, alpha_deg=4.0)
     pp.zoo.evaluate("airfoil_cst_rans_mlp")             # recomputes the card's metrics on the stored reference
     pp.zoo.validate("airfoil_cst_rans_mlp").decisao     # TrustReport: APPROVED | REVIEW | REJECT
+    print(pp.zoo.catalogue())                           # every model and dataset: metrics, size, Hub link
     res = pp.zoo.finetune("airfoil_cst_rans_mlp", (X_new, Y_new), save_to="my_airfoil")  # refused if worse
 
 Only models that passed the zoo's gate ship (see ``_catalog.py`` and ``docs/dev/model_dataset_inventory.md``).
@@ -39,11 +40,53 @@ from ._artifacts import (
     ZooError,
     cache_dir,
 )
-from ._models import OutOfRangeWarning, ZooModel, copy_model, fit, load_dir, load_model
+from ._models import (
+    OutOfRangeWarning,
+    SupersededModelWarning,
+    ZooModel,
+    copy_model,
+    fit,
+    load_dir,
+    load_model,
+)
 
-__all__ = ["list", "info", "load", "predict", "evaluate", "validate", "benchmark", "finetune", "status",
+__all__ = ["list", "info", "load", "versions", "predict", "evaluate", "validate", "benchmark", "finetune", "status",
+           "catalogue", "export_onnx", "onnx_parity", "query_checks", "check_spec", "export_web",
            "load_dir", "datasets", "ZooModel", "FinetuneResult", "FinetuneRejectedError", "OutOfRangeWarning",
+           "SupersededModelWarning",
            "ZooError", "ArtifactNotPublishedError", "ArtifactUnavailableError", "ChecksumMismatchError", "cache_dir"]
+
+
+def export_onnx(name: ModelRef, path, *, checks: bool = False, check_parity: bool = True,
+                offline: bool | None = None) -> dict[str, Any]:
+    """Export a model to ONNX (pre/post-processing included; parity with PyTorch checked to 1e-5). See
+    :func:`pinneapple_hub.zoo.export.export_onnx`."""
+    from .export import export_onnx as _export
+    return _export(name, path, checks=checks, check_parity=check_parity, offline=offline)
+
+
+def onnx_parity(name: ModelRef, onnx_model, X=None, *, offline: bool | None = None) -> float:
+    """Largest scaled difference between an ONNX graph and the PyTorch model (:mod:`pinneapple_hub.zoo.export`)."""
+    from .export import onnx_parity as _parity
+    return _parity(name, onnx_model, X, offline=offline)
+
+
+def query_checks(name: ModelRef, inputs=None, *, offline: bool | None = None, **named) -> builtins.list:
+    """Per-query trust checks and verdict for each input row (:mod:`pinneapple_hub.zoo.checks`)."""
+    from .checks import query_checks as _qc
+    return _qc(name, named if inputs is None else inputs, offline=offline)
+
+
+def check_spec(name: ModelRef, *, offline: bool | None = None) -> dict[str, Any]:
+    """The declarative spec of a model's query checks (:func:`pinneapple_hub.zoo.checks.check_spec`)."""
+    from .checks import check_spec as _spec
+    return _spec(_model(name, offline))
+
+
+def export_web(name: str, directory, *, offline: bool | None = None) -> dict[str, Any]:
+    """ONNX graph with query checks + JSON card/spec for the browser (:mod:`pinneapple_hub.zoo.web`)."""
+    from .web import export_web as _web
+    return _web(name, directory, offline=offline)
 
 
 class FinetuneRejectedError(ZooError):
@@ -68,20 +111,33 @@ def list(task: str | None = None) -> builtins.list:  # noqa: A001 - the public n
     return names
 
 
-def info(name: str, *, offline: bool | None = None) -> ModelCard:
+def info(name: str, *, offline: bool | None = None, version: str | None = None) -> ModelCard:
     """The model card (``ModelCard``): task, inputs/outputs with units, validity range, metrics against the
     reference, training data, licence, citation and the stored trust report. ``print(card.to_markdown())``."""
-    return ModelCard.load(str(art.fetch("models", name, "model_card.json", offline=offline)))
+    return ModelCard.load(str(art.fetch("models", name, "model_card.json", offline=offline, version=version)))
 
 
-def load(name: str, *, offline: bool | None = None) -> ZooModel:
-    """A ready-to-use predictor (weights verified against the manifest's SHA-256)."""
-    return load_model(name, offline=offline)
+def load(name: str, *, offline: bool | None = None, version: str | None = None) -> ZooModel:
+    """A ready-to-use predictor (weights verified against the manifest's SHA-256). ``version`` loads a superseded
+    release (see :func:`versions`; a ``SupersededModelWarning`` says why it was superseded)."""
+    return load_model(name, offline=offline, version=version)
+
+
+def versions(name: str) -> builtins.list[dict[str, str]]:
+    """Every release of a model, newest first, with the reason each older one was superseded."""
+    return art.versions("models", name)
 
 
 def predict(name: ModelRef, inputs=None, **named) -> dict[str, np.ndarray]:
     """``load(name).predict(...)`` in one call."""
     return _model(name).predict(inputs, **named)
+
+
+def catalogue() -> str:
+    """Markdown page of every model and dataset: metrics, trust decision, size, Hugging Face link
+    (``docs/guides/zoo_catalogue.md`` is this page)."""
+    from .catalogue import markdown
+    return markdown()
 
 
 def status(name: str) -> dict[str, str]:

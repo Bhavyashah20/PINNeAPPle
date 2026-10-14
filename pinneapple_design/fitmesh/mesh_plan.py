@@ -17,6 +17,7 @@ from typing import Any
 
 from .catalog import Template
 from .context import MATERIALS, ProblemContext, wall_unit_height
+from .layers import layer_total
 
 # per purpose: surface cells per reference length, cells across the smallest feature, background cells per
 # reference length, prism growth, wake length in body lengths, CPU budget hint
@@ -132,7 +133,7 @@ def _plan_cfd(tpl, v, ctx, purpose, kind) -> MeshPlan:
         g = r["growth"]
         n = 1 + int(math.ceil(math.log(max(0.5 * hs / y1, 1.0)) / math.log(g)))
         n = min(max(n, 3), 30)
-        total = y1 * (g ** n - 1) / (g - 1)
+        total = layer_total(y1, g, n)
         plan.layers = {"wall_treatment": "resolved (low-Re, y+ ~ 1)" if resolve else "wall functions (y+ 30-100)",
                        "y_plus": y_plus, "first_height": y1, "growth": g, "count": n, "total_thickness": total,
                        "boundary_layer_thickness": wu["delta"], "reynolds": re, "turbulent": wu["turbulent"],

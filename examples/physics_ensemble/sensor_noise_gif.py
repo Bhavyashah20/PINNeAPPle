@@ -13,11 +13,11 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-from compare_lookahead_gif import stitch
 from five_model_families_gif import AD, REGIMES, random_case, train_experts, training_baseline
 
 from pinneapple_physics.ensemble import PhysicsEnsemble
 from pinneapple_physics.ensemble_viz import animate_ensemble
+from pinneapple_tools.visualization.dashboard.static import hstack_gifs
 
 
 def physically_smooth(case, max_share=1e-4) -> bool:
@@ -101,7 +101,7 @@ def main(out_dir=".", scale=1.0, cases_per_regime=16, frames_per_case=2, seed=7,
                                  frames_per_case=frames_per_case, regimes=regimes,
                                  title=f"{label} (error {err:.3f})", dpi=dpi)
                 for i, (label, (run, err)) in enumerate(runs.items())]
-        gif = stitch(gifs[0], gifs[1], out_dir / "sensor_noise_comparison.gif")
+        gif = hstack_gifs(gifs[:2], out_dir / "sensor_noise_comparison.gif")
     png = timeline(runs, best, names, noisy, cases_per_regime, out_dir / "sensor_noise_timeline.png")
     for label, (run, err) in runs.items():
         pick = np.array([names.index(a) for a in run.active])

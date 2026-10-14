@@ -1,0 +1,32 @@
+# Existing duplicates of library helpers in apps/ and examples/ (scripts/check_app_helpers.py).
+# This list may only shrink: fix an entry by moving the logic into the library, then delete it.
+apps/aero_optimizer/aero_optimizer/api.py::_clean
+examples/arena_pipelines/06_custom_problem.py::_grad
+examples/arena_pipelines/08_3d_geometry_pipeline.py::_grad
+examples/black_hole_weather/evaluate.py -> examples/black_hole_weather/simulate.py
+examples/black_hole_weather/train_forecaster.py -> examples/black_hole_weather/simulate.py
+examples/end_to_end/05_registry_train_and_infer.py::unwrap_pred
+examples/handoff_cases/airfoil_ld/simulation/forces.py -> examples/handoff_cases/airfoil_ld/simulation/airfoil_case.py
+examples/handoff_cases/airfoil_ld/simulation/optimise_ld.py -> examples/handoff_cases/airfoil_ld/simulation/airfoil_case.py
+examples/handoff_cases/airfoil_ld/simulation/rerun_sample.py -> examples/handoff_cases/airfoil_ld/simulation/airfoil_case.py
+examples/handoff_cases/airfoil_ld/simulation/run_campaign.py -> examples/handoff_cases/airfoil_ld/simulation/airfoil_case.py
+examples/meshgraphnet/_common.py::pick_device
+examples/pde_environment/01_laplace2d_manual.py -> examples/pde_environment/_utils.py
+examples/pde_environment/02_burgers1d_ic.py -> examples/pde_environment/_utils.py
+examples/pde_environment/03_elasticity3d_stl_fixed.py -> examples/pde_environment/_utils.py
+examples/pde_environment/03_ns2d_channel_tags.py -> examples/pde_environment/_utils.py
+examples/pde_environment/04_heat3d_stl_box.py -> examples/pde_environment/_utils.py
+examples/pde_environment/07_tagged_presets_real_geometry.py -> examples/pde_environment/_utils.py
+examples/physics_ensemble/compare_lookahead_gif.py -> examples/physics_ensemble/five_model_families_gif.py
+examples/physics_ensemble/sensor_noise_gif.py -> examples/physics_ensemble/five_model_families_gif.py
+examples/pinn_solver/06_domino_time_marching_demo.py::relative_l2
+examples/pinneapple_and_physicsnemo/physicsnemo/wave_1d.py -> examples/pinneapple_and_physicsnemo/physicsnemo/wave_equation.py
+examples/pinneapple_benchmark/01_pde_comparison.py::_grad
+examples/pinneapple_benchmark/02_inverse_benchmark.py::_grad
+examples/use_cases/concorde_high_aoa/concorde_high_aoa_pipeline.py::_jsonable
+examples/use_cases/fin_convection_inverse/fin_convection_inverse.py -> examples/use_cases/fin_convection_inverse/plots.py
+examples/use_cases/fin_convection_inverse/plots_2d3d.py -> examples/use_cases/fin_convection_inverse/plots.py
+examples/use_cases/heated_channel_twin/heated_channel_twin_pipeline.py::_dark
+examples/use_cases/terramechanics/benchmark_vs_omnilrs.py::_setup_dark
+examples/use_cases/terramechanics/benchmark_vs_omnilrs.py::compute_metrics
+examples/use_cases/terramechanics/lunar_rover_3d.py::jsonable

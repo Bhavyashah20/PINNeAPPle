@@ -7,7 +7,7 @@ T(x, y) and h together from the plate equation, the adiabatic edges and the read
     k t (T_xx + T_yy) - 2 h (T - T_air) + q''(x, y) = 0
 
 Checks (the PINN never sees them): h vs the true value, the temperature map and the hot spot vs an independent
-finite-volume solution (fv_reference.py, grid-converged to 0.01 K), and the classical alternative, fitting h by
+finite-volume solution (pinneapple_simulation.numerical_solvers.heat_fv_reference, grid-converged to 0.01 K), and the classical alternative, fitting h by
 re-running the finite-volume model until it matches the readings (needs a simulation model and dozens of solves).
 
 Run:  python examples/use_cases/fin_convection_inverse/plate_2d.py     (about 20 minutes on a laptop CPU)
@@ -30,7 +30,7 @@ for p in (_ROOT, _HERE):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from fv_reference import _footprint_area, convergence, interp_grid, plate_2d  # noqa: E402
+from pinneapple_simulation.numerical_solvers.heat_fv_reference import convergence, footprint_area, interp_grid, plate_2d  # noqa: E402
 from pinneapple_physics.pinn_solver.factory.pinn_factory import PINN, NeuralNetwork, PINNFactory, PINNProblemSpec  # noqa: E402
 
 OUT = os.path.join(_HERE, "results", "2d")
@@ -44,7 +44,7 @@ NOISE_C, N_DRAWS = 0.5, 5
 L, DT = LX, 50.0                                      # length and temperature scales
 FV = dict(lx=LX, ly=LY, t=THK, k=K, power=POWER, t_air=T_AIR, device=DEVICE)
 
-Q_FLUX = POWER / _footprint_area(*DEVICE, LX, LY)     # W/m2 under the device
+Q_FLUX = POWER / footprint_area(*DEVICE, LX, LY)     # W/m2 under the device
 C_H = 2 * L**2 / (K * THK)                            # coefficient of h in the scaled equation
 C_Q = Q_FLUX * L**2 / (K * THK * DT)                  # scaled source
 

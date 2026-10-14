@@ -129,6 +129,8 @@ if _ROOT not in sys.path:
 
 # ── Real PINNeAPPle geometry ────────────────────────────────────────────────
 from pinneapple_design.geometry.gen.domains import ChannelDomain2D
+from pinneapple_systems import excitation
+from pinneapple_systems.excitation import HELDOUT_FAMILIES, SHAPES, TRAIN_FAMILIES
 
 # ── Real PINNeAPPle surrogates ─────────────────────────────────────────────
 from pinneapple_neural.architectures.rom.pod import POD
@@ -263,87 +265,7 @@ def trunk_coords_norm(domain: ChannelDomain2D) -> np.ndarray:
 # TRAINING families (spec-required): step, ramp, sinusoid, piecewise_constant,
 # prbs.  HELD-OUT families: genuinely different generating processes.
 
-def shape_step(tau, t0=0.3, **_):
-    return (tau >= t0).astype(np.float64)
-
-
-def shape_ramp(tau, t1=0.8, **_):
-    return np.clip(tau / t1, 0.0, 1.0)
-
-
-def shape_sinusoid(tau, freq=2.0, phase=0.0, **_):
-    return 0.5 + 0.5 * np.sin(2.0 * np.pi * freq * tau + phase)
-
-
-def shape_piecewise_constant(tau, rng=None, n_seg=5, **_):
-    """Random piecewise-constant staircase (spec-required)."""
-    rng = rng or np.random.default_rng(0)
-    edges = np.sort(rng.uniform(0.05, 0.95, n_seg - 1))
-    levels = rng.uniform(0.0, 1.0, n_seg)
-    out = np.empty_like(tau)
-    seg = np.searchsorted(edges, tau)
-    out[:] = levels[seg]
-    return out
-
-
-def shape_prbs(tau, rng=None, dwell=0.08, **_):
-    """Pseudo-random binary sequence: value in {0,1}, held for ~`dwell`
-    normalised-time before an independent coin flip (spec-required)."""
-    rng = rng or np.random.default_rng(0)
-    n = len(tau)
-    hold = max(1, int(round(dwell * n)))
-    out = np.empty(n)
-    val = float(rng.integers(0, 2))
-    for i in range(n):
-        if i % hold == 0:
-            val = float(rng.integers(0, 2))
-        out[i] = val
-    return out
-
-
-def shape_chirp(tau, f0=0.5, f1=6.0, **_):
-    ph = 2.0 * np.pi * (f0 * tau + 0.5 * (f1 - f0) * tau ** 2)
-    return 0.5 + 0.5 * np.sin(ph)
-
-
-def shape_sawtooth(tau, freq=3.0, **_):
-    return (tau * freq) % 1.0
-
-
-def shape_smoothed_random_walk(tau, rng=None, **_):
-    rng = rng or np.random.default_rng(0)
-    n = len(tau)
-    walk = np.cumsum(rng.normal(0.0, 1.0, n))
-    k = np.ones(15) / 15.0
-    w = np.convolve(walk, k, mode="same")
-    w = w - w.min()
-    return w / (w.max() + 1e-9)
-
-
-def shape_gaussian_bumps(tau, rng=None, n_bumps=4, width=0.05, **_):
-    rng = rng or np.random.default_rng(0)
-    centres = rng.uniform(0.1, 0.9, n_bumps)
-    amps = rng.uniform(0.5, 1.0, n_bumps)
-    v = np.zeros_like(tau)
-    for c, a in zip(centres, amps):
-        v += a * np.exp(-0.5 * ((tau - c) / width) ** 2)
-    return np.clip(v / (v.max() + 1e-9), 0.0, 1.0)
-
-
-def shape_am_two_tone(tau, f_carrier=5.0, f_mod=0.7, **_):
-    return (0.5 + 0.5 * np.sin(2 * np.pi * f_carrier * tau)) * \
-           (0.5 + 0.5 * np.sin(2 * np.pi * f_mod * tau))
-
-
-SHAPES: Dict[str, Callable] = {
-    "step": shape_step, "ramp": shape_ramp, "sinusoid": shape_sinusoid,
-    "piecewise_constant": shape_piecewise_constant, "prbs": shape_prbs,
-    "chirp": shape_chirp, "sawtooth": shape_sawtooth,
-    "smoothed_random_walk": shape_smoothed_random_walk,
-    "gaussian_bumps": shape_gaussian_bumps, "am_two_tone": shape_am_two_tone,
-}
-TRAIN_FAMILIES = ["step", "ramp", "sinusoid", "piecewise_constant", "prbs"]
-HELDOUT_FAMILIES = ["chirp", "sawtooth", "smoothed_random_walk", "gaussian_bumps", "am_two_tone"]
+# The shape library (SHAPES, TRAIN_FAMILIES, HELDOUT_FAMILIES, rate limit) is pinneapple_systems.excitation.
 
 
 @dataclass
@@ -395,31 +317,16 @@ def make_specs() -> List[TrajectorySpec]:
     return train + test
 
 
-def _rate_limit(series: np.ndarray, tau_steps: int) -> np.ndarray:
-    """First-order IIR low-pass (rate limit) applied forward over the fine
-    time series. `tau_steps` is the filter time constant in solver steps."""
-    if tau_steps <= 1:
-        return series
-    a = 1.0 / float(tau_steps)
-    out = np.empty_like(series)
-    out[0] = series[0]
-    for i in range(1, len(series)):
-        out[i] = out[i - 1] + a * (series[i] - out[i - 1])
-    return out
-
-
 def actuator_series(spec: TrajectorySpec, n_steps: int, rate_limit: bool = True) -> np.ndarray:
     """(n_steps, 2) array [U_in(t), Q_h(t)] in physical (nondimensional)
     units. Both channels are rate-limited (see ChannelConfig.actuator_tau_steps)."""
-    tau = np.linspace(0.0, 1.0, n_steps)
-    su = SHAPES[spec.u_shape](tau, rng=np.random.default_rng(spec.seed), **spec.u_kwargs)
-    sq = SHAPES[spec.q_shape](tau, rng=np.random.default_rng(spec.seed + 1000), **spec.q_kwargs)
-    U_in = CFG.u_in0 * (0.75 + 0.5 * su)    # [0.75, 1.25] * u_in0 -- always forward flow
-    Q_h = CFG.Q0 * sq                       # [0, Q0]
-    if rate_limit:
-        U_in = _rate_limit(U_in, CFG.actuator_tau_steps)
-        Q_h = _rate_limit(Q_h, CFG.actuator_tau_steps)
-    return np.stack([U_in, Q_h], axis=1).astype(np.float64)
+    tau_steps = CFG.actuator_tau_steps if rate_limit else 0
+    # U_in in [0.75, 1.25] * u_in0 (always forward flow), Q_h in [0, Q0]
+    U_in = excitation.actuator_series(spec.u_shape, n_steps, lo=0.75 * CFG.u_in0, hi=1.25 * CFG.u_in0,
+                                      seed=spec.seed, rate_limit_steps=tau_steps, **spec.u_kwargs)
+    Q_h = excitation.actuator_series(spec.q_shape, n_steps, lo=0.0, hi=CFG.Q0, seed=spec.seed + 1000,
+                                     rate_limit_steps=tau_steps, **spec.q_kwargs)
+    return np.stack([U_in, Q_h], axis=1)
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -505,11 +412,10 @@ def run_reference_trajectory(
     p_iters = CFG.poisson_iters if poisson_iters is None else poisson_iters
     ix0, ix1 = heater_index_range(build_domain(), nx)
 
-    tau = np.linspace(0.0, 1.0, n_steps)
-    su = SHAPES[spec.u_shape](tau, rng=np.random.default_rng(spec.seed), **spec.u_kwargs)
-    sq = SHAPES[spec.q_shape](tau, rng=np.random.default_rng(spec.seed + 1000), **spec.q_kwargs)
-    U_in_t = _rate_limit(CFG.u_in0 * (0.75 + 0.5 * su), CFG.actuator_tau_steps)
-    Q_h_t = _rate_limit(Q0 * sq, CFG.actuator_tau_steps)
+    U_in_t = excitation.actuator_series(spec.u_shape, n_steps, lo=0.75 * CFG.u_in0, hi=1.25 * CFG.u_in0,
+                                        seed=spec.seed, rate_limit_steps=CFG.actuator_tau_steps, **spec.u_kwargs)
+    Q_h_t = excitation.actuator_series(spec.q_shape, n_steps, lo=0.0, hi=Q0, seed=spec.seed + 1000,
+                                       rate_limit_steps=CFG.actuator_tau_steps, **spec.q_kwargs)
     actuator_fine = np.stack([U_in_t, Q_h_t], axis=1).astype(np.float64)
 
     u = np.zeros((nx, ny)); v = np.zeros((nx, ny)); p = np.zeros((nx, ny)); T = np.zeros((nx, ny))

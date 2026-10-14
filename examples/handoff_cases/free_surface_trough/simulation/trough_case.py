@@ -30,6 +30,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
 if os.path.isdir(os.path.join(ROOT, "pinneapple_simulation")):
     sys.path.insert(0, ROOT)
+from pinneapple_data.cae import foam  # noqa: E402
 from pinneapple_simulation.numerical_solvers.free_surface import (  # noqa: E402
     FreeSurfaceFlow,
     Phase,
@@ -180,23 +181,20 @@ def _boundary_values(path: str, patch: str, n_faces: int) -> np.ndarray:
     return np.array(vals.split()[:n], float)
 
 
+def _read(path: str) -> bytes:
+    with open(path, "rb") as f:
+        return f.read()
+
+
 def _internal(path: str, n: int) -> np.ndarray:
-    txt = open(path).read()
-    m = re.search(r"internalField\s+uniform\s+(\([^)]*\)|[^;]+);", txt)
-    if m:
-        v = np.array(m.group(1).strip("() ").split(), float)
-        return np.tile(v, (n, 1)) if len(v) > 1 else np.full(n, v[0])
-    m = re.search(r"internalField\s+nonuniform\s+List<(\w+)>\s*(\d+)\s*\(", txt)
-    body = txt[m.end(): txt.index("\n)", m.end())]
-    if m.group(1) == "vector":
-        return np.array(body.replace("(", " ").replace(")", " ").split(), float).reshape(-1, 3)
-    return np.array(body.split(), float)
+    """internalField of a volume field: (n,) for scalars, (n, 3) for vectors."""
+    return foam.read_field(_read(path), n)[0]
 
 
 def _patch_faces(poly: str, patch: str) -> tuple[int, int]:
-    txt = open(os.path.join(poly, "boundary")).read()
-    m = re.search(re.escape(patch) + r"\s*\{[^}]*nFaces\s+(\d+);\s*startFace\s+(\d+);", txt)
-    return int(m.group(1)), int(m.group(2))
+    """(nFaces, startFace) of a patch of the polyMesh."""
+    b = next(b for b in foam.read_boundary(_read(os.path.join(poly, "boundary"))) if b["name"] == patch)
+    return b["nFaces"], b["startFace"]
 
 
 def _times(run: str) -> list[tuple[float, str]]:
@@ -419,30 +417,20 @@ def _csv(path, head, A):
 
 def _cell_areas(poly: str, nc: int) -> np.ndarray:
     """x-z area of each cell of the one-cell-thick 2-D mesh (front faces have y = 0)."""
-    n, b = _ascii(os.path.join(poly, "points"))
-    P = np.array(re.findall(r"\(([^()]+)\)", b)[:n], dtype=object)
-    P = np.array([q.split() for q in P], float)
-    n, b = _ascii(os.path.join(poly, "faces"))
-    faces = [list(map(int, f.split())) for f in re.findall(r"\(([^()]+)\)", b)[:n]]
-    own = np.array(_ascii(os.path.join(poly, "owner"))[1].split()[:n], int)
+    P = foam.read_points(_read(os.path.join(poly, "points")))
+    flat, offsets = foam.read_faces(_read(os.path.join(poly, "faces")))
+    own = foam.read_labels(_read(os.path.join(poly, "owner")))
     area = np.zeros(nc)
-    for f, o in zip(faces, own, strict=False):
-        q = P[f]
+    for i, o in enumerate(own):
+        q = P[flat[offsets[i]:offsets[i + 1]]]
         if np.allclose(q[:, 1], q[0, 1]) and abs(q[0, 1]) < 1e-12:          # a front face (y = 0)
             x, z = q[:, 0], q[:, 2]
             area[o] = 0.5 * abs(np.dot(x, np.roll(z, -1)) - np.dot(z, np.roll(x, -1)))
     return area
 
 
-def _ascii(path):
-    t = open(path).read()
-    m = re.search(r"\n(\d+)\s*\n\(", t)
-    n, body = int(m.group(1)), t[m.end():]
-    return n, body[:body.index("\n)")]
-
-
 def _floor_cells(poly: str, nf: int, start: int) -> dict:
-    own = np.array(_ascii(os.path.join(poly, "owner"))[1].split(), int)
+    own = foam.read_labels(_read(os.path.join(poly, "owner")))
     o = own[start:start + nf]
     cc = cell_centres(poly)
     return {"owner": o, "y": cc[o, 2]}                                         # floor at z = 0

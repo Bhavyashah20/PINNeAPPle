@@ -28,6 +28,22 @@ checks each prediction against the physics (equation residuals, conservation, bo
 assumptions) without needing a reference. It bridges to DeepXDE and PhysicsNeMo instead of replacing them. See
 [`paper/paper.md`](paper/paper.md) for how it relates to other libraries.
 
+## The whole Physics-AI workflow, not only PINNs
+
+Physics-informed neural networks are one tool among several. PINNeAPPle covers the workflow industrial Physics-AI runs on:
+
+| Step | In the library |
+|---|---|
+| Geometry | CAD and parametric shapes, fit-for-purpose meshes and their quality report (`pinneapple_design`, `pinneapple_data.cae`) |
+| Simulation campaigns | OpenFOAM, CalculiX, lattice Boltzmann and spectral solvers, run many times over a design space (`pp.cfd`, the OpenFOAM campaign runner) |
+| Surrogates | neural operators (FNO, DeepONet), graph networks (MeshGraphNet), MLPs and reduced-order models trained on those campaigns |
+| Physics-informed models | PINNs from symbolic equations (`PINNFactory`), inverse problems, hard constraints |
+| Optimisation | design search on top of a surrogate, verified back in the solver |
+| Verification | grid convergence, physics audit, applicability domains, evidence records, equal-budget benchmarks (`pp.benchmark`, `pinneapple benchmark run`) |
+
+Which learned method fits which problem is a question of evidence, not of taste: see
+[Choosing a method](docs/guides/choosing_a_method.md) and the equal-budget benchmark behind it.
+
 ## What makes it different
 
 Most Physics AI libraries stop at the prediction. PINNeAPPle adds a **trust layer**, so a model can say how good it is right now:
@@ -124,6 +140,20 @@ in the **[experiment catalogue](https://pinneapple-labs.github.io/PINNeAPPle/lab
 pip install pinneapple
 pip install "pinneapple[all]"     # every optional backend (solvers, geometry, FEniCS, ONNX, ...)
 ```
+
+Or start in the browser, on a free Colab GPU (each notebook installs PINNeAPPle in its first cell):
+
+| Notebook | |
+|---|---|
+| First PINN: heat in a plate, with its physics checks | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/01_first_pinn_heat.ipynb) |
+| Airfoil: geometry, surrogate prediction, validation against stored CFD | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/02_airfoil_surrogate.ipynb) |
+| Equal-budget benchmark of methods | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/03_equal_budget_benchmark.ipynb) |
+| Lunar rover terramechanics and its animated dashboard | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/04_lunar_rover_dashboard.ipynb) |
+| Verify a model: the trust card catching bad predictions | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PINNeAPPle-Labs/PINNeAPPle/blob/main/notebooks/colab/05_verify_a_model.ipynb) |
+
+Working with a coding agent (Gemini CLI, Antigravity, Claude Code, Codex, Cursor)? [`AGENTS.md`](AGENTS.md) is the
+guide it should read, and `pip install "pinneapple[mcp]"` adds an MCP server, `pinneapple-mcp`, with tools to solve,
+benchmark and validate ([how to plug it in](docs/guides/mcp_server.md)).
 
 ## Five things to try
 

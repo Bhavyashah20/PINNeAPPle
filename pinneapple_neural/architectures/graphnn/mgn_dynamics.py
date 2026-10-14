@@ -16,9 +16,11 @@ what the reference examples do as well.
 """
 from __future__ import annotations
 
+import time
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -195,3 +197,61 @@ class MeshDynamicsMGN(nn.Module):
             if p is not None:
                 ps.append(p)
         return torch.stack(vels), (torch.stack(ps) if ps else None)
+
+
+# ---------------------------------------------------------------------------
+# Training / evaluation loops
+# ---------------------------------------------------------------------------
+
+def train_dynamics(model: MeshDynamicsMGN, data: Sequence[tuple[MeshGraph, torch.Tensor, torch.Tensor]],
+                   *, steps: int, lr: float = 1e-4, lr_final: float = 1e-6,
+                   noise_std: float = 0.02, device: torch.device | str = "cpu", log_every: int = 200,
+                   seed: int = 0) -> list[float]:
+    """One-step training on random ``(trajectory, time)`` pairs with Adam and exponential LR decay.
+
+    ``data`` holds ``(graph, velocity (T, N, V), pressure (T, N, 1))`` triples; the LR decays from ``lr`` to
+    ``lr_final`` over ``steps`` (the schedule of Pfaff et al. 2021 and of PhysicsNeMo ``vortex_shedding_mgn``).
+    Call :meth:`MeshDynamicsMGN.fit_stats` first. Returns the mean loss of every ``log_every`` steps.
+    """
+    rng = np.random.default_rng(seed)
+    model.to(device).train()
+    data = [(g.to(device), v.to(device), p.to(device)) for g, v, p in data]
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    gamma = (lr_final / lr) ** (1.0 / max(steps, 1))
+    sched = torch.optim.lr_scheduler.ExponentialLR(opt, gamma)
+    hist, run, t0 = [], 0.0, time.time()
+    for it in range(1, steps + 1):
+        g, v, p = data[rng.integers(len(data))]
+        t = int(rng.integers(v.shape[0] - 1))
+        loss = model.loss(v[t], v[t + 1], p[t + 1], g, noise_std=noise_std)
+        opt.zero_grad(set_to_none=True)
+        loss.backward()
+        opt.step()
+        sched.step()
+        run += loss.item()
+        if it % log_every == 0:
+            hist.append(run / log_every)
+            print(f"  step {it:6d}/{steps}  loss {hist[-1]:.4e}  lr {sched.get_last_lr()[0]:.2e}  "
+                  f"{time.time() - t0:6.0f}s", flush=True)
+            run = 0.0
+    return hist
+
+
+@torch.no_grad()
+def eval_rollout(model: MeshDynamicsMGN, data: Sequence[tuple[MeshGraph, torch.Tensor, torch.Tensor]], *,
+                 n_steps: int, device: torch.device | str = "cpu", normal_type: int = 0) -> dict[str, float]:
+    """Velocity RMSE on NORMAL nodes: mean over trajectories of the ``n_steps`` free rollout and of one step.
+
+    Returns ``{"rollout_rmse", "one_step_rmse", "n_steps"}``.
+    """
+    model.to(device).eval()
+    roll, one = [], []
+    for g, v, _p in data:
+        g, v = g.to(device), v.to(device)
+        n = min(n_steps, v.shape[0] - 1)
+        pred, _ = model.rollout(v, g, n, free_types=(normal_type,))
+        free = g.node_type == normal_type
+        roll.append(((pred[1:] - v[1 : n + 1])[:, free] ** 2).mean().sqrt().item())
+        nxt, _ = model.step(v[0], g)
+        one.append(((nxt - v[1])[free] ** 2).mean().sqrt().item())
+    return {"rollout_rmse": float(np.mean(roll)), "one_step_rmse": float(np.mean(one)), "n_steps": n_steps}
