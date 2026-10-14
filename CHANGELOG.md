@@ -405,6 +405,14 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
   for a field that is <= 0 everywhere. A zero field with a zero target is returned unchanged in the multiplicative
   modes instead of dividing 0 by 0.
+- `pp.trust_card` / `field_checks`: an exactly harmonic field that is linear along an axis (`u = x + 2y`,
+  `T = 300 + x + y`) failed the critical PDE-residual check and was rejected, because its finite-difference terms are
+  pure round-off and the residual was judged against that round-off. The residual scale now has a floor at the
+  round-off of the stencil, computed from the dtype of the data as written (float32 fields get float32 epsilon).
+  Grids with 2 points on an axis now report the conservation check as not run instead of raising NumPy's
+  "Shape of array too small" error, and torch tensors (including ones that require grad) are accepted as values.
+  New tests check the residual against exact Laplace, Poisson and heat solutions (second-order convergence on
+  uniform and stretched grids) and the conservation check against the divergence theorem.
 - `pinneapple check` on tensor-product grids (`pinneapple_check.numerics.GridD`): second derivatives were the
   derivative of the derivative, which next to the boundary divides the one-sided edge value by h (an O(h) error),
   so the PDE residual (PC301) converged at order 1.5 instead of 2 and an exact harmonic field on a 17 x 17 grid
