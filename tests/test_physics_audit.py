@@ -31,6 +31,7 @@ from pinneapple_physics.physics_audit import (
     get_assumption,
     hydraulically_smooth,
     improvement_plan,
+    invariant_check,
     laminar,
     recommend,
     regime_features,
@@ -322,3 +323,34 @@ def test_diagnose_report():
         assert section in rep
     ok = diagnose(LAM, feats(800), error=0.001)
     assert ok.trusted and not ok.recommendations
+
+
+# ---------------------------------------------------------------- regressions: zero-valued references
+def test_boundary_check_homogeneous_condition_can_pass():
+    # u = 0 on the boundary: dividing by the RMS of the boundary prediction itself made any non-zero value, even
+    # 1e-9, a 100 % mismatch, so the check could never pass
+    p = np.sin(np.pi * np.linspace(0.0, 1.0, 51))
+    p[0], p[-1] = 1e-9, -2e-9
+    chk = boundary_check(lambda p, q: p[[0, -1]], lambda q: np.zeros(2), rel_tol=0.01)
+    r = chk(p, None)
+    assert r.passed and r.value < 1e-8
+    p[0] = 0.2                                                    # a real violation still fails
+    assert not chk(p, None).passed
+
+
+def test_boundary_check_explicit_scale():
+    chk = boundary_check(lambda p, q: p[:1], lambda q: np.zeros(1), rel_tol=0.01, scale=10.0)
+    assert chk(np.array([0.05, 1.0]), None).value == pytest.approx(0.005)
+
+
+def test_conservation_and_invariant_with_zero_target_use_abs_tol():
+    zero = lambda q: 0.0                                          # noqa: E731 - e.g. net charge of a closed system
+    total = lambda p, q: float(p.sum())                           # noqa: E731
+    p = np.array([1.0, -1.0 + 1e-13])
+    assert not conservation_check(total, zero)(p, None).passed    # relative only: cannot pass, as documented
+    assert conservation_check(total, zero, abs_tol=1e-10)(p, None).passed
+    assert not conservation_check(total, zero, abs_tol=1e-10)(np.array([1.0, -0.9]), None).passed
+    assert invariant_check(total, 0.0, abs_tol=1e-10)(p, None).passed
+    # with a non-zero target abs_tol only widens the band below rel_tol * |target|
+    r = conservation_check(total, lambda q: 2.0, rel_tol=0.01, abs_tol=1e-6)(np.array([1.0, 1.01]), None)
+    assert r.value == pytest.approx(0.005) and r.passed

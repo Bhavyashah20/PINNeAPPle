@@ -25,6 +25,26 @@ from pinneapple_analysis.cost.equal_budget import (
 
 from ..registry import Check, Column, Method, Problem, register_method
 
+_METRICS = ("rel_l2", "qoi_rel_err", "hf_bias")
+
+
+def _hf_bias(pred: np.ndarray, true: np.ndarray) -> np.ndarray:
+    """High-wavenumber energy bias per instance (``pinneapple_analysis.validation.spectral``): about -1 for a
+    prediction with its small scales smoothed away, 0 for the reference, nan where it cannot be computed."""
+    from pinneapple_analysis.validation.spectral import high_wavenumber_bias
+    pred, true = np.asarray(pred, float), np.asarray(true, float)
+    nd = true.ndim - 1
+    out = np.full(len(true), np.nan)
+    if nd < 1 or min(true.shape[1:]) < 8:
+        return out
+    for i in range(len(true)):
+        try:
+            out[i] = high_wavenumber_bias(pred[i].reshape(true.shape[1:]), true[i], nd, periodic=False)
+        except ValueError:
+            pass
+    return out
+
+
 BATCH = 20
 OPERATOR_WD = 0.0          # Adam weight decay for the operators: 1e-4 held the FNO at the mean prediction on NS
 
@@ -167,8 +187,9 @@ class FieldOperatorProblem(Problem):
     def scores(self, pred: np.ndarray, true: np.ndarray) -> dict[str, Any]:
         e = relative_l2(pred, true)
         q = np.abs(self.qoi(pred) - self.qoi(true)) / np.abs(self.qoi(true))
+        hf = _hf_bias(pred, true)
         return {"rel_l2": e.tolist(), "rel_l2_mean": float(e.mean()), "qoi_rel_err": q.tolist(),
-                "qoi_rel_err_mean": float(q.mean())}
+                "qoi_rel_err_mean": float(q.mean()), "hf_bias": hf.tolist(), "hf_bias_mean": float(np.nanmean(hf))}
 
     def columns(self) -> list[Column]:
         nt, no = len(self.options["pinn_test_ids"]), len(self.options["pinn_ood_ids"])
@@ -176,6 +197,7 @@ class FieldOperatorProblem(Problem):
                 Column("l2_test", f"Rel. L2, test, all (n = {self.options['n_test']})", "test", "rel_l2"),
                 Column("l2_ood", f"Rel. L2, OOD (n = {no})", "pinn_ood", "rel_l2"),
                 Column("l2_ood_all", f"Rel. L2, OOD, all (n = {self.options['n_ood']})", "ood", "rel_l2"),
+                Column("hf_pinn", f"HF energy bias, test (n = {nt})", "pinn_test", "hf_bias"),
                 Column("qoi_pinn", f"{self.qoi_label} rel. err (n = {nt})", "pinn_test", "qoi_rel_err", kind="integral")]
 
     def instances(self) -> dict[str, list]:
@@ -192,18 +214,19 @@ class FieldOperatorProblem(Problem):
                 if split not in r:
                     continue
                 n = len(r[split]["rel_l2"])
-                out[split] = {m: {"values": r[split][m], "ids": list(range(n))} for m in ("rel_l2", "qoi_rel_err")}
+                ms = [m for m in _METRICS if m in r[split]]
+                out[split] = {m: {"values": r[split][m], "ids": list(range(n))} for m in ms}
                 out[sub] = {m: {"values": [r[split][m][i] for i in ids if i < n], "ids": [i for i in ids if i < n]}
-                            for m in ("rel_l2", "qoi_rel_err")}
+                            for m in ms}
             return out
         for split, sub in (("test", "pinn_test"), ("ood", "pinn_ood")):  # per-instance: one result per instance
-            vals = {m: [] for m in ("rel_l2", "qoi_rel_err")}
+            vals = {m: [] for m in _METRICS}
             ids = []
             for suffix, r in sorted(results.items()):
                 if suffix.startswith(split) and split in r:
                     ids.append(int(suffix[len(split):]))
                     for m in vals:
-                        vals[m].append(r[split][m][0])
+                        vals[m].append(r[split][m][0] if m in r[split] else float("nan"))
             if ids:
                 out[sub] = {m: {"values": v, "ids": ids} for m, v in vals.items()}
         return out

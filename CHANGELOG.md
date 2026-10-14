@@ -14,6 +14,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Spectral fidelity metrics (`pinneapple_analysis.validation.spectral`, #702): radially binned energy spectra
+  (periodic, or mean-removed and Hann-windowed), energy ratio, phase error and coherence per wavenumber band, a
+  high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
+  wall flux. Reported by `pinneapple check` (new rule PC704 `spectral-bias`, tolerance `hf-bias`) and by the
+  `pp.benchmark` field problems ("HF energy bias" column). Docs: "Spectral fidelity".
 - Zoo dataset `navier_stokes_2d_li2021_nu1e-3` (Hub-only, 919 MB in 12 shards of 100 runs): 2-D incompressible
   Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
   It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
@@ -405,6 +410,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
   for a field that is <= 0 everywhere. A zero field with a zero target is returned unchanged in the multiplicative
   modes instead of dividing 0 by 0.
+- `TrustGate` OOD score (`pinneapple_analysis.trust`): a batch of query points was scored by the chi-squared p-value
+  of its mean point, so two points 50 standard deviations on either side of the training mean averaged to the mean
+  and scored 0.9998, "in distribution". **Behavior:** each point is now tested on its own and `ood_score` is the
+  fraction of query points whose Mahalanobis p-value is at least `ood_level` (new argument, default 0.01: inside the
+  99 % region of the fitted Gaussian). `TrustGate.ood_p_values(x)` returns the per-point p-values; NaN coordinates
+  count as outside and a wrong number of coordinates raises a clear `ValueError`. `TrustScore.details` reports
+  `ood_fraction_inside`, `ood_p_value_min` and `ood_level` (replacing `ood_p_value`).
 - `pp.trust_card` / `field_checks`: an exactly harmonic field that is linear along an axis (`u = x + 2y`,
   `T = 300 + x + y`) failed the critical PDE-residual check and was rejected, because its finite-difference terms are
   pure round-off and the residual was judged against that round-off. The residual scale now has a floor at the
