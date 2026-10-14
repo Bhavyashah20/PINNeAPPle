@@ -397,6 +397,14 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- `CalibrationMetrics.coverage_at_level` (`pinneapple_analysis.uncertainty`): for multi-output predictions it returned
+  the joint coverage of all outputs at once, against the documented element-wise average, so a perfectly calibrated
+  3-output model scored 0.73 at a nominal 0.90 (and `PhysicsConfidenceScore` / the veriphysics robustness report,
+  which compare it with the nominal level, read it as under-coverage). **Behavior:** it is now the fraction of all
+  values inside their interval. All `CalibrationMetrics` methods accept NumPy arrays, compute in float64 and raise
+  a clear `ValueError` for NaN/Inf inputs, mismatched shapes or a negative std (a NaN target used to count as
+  "outside every interval" and silently changed the ECE). New tests check ECE, coverage and NLL against closed
+  forms and Monte Carlo.
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
