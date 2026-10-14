@@ -4,8 +4,9 @@
         --staging dist/zoo-staging
     python scripts/zoo/build_blackhole.py model --model runs/bh_256_res --eval runs/bh_256_res/eval --staging dist/zoo-staging
 
-The data file is too large to bundle with the package, so it is written to ``<staging>/<name>/data.npz`` (Hub-only:
-``publish_to_hub.py --staging`` uploads it) and only its entry in ``pinneapple_hub/zoo/manifest.json`` changes; the
+The data is too large to bundle with the package, so it is written as one file per split to
+``<staging>/<name>/<split>.npz`` (Hub-only: ``publish_to_hub.py --staging`` uploads them; the publish workflow takes
+them from the branch given as ``staging_ref``) and only its entry in ``pinneapple_hub/zoo/manifest.json`` changes; the
 entries built by ``build_assets.py`` are left as they are.
 
 Dataset layout (``pp.datasets.load("blackhole_riaf_density_256")``): one row per frame, 20 M apart, t in [2000, 10000] M,
@@ -29,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from pinneapple_hub.zoo import _artifacts as art  # noqa: E402
-from pinneapple_physics.blackhole.dataset import NAME, T0, T1, build_arrays, write_npz  # noqa: E402
+from pinneapple_physics.blackhole.dataset import NAME, T0, T1, build_arrays, write_split_files  # noqa: E402
 
 VERSION = "1.0.0"
 
@@ -59,7 +60,7 @@ COLUMNS = {
 }
 
 
-def manifest_entry(arrays: dict, data_path: Path, verification: str, staging_rel: str) -> dict:
+def manifest_entry(arrays: dict, files: dict[str, Path], verification: str) -> dict:
     splits = {}
     descr = {"train": "seeds 0-3, alpha 0.1, t 2000-10000 M every 20 M (4 whole trajectories)",
              "val": "seed 4, alpha 0.1 (whole trajectory)", "test": "seed 5, alpha 0.1 (whole trajectory, held out)",
@@ -93,8 +94,7 @@ def manifest_entry(arrays: dict, data_path: Path, verification: str, staging_rel
                      "Almeida I., Nemmen R. (2020) MNRAS 492, 2553 (simulations); PINNeAPPle contributors (2026)."),
         "tags": ["astrophysics", "black hole", "accretion", "hydrodynamics", "forecasting"],
         "splits": splits, "columns": columns,
-        "files": {"data.npz": {"sha256": art.sha256_file(data_path), "size": data_path.stat().st_size,
-                               "staging": staging_rel}},
+        "files": {fn: {"sha256": art.sha256_file(p), "size": p.stat().st_size} for fn, p in files.items()},
     }
 
 
@@ -145,10 +145,11 @@ def main(argv=None) -> int:
     if a.cmd == "dataset":
         conv = json.loads(a.convergence.read_text())
         arrays = build_arrays(a.runs, conv, t0=a.t0, t1=a.t1)
-        out = write_npz(arrays, a.staging / NAME / "data.npz")
+        files = write_split_files(arrays, a.staging / NAME)
         if not a.no_manifest:
-            update_manifest("datasets", NAME, manifest_entry(arrays, out, verification_text(conv), f"{NAME}/data.npz"))
-        print(f"{out}: {out.stat().st_size / 1e6:.1f} MB, sha256 {art.sha256_file(out)}")
+            update_manifest("datasets", NAME, manifest_entry(arrays, files, verification_text(conv)))
+        for p in files.values():
+            print(f"{p}: {p.stat().st_size / 1e6:.1f} MB, sha256 {art.sha256_file(p)}")
     return 0
 
 

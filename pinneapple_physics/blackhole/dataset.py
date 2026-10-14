@@ -25,6 +25,7 @@ from .convergence import FRAME_DT, window_mask
 from .runs import load_run
 
 __all__ = ["NAME", "Q_LO", "Q_HI", "SPLITS", "CONV_SCALARS", "encode", "decode", "build_arrays", "write_npz",
+           "write_split_files",
            "deterministic_npz", "load_trajectories", "window_volumes"]
 
 NAME = "blackhole_riaf_density_256"
@@ -120,16 +121,30 @@ def build_arrays(runs: str | Path, conv: dict | None = None, *, splits: dict = S
 
 
 def write_npz(arrays: dict[str, np.ndarray], path: str | Path) -> Path:
+    """All splits in one file (``<split>__<column>`` arrays)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(deterministic_npz(arrays))
     return path
 
 
+def write_split_files(arrays: dict[str, np.ndarray], folder: str | Path) -> dict[str, Path]:
+    """One ``<split>.npz`` per split in ``folder`` (the zoo layout for large datasets: a user downloads only the split
+    they load, and every file stays far below the 100 MB a git hosting allows). Returns {file name: path}."""
+    by_split: dict[str, dict[str, np.ndarray]] = {}
+    for k, v in arrays.items():
+        by_split.setdefault(k.split("__", 1)[0], {})[k] = v
+    return {f"{s}.npz": write_npz(a, Path(folder) / f"{s}.npz") for s, a in sorted(by_split.items())}
+
+
 def _split(split: str, path: str | Path | None) -> dict[str, np.ndarray]:
+    """One split as {column: array}: from the zoo (path None), a folder of ``<split>.npz`` files or one npz."""
     if path is None:
         from pinneapple_hub.zoo import datasets
         return dict(datasets.load(NAME, split=split))
+    path = Path(path)
+    if path.is_dir():
+        path = path / f"{split}.npz"
     with np.load(path, allow_pickle=False) as z:
         return {k.split("__", 1)[1]: z[k] for k in z.files if k.startswith(split + "__")}
 
