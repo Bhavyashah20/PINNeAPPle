@@ -96,6 +96,7 @@ def test_analyses(client):
     assert all(r["sigma"] < 1.5 for r in li["eht"])
     png = client.get("/api/analysis/lensing.png?ra=83.8&dec=-5.4&fov=40&r_cam=30&width=64")
     assert png.status_code == 200 and png.content[:4] == b"\x89PNG"
+    assert png.headers["x-disc"] in ("0", "1") and int(png.headers["x-bright-stars"]) >= 0
 
 
 def test_satellites_offline_file(client):

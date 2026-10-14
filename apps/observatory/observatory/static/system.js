@@ -47,6 +47,7 @@ export class SystemView {
     this.scene.add(new THREE.PointLight(0xffffff, 3.2, 0, 0), new THREE.AmbientLight(0x334455, 0.12));
     // planets
     this.planets = {};
+    const halo = glowTexture("rgba(255,255,255,1)", "rgba(255,255,255,0.6)");   // its core sits behind the sphere
     for (const b of Object.keys(RADII)) {
       const r = 0.32 * Math.sqrt(RADII[b] / 6371);
       let mat;
@@ -58,8 +59,8 @@ export class SystemView {
       mesh.userData.body = b;
       const grp = new THREE.Group(); grp.add(mesh); this.scene.add(grp);
       // glow sprite: keeps the planet visible as a coloured point when it is a few pixels across
-      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: SPRITE_COLORS[b], transparent: true,
-        blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.85 }));
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, color: SPRITE_COLORS[b], transparent: true,
+        blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9 }));
       glow.userData.base = r * 6; glow.scale.setScalar(r * 6); grp.add(glow);
       if (b === "earth") mesh.matrixAutoUpdate = false;
       if (b === "saturn") {
@@ -157,7 +158,9 @@ export class SystemView {
     this.orbits.add(this.moonOrbit);
   }
 
-  moonScale() { return 1.15 / 384400; }        // units per km of the geocentric Moon (distance exaggerated)
+  // units per km of the geocentric Moon (distance exaggerated, and pushed out with the planet size so the Moon
+  // stays outside the enlarged Earth)
+  moonScale() { return 1.15 / 384400 * Math.max(1, (this.sizeK || 3) / 3); }
 
   update(simJD) {
     const d = this.data; if (!d) return;
@@ -172,7 +175,8 @@ export class SystemView {
     const gast = d.gast_deg + 360.98564736629 * (simJD - d.jd_utc);
     const G = mul3(mul3(mul3(T, this.E), mul3(tr(this.npb), rotZ(-gast * D2R))), tr(T));
     const em = this.planets.earth.mesh;
-    em.matrix.copy(toMatrix4(THREE, G)); em.matrixWorldNeedsUpdate = true;
+    const f = (this.sizeK || 3) / 3;               // the matrix is set by hand, so the size slider's scale goes in here
+    em.matrix.copy(toMatrix4(THREE, G)).scale(new THREE.Vector3(f, f, f)); em.matrixWorldNeedsUpdate = true;
     this.G = G;
     const ep = this.planets.earth.grp.position;
     em.material.uniforms.sunDir.value.copy(ep).negate().normalize();
@@ -199,7 +203,7 @@ export class SystemView {
       const w = [0, 1, 2].map((r) => G[r][0] * g[0] + G[r][1] * g[1] + G[r][2] * g[2]);
       const up = new THREE.Vector3(...w).normalize();
       this.pinUp = up;
-      this.pinGrp.position.copy(ep).add(up.clone().multiplyScalar(this.planets.earth.r * 1.005));
+      this.pinGrp.position.copy(ep).add(up.clone().multiplyScalar(this.planets.earth.r * (this.sizeK || 3) / 3 * 1.005));
       this.pinGrp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
     }
     if (this.sbTrack) {
@@ -244,8 +248,9 @@ export class SystemView {
     const up = this.pinUp ?? new THREE.Vector3(0, 1, 0);
     const p = this.pinGrp.position.clone();
     // just above the observer's spot on the globe, looking down at it
-    const side = new THREE.Vector3(0, 1, 0).cross(up).normalize().multiplyScalar(0.12);
-    return { pos: p.clone().add(up.clone().multiplyScalar(0.35)).add(side), target: this.planets.earth.grp.position.clone() };
+    const f = (this.sizeK || 3) / 3;               // keep the framing when the Earth is enlarged
+    const side = new THREE.Vector3(0, 1, 0).cross(up).normalize().multiplyScalar(0.12 * f);
+    return { pos: p.clone().add(up.clone().multiplyScalar(0.35 * f)).add(side), target: this.planets.earth.grp.position.clone() };
   }
   overviewShot() {
     const ep = this.planets.earth.grp.position;

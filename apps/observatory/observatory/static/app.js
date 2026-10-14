@@ -177,11 +177,13 @@ $("#tLayers").onclick = () => $("#hud").classList.toggle("showlayers");
 if (window.innerWidth < 760 && !params.has("panel")) $("#panel").classList.remove("open");
 if (params.get("panel") === "0") $("#panel").classList.remove("open");
 
+const SIZE_K = params.has("size") ? +params.get("size") : 12;     // planet size exaggeration in the system view
+sys.setSizeScale(SIZE_K);
 const LAYERS = [["constellations", "Constellations"], ["names", "Names"], ["altaz", "Alt-az grid"], ["equatorial", "Equatorial grid + ecliptic"],
   ["milkyway", "Milky Way"], ["atmosphere", "Atmosphere"], ["ground", "Ground"], ["satellites", "Satellites"], ["planetsBig", "Planets ×60"]];
 $("#layers").innerHTML = LAYERS.map(([k, t]) => `<label><input type="checkbox" data-k="${k}" ${sky.layers[k] ? "checked" : ""}>${t}</label>`).join("") +
   `<label class="sysonly"><input type="checkbox" id="logScale" checked>Log distances</label>` +
-  `<label class="sysonly">Planet size ×<input type="range" id="sizeK" min="1" max="12" value="3" step="0.5" style="width:90px"><span id="sizeKv">3</span></label>`;
+  `<label class="sysonly">Planet size ×<input type="range" id="sizeK" min="1" max="24" value="${SIZE_K}" step="0.5" style="width:90px"><span id="sizeKv">${SIZE_K}</span></label>`;
 for (const cb of document.querySelectorAll("#layers input[data-k]")) cb.onchange = (e) => { sky.layers[e.target.dataset.k] = e.target.checked; if (e.target.dataset.k === "satellites") loadSats(true); };
 $("#logScale").onchange = (e) => { sys.logScale = e.target.checked; sys._buildOrbits(); };
 $("#sizeK").oninput = (e) => { sys.setSizeScale(+e.target.value); $("#sizeKv").textContent = e.target.value; };
@@ -310,7 +312,8 @@ async function switchView(v, opts = {}) {
 function focusSystem(id) {
   sys.focus = id;
   const t = sys.focusPos();
-  const r = id === "sun" ? 8 : id === "moon" ? 0.4 : (sys.planets[id]?.r ?? 0.3) * 7;
+  const f = id === "sun" ? 1 : (sys.sizeK || 3) / 3;          // planets and Moon are drawn f times enlarged
+  const r = f * (id === "sun" ? 8 : id === "moon" ? 0.4 : (sys.planets[id]?.r ?? 0.3) * 7);
   const dir = sys.camera.position.clone().sub(t).normalize();
   sys.flyTo(t.clone().add(dir.multiplyScalar(r)), t, 1800);
 }
@@ -507,8 +510,8 @@ function renderAnalyses() {
   <h3>Asteroids and close approaches</h3><div id="aSB"><button class="ghost" id="aSBgo">Apophis, Phaethon, Ceres…</button></div>
   <h3>Stellar ML on the HR diagram</h3><div id="aML"><button class="ghost" id="aMLgo">Cluster and classify the stars</button></div>
   <h3>Black hole with an accretion disc, in front of your sky</h3><div id="aBH"></div>
-  <h3>Pure lensing (no disc)</h3><p class="small muted">A Schwarzschild black hole placed where you are looking; the real stars (Yale BSC) and Milky Way are lensed by null geodesics traced with the black-hole module of PINNeAPPle.</p>
-  <div class="row"><label class="small">camera distance <input id="aRc" type="range" min="8" max="120" value="30"></label><button class="primary" id="aLens">Render where I look</button></div><div id="aLensOut"></div>`;
+  <h3>Gravitational lensing: a black hole in front of your sky</h3><p class="small muted">A Schwarzschild black hole placed where you are looking; the real stars (Yale BSC) and Milky Way are lensed by null geodesics traced with the black-hole module of PINNeAPPle. Where the field has few bright stars the thin accretion disc is drawn too.</p>
+  <div class="row"><label class="small">camera distance <input id="aRc" type="range" min="8" max="300" value="120"></label><select id="aDisc"><option value="auto">disc: auto</option><option value="off">no disc</option><option value="on">with disc</option></select><button class="primary" id="aLens">Render where I look</button></div><div id="aLensOut"></div>`;
   $("#aSWgo").onclick = () => renderSpaceWeather($("#aSW"), ctx);
   $("#aWXgo").onclick = () => renderConditions($("#aWX"), ctx);
   $("#aSBgo").onclick = () => renderSmallBodies($("#aSB"), ctx);
@@ -545,12 +548,16 @@ function renderAnalyses() {
     const M = sky.Mj2000; const v = [0, 1, 2].map((c) => M[0][c] * dir.x + M[1][c] * dir.y + M[2][c] * dir.z);
     const ra = ((Math.atan2(v[1], v[0]) * R2D) + 360) % 360, dec = Math.asin(v[2]) * R2D;
     $("#aLensOut").innerHTML = `<p class="muted">Tracing geodesics (first render ~15 s, then instant for any direction)…</p>`;
-    const url = `/api/analysis/lensing.png?ra=${ra.toFixed(3)}&dec=${dec.toFixed(3)}&fov=60&r_cam=${$("#aRc").value}&width=480`;
-    const info = await api("/api/analysis/lensing");
-    const img = new Image(); img.className = "lens"; img.src = url;
+    const rc = $("#aRc").value;
+    const url = `/api/analysis/lensing.png?ra=${ra.toFixed(3)}&dec=${dec.toFixed(3)}&fov=60&r_cam=${rc}&width=480&disc=${$("#aDisc").value}`;
+    let res, info;
+    try { [res, info] = await Promise.all([fetch(url), api("/api/analysis/lensing")]); if (!res.ok) throw new Error(res.statusText); }
+    catch (e) { $("#aLensOut").textContent = "Render failed (server busy?)."; return; }
+    const disc = res.headers.get("X-Disc") === "1", nb = res.headers.get("X-Bright-Stars"), bm = res.headers.get("X-Bright-Mag");
+    const img = new Image(); img.className = "lens"; img.src = URL.createObjectURL(await res.blob());
     img.onload = () => {
       $("#aLensOut").innerHTML = ""; $("#aLensOut").appendChild(img);
-      $("#aLensOut").insertAdjacentHTML("beforeend", `<p class="small">Centre RA ${fmtRA(ra)}, Dec ${fmtDec(dec)} · 60° field · camera at ${$("#aRc").value} GM/c².</p>
+      $("#aLensOut").insertAdjacentHTML("beforeend", `<p class="small">Centre RA ${fmtRA(ra)}, Dec ${fmtDec(dec)} · 60° field · camera at ${rc} GM/c² · ${nb} stars brighter than V ${bm} in the field${disc ? " · thin accretion disc drawn" : ""}.</p>
       <table><tr><th>Black hole</th><th class="r">shadow predicted</th><th class="r">EHT ring</th><th class="r">σ</th></tr>${info.eht.map((r) => `<tr><td>${r.object}</td><td class="r">${num(r.predicted_uas, 1)} µas</td><td class="r">${r.observed_uas} ± ${r.observed_err_uas}</td><td class="r">${num(r.sigma, 2)}</td></tr>`).join("")}</table>
       <p class="small muted">Sun's deflection at the limb: ${num(info.sun_deflection_arcsec, 3)}″ (Eddington 1919: 1.75″). ${esc(info.method)}.</p>`);
     };

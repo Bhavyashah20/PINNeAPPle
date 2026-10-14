@@ -165,3 +165,53 @@ def test_thin_disc_geodesics_match_schwarzschild():
     assert np.isfinite(edge["hit_r"][:, 1]).sum() > 500            # the far side's image wraps over the shadow
 
 
+
+
+def test_lensing_escape_directions_match_weak_field_deflection():
+    """Far from the hole the traced deflection is the weak-field one for a camera at finite distance and a source
+    at infinity, (2M/b)(1 + cos theta) (Ishihara et al. 2016, PRD 94, 084015) plus the second-order term
+    15 pi M^2 / (4 b^2) (Keeton & Petters 2005, PRD 72, 104006); the asymptotic escape direction must reproduce it."""
+    from pinneapple_physics.astro.lensing import trace_thin_disc
+    tr = trace_thin_disc(120, 68, 90.0, r_cam=400.0, fov_deg=24.0, max_crossings=1, escape_factor=4.0)
+    fwd, right, up = tr["basis"]
+    H, W = tr["shape"]
+    t = np.tan(np.radians(12.0))
+    X, Y = np.meshgrid(((np.arange(W) + 0.5) / W * 2 - 1) * t, (1 - (np.arange(H) + 0.5) / H * 2) * t * H / W)
+    d = (fwd + X[..., None] * right + Y[..., None] * up).reshape(-1, 3)
+    d /= np.linalg.norm(d, axis=1, keepdims=True)
+    e, b = tr["escape_dir"], tr["b"]
+    weak = (np.linalg.norm(e, axis=1) > 0) & (b > 40)
+    assert weak.sum() > 3000
+    alpha = np.arccos(np.clip((d * e).sum(1), -1, 1))[weak]
+    pred = (2 / b * (1 + d @ fwd) + 15 * np.pi / (4 * b**2))[weak]
+    assert np.abs(alpha / pred - 1).max() < 0.015
+
+
+def test_catalog_sky_star_footprints_and_tone_map():
+    """Stars never fall below a resolvable footprint, brighter stars are wider and carry more light, the
+    tone map stays in [0, 1] and is monotonic."""
+    from pinneapple_physics.astro.lensing import catalog_sky, star_splat, tone_map
+    v = np.array([-1.46, 0.0, 2.0, 4.0, 6.5])
+    sigma, peak = star_splat(v, mag_limit=6.5, sigma_deg=0.1)
+    assert sigma.min() >= 0.1 and np.all(np.diff(sigma) < 0) and np.all(np.diff(peak) <= 0)
+    assert np.all(np.diff(peak * sigma**2) < 0)                         # integrated light falls with magnitude
+    sky = catalog_sky(1024, 512)
+    x, y = int(101.287 / 360 * 1024), int((90 + 16.716) / 180 * 511)    # Sirius
+    assert tone_map(sky[y - 2:y + 3, x - 2:x + 3]).max() > 0.8
+    assert sky.shape == (512, 1024, 3) and np.isfinite(sky).all()
+    ramp = tone_map(np.linspace(0, 3, 50))
+    assert ramp.min() >= 0 and ramp.max() <= 1 and np.all(np.diff(ramp) > 0)
+
+
+def test_lensing_view_draws_the_disc_only_where_the_field_lacks_bright_stars():
+    from pinneapple_physics.astro.lensing import bright_stars_in_field, catalog_sky, lensing_view
+    assert bright_stars_in_field(266.4, -29.0, 30.0, 2.0) >= 2         # Sagittarius / Scorpius
+    assert bright_stars_in_field(0.0, -15.0, 30.0, 2.0) < 2            # Cetus / Aquarius
+    sky = catalog_sky(1024, 512)
+    rich = lensing_view(266.4, -29.0, 60.0, 64, 36, r_cam=120.0, sky=sky)
+    poor = lensing_view(0.0, -15.0, 60.0, 64, 36, r_cam=120.0, sky=sky)
+    assert not rich["disc"] and poor["disc"]
+    assert rich["image"].mean() > 0.1                                   # the lensed Milky Way fills the field
+    for v in (rich, poor):
+        assert v["image"].shape == (36, 64, 3) and 0 <= v["image"].min() and v["image"].max() <= 1
+        assert v["image"].mean() > 0.01 and v["image"].max() > 0.5      # not a black frame

@@ -397,6 +397,21 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
+  grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
+  footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
+  pixels; peak ~ sqrt(flux)) and a brighter, tinted Milky Way; `tone_map` replaces the app's ad-hoc exposure.
+  `lensed_sky` now traces with the exact Binet tracer of `trace_thin_disc` and takes the asymptotic escape direction
+  in closed form: the old trace stopped at 1.5 r_cam and used the local tangent, which left concentric banding and
+  under-deflected rays. The deflection now matches the weak-field value (2M/b)(1 + cos θ) + 15πM²/(4b²) within
+  1.5 % (new test). New `lensing_view` (used by `/api/analysis/lensing.png`) adds the thin accretion disc of
+  `accretion_view` when the 60° field has fewer than 2 stars brighter than V 2.0 (`bright_stars_in_field`), with a
+  disc auto / on / off control in the panel; the default camera distance is 120 GM/c². Screenshot
+  `docs/assets/apps/14-observatory-lensing.jpg` regenerated with the hole in front of Sagittarius.
+- Observatory, solar-system view: the planets were a few pixels across. The planet-size slider now defaults to ×12
+  (range 1–24, `?size=` in the URL), the glow halo is brighter, and the Earth follows the slider (its hand-set
+  orientation matrix used to drop the scale). The Moon's exaggerated distance and the observer pin scale with it,
+  so the Moon stays outside the enlarged Earth. Screenshot `docs/assets/apps/14-observatory-system.jpg` regenerated.
 - `pinneapple_data.preflight`: `freestreamPressure` / `freestream` fix the pressure level; external-aerodynamics cases
   were reported as having no pressure reference.
 - Geometry library: `build()` snaps vertices to a 0.1 um grid, so the files rebuilt on another machine (the Hub
