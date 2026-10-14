@@ -397,6 +397,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- `pinneapple_physics.conservation.project_integral(mode="positive")` returned a negative field when the target
+  integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
+  for a field that is <= 0 everywhere. A zero field with a zero target is returned unchanged in the multiplicative
+  modes instead of dividing 0 by 0.
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
