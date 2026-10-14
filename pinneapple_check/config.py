@@ -65,6 +65,7 @@ DEFAULT_TOLERANCES: dict[str, float] = {
     "residual": 5e-2,          # PC301 relative PDE residual of stored fields
     "model-residual": 5e-2,    # PC302 relative PDE residual of a model
     "rel-l2": 1e-2,            # PC701 relative L2 against the reference
+    "hf-bias": 0.25,           # PC704 |E_pred / E_ref - 1| in the high-wavenumber band
     "qoi": 1e-2,               # PC702 relative tolerance of a quantity of interest (default)
     "fraction-slack": 1e-6,    # PC402 slack on [0, 1] for fractions
 }
