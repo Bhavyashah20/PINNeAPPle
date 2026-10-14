@@ -132,6 +132,8 @@ def test_committed_bundle_is_current(model):
         assert np.allclose(np.ravel(a["limit"]), np.ravel(b["limit"]), rtol=1e-5)
     card = model.card.to_dict()
     assert meta["card"]["version"] == card["version"]
+    from pinneapple_hub.zoo._artifacts import manifest
+    assert meta["hub"] == f"https://huggingface.co/{manifest()['models'][model.name]['hf_repo']}"   # the published repo
     for k, v in card["validation_metrics"].items():
         assert meta["card"]["validation_metrics"][k] == pytest.approx(v, rel=1e-5)
 
