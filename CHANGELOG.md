@@ -14,6 +14,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Spectral fidelity metrics (`pinneapple_analysis.validation.spectral`, #702): radially binned energy spectra
+  (periodic, or mean-removed and Hann-windowed), energy ratio, phase error and coherence per wavenumber band, a
+  high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
+  wall flux. Reported by `pinneapple check` (new rule PC704 `spectral-bias`, tolerance `hf-bias`) and by the
+  `pp.benchmark` field problems ("HF energy bias" column). Docs: "Spectral fidelity".
 - `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
   benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
   levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves

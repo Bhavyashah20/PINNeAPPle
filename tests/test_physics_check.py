@@ -46,7 +46,7 @@ def _torch_ok() -> bool:
 def test_pass_fixtures_have_no_violation(pass_report):
     assert not pass_report.violations, "\n".join(f"{o.rule} {o.target}: {o.message}" for o in pass_report.violations)
     assert pass_report.exit_code("warning") == 0
-    assert len(pass_report.targets) == 13
+    assert len(pass_report.targets) == 14
 
 
 def test_fail_fixtures_break_exactly_the_expected_rules(fail_report):

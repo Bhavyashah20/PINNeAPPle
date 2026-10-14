@@ -191,6 +191,15 @@ RULES: dict[str, Rule] = {r.id: r for r in [
        """The reference file is missing, unreadable, lacks the field, or has a shape that cannot be matched to the
        result.""",
        """Regenerate the reference with the same mesh/points and field names, or give `fields` to compare."""),
+    _r("PC704", "spectral-bias", "A field loses or gains small-scale energy against the reference", WARNING,
+       "benchmark", "reference_data_match",
+       """Energy in the high-wavenumber band of the field differs from the reference's by more than the tolerance
+       (`E_pred / E_ref - 1` over the top third of the resolved shells). A smoothed field has a small relative L2
+       error and still misses the small scales that carry heat transfer, mixing or loads; added noise shows up as a
+       positive bias. Computed on grid results with the same shape as the reference
+       (`pinneapple_analysis.validation.spectral`).""",
+       """Check the model's spectral bias (more Fourier modes, a finer output grid, a loss on gradients or spectra),
+       or raise `tolerances.hf-bias` deliberately if the small scales do not matter for the use."""),
     # ------------------------------------------------------------------ PC8 integrity
     _r("PC801", "hash-mismatch", "An artefact does not match its recorded hash", ERROR, "data_geometry", "",
        """The SHA-256 of a file differs from the one in the integrity manifest (or a listed file is missing): the
