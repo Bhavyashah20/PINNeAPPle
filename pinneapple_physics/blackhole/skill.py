@@ -107,8 +107,8 @@ def evaluate_skill(models: Mapping[str, tuple[torch.nn.Module, DensityCodec]], t
     shells = [vol.shape[0] // 4, vol.shape[0] // 2]
     errors = {n: [] for n in ["persistence", "climatology", "dmd", *models]}
     mass_err = {n: [] for n in ["persistence", "dmd", *models]}
-    phys = {n: {"violations": 0, "frames": 0, "min": np.inf, "max": -np.inf, "nonfinite": 0, "pred": [], "true": []}
-            for n in models}
+    phys = {n: {"violations": 0, "frames": 0, "min": np.inf, "max": -np.inf, "nonfinite": 0, "out": 0, "px": 0,
+                "pred": [], "true": []} for n in models}
     n_starts = 0
     for x in test_x.values():
         for s in starts_of(x):
@@ -129,6 +129,8 @@ def evaluate_skill(models: Mapping[str, tuple[torch.nn.Module, DensityCodec]], t
                 f, p = fc[name], phys[name]
                 p["nonfinite"] += int((~np.isfinite(f)).sum())
                 p["min"], p["max"] = min(p["min"], float(f.min())), max(p["max"], float(f.max()))
+                p["out"] += int(((f < -0.05) | (f > 1.05)).sum())
+                p["px"] += f.size
                 v = env.violations(window_mass(f, codec, vol), dt, m0)
                 p["violations"] += int(v.sum())
                 p["frames"] += len(v)
@@ -161,7 +163,8 @@ def evaluate_skill(models: Mapping[str, tuple[torch.nn.Module, DensityCodec]], t
                 "mass_envelope_rate_max": env.rate_max,
                 "nonfinite_values": p["nonfinite"],
                 "x_range_forecast": [p["min"], p["max"]],
-                "x_range_ok": bool(p["min"] >= -0.05 and p["max"] <= 1.05),   # training range is [0, 1]
+                # training range is [0, 1]: fraction of forecast pixels more than 0.05 outside it
+                "x_out_of_range_fraction": p["out"] / max(p["px"], 1),
                 "inflow_shells": shells,
                 "inflow_sign_agreement": float((np.sign(ip) == np.sign(it)).mean()),
                 "inflow_corr": [float(np.corrcoef(ip[:, i], it[:, i])[0, 1]) for i in range(ip.shape[1])],

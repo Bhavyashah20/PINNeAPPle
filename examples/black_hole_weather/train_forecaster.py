@@ -67,6 +67,8 @@ def main(argv=None):
     ap.add_argument("--val-blocks", type=int, default=1, help="select the checkpoint on this many unrolled blocks")
     ap.add_argument("--noise", type=float, default=0.0, help="input noise std (normalised units)")
     ap.add_argument("--mass-weight", type=float, default=0.0, help="weight of the window-mass consistency penalty")
+    ap.add_argument("--mass-rate-weight", type=float, default=0.0,
+                    help="weight of the penalty on frame-to-frame window-mass changes against the truth")
     ap.add_argument("--bf16", action="store_true", help="bfloat16 autocast (fast on CPUs with AMX)")
     ap.add_argument("--init", help="start from this forecaster.pt (fine-tuning)")
     ap.add_argument("--seed", type=int, default=0)
@@ -109,7 +111,7 @@ def main_dataset(a):
     cfg = TrainConfig(filters=a.filters, epochs=a.epochs, batch_size=a.batch_size, alpha=a.alpha, lr=a.lr,
                       residual=a.residual, loss=a.loss, clip=a.clip, max_minutes=a.max_minutes, seed=a.seed,
                       rollout_blocks=a.rollout_blocks, noise=a.noise, mass_weight=a.mass_weight, bf16=a.bf16,
-                      samples_per_epoch=a.samples_per_epoch, padding=a.padding)
+                      mass_rate_weight=a.mass_rate_weight, samples_per_epoch=a.samples_per_epoch, padding=a.padding)
     os.makedirs(a.out, exist_ok=True)
     with open(os.path.join(a.out, "setup.json"), "w") as f:
         json.dump({"dataset": a.dataset, "train_seeds": sorted(tr), "val_seeds": sorted(va),

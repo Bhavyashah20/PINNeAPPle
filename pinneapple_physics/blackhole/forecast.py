@@ -181,6 +181,8 @@ class TrainConfig:
     rollout_blocks: int = 1            # > 1: unroll the model this many blocks and score every block (rollout loss)
     noise: float = 0.0                 # std of Gaussian noise added to the inputs in training (normalised units)
     mass_weight: float = 0.0           # weight of the mass-consistency penalty |ln M_pred - ln M_true| per frame
+    mass_rate_weight: float = 0.0      # weight of |d ln M_pred - d ln M_true| between consecutive frames (the mass
+                                       # budget the trust check bounds), the first step taken from the last input
     bf16: bool = False                 # CPU autocast (helps only on CPUs with AMX)
     seed: int = 0
     max_minutes: float = 1e9
@@ -213,8 +215,8 @@ def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarra
     for ``cfg.mass_weight`` > 0."""
     torch.manual_seed(cfg.seed)
     log_vol = torch.from_numpy(np.log(cell_volume)).float() if cell_volume is not None else None
-    if cfg.mass_weight > 0 and log_vol is None:
-        raise ValueError("mass_weight > 0 needs cell_volume")
+    if (cfg.mass_weight > 0 or cfg.mass_rate_weight > 0) and log_vol is None:
+        raise ValueError("mass_weight / mass_rate_weight > 0 needs cell_volume")
     os.makedirs(out_dir, exist_ok=True)
     model = DuarteUNet(cfg.filters, cfg.frames, cfg.residual, cfg.padding)
     if init is not None:                                # fine-tune from given weights
@@ -253,6 +255,11 @@ def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarra
                        for j in range(cfg.rollout_blocks)) / cfg.rollout_blocks
             if cfg.mass_weight > 0:
                 loss = loss + cfg.mass_weight * (_log_mass(pred, codec, log_vol) - _log_mass(yb, codec, log_vol)).abs().mean()
+            if cfg.mass_rate_weight > 0:
+                last = Xt[b][:, -1:]
+                lm_p = _log_mass(torch.cat([last, pred], 1), codec, log_vol)
+                lm_t = _log_mass(torch.cat([last, yb], 1), codec, log_vol)
+                loss = loss + cfg.mass_rate_weight * (lm_p.diff(dim=1) - lm_t.diff(dim=1)).abs().mean()
             opt.zero_grad()
             loss.backward()
             if cfg.clip:
