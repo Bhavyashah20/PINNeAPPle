@@ -477,6 +477,47 @@ OPERATOR_DATASETS = {
 }
 DATASETS.update(OPERATOR_DATASETS)
 
+AIRFOIL_FIELDS = {
+    "airfoil_rans_cst_re4e6_fields": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "Airfoil RANS flow fields, CST shapes, Re 4e6 (436 OpenFOAM runs, 20064-cell O-grid)",
+        "description": (
+            "The cell fields of the 436-run airfoil campaign (dataset airfoil_rans_cst_re4e6): steady 2-D RANS, "
+            "OpenFOAM v1912 simpleFoam, k-omega SST, y+ < 1, the shared 228 x 88 O-grid (20064 cells, far field 200 "
+            "chords), 100 Latin-hypercube CST airfoils x 4 angles and NACA 0012/2412/4412/4415 x 9 angles. Per run: "
+            "the 6 CST weights, the angle of attack, the final-iteration Cl, Cd, Cm, the run status (converged / "
+            "steady-ish / unsteady), the cell centres x, y (the grid moves with the shape) and the kinematic pressure "
+            "p, velocity Ux, Uy and eddy viscosity nut at every cell (free stream U = 1, chord 1). Cell order: "
+            "wall-normal level j outer, around-the-airfoil index i inner (j * 228 + i)."),
+        "license": "cc-by-4.0",
+        "source": ("pinneapple_design.aero.dataset.plan(100, 4) (seed 7) run with dataset.run_job "
+                   "(apps/aero_optimizer/tools/generate_dataset.py), written by "
+                   "pinneapple_design.aero.field_dataset.write_field_dataset; same case set-up as the 436-run "
+                   "campaign of airfoil_rans_cst_re4e6"),
+        "verification": "@AIRFIELD@",
+        "splits": {
+            "train": "LHS runs of the 85 training shapes (every run, final-iteration values; filter on status)",
+            "test": "60 runs of the 15 held-out shapes of the airfoil surrogates (s003 s007 s008 s015 s016 s021 s026 "
+                    "s031 s042 s047 s054 s060 s069 s072 s079)",
+            "naca_reference": "36 NACA 0012/2412/4412/4415 runs (alpha -2..14), never used in training"},
+        "split_rule": "pinneapple_design.aero.train.split (15 % of the LHS shapes held out, seed 3)",
+        "columns": {
+            "run_id": ("-", "run identifier"), "shape_id": ("-", "shape identifier"),
+            **{n: (u, d) for n, u, d in CST}, "alpha_deg": ("deg", "angle of attack"),
+            "Cl": ("-", "lift coefficient (final iteration)"), "Cd": ("-", "drag coefficient (final iteration)"),
+            "Cm": ("-", "moment coefficient about c/4 (final iteration)"),
+            "status": ("-", "converged | steady-ish | unsteady"),
+            "x": ("chord", "cell-centre x (20064 cells)"), "y": ("chord", "cell-centre y (20064 cells)"),
+            "p": ("U^2", "kinematic pressure p / rho (free stream U = 1)"),
+            "Ux": ("U", "velocity x"), "Uy": ("U", "velocity y"),
+            "nut": ("U c", "turbulent eddy viscosity (molecular nu = 2.5e-7)")},
+        "tags": ["aerodynamics", "RANS", "OpenFOAM", "airfoil", "flow fields", "graph networks"],
+        "citation": AIRFOIL_CITATION,
+    },
+}
+DATASETS.update(AIRFOIL_FIELDS)
+
 
 def hf_repo(kind: str, name: str) -> str:
     """Hub repo of a model/dataset: PINNeAPPle-Labs/<name with dashes>."""
