@@ -16,6 +16,24 @@ Open `http://localhost:8094`, press ⌖ (or pick a city). Drag to look around, s
 *Solar system* flies out from your position to the planets; *Sky* flies back. URL parameters make views reproducible:
 `?lat=-23.55&lon=-46.63&t=2026-10-13T22:05:00Z&az=250&alt=16&fov=72` (`view=system`, `tab=engine`, `panel=0`).
 
+## Languages
+
+The interface is in English and Brazilian Portuguese (**EN / PT** in the top bar). The default follows the browser
+language; the choice is kept in the URL (`#lang=pt`) and in local storage. Every string the page shows comes from the
+message catalogues `apps/observatory/observatory/static/i18n/en.json` and `pt.json` (menus, panels, tooltips, check
+names, verdicts, units, API error messages); numbers and dates follow the locale (`Intl.NumberFormat`,
+`Intl.DateTimeFormat`, decimal comma in Portuguese). Constellations use their Portuguese names
+(`pinneapple_physics.astro.stars.constellation_names`, e.g. Cruzeiro do Sul, Escorpião); stars keep their IAU names;
+the Sun, Moon and planets are translated. Server errors carry a message code (`X-Error-Code`) so the page shows them in
+the visitor's language.
+
+![The sky over São Paulo at dusk, in Portuguese](../assets/apps/14-observatory-sky-pt.jpg)
+
+`tests/test_observatory_i18n.py` fails if a key is missing from one catalogue, if a placeholder differs, or if
+interface text is hard-coded in `static/*.js` or `index.html` (a lint over the string literals); the browser test
+`apps/observatory/tests/e2e/i18n.spec.js` switches to Portuguese, checks that the main panels have no English left and
+switches back (`cd apps/observatory && npm ci && npx playwright test`).
+
 ## What is computed where
 
 The server (`apps/observatory/observatory/api.py`) calls `pinneapple_physics.astro` for every position, event and
