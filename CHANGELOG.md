@@ -397,6 +397,14 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- `pp.trust_card` / `field_checks`: an exactly harmonic field that is linear along an axis (`u = x + 2y`,
+  `T = 300 + x + y`) failed the critical PDE-residual check and was rejected, because its finite-difference terms are
+  pure round-off and the residual was judged against that round-off. The residual scale now has a floor at the
+  round-off of the stencil, computed from the dtype of the data as written (float32 fields get float32 epsilon).
+  Grids with 2 points on an axis now report the conservation check as not run instead of raising NumPy's
+  "Shape of array too small" error, and torch tensors (including ones that require grad) are accepted as values.
+  New tests check the residual against exact Laplace, Poisson and heat solutions (second-order convergence on
+  uniform and stretched grids) and the conservation check against the divergence theorem.
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
