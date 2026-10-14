@@ -808,7 +808,7 @@
    }
   ]
  },
- "hub": "https://huggingface.co/PINNeAPPle-Labs/airfoil_cst_rans_mlp",
+ "hub": "https://huggingface.co/PINNeAPPle-Labs/airfoil-cst-rans-mlp",
  "code": {
   "adapter": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/_models.py",
   "checks": "https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/pinneapple_hub/zoo/checks.py",
