@@ -19,13 +19,16 @@ void main(){
   vec3 n = normalize(vN); float ndl = dot(n, normalize(sunDir));
   vec3 d = texture2D(day, vUv).rgb; vec3 ni = texture2D(night, vUv).rgb;
   float k = smoothstep(-0.12, 0.12, ndl);
-  vec3 col = mix(ni * vec3(1.0, 0.85, 0.6) * 1.6, d * (0.08 + 1.05 * max(ndl, 0.0)), k);
+  // day side: the surface plus the blue of the sunlit atmosphere (without it a sunlit Pacific reads as black)
+  vec3 dayc = d * (0.08 + 1.3 * max(ndl, 0.0)) + vec3(0.05, 0.11, 0.26) * max(ndl, 0.0);
+  vec3 col = mix(ni * vec3(1.0, 0.85, 0.6) * 1.6 + d * 0.02, dayc, k);
   vec3 v = normalize(cameraPosition - vP);
   float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
   col += fres * vec3(0.3, 0.55, 1.0) * (0.15 + 0.9 * smoothstep(-0.3, 0.4, ndl));
   // terminator: thin reddish twilight band
   col += vec3(0.25, 0.08, 0.02) * exp(-pow(ndl / 0.05, 2.0)) * 0.6;
   gl_FragColor = vec4(col, 1.0);
+  #include <colorspace_fragment>
 }`;
 
 export class SystemView {
@@ -44,7 +47,8 @@ export class SystemView {
     const sg = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture("rgba(255,240,200,1)", "rgba(255,170,60,0.35)"), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
     sg.scale.setScalar(16); this.sun.add(sg);
     this.scene.add(this.sun);
-    this.scene.add(new THREE.PointLight(0xffffff, 3.2, 0, 0), new THREE.AmbientLight(0x334455, 0.12));
+    // ambient floor: a planet seen at a large phase angle still shows its surface (the sunlit side stays far brighter)
+    this.scene.add(new THREE.PointLight(0xffffff, 4.5, 0, 0), new THREE.AmbientLight(0x8a96aa, 0.9));
     // planets
     this.planets = {};
     const halo = glowTexture("rgba(255,255,255,1)", "rgba(255,255,255,0.6)");   // its core sits behind the sphere
@@ -252,11 +256,41 @@ export class SystemView {
     const side = new THREE.Vector3(0, 1, 0).cross(up).normalize().multiplyScalar(0.12 * f);
     return { pos: p.clone().add(up.clone().multiplyScalar(0.35 * f)).add(side), target: this.planets.earth.grp.position.clone() };
   }
-  overviewShot() {
+  // the whole planetary system, framed so that every planet lies inside the part of the canvas left of a panel
+  // covering the right ``covered`` fraction of its width and above a HUD covering the bottom ``below`` fraction of
+  // its height; seen from 50 deg above the ecliptic, from the side opposite the Earth (its day side faces us)
+  overviewShot(covered = 0, below = 0) {
     const ep = this.planets.earth.grp.position;
-    const out = ep.clone().normalize();
-    const R = this.logScale ? 150 : 420;
-    return { pos: new THREE.Vector3(out.x * R * 0.55, R * 0.75, out.z * R * 0.55), target: new THREE.Vector3(out.x * 6, 0, out.z * 6) };
+    const az = new THREE.Vector3(-ep.x, 0, -ep.z).normalize();
+    const el = 50 * D2R;
+    const back = new THREE.Vector3(az.x * Math.cos(el), Math.sin(el), az.z * Math.cos(el));
+    const f = (this.sizeK || 3) / 3;
+    const pts = Object.values(this.planets).map((o) => [o.grp.position, o.r * f * 3]);   // centre, radius with halo
+    const cam = this.camera.clone();
+    const tanV = Math.tan(cam.fov * D2R / 2), tanH = tanV * cam.aspect;
+    const m = 0.06, x0 = -1 + m, x1 = 1 - 2 * covered - m, y0 = -1 + 2 * below + m, y1 = 1 - m;     // target box in NDC
+    let target = new THREE.Vector3(), d = 150;
+    const v = new THREE.Vector3();
+    for (let it = 0; it < 40; it++) {
+      cam.position.copy(target).addScaledVector(back, d); cam.lookAt(target); cam.updateMatrixWorld();
+      const inv = cam.matrixWorldInverse;
+      let a = Infinity, b = -Infinity, c = Infinity, e = -Infinity;
+      for (const [p, r] of pts) {
+        v.copy(p).applyMatrix4(inv);
+        const z = -v.z, rx = r / (z * tanH), ry = r / (z * tanV);
+        a = Math.min(a, v.x / (z * tanH) - rx); b = Math.max(b, v.x / (z * tanH) + rx);
+        c = Math.min(c, v.y / (z * tanV) - ry); e = Math.max(e, v.y / (z * tanV) + ry);
+      }
+      const s = Math.max((b - a) / (x1 - x0), (e - c) / (y1 - y0));
+      // move the target so the planets' box centres on the free area, then scale the distance to fit it
+      const right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
+      const up = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
+      target.addScaledVector(right, ((a + b) / 2 - (x0 + x1) / 2 * s) * d * tanH)
+        .addScaledVector(up, ((c + e) / 2 - (y0 + y1) / 2 * s) * d * tanV);
+      d *= s;
+      if (Math.abs(s - 1) < 1e-4) break;
+    }
+    return { pos: target.clone().addScaledVector(back, d), target };
   }
 
   drawLabels(w, h) {
