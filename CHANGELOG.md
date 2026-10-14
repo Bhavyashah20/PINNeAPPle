@@ -397,6 +397,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- `python -m pinneapple_check`, `python -m pinneapple.check` and `python -m pinneapple_analysis.benchmark`: the
+  `__main__` modules ran the command at import, so walking the packages (API docs, `tests/test_breadth_six_packages.py`)
+  raised `SystemExit` and aborted the whole pytest session. They now run only under `__name__ == "__main__"`.
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
