@@ -15,6 +15,33 @@ Ask usage questions in the [issue tracker](https://github.com/PINNeAPPle-Labs/PI
 ## Code of conduct
 Everyone taking part in this project is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## Governance
+
+### Who reviews
+Pull requests are reviewed by maintainers of the [PINNeAPPle-Labs](https://github.com/PINNeAPPle-Labs) organization
+(members with write access to this repository). Anyone may comment on issues and pull requests; only maintainers merge
+to the default branch. At least one maintainer approval is required before merge. Release, security, and large
+API or behavior changes may need a second maintainer look.
+
+Code of Conduct reports are handled by the same maintainers, as described in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+### Response times (best effort)
+We are a small team and cannot guarantee SLAs, but we aim for:
+
+| Kind of request | Target first response |
+|---|---|
+| Security vulnerability ([SECURITY.md](SECURITY.md)) | Within 2 business days |
+| Bug reports and feature requests | Within 1 week |
+| Pull requests | Initial review within 2 weeks |
+
+Silence longer than this does not mean rejection — please bump the thread or open a discussion issue if you are blocked.
+
+### Becoming a maintainer
+There is no application form. Maintainers are invited when someone has shown sustained, high-quality contributions
+(issues, pull requests, reviews, documentation) and works well with the community under the Code of Conduct.
+Existing maintainers decide by consensus whether to extend write access. Invitations are occasional and depend on
+project needs, not on a fixed schedule or quota.
+
 ## Development setup
 
 ```bash
