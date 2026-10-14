@@ -113,7 +113,18 @@ class GridD(_Base):
         key = ("dd", name, *sorted((a, b)))
         if key not in self._cache:
             j = self._ax(b)
-            self._cache[key] = np.gradient(self.d(name, a), self.coords[j], axis=j, edge_order=2)
+            out = np.gradient(self.d(name, a), self.coords[j], axis=j, edge_order=2)
+            if a == b and len(self.coords[j]) >= 3:
+                # three-point second derivative on the inner points: the derivative of the derivative uses the
+                # one-sided edge value divided by h next to the boundary, an O(h) error that made the residual
+                # converge at order 1.5 instead of 2
+                u = np.moveaxis(self.comps[name], j, 0)
+                h = np.diff(self.coords[j]).reshape((-1,) + (1,) * (u.ndim - 1))
+                inner = 2.0 * ((u[2:] - u[1:-1]) / h[1:] - (u[1:-1] - u[:-2]) / h[:-1]) / (h[1:] + h[:-1])
+                o = np.moveaxis(out, j, 0)
+                o[1:-1] = inner
+                out = np.moveaxis(o, 0, j)
+            self._cache[key] = out
         return self._cache[key]
 
     def dt(self, name: str) -> np.ndarray:
