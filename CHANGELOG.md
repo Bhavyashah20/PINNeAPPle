@@ -19,6 +19,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
   wall flux. Reported by `pinneapple check` (new rule PC704 `spectral-bias`, tolerance `hf-bias`) and by the
   `pp.benchmark` field problems ("HF energy bias" column). Docs: "Spectral fidelity".
+- Zoo dataset `navier_stokes_2d_li2021_nu1e-3` (Hub-only, 919 MB in 12 shards of 100 runs): 2-D incompressible
+  Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
+  It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
+  `pp.datasets.load(name, split="test")` downloads only the two test shards.
 - `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
   benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
   levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves
@@ -402,6 +406,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
+  repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
@@ -417,6 +423,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   (range 1–24, `?size=` in the URL), the glow halo is brighter, and the Earth follows the slider (its hand-set
   orientation matrix used to drop the scale). The Moon's exaggerated distance and the observer pin scale with it,
   so the Moon stays outside the enlarged Earth. Screenshot `docs/assets/apps/14-observatory-system.jpg` regenerated.
+- Observatory, solar-system view: the overview now frames every planet inside the free part of the canvas (left of
+  the side panel, above the time controls; Jupiter used to sit under the panel). It looks from 50° above the
+  ecliptic, from the side opposite the Earth, and fits the projected planets by iteration. The Earth shader lacked
+  the linear-to-sRGB output conversion, so the Earth rendered several times too dark; it now has it, plus the blue of
+  the sunlit atmosphere on the day side. The Sun's light and an ambient floor were raised so that Mercury and Venus
+  show their sunlit side and their surface at large phase angles. Screenshot
+  `docs/assets/apps/14-observatory-system.jpg` regenerated.
 - `pinneapple_data.preflight`: `freestreamPressure` / `freestream` fix the pressure level; external-aerodynamics cases
   were reported as having no pressure reference.
 - Geometry library: `build()` snaps vertices to a 0.1 um grid, so the files rebuilt on another machine (the Hub
