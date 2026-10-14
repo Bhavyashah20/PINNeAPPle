@@ -404,6 +404,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - `python -m pinneapple_check`, `python -m pinneapple.check` and `python -m pinneapple_analysis.benchmark`: the
   `__main__` modules ran the command at import, so walking the packages (API docs, `tests/test_breadth_six_packages.py`)
   raised `SystemExit` and aborted the whole pytest session. They now run only under `__name__ == "__main__"`.
+- `pinneapple check` on tensor-product grids (`pinneapple_check.numerics.GridD`): second derivatives were the
+  derivative of the derivative, which next to the boundary divides the one-sided edge value by h (an O(h) error),
+  so the PDE residual (PC301) converged at order 1.5 instead of 2 and an exact harmonic field on a 17 x 17 grid
+  scored 0.095, above the 0.05 default. Pure second derivatives now use the three-point stencil (non-uniform
+  spacing allowed); the residual of the same field is 0.017 and converges at order 2 on uniform and stretched grids.
 - Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
   repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
