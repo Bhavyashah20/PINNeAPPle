@@ -445,6 +445,35 @@ OPERATOR_DATASETS = {
         "tags": ["operator learning", "neural operator", "Darcy", "benchmark", "FNO"],
         "citation": LI2021,
     },
+    "navier_stokes_2d_li2021_nu1e-3": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "2-D incompressible Navier-Stokes (vorticity), nu = 1e-3, Li et al. (2021) benchmark (1200 runs, 64 x 64, t 0-50)",
+        "description": (
+            "w_t + u . grad w = nu Laplacian(w) + f on the periodic unit square, u = (psi_y, -psi_x), -Laplacian(psi) "
+            "= w, nu = 1e-3, f(x, y) = 0.1 (sin 2 pi (x + y) + cos 2 pi (x + y)), w0 ~ N(0, 7^(3/2) (-Laplacian + "
+            "49 I)^-2.5) (Li et al. 2021, section 5.3). Solved on 128 x 128 and stored on the 64 x 64 grid "
+            "x_i = i / 64 at t = 0, 1, ..., 50 (51 snapshots; w[:, 0] is w0). The usual task maps the first 10 "
+            "snapshots to the next 40, or w0 to w(., 50)."),
+        "license": "cc-by-4.0",
+        "source": _OB_SOURCE + "; seed 20213",
+        "verification": (
+            "Solver (Fourier pseudo-spectral, 2/3 dealiasing, ETDRK4) checked in tests/test_operator_benchmarks.py: "
+            "exact decay of a Taylor-Green vortex (1e-10) and a mean-free, finite forced flow. Resolution and "
+            "time-step study on 4 held-aside inputs against a 256^2, dt 5e-3 reference at the stored 64^2 nodes and "
+            "all 50 saved times: the dataset setting (128^2, dt 5e-2) has max rel. L2 error 4.0e-8 (6.6e-8 at "
+            "t = 50); dt 2.5e-2 gives 2.5e-9 and dt 1e-2 6.0e-11 (fourth-order time convergence, the error is the "
+            "time step's; the 128^2 grid is spectrally converged); solving directly on 64^2 would give 1.7e-4. "
+            "Inputs are band-limited (Nyquist modes removed), so the 128^2 and 256^2 runs start from the same field. "
+            "Every stored field is finite with spatial mean below 5e-8. Stored in float32 (~6e-8 relative), far "
+            "below the 8e-3 or more operator-learning methods reach on this task."),
+        "splits": {"train": "1000 runs (10 shards of 100)", "test": "200 runs (2 shards of 100, held out)"},
+        "split_rule": _OB_SPLIT,
+        "columns": {"index": ("-", "sample index (row of the generated set)"),
+                    "w": ("-", "vorticity (non-dimensional) at t = 0, 1, ..., 50 on the 64 x 64 grid (51 x 64 x 64)")},
+        "tags": ["operator learning", "neural operator", "Navier-Stokes", "benchmark", "FNO"],
+        "citation": LI2021,
+    },
 }
 DATASETS.update(OPERATOR_DATASETS)
 
