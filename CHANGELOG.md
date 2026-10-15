@@ -14,6 +14,14 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- BATADAL adapter for the physics-residual false-data-injection benchmark (`pinneapple_security.batadal`, refs
+  #645): downloads the public C-Town SCADA data to a cache with a SHA-256 check (nothing is committed), grey-box
+  `TankBalance` (flows the EPANET topology allows, plus a demand-by-hour profile) and `PumpLaw` components, the
+  time-to-detection and classification scores with a conservative variant, and `run_benchmark` against the three
+  data-driven baselines of `cps_bench`, which now take a `sensors=` argument. On BATADAL's five labelled attacks the
+  physics residuals raise fewer alarms outside the attacks than PCA (0.33 against 1.52 a day) but detect 4 of 5 and
+  score below it (conservative score 0.66 against 0.85). The data are simulated, and the competition's own score is
+  not reproduced because its test labels are not public. Docs: "Public data: BATADAL" in the physics-residual guide.
 - Spectral fidelity metrics (`pinneapple_analysis.validation.spectral`, #702): radially binned energy spectra
   (periodic, or mean-removed and Hann-windowed), energy ratio, phase error and coherence per wavenumber band, a
   high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
