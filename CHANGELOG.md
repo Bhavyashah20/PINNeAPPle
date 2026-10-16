@@ -23,6 +23,17 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
   It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
   `pp.datasets.load(name, split="test")` downloads only the two test shards.
+- Fault-injection suite (`pinneapple_analysis.validation.fault_injection`, #697): measures how often each validation
+  check catches known defects. A fault library (model: bias, scale, high-frequency noise, smoothing, wrong boundary
+  values, a source-term sign flip, out-of-range use, a stale model; data: a discretisation coefficient off by a
+  constant, duplicated or near-duplicate samples, train/test leakage, unit mix-ups, swapped channels) is injected into
+  correct Darcy 2-D and Burgers 1-D cases from the verified `operator_benchmarks` solvers, and `run_fault_injection`
+  returns the detection matrix (check x fault x magnitude), the false-alarm rate of each check on clean cases, the
+  minimal detectable magnitude, ROC AUC and the true error of each fault; `check_power()` is the "check power"
+  section of a validation report. Checks reuse `pinneapple_check.numerics`, the physics monitor and the solvers'
+  own stencils. `scripts/fault_injection_matrix.py` regenerates the matrix (docs: "Check power"); CI runs it at a
+  small size. `operator_benchmarks.darcy_operator` exposes the Darcy finite-volume matrix (with per-axis weights)
+  that `darcy_2d` solves; `benchmark.validation.field_features` is now public.
 - `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
   benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
   levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves

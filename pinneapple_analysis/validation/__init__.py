@@ -59,4 +59,13 @@ __all__ = [
     "high_wavenumber_bias",
     "spectral_fidelity",
     "structure_functions",
+    "fault_injection",
 ]
+
+
+def __getattr__(name):
+    # the fault-injection suite (#697) loads on first use: ``pp.validate.fault_injection``
+    if name in ("fault_injection",):
+        import importlib
+        return importlib.import_module(f"{__name__}.{name}")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
