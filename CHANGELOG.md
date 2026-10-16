@@ -406,6 +406,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- `pinneapple check`: a grid with 2 points along an axis made `numpy.gradient` raise "Shape of array too small" in
+  the residual and the balances, and the run ended with a traceback, so no other target was reported. Such an axis
+  now uses first-order ends, and a residual with no interior point is noted as not evaluated instead of passing on
+  an empty set. A check that still raises is reported as a PC001 error on its target, and the run goes on with the
+  remaining targets.
 - `pinneapple_physics.conservation.project_integral(mode="positive")` returned a negative field when the target
   integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
   for a field that is <= 0 everywhere. A zero field with a zero target is returned unchanged in the multiplicative
