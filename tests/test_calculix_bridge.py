@@ -136,3 +136,29 @@ def test_study_static_modal_buckling_heat(tmp_path):
     assert abs(b.buckling_factors[0] / (math.pi ** 2 * E * (H_ * W_ ** 3 / 12) / (4 * L_ ** 2)) - 1) < 0.03
     h = solve(m, Heat(temperature=[(root, 100.0), (tip_nodes, 0.0)]), str(tmp_path / "h"))
     assert np.allclose(h.temperature, 100 * (1 - m.nodes[:, 0] / L_), atol=1e-6 * 100)
+
+
+def test_image_build_falls_back_to_another_registry(monkeypatch):
+    # regression: every build attempt pulled the base from public.ecr.aws, which answers 429 ("Data limit exceeded")
+    # on busy shared runners, so the three retries failed the same way; each retry now tries the next mirror
+    from pinneapple_simulation.external_solvers.calculix import runner
+
+    calls = []
+
+    class P:
+        def __init__(self, rc):
+            self.returncode, self.stdout, self.stderr = rc, "", "429 Too Many Requests" if rc else ""
+
+    def fake_run(cmd, **kw):
+        if cmd[:3] == ["docker", "image", "inspect"]:
+            return P(1)
+        calls.append(cmd[cmd.index("--build-arg") + 1])
+        return P(0 if len(calls) == 2 else 1)                     # the first registry refuses, the second serves
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(runner.time, "sleep", lambda s: None)
+    monkeypatch.delenv("PINNEAPPLE_CALCULIX_BASE", raising=False)
+    assert runner.ensure_image("pinneapple/calculix:test") == "pinneapple/calculix:test"
+    assert calls == [f"BASE={runner.BASE_IMAGES[0]}", f"BASE={runner.BASE_IMAGES[1]}"]
+    monkeypatch.setenv("PINNEAPPLE_CALCULIX_BASE", "my.registry/debian:bookworm-slim")
+    assert runner._bases()[0] == "my.registry/debian:bookworm-slim" and len(runner._bases()) == 4

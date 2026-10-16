@@ -38,7 +38,8 @@ Each check is a `pinneapple_physics.physics_audit.monitor.ValidityCheck` returni
 suspicious) and rejecting above its tolerance. They reuse the library: the finite-difference provider and relative
 residual of `pinneapple_check.numerics`, the solver's own conservative Darcy stencil
 (`operator_benchmarks.darcy_operator`) and Burgers integrator, the spectral shells of
-`validation.field_metrics`, and the bounds, conservation and training-envelope checks of the physics monitor.
+`validation.field_metrics`, the Darcy consistency and the duplicate and leakage detectors of the dataset audit
+(`pinneapple_data.audit`), and the bounds and training-envelope checks of the physics monitor.
 
 | problem | check | what it measures |
 |---|---|---|
