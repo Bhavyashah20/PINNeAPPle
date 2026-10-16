@@ -35,7 +35,9 @@ weights), checks onnxruntime against PyTorch and returns the difference (below 1
 |---|---|
 | `quick` | applicability (validity range, training envelope), guaranteed residual bound, flux balance, reference error, the zoo gate, catalog status |
 | `standard` | spectral fidelity (#702), metamorphic relations (#698), the data audit (#700), the calibrated error bound (#699) |
-| `thorough` | robustness to 1 % input noise against the solver's own sensitivity; fault injection (#697) and rollout checks (#701) where they apply |
+| `thorough` | robustness to 1 % input noise against the solver's own sensitivity; fault injection (#697) where it applies |
+
+Rollout checks (#701, `problem={"rollout": {...}}`) run at every level; their long-run statistics from `standard` on ([guide](rollout_validation.md)).
 
 ## Credibility
 

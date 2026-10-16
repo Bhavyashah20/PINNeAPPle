@@ -14,6 +14,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Rollout validation of autoregressive surrogates (`pinneapple_analysis.validation.rollout`, #701): invariant
+  drift, high-band energy over the horizon, divergence time (trust horizon) and, for chaotic systems, long-run
+  statistics (value histogram, decorrelation time, band energies) against the noise floor of the reference. Checks
+  `rollout.*` in `pp.validate` with `problem={"rollout": {...}}`. Kuramoto–Sivashinsky solver
+  (`pinneapple_simulation.numerical_solvers.kuramoto_sivashinsky`).
 - Validation report as an artifact (`pinneapple_analysis.validation.report_artifact`, #706): JSON schema
   `validation-report/v1` with provenance hashes, `pp.validate.diff(old, new)` (lost / gained checks, moved metrics,
   validity-envelope changes), a model-card section, an SVG badge and a shields.io endpoint, signatures with

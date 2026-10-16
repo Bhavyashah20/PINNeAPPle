@@ -65,6 +65,7 @@
     * [Metamorphic tests: checking a surrogate without ground truth](guides/metamorphic_tests.md)
     * [Dataset physics audit: does the data solve its PDE?](guides/dataset_audit.md)
     * [From residual to error bound](guides/residual_error_bound.md)
+    * [Rollout validation: trust horizon of an autoregressive surrogate](guides/rollout_validation.md)
     * [Validation methods reference](guides/validation_methods_reference.md)
     * [A latent surrogate that says when not to trust it](guides/trusted_latent_surrogate.md)
     * [Detect false data injection with physics residuals](guides/physics_residual_attack_detection.md)
