@@ -7,8 +7,8 @@ not finite). The values are continuous, so the same check can be thresholded by 
 Building blocks reused, not reimplemented: the finite-difference provider and relative residual of
 :mod:`pinneapple_check.numerics` (``GridD``, ``rel_rms``), the conservative Darcy operator of the verified solver
 (``operator_benchmarks.darcy_operator``) and its Burgers integrator (``burgers_1d``), the spectral shells of
-``validation.field_metrics``, and the bounds, conservation and training-envelope checks of
-``pinneapple_physics.physics_audit.monitor``.
+``validation.field_metrics``, the Darcy consistency and the duplicate and leakage detectors of the dataset audit
+(``pinneapple_data.audit``), and the bounds and training-envelope checks of ``pinneapple_physics.physics_audit.monitor``.
 
 Two check sets per problem:
 
@@ -77,18 +77,11 @@ def _darcy_fd_residual(u: np.ndarray, case: Case, problem: DarcyProblem) -> floa
     return rel_rms(-(dqx + dqy) - f, [dqx, dqy, f], D.interior)
 
 
-def _darcy_fv_residual(u: np.ndarray, case: Case) -> float:
-    # the conservative residual r = A u - f of the solver's own stencil, measured in the norm of the solution it
-    # implies: |A^-1 r| / |A^-1 f| (a pointwise |r| is dominated by the flux mismatch of cells cut by a coefficient
-    # jump, and flags correct solutions averaged from a finer grid)
-    import scipy.sparse.linalg as spla
-
-    from pinneapple_simulation.numerical_solvers.operator_benchmarks import darcy_operator
-    A = darcy_operator(case.inputs["a"])
-    f = np.broadcast_to(np.asarray(case.params["f"], float), u.shape).ravel()
-    lu = spla.splu(A.tocsc())
-    e, uf = lu.solve(A @ u.ravel() - f), lu.solve(f)
-    return float(np.linalg.norm(e) / max(np.linalg.norm(uf), 1e-300))
+def _darcy_consistency(u: np.ndarray, case: Case) -> dict[str, float]:
+    # pinneapple_data.audit (#700): the residual of the solver's own stencil in the A^-1 norm (|u - A^-1 f| / |A^-1 f|)
+    # and the net finite-volume boundary flux against the source
+    from pinneapple_data.audit import darcy_consistency
+    return darcy_consistency(case.inputs["a"], u, case.params["f"])
 
 
 def _darcy_boundary(u: np.ndarray, case: Case) -> float:
@@ -101,13 +94,6 @@ def _darcy_boundary(u: np.ndarray, case: Case) -> float:
 def _darcy_bound(case: Case) -> float:
     f = np.asarray(case.params["f"], float)
     return TORSION_MAX * float(np.abs(f).max()) / float(case.inputs["a"].min())
-
-
-def _darcy_outflow(u: np.ndarray, case: Case) -> float:
-    # net flux through the Dirichlet faces of the finite-volume scheme: a (u - 0) / (h/2) times the face length h
-    a = case.inputs["a"]
-    return float(2 * (a[0] * u[0]).sum() + 2 * (a[-1] * u[-1]).sum() + 2 * (a[:, 0] * u[:, 0]).sum()
-                 + 2 * (a[:, -1] * u[:, -1]).sum())
 
 
 def _high_frequency(u: np.ndarray, ndim: int, cut: float) -> float:
@@ -125,16 +111,18 @@ def _darcy_library(p: DarcyProblem) -> dict[str, Any]:
     bounds = m.bounds_check(0.0, 1.0, name="bounds (0 <= u <= max torsion / a_min)",
                             select=lambda u, c: u / _darcy_bound(c), critical=False)
     bounds.description = "fraction of cells outside [0, 0.0737 max f / min a] (minimum and comparison principles)"
-    cons = m.conservation_check(lambda u, c: _darcy_outflow(u, c), lambda c: float(np.mean(c.params["f"])),
-                                rel_tol=0.05, name="conservation (outflow = source)")
-    cons.description = "net finite-volume outflow through the boundary against the integral of the source"
+    cons = _check("conservation (outflow = source)", "conservation",
+                  lambda u, c: _darcy_consistency(u, c)["flux"], 0.05,
+                  "net finite-volume outflow through the boundary against the integral of the source "
+                  "(pinneapple_data.audit.darcy_consistency)")
     return {
         "residual (finite differences)": _check(
             "residual (finite differences)", "residual", lambda u, c: _darcy_fd_residual(u, c, p), 0.6,
             "pinneapple_check.numerics GridD: -d(a u_x)/dx - d(a u_y)/dy - f, rms over the interior / rms of |terms|"),
         "residual (conservative, solver stencil)": _check(
-            "residual (conservative, solver stencil)", "residual", _darcy_fv_residual, 0.08,
-            "operator_benchmarks.darcy_operator (two-point flux, harmonic faces): |A^-1 (A u - f)| / |A^-1 f|"),
+            "residual (conservative, solver stencil)", "residual", lambda u, c: _darcy_consistency(u, c)["solve"], 0.08,
+            "residual of the solver's two-point-flux stencil in the A^-1 norm, |A^-1 (A u - f)| / |A^-1 f| "
+            "(pinneapple_data.audit.darcy_consistency)"),
         "boundary condition (u = 0)": _check(
             "boundary condition (u = 0)", "boundary", _darcy_boundary, 0.1,
             "max |u| linearly extrapolated to the faces / max |u|"),
@@ -252,39 +240,28 @@ def _input_matrix(cases: list[Case]) -> np.ndarray:
     return np.stack([np.concatenate([np.ravel(v) for _, v in sorted(c.inputs.items())]) for c in cases])
 
 
-def _nn(X: np.ndarray, Y: np.ndarray | None = None) -> np.ndarray:
-    """Distance of each row of X to its nearest row of Y (of X itself, excluding the row, when Y is None)."""
-    Z = X if Y is None else Y
-    d = np.sqrt(np.maximum((X ** 2).sum(1)[:, None] + (Z ** 2).sum(1)[None, :] - 2 * X @ Z.T, 0.0))
-    if Y is None:
-        np.fill_diagonal(d, np.inf)
-    return d.min(axis=1)
+def _duplicates(ds: Dataset) -> float:
+    from pinneapple_data.audit import near_duplicates
+    r = near_duplicates(_input_matrix(ds.cases))
+    return float(max(r["exact"], r["near"]) / max(r["n"], 1))
 
 
-def _duplicates(ds: Dataset, rel: float = 1e-3) -> float:
-    X = _input_matrix(ds.cases)
-    scale = float(np.sqrt((X ** 2).sum(1)).mean())
-    d = _nn(X)
-    return float(np.mean(d < rel * scale))
-
-
-def _leakage(ds: Dataset, rel: float = 1e-3) -> float:
+def _leakage(ds: Dataset) -> float:
+    from pinneapple_data.audit import leakage
     if not ds.train or not ds.test:
         return 0.0
-    Xtr, Xte = _input_matrix(ds.train), _input_matrix(ds.test)
-    scale = float(np.sqrt((Xtr ** 2).sum(1)).mean())
-    return float(np.mean(_nn(Xte, Xtr) < rel * scale))
+    return float(leakage(_input_matrix(ds.train), _input_matrix(ds.test))["fraction"])
 
 
 def dataset_checks(problem: BenchmarkProblem, case_checks: list | None = None) -> list:
-    """Checks of a whole dataset: near-duplicate inputs (within 0.1 % of the typical input norm), test inputs that
-    are near-copies of training inputs, and the worst per-sample value of every case check (default: the whole
+    """Checks of a whole dataset: near-duplicate inputs and test inputs that copy training inputs (the detectors of
+    ``pinneapple_data.audit``), and the worst per-sample value of every case check (default: the whole
     ``check_library`` but the training envelope, which the data defines)."""
     out = [
         _check("duplicated or non-diverse samples", "data", lambda _u, ds: _duplicates(ds), 0.0,
-               "fraction of samples whose input is within 0.1 % of another sample's (input norm scale)"),
+               "fraction of samples with an exact or near copy (pinneapple_data.audit.near_duplicates)"),
         _check("train/test leakage", "data", lambda _u, ds: _leakage(ds), 0.0,
-               "fraction of test inputs within 0.1 % of a training input"),
+               "fraction of test inputs that copy a training input (pinneapple_data.audit.leakage)"),
     ]
     if case_checks is None:
         case_checks = [c for c in check_library(problem).values() if c.kind != "envelope"]
