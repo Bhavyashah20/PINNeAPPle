@@ -22,5 +22,12 @@
   "PC201",
   "PC301",
   "PC401"
+ ],
+ "length_scale/fno_0": [
+  "PC401"
+ ],
+ "length_scale/meshgraphnet_0": [
+  "PC301",
+  "PC401"
  ]
 }

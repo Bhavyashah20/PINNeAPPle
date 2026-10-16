@@ -102,7 +102,10 @@ def cmd_evaluate(args) -> None:
     regimes = load_regimes(args.n_shift)
     models = {m: GridFieldPredictor.load(OUT / "models" / m) for m in MODELS}
     preds = _predictions(models, regimes, args.recompute)
-    results: dict = {"envelope": envelope.to_dict(), "limits": dc.DEFAULT_TOLERANCES, "regimes": {}, "models": {}}
+    results: dict = {"envelope": envelope.to_dict(), "profiles": {k: {"use": p.use, "limits": dict(p.limits),
+                                                                       "reasons": dict(p.reasons)}
+                                                                   for k, p in dc.PROFILES.items()},
+                     "regimes": {}, "models": {}}
     calibrated = {}
     for m, model in models.items():
         a0 = regimes["in_distribution"]["a"][:8]
@@ -117,83 +120,141 @@ def cmd_evaluate(args) -> None:
         if r == "calibration":
             continue
         out = results["regimes"][r] = {"n": len(data["a"])}
-        out["reference_solution"] = {c.name: c.value for c in dc.darcy_checks(data["a"], data["u"], DARCY["f"])}
+        out["reference_solution"] = dc.profile_verdicts(data["a"], data["u"], DARCY["f"])
         for m in models:
             u = preds[(r, m)]
-            fixed = dc.darcy_checks(data["a"], u, DARCY["f"], reference=data["u"], envelope=envelope)
+            prof = dc.profile_verdicts(data["a"], u, DARCY["f"])
+            ref = dc.darcy_checks(data["a"], u, DARCY["f"], reference=data["u"], envelope=envelope)
             drift = dc.darcy_checks(data["a"], u, DARCY["f"], tolerances=calibrated[m], physics_kind="drift")
-            card = dc.trust_report(fixed + drift, model=m, kinds=("physics", "drift", "applicability"))
-            verdict = {k: dc.trust_report(fixed + drift, kinds=(k,)).decisao for k in ("physics", "drift",
-                                                                                       "applicability")}
-            err = fixed[[c.kind for c in fixed].index("reference")].values
-            out[m] = {"decision": card.decisao, "verdicts": verdict, "rel_l2_median": float(np.median(err)),
+            verdict = {**{f"physics:{k}": v["decision"] for k, v in prof.items()},
+                       "drift": dc.trust_report(drift).decisao,
+                       "inputs": dc.trust_report(ref, kinds=("applicability",)).decisao}
+            err = ref[[c.kind for c in ref].index("reference")].values
+            out[m] = {"verdicts": verdict, "profiles": prof, "rel_l2_median": float(np.median(err)),
                       "rel_l2_p90": float(np.quantile(err, 0.9)),
-                      "checks": [c.to_dict() for c in fixed + drift], "trust_card": card.to_dict()}
-            print(f"[{r:15s}] {LABEL[m]:12s} rel L2 median {out[m]['rel_l2_median']:.4f}  decision {card.decisao:8s} "
-                  + "  ".join(f"{k} {v}" for k, v in verdict.items()))
-            for c in fixed + drift:
-                print(f"      {'PASS' if c.passed else 'FAIL'}  [{c.kind}] {c.name}: p90 {c.value:.4g} "
-                      f"(limit {c.limit:.4g}), {100 * c.failing_fraction:.0f}% of samples fail")
+                      "checks": [c.to_dict() for c in ref + drift]}
+            print(f"[{r:15s}] {LABEL[m]:12s} rel L2 median {out[m]['rel_l2_median']:.4f}  "
+                  + "  ".join(f"{k} {v['decision']} ({v['ratio']:.2f}x, worst {v['worst']})" for k, v in prof.items())
+                  + f"  drift {verdict['drift']}  inputs {verdict['inputs']}")
+    exported = _export_for_check(regimes, preds, calibrated, envelope)
+    results["exported"] = exported
     (OUT / "results.json").write_text(json.dumps(results, indent=1, default=float))
-    _export_for_check(regimes, preds, calibrated)
-    _figures(regimes, preds, results)
+    _figures(regimes, preds, results, exported)
 
 
-def _export_for_check(regimes, preds, calibrated) -> None:
-    """Two predictions per model and regime as grid results for `pinneapple check`, and its configuration: the
-    tolerances of each target are its model's validated limits (``calibrate_tolerances``), the bounds of ``a`` the
-    training values, so a prediction fails when the model or its input leaves the validated range."""
-    keys = {"energy_bound": "darcy-energy", "flux": "darcy-flux", "bc": "darcy-bc", "positivity": "darcy-positivity"}
-    lines = ["# `pinneapple check` on predictions of the two PhysicsNeMo models (written by ../run.py evaluate).",
-             "# One predicted field u per file, for one coefficient a on the 128 x 128 cell centres of the unit square.",
-             "# physics = \"darcy\": -div(a grad u) = 1, u = 0 on the boundary, checked with the reference solver's",
-             "# finite volumes. tolerances: the model's own 99th percentiles on held-out in-distribution inputs (no",
-             "# labels); bounds on a: the values seen in training. With the default tolerances every prediction of",
-             "# both models fails PC101 and PC301 (see docs/guides/physicsnemo_trust.md).", ""]
+def _exported_samples(regimes, envelope) -> dict[str, list[int]]:
+    """Two samples per regime: the first two of the in-distribution and contrast sets; for the length-scale set the
+    first one outside the training envelope of a, then the first one inside it."""
+    out = {}
+    for r, data in regimes.items():
+        if r == "calibration":
+            continue
+        if r == "length_scale":
+            inside = envelope.contains(data["a"])
+            out[r] = [int(np.flatnonzero(~inside)[0]), int(np.flatnonzero(inside)[0])]
+        else:
+            out[r] = [0, 1]
+    return out
+
+
+def _export_for_check(regimes, preds, calibrated, envelope) -> dict:
+    """The exported predictions as grid results for `pinneapple check`, and its configuration: per target, the
+    tolerances are its model's validated limits (``calibrate_tolerances``) and the envelope of ``a`` is the
+    training envelope. Returns, per exported file, the verdict of ``sample_checks`` with the configuration as
+    written (what the CI computes)."""
+    try:
+        import tomllib
+    except ModuleNotFoundError:                           # Python 3.10
+        import tomli as tomllib
+    idx = _exported_samples(regimes, envelope)
+    head = ["# `pinneapple check` on predictions of the two PhysicsNeMo models (written by ../run.py evaluate).",
+            "# One predicted field u per file, for one coefficient a on the 128 x 128 cell centres of the unit square.",
+            "# physics = \"darcy\": -div(a grad u) = 1, u = 0 on the boundary, checked with the reference solver's",
+            "# finite volumes. tolerances: the model's own 99th percentiles on held-out in-distribution inputs (no",
+            "# labels); bounds and envelope of a: the training coefficients. Exported samples: the first two of the",
+            "# test and contrast sets; for the length-scale set the first outside the envelope (_0), then the first",
+            "# inside it (_1).", ""]
+    entries, files = [], {}
     for (r, m), u in preds.items():
         if r == "calibration":
             continue
-        tol = ", ".join(f'{keys[k]} = {v:.4g}' for k, v in calibrated[m].items())
-        for i in range(2):
-            rel = f"predictions/{r}/{m}_{i}.npz"
+        for j, i in enumerate(idx[r]):
+            rel = f"predictions/{r}/{m}_{j}.npz"
             dc.save_darcy_npz(CHECK / rel, regimes[r]["a"][i], u[i])
-            lines += ["[[result]]", f'name = "{r}/{m}_{i}"', f'path = "{rel}"', 'physics = "darcy"',
-                      "parameters = { f = 1.0 }", 'units = { a = "1", u = "1" }', "bounds = { a = [3, 12] }",
-                      f"tolerances = {{ {tol} }}", ""]
-    (CHECK / "pinneapple-check.toml").write_text("\n".join(lines))
+            entries.append(dc.check_config_entry(f"{r}/{m}_{j}", rel, f=DARCY["f"], tolerances=calibrated[m],
+                                                 envelope=envelope))
+            files[f"{r}/{m}_{j}"] = (r, m, i, rel)
+    text = "\n".join(head) + "\n".join(entries)
+    (CHECK / "pinneapple-check.toml").write_text(text)
+    cfg = {t["name"]: t for t in tomllib.loads(text)["result"]}
+    out = {}
+    for name, (r, m, i, rel) in files.items():
+        t = cfg[name]
+        tol = {k: t["tolerances"][v] for k, v in dc.CHECK_TOLERANCE_KEYS.items()}
+        with np.load(CHECK / rel) as z:                      # the float32 file the CI reads
+            checks = dc.sample_checks(z["a"].astype(float), z["u"].astype(float), t["parameters"]["f"],
+                                      tolerances=tol, envelope=dc.CoefficientEnvelope.from_check_config(t["envelope"]))
+        out[name] = {"regime": r, "model": m, "sample": i, "verdict": dc.sample_verdict(checks),
+                     "failed": [c["key"] for c in checks if not c["passed"]]}
+    (CHECK / "sample_verdicts.json").write_text(json.dumps(out, indent=1) + "\n")
+    # the rules `pinneapple check` breaks on the predictions that must fail (checked by the darcy-trust CI job)
+    from pinneapple_check import run as check_run
+    rep = check_run([CHECK / "predictions"], config=CHECK / "pinneapple-check.toml")
+    got: dict[str, set[str]] = {}
+    for v in rep.violations:
+        got.setdefault(v.target, set()).add(v.rule)
+    (CHECK / "expected.json").write_text(json.dumps({k: sorted(v) for k, v in sorted(got.items())}, indent=1) + "\n")
+    return out
 
 
-def _figures(regimes, preds, results) -> None:
-    def rows(i):
+def _figures(regimes, preds, results, exported) -> None:
+    def badge(name, v):
+        return f"{name} (batch): {v['decision']} {v['ratio']:.1f}x limit"
+
+    def rows(j):
         out = []
         for r, data in regimes.items():
             if r == "calibration":
                 continue
+            ex = {m: exported[f"{r}/{m}_{j}"] for m in MODELS}
+            i = ex[next(iter(MODELS))]["sample"]
             panels = [Panel("reference solver", data["u"][i])]
             for m in MODELS:
                 res = results["regimes"][r][m]
                 err = np.linalg.norm(preds[(r, m)][i] - data["u"][i]) / np.linalg.norm(data["u"][i])
-                v = res["verdicts"]
                 panels.append(Panel(f"PhysicsNeMo {LABEL[m]}", preds[(r, m)][i], note=f"error {100 * err:.1f}%",
-                                    verdicts=[f"physics: {v['physics']}", f"vs validation: {v['drift']}",
-                                              f"inputs: {v['applicability']}"]))
+                                    verdicts=[badge("fields", res["profiles"]["fields"]),
+                                              badge("fluxes", res["profiles"]["fluxes"]),
+                                              f"vs validation (batch): {res['verdicts']['drift']}",
+                                              f"this sample, pinneapple check: {ex[m]['verdict']}"]))
             for m in MODELS:
                 panels.append(Panel(f"{LABEL[m]} PDE residual", dc.darcy_residual(preds[(r, m)][i], data["a"][i],
                                                                                     DARCY["f"]), kind="residual"))
             label = {"in_distribution": "test set (as trained)"}.get(r, SHIFTS.get(r, {}).get("label", r))
-            out.append(Row(label, panels))
+            out.append(Row(f"{label}, sample {i}", panels))
         return out
+    ind = results["regimes"]["in_distribution"]
+    passed = [(m, p) for m in MODELS for p in dc.PROFILES if ind[m]["profiles"][p]["decision"] == "APPROVED"]
+    closer = []
+    for p in dc.PROFILES:
+        rf, rm = ind["fno"]["profiles"][p]["ratio"], ind["meshgraphnet"]["profiles"][p]["ratio"]
+        best, k = ("FNO", rm / rf) if rf <= rm else ("MeshGraphNet", rf / rm)
+        closer.append(f"on {p} the {best} is {k:.1f}x closer")
+    summary = ("Test set: neither model meets the limits of either profile at this 60-min CPU budget; "
+               if not passed else "Test set: ") + "; ".join(closer) + "."
     title = "PhysicsNeMo trains, PINNeAPPle says when to trust: 2-D Darcy, -div(a grad u) = 1"
-    footer = ("Verdicts per model and regime, with no reference solution. physics: residual error bound, u = 0, flux "
-              "balance, u >= 0 against fixed limits.\nvs validation: the same checks against the model's own values "
-              "on held-out in-distribution inputs. inputs: a inside the training envelope. "
-              "Error vs the reference solver shown for reading only.")
+    footer = ("No reference solution used. (batch): over 100 samples of the regime. fields: certified L2 bound <= 5 %, "
+              "u = 0, u >= 0; fluxes: certified energy bound <= 10 %, flux balance <= 2 % (limits fixed a priori); "
+              "Nx limit = worst value / limit.\nvs validation: the same checks against the model's own values on "
+              "held-out test inputs. this sample: the exit of `pinneapple check` on this prediction (validated limits, "
+              "training envelope of a). Error vs the reference solver for reading only.\n" + summary)
     rng = (1e-2, 3e2)
     fig = trust_panels(rows(0), title=title, footer=footer, residual_range=rng)
     fig.savefig(OUT / "physicsnemo_darcy_trust.png", facecolor=fig.get_facecolor())
-    trust_panels_gif([rows(i) for i in range(6)], OUT / "physicsnemo_darcy_trust.gif", title=title, footer=footer,
-                     residual_range=rng, dpi=80)
-    print("figure:", OUT / "physicsnemo_darcy_trust.png", "GIF:", OUT / "physicsnemo_darcy_trust.gif")
+    trust_panels_gif([rows(j) for j in range(2)], OUT / "physicsnemo_darcy_trust.gif", title=title, footer=footer,
+                     residual_range=rng, dpi=80, duration_ms=2500)
+    print("figure:", OUT / "physicsnemo_darcy_trust.png", "GIF:", OUT / "physicsnemo_darcy_trust.gif",
+          summary)
 
 
 def cmd_datapipe(args) -> None:

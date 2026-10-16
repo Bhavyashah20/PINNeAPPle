@@ -20,7 +20,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
     turns the residual into a guaranteed bound on the energy-norm error (one fast sine transform). The module also
     checks the boundary condition, net boundary flux against the source, and positivity. `CoefficientEnvelope`
     checks applicability against the training coefficients. `calibrate_tolerances` derives limits from a model's own
-    predictions on held-out in-distribution inputs (a drift monitor that needs no labels). `darcy_checks`,
+    predictions on held-out in-distribution inputs (a drift monitor that needs no labels). `residual_l2_bound`
+    certifies the L2 error. `PROFILES` / `profile_verdicts` give use profiles (`fields`, `fluxes`) with a-priori
+    limits, their reasons, and a graded ratio value / limit. `sample_checks` checks one prediction exactly as
+    `pinneapple check` does, and `check_config_entry` writes its configuration. `darcy_checks`,
     `darcy_trust_report` and `trust_report` give the deploy decision for a batch.
   - `check_nodal_darcy_batch` (and `nodal_darcy_residual`, `solve_nodal_darcy`): the same kind of checks for
     training data stored at the nodes of a finite-difference grid, such as PhysicsNeMo's `Darcy2D` datapipe. It
@@ -29,8 +32,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
     grid graph, `grid_graph`) build PhysicsNeMo's own models as NumPy predictors (`GridFieldPredictor`, with
     save / load). `train_grid_operator` trains them under a `ComputeBudget`.
   - `pinneapple check`: `physics = "darcy"` for cell-centred grid results with fields `a` and `u` (PC301 error
-    bound, PC101 flux balance, PC201 `u = 0`, PC402 positivity), with tolerances `darcy-energy`, `darcy-flux`,
-    `darcy-bc` and `darcy-positivity`.
+    and L2 bounds, PC101 flux balance, PC201 `u = 0`, PC402 positivity). An `envelope` table checks the coefficient
+    against its training envelope under PC401. Tolerances: `darcy-energy`, `darcy-l2`, `darcy-flux`, `darcy-bc` and
+    `darcy-positivity`.
   - `operator_datasets.darcy_set` (Darcy pairs from shifted input distributions, solved like the zoo dataset) and
     `block_average`. `darcy_inputs` takes `tau`, `high` and `low`.
   - `pinneapple_tools.visualization.trust_panels`: field panels with a trust verdict per model, as PNG or GIF.

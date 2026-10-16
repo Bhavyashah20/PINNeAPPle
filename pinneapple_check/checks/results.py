@@ -304,8 +304,9 @@ DARCY_SOL = ("u", "p", "pressure", "h")
 
 def _darcy(ctx: Ctx, t: ResultTarget, fd: FieldData, params: dict[str, Any]) -> None:
     """-div(a grad u) = f, u = 0 on the boundary of the unit square, on the reference solver's cell-centred
-    finite-volume discretisation: certified error bound from the residual (PC301), net boundary flux against the
-    source (PC101), boundary condition (PC201), maximum principle (PC402)."""
+    finite-volume discretisation (``pinneapple_physics.darcy_checks.sample_checks``): certified energy-norm and L2
+    error bounds from the residual (PC301), net boundary flux against the source (PC101), boundary condition (PC201),
+    maximum principle (PC402) and, with ``envelope``, the coefficient against its training envelope (PC401)."""
     loc = ctx.default_location() if t.declared else ctx.file_location(fd.source)
     coef = next((n for n in DARCY_COEF if n in fd.fields), None)
     sol = next((n for n in (t.fields or []) if n in DARCY_SOL and n in fd.fields), None) or \
@@ -326,33 +327,34 @@ def _darcy(ctx: Ctx, t: ResultTarget, fd: FieldData, params: dict[str, Any]) -> 
     dc = _reuse.darcy_checks()
     f = float(params.get("f") if params.get("f") is not None else 1.0)
     eq = f"-div({coef} grad {sol}) = {fmt(f)}"
-    eb = float(dc.residual_error_bound(u, a, f))
-    tol = t.tol("darcy-energy")
-    ok = bool(np.isfinite(eb) and eb <= tol)
-    r = np.abs(dc.darcy_residual(u, a, f))
-    i = int(np.argmax(r))
-    ctx.emit("PC301", "darcy", ok, f"darcy residual ({eq}, finite volumes): certified energy-norm error bound "
-                                   f"{fmt(eb)} {'<=' if ok else '>'} {fmt(tol)}"
-             + ("" if ok else f"; largest residual at {_where(fd)(i)}"), loc, value=eb, threshold=tol)
-    b = dc.boundary_flux_balance(u, a, f)
-    check_balance(ctx, "PC101", "darcy flux through the boundary minus the source",
-                  {"net": float(b["outflow"] - b["source"]), "total": abs(float(b["source"]))},
-                  t.tol("darcy-flux"), loc, subject="darcy-flux")
-    scale = max(float(np.max(np.abs(u))), 1e-300)
-    bv = dc.boundary_values(u)
-    rms = float(np.sqrt(np.mean(bv ** 2))) / scale
-    tol = t.tol("darcy-bc")
-    ok = rms <= tol
-    side = ("x=min", "x=max", "y=min", "y=max")[int(np.argmax(np.sqrt(np.mean(bv ** 2, axis=1))))]
-    ctx.emit("PC201", f"{sol}@boundary", ok, f"{sol} = 0 on the boundary: RMS of the extrapolated boundary value "
-                                             f"{fmt(rms)} of max |{sol}| {'<=' if ok else '>'} {fmt(tol)}"
-             + ("" if ok else f" (worst side {side})"), loc, value=rms, threshold=tol)
-    if f >= 0:
-        neg = max(-float(np.min(u)), 0.0) / scale
-        tol = t.tol("darcy-positivity")
-        ok = neg <= tol
-        ctx.emit("PC402", sol, ok, f"{sol} >= 0 (maximum principle, f >= 0): most negative value {fmt(neg)} of "
-                                   f"max |{sol}| {'<=' if ok else '>'} {fmt(tol)}", loc, value=neg, threshold=tol)
+    tol_key = {"energy_bound": "darcy-energy", "l2_bound": "darcy-l2", "flux": "darcy-flux", "bc": "darcy-bc",
+               "positivity": "darcy-positivity"}
+    env = dc.CoefficientEnvelope.from_check_config(t.envelope) if t.envelope else None
+    checks = dc.sample_checks(a, u, f, tolerances={k: t.tol(v) for k, v in tol_key.items()}, envelope=env)
+    i = int(np.argmax(np.abs(dc.darcy_residual(u, a, f))))
+    for c in checks:
+        k, v, lim, ok = c["key"], c["value"], c["limit"], c["passed"]
+        rel = "<=" if ok else ">"
+        if k in ("energy_bound", "l2_bound"):
+            what = "energy-norm" if k == "energy_bound" else "L2"
+            ctx.emit("PC301", "darcy" if k == "energy_bound" else "darcy-l2", ok,
+                     f"darcy residual ({eq}, finite volumes): certified {what} error bound {fmt(v)} {rel} {fmt(lim)}"
+                     + ("" if ok else f"; largest residual at {_where(fd)(i)}"), loc, value=v, threshold=lim)
+        elif k == "flux":
+            ctx.emit("PC101", "darcy-flux", ok, f"darcy flux through the boundary against the source integral: "
+                     f"imbalance {fmt(v)} {rel} {fmt(lim)}", loc, value=v, threshold=lim)
+        elif k == "bc":
+            ctx.emit("PC201", f"{sol}@boundary", ok, f"{sol} = 0 on the boundary: RMS of the extrapolated boundary "
+                     f"value {fmt(v)} of max |{sol}| {rel} {fmt(lim)}", loc, value=v, threshold=lim)
+        elif k == "positivity":
+            ctx.emit("PC402", sol, ok, f"{sol} >= 0 (maximum principle, f >= 0): most negative value {fmt(v)} of "
+                     f"max |{sol}| {rel} {fmt(lim)}", loc, value=v, threshold=lim)
+        else:                                                    # coefficient against the training envelope
+            rng = f"[{fmt(lim[0])}, {fmt(lim[1])}]" if isinstance(lim, list) else \
+                (f">= {fmt(lim)}" if k == "a_min" else f"<= {fmt(lim)}")
+            ctx.emit("PC401", f"{coef}-envelope:{k.replace('_', '-')}", ok,
+                     f"{coef}: {k.replace('_', ' ')} {fmt(v)} {'inside' if ok else 'outside'} the training envelope "
+                     f"{rng}", loc, value=v, threshold=lim)
 
 
 # ---------------------------------------------------------------------------------------------- points

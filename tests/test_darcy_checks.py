@@ -165,3 +165,26 @@ def test_calibrated_tolerances_flag_drift_without_labels(solved):
     rep = dc.trust_report(worse + dc.darcy_checks(a, u), model="m")
     assert rep.decisao == "REJECT" and any("[drift]" in c.name for c in rep.checks)
     assert dc.trust_report(dc.darcy_checks(a, u), kinds=("physics",)).decisao == "APPROVED"
+
+
+def test_l2_bound_and_use_profiles(solved):
+    a, u = solved
+    rng = np.random.default_rng(4)
+    for v in (u * (1 + 0.02 * rng.standard_normal(u.shape)), 0.95 * u):
+        true = np.linalg.norm((v - u).reshape(len(u), -1), axis=1) / np.linalg.norm(v.reshape(len(u), -1), axis=1)
+        assert (dc.residual_l2_bound(v, a) >= true * (1 - 1e-9)).all()      # guaranteed
+    assert set(dc.PROFILES) == {"fields", "fluxes"}
+    for p in dc.PROFILES.values():
+        assert set(p.limits) == set(p.reasons) and all(p.reasons.values())
+        assert all(p.limits[k] == dc.DEFAULT_TOLERANCES[k] for k in p.limits)   # the library's fixed tolerances
+    ok = dc.profile_verdicts(a, u)
+    assert all(v["decision"] == "APPROVED" and v["ratio"] < 1 for v in ok.values())
+    bad = dc.profile_verdicts(a, 1.1 * u)
+    assert bad["fluxes"]["decision"] == "REJECT" and bad["fluxes"]["worst"] == "flux"
+    assert bad["fluxes"]["metrics"]["flux"]["ratio"] == pytest.approx(0.1 / 0.02, rel=1e-6)
+    checks = dc.sample_checks(a[0], u[0])
+    assert [c["key"] for c in checks] == ["energy_bound", "l2_bound", "flux", "bc", "positivity"]
+    assert dc.sample_verdict(checks) == "PASS" and dc.sample_verdict(dc.sample_checks(a[0], 1.1 * u[0])) == "FAIL"
+    env = dc.CoefficientEnvelope.fit(a)
+    assert dc.CoefficientEnvelope.from_check_config(env.to_check_config()) == env
+    assert "envelope = {" in dc.check_config_entry("x", "x.npz", envelope=env, tolerances={"flux": 0.1})

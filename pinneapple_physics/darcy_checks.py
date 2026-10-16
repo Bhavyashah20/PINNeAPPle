@@ -23,6 +23,15 @@ of them to round-off; a surrogate's prediction passes them only as far as it res
     ``Darcy2D`` datapipe layout), before anyone trains on the data: residual of the documented equation in that
     layout, boundary values, a control-volume flux balance, positivity, and the diversity measures of
     ``pinneapple_data.audit``. For cell-centred data in the layout of ``darcy_2d_li2021``, use ``audit_dataset``.
+``residual_l2_bound``
+    the same certificate for the error of the field itself (discrete Poincare inequality).
+``PROFILES`` / ``profile_verdicts``
+    use profiles, set a priori with the reason for each limit: ``fields`` (maps of ``u``: L2 bound, ``u = 0``,
+    positivity) and ``fluxes`` (flow rates and wall gradients: energy bound, flux balance); per profile the
+    decision and the graded ratio value / limit.
+``sample_checks`` / ``sample_verdict``
+    the checks of one prediction exactly as ``pinneapple check`` runs them, so a verdict shown next to a
+    prediction is the CI's verdict.
 ``physics_metrics`` / ``calibrate_tolerances``
     the per-sample values of the physics checks, and limits calibrated on a model's own predictions for held-out
     in-distribution inputs (no labels): a drift monitor that flags inputs where the model is less physical than
@@ -46,16 +55,19 @@ from scipy import fft as _fft
 __all__ = [
     "DEFAULT_TOLERANCES", "darcy_operator_apply", "darcy_residual", "residual_error_bound", "boundary_flux_balance",
     "boundary_values", "coefficient_stats", "CoefficientEnvelope", "DarcyCheck", "darcy_checks",
-    "darcy_trust_report", "save_darcy_npz", "nodal_darcy_residual", "nodal_boundary_values", "nodal_flux_balance",
+    "darcy_trust_report", "residual_l2_bound", "UseProfile", "PROFILES", "profile_verdicts", "SAMPLE_CHECKS",
+    "sample_checks", "sample_verdict", "CHECK_TOLERANCE_KEYS", "check_config_entry", "save_darcy_npz", "nodal_darcy_residual", "nodal_boundary_values", "nodal_flux_balance",
     "solve_nodal_darcy", "check_nodal_darcy_batch", "physics_metrics", "calibrate_tolerances", "trust_report",
 ]
 
 #: Default limits. ``energy_bound``: certified relative energy-norm error; ``bc``: RMS boundary value over max |u|
 #: (the solver's own solution reaches 0.004 at 64 x 64 and 0.002 at 128 x 128: the extrapolation is only first
 #: order where the coefficient jumps next to the boundary);
-#: ``flux``: relative net flux imbalance; ``positivity``: most negative value over max |u|; ``reference``: relative L2.
+#: ``flux``: relative net flux imbalance; ``positivity``: most negative value over max |u|; ``reference``: relative L2;
+#: ``l2_bound``: certified relative L2 error, at the same 5 % as ``reference``.
 DEFAULT_TOLERANCES: dict[str, float] = {
     "energy_bound": 0.10,
+    "l2_bound": 0.05,
     "bc": 0.02,
     "flux": 0.02,
     "positivity": 0.01,
@@ -147,6 +159,26 @@ def residual_error_bound(u: np.ndarray, a: np.ndarray, f: float | np.ndarray = 1
     return out[0] if single else out
 
 
+def residual_l2_bound(u: np.ndarray, a: np.ndarray, f: float | np.ndarray = 1.0) -> np.ndarray:
+    """Certified relative L2 error of ``u`` (to the discrete solution), from its residual alone.
+
+    ``||u_h - u||_2 <= ||r||_{L^-1} / (min a * sqrt(lambda_min(L))) / ||u||_2``: the energy bound of
+    :func:`residual_error_bound` with the discrete Poincare inequality ``v^T A v >= min(a) lambda_min(L) ||v||^2``,
+    ``lambda_min(L) = (8 / h^2) sin^2(pi / (2 n))`` (about ``2 pi^2``). It bounds the error of the field itself, the
+    quantity a map of ``u`` is judged by, where the energy bound bounds the error of its gradient (the flux).
+    """
+    a, u, single = _pair(a, u)
+    n = u.shape[-1]
+    h2 = 1.0 / n ** 2
+    r = darcy_residual(u, a, f)
+    dual = np.sqrt(np.maximum(h2 * np.sum(r * _laplace_inverse(r), axis=(-2, -1)), 0.0))
+    lam = 8.0 * n ** 2 * np.sin(np.pi / (2 * n)) ** 2
+    amin = a.reshape(a.shape[0], -1).min(axis=1)
+    norm = np.sqrt(h2 * np.sum(u * u, axis=(-2, -1)))
+    out = dual / (amin * np.sqrt(lam)) / np.maximum(norm, 1e-300)
+    return out[0] if single else out
+
+
 def boundary_flux_balance(u: np.ndarray, a: np.ndarray, f: float | np.ndarray = 1.0) -> dict[str, np.ndarray]:
     """Net outward flux through the boundary against the integral of the source (per sample).
 
@@ -234,6 +266,21 @@ class CoefficientEnvelope:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    def to_check_config(self) -> dict[str, Any]:
+        """The ``envelope`` table of a ``pinneapple check`` result (``physics = "darcy"``)."""
+        return {"a-min": self.a_min, "a-max": self.a_max,
+                **{k.replace("_", "-"): [float(lo), float(hi)] for k, (lo, hi) in self.ranges.items()}}
+
+    @classmethod
+    def from_check_config(cls, d: Mapping[str, Any]) -> CoefficientEnvelope:
+        """Inverse of :meth:`to_check_config`."""
+        d = {str(k).replace("-", "_"): v for k, v in d.items()}
+        ranges = {k: (float(v[0]), float(v[1])) for k, v in d.items() if k not in ("a_min", "a_max")}
+        bad = set(ranges) - {"contrast", "high_fraction", "interface_density"}
+        if bad:
+            raise ValueError(f"unknown envelope key(s) {sorted(bad)}")
+        return cls(float(d.get("a_min", -np.inf)), float(d.get("a_max", np.inf)), ranges)
+
     @classmethod
     def from_dict(cls, d: Mapping[str, Any]) -> CoefficientEnvelope:
         return cls(float(d["a_min"]), float(d["a_max"]), {k: tuple(v) for k, v in d.get("ranges", {}).items()},
@@ -297,6 +344,9 @@ def darcy_checks(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1.0, *,
     add("PDE residual (certified energy-error bound)", physics_kind, pm["energy_bound"], tol["energy_bound"],
         "||r||_{L^-1} / sqrt(min a) / ||u||_A from the finite-volume residual f + div(a grad u); bounds the "
         "relative energy-norm distance to the discrete solution")
+    add("PDE residual (certified L2 error bound)", physics_kind, pm["l2_bound"], tol["l2_bound"],
+        "the energy bound with the discrete Poincare inequality: bounds the relative L2 distance of u to the "
+        "discrete solution")
     add("boundary condition u = 0", physics_kind, pm["bc"], tol["bc"], "RMS of u on the boundary (linear "
         "extrapolation from the first two cells) over max |u|")
     add("flux balance (net boundary flux = source)", physics_kind, pm["flux"], tol["flux"],
@@ -326,11 +376,12 @@ def darcy_checks(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1.0, *,
 
 
 def physics_metrics(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1.0) -> dict[str, np.ndarray]:
-    """Per-sample values of the four physics checks, keyed like :data:`DEFAULT_TOLERANCES` (``energy_bound``,
-    ``bc``, ``flux``, ``positivity``); no reference solution needed."""
+    """Per-sample values of the physics checks, keyed like :data:`DEFAULT_TOLERANCES` (``energy_bound``,
+    ``l2_bound``, ``bc``, ``flux``, ``positivity``); no reference solution needed."""
     a, u, _ = _pair(a, u)
     scale = np.maximum(np.max(np.abs(u), axis=(-2, -1)), 1e-300)
     return {"energy_bound": residual_error_bound(u, a, f),
+            "l2_bound": residual_l2_bound(u, a, f),
             "bc": np.sqrt(np.mean(boundary_values(u) ** 2, axis=(-2, -1))) / scale,
             "flux": boundary_flux_balance(u, a, f)["imbalance"],
             "positivity": np.maximum(-np.min(u, axis=(-2, -1)), 0.0) / scale}
@@ -350,6 +401,93 @@ def calibrate_tolerances(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1
     m = physics_metrics(a, u, f)
     fl = {k: 1e-12 for k in m} | dict(floor or {})
     return {k: max(float(np.quantile(v, quantile)), fl[k]) for k, v in m.items()}
+
+
+@dataclass(frozen=True)
+class UseProfile:
+    """What a prediction is used for, and the physics limits that use needs. ``limits``: metric (a key of
+    :func:`physics_metrics`) -> limit; ``reasons``: why each limit, written before any model is checked."""
+    name: str
+    use: str
+    limits: Mapping[str, float]
+    reasons: Mapping[str, str]
+
+
+#: Use profiles. The limits are the library's fixed engineering tolerances (:data:`DEFAULT_TOLERANCES`), grouped by
+#: the quantity a use depends on; none is chosen from a model's values.
+PROFILES: dict[str, UseProfile] = {
+    "fields": UseProfile(
+        "fields", "maps and point values of u (pressure / head)",
+        {"l2_bound": 0.05, "bc": 0.02, "positivity": 0.01},
+        {"l2_bound": "5 % relative L2, the tolerance the library applies to a reference comparison; here certified "
+                     "from the residual, without the reference",
+         "bc": "u = 0 to 2 % of max |u| (RMS), the Dirichlet tolerance of pp.trust_card; the reference solver "
+               "reaches 0.2 % at 128 x 128",
+         "positivity": "maximum principle (f >= 0): no value below -1 % of max |u|, the max-principle tolerance of "
+                       "pp.trust_card"}),
+    "fluxes": UseProfile(
+        "fluxes", "flow rates through the boundary and wall gradients (Darcy velocity -a grad u)",
+        {"energy_bound": 0.10, "flux": 0.02},
+        {"energy_bound": "10 % error of the flux field a grad u in the energy norm, certified from the residual; "
+                         "the dataset's 512^2 -> 128^2 averaging alone leaves 2 to 9 %",
+         "flux": "net outflow equal to the source integral within 2 %; the reference solver reaches 1 %"}),
+}
+
+
+def profile_verdicts(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1.0, *,
+                     profiles: Mapping[str, UseProfile] | None = None, quantile: float = 0.9) -> dict[str, Any]:
+    """Per use profile, over a batch: each metric's ``quantile`` value, its limit and ``ratio = value / limit``,
+    the profile's ``ratio`` (the worst one, 1 = at the limit) and its decision (APPROVED when every metric is
+    within its limit, else REJECT)."""
+    pm = physics_metrics(a, u, f)
+    out: dict[str, Any] = {}
+    for name, prof in (profiles or PROFILES).items():
+        rows = {}
+        for k, lim in prof.limits.items():
+            v = float(np.quantile(pm[k], quantile))
+            rows[k] = {"value": v, "limit": lim, "ratio": v / lim, "failing_fraction": float(np.mean(pm[k] > lim))}
+        worst = max(rows, key=lambda k: rows[k]["ratio"])
+        out[name] = {"decision": "APPROVED" if rows[worst]["ratio"] <= 1 else "REJECT", "ratio": rows[worst]["ratio"],
+                     "worst": worst, "metrics": rows, "use": prof.use}
+    return out
+
+
+#: Names of the per-sample checks of :func:`sample_checks` (also the subjects ``pinneapple check`` reports).
+SAMPLE_CHECKS = ("energy_bound", "l2_bound", "flux", "bc", "positivity", "a_min", "a_max", "contrast",
+                 "high_fraction", "interface_density")
+
+
+def sample_checks(a: np.ndarray, u: np.ndarray, f: float = 1.0, *, tolerances: Mapping[str, float] | None = None,
+                  envelope: CoefficientEnvelope | None = None) -> list[dict[str, Any]]:
+    """The checks of one prediction (``(n, n)``), each ``{"key", "value", "limit", "passed"}``, as ``pinneapple
+    check`` runs them (``physics = "darcy"``): the physics metrics against ``tolerances`` (default
+    :data:`DEFAULT_TOLERANCES`) and, with ``envelope``, the coefficient against the training envelope (values of
+    ``a``, contrast, high fraction, interface density). A figure that shows a verdict next to a prediction uses this
+    function, so it says what the CI says."""
+    tol = {**DEFAULT_TOLERANCES, **(tolerances or {})}
+    pm = physics_metrics(a, u, f)
+    out = []
+    for k in ("energy_bound", "l2_bound", "flux", "bc", "positivity"):
+        if k == "positivity" and float(np.min(np.asarray(f, dtype=np.float64))) < 0:
+            continue
+        v = float(np.ravel(pm[k])[0])
+        out.append({"key": k, "value": v, "limit": tol[k], "passed": bool(np.isfinite(v) and v <= tol[k])})
+    if envelope is not None:
+        st = {k: float(v[0]) for k, v in coefficient_stats(a).items()}
+        tol_a = envelope.rel_tol * max(abs(envelope.a_max), 1.0)
+        out.append({"key": "a_min", "value": st["a_min"], "limit": envelope.a_min,
+                    "passed": st["a_min"] >= envelope.a_min - tol_a})
+        out.append({"key": "a_max", "value": st["a_max"], "limit": envelope.a_max,
+                    "passed": st["a_max"] <= envelope.a_max + tol_a})
+        for k, (lo, hi) in envelope.ranges.items():
+            out.append({"key": k, "value": st[k], "limit": [lo, hi],
+                        "passed": lo - 1e-12 <= st[k] <= hi + 1e-12})
+    return out
+
+
+def sample_verdict(checks: Sequence[Mapping[str, Any]]) -> str:
+    """PASS when every check of :func:`sample_checks` passes, else FAIL (the exit status of ``pinneapple check``)."""
+    return "PASS" if all(c["passed"] for c in checks) else "FAIL"
 
 
 def trust_report(checks: Sequence[DarcyCheck], *, model: str = "",
@@ -392,6 +530,30 @@ def save_darcy_npz(path, a: np.ndarray, u: np.ndarray, **extra: np.ndarray):
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(path, x=c, y=c, a=a.astype(np.float32), u=u.astype(np.float32), **extra)
     return path
+
+
+#: Tolerance names of ``pinneapple check`` for the metrics of :func:`physics_metrics`.
+CHECK_TOLERANCE_KEYS = {"energy_bound": "darcy-energy", "l2_bound": "darcy-l2", "flux": "darcy-flux",
+                        "bc": "darcy-bc", "positivity": "darcy-positivity"}
+
+
+def check_config_entry(name: str, path: str, *, f: float = 1.0, tolerances: Mapping[str, float] | None = None,
+                       envelope: CoefficientEnvelope | None = None, coefficient: str = "a",
+                       solution: str = "u") -> str:
+    """One ``[[result]]`` table of a ``pinneapple-check.toml`` for a Darcy prediction saved with
+    :func:`save_darcy_npz`: ``physics = "darcy"``, the source, the tolerances (metric keys of
+    :func:`physics_metrics`) and the coefficient envelope (bounds of ``a`` and the envelope statistics)."""
+    lines = ["[[result]]", f'name = "{name}"', f'path = "{path}"', 'physics = "darcy"', f"parameters = {{ f = {f:g} }}",
+             f'units = {{ {coefficient} = "1", {solution} = "1" }}']
+    if envelope is not None:
+        lines.append(f"bounds = {{ {coefficient} = [{envelope.a_min:g}, {envelope.a_max:g}] }}")
+        env = ", ".join(f"{k} = {v!r}" if not isinstance(v, list) else f"{k} = [{v[0]:.6g}, {v[1]:.6g}]"
+                        for k, v in envelope.to_check_config().items())
+        lines.append(f"envelope = {{ {env} }}")
+    if tolerances:
+        lines.append("tolerances = { " + ", ".join(f"{CHECK_TOLERANCE_KEYS[k]} = {v:.6g}"
+                                                    for k, v in tolerances.items()) + " }")
+    return "\n".join(lines) + "\n"
 
 
 # --------------------------------------------------------------------------------------------- node-based data

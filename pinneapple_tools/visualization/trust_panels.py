@@ -4,7 +4,7 @@ use, and where does it break the physics".
 Each row is a case (a regime, a sample); each panel is a field on a 2-D grid. ``kind="field"`` panels of a row share
 one sequential colour scale (blue, light to dark), so the reference and the predictions are directly comparable;
 ``kind="residual"`` panels show a magnitude on a logarithmic orange scale (the PDE residual, an error). A panel may
-carry verdict badges (``verdict``, ``verdicts``), coloured by the status word they end with (APPROVED, REVIEW,
+carry verdict badges (``verdict``, ``verdicts``), coloured by the first status word in them (APPROVED, REVIEW,
 REJECT, PASS, OK, FAIL) and always shown with their text, so the colour never carries the meaning alone.
 
 ``trust_panels(rows)`` returns a matplotlib figure; ``trust_panels_gif(frames, path)`` writes one figure per frame
@@ -57,8 +57,8 @@ class Row:
 
 
 def _badge(ax, text: str, k: int = 0) -> None:
-    """Badge ``k`` under the panel, coloured by the status word it ends with (``"physics: REJECT"``)."""
-    key = text.replace(":", " ").split()[-1].upper()
+    """Badge ``k`` under the panel, coloured by the first status word in it (``"fields: REJECT 9.5x limit"``)."""
+    key = next((w for w in text.replace(":", " ").upper().split() if w in STATUS_COLOURS), "")
     col = STATUS_COLOURS.get(key, MUTED)
     ink = INK if key in ("REVIEW",) else "white"
     ax.text(0.5, -0.04 - 0.13 * k, text, transform=ax.transAxes, ha="center", va="top", fontsize=8.5,

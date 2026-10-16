@@ -57,3 +57,29 @@ def test_darcy_cli_exit_code_and_no_torch(cases):
     bad = subprocess.run([sys.executable, "-m", "pinneapple_check", "--config", str(cases / "pinneapple-check.toml")],
                          cwd=cases, capture_output=True, text=True)
     assert bad.returncode == 1 and "PC301" in bad.stdout
+
+
+def test_darcy_envelope_in_pinneapple_check(tmp_path):
+    from pinneapple_physics import darcy_checks as dc
+    train = ob.threshold_coefficient(ob.periodic_grf(200, (N, N), alpha=2.0, tau=3.0, seed=9))
+    env = dc.CoefficientEnvelope.fit(train)
+    short = ob.threshold_coefficient(ob.periodic_grf(1, (N, N), alpha=2.0, tau=30.0, seed=5))[0]
+    inside = train[np.flatnonzero(env.contains(train))[0]]
+    toml = ""
+    for k, a in {"short": short, "inside": inside}.items():
+        dc.save_darcy_npz(tmp_path / f"{k}.npz", a, ob.darcy_2d(a))
+        toml += dc.check_config_entry(k, f"{k}.npz", envelope=env)
+    (tmp_path / "pinneapple-check.toml").write_text(toml)
+    rep = run(config=tmp_path / "pinneapple-check.toml")
+    bad = {(v.target, v.subject) for v in rep.violations}
+    assert ("short", "a-envelope:interface-density") in bad and not any(t == "inside" for t, _ in bad)
+    assert {o.subject for o in rep.outcomes if o.target == "inside" and o.rule == "PC401"} >= {
+        "a-envelope:contrast", "a-envelope:interface-density", "a-envelope:high-fraction"}
+
+
+def test_darcy_envelope_config_errors(tmp_path):
+    from pinneapple_check import ConfigError, load_config
+    (tmp_path / "pinneapple-check.toml").write_text(
+        '[[result]]\npath = "a.npz"\nphysics = "darcy"\nenvelope = { length = [1, 2] }\n')
+    with pytest.raises(ConfigError, match="envelope"):
+        load_config(tmp_path / "pinneapple-check.toml")

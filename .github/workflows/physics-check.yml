@@ -62,8 +62,9 @@ jobs:
           PY
 
   # PhysicsNeMo FNO / MeshGraphNet predictions on 2-D Darcy (examples/vs_physicsnemo/07_...): inside the validated
-  # range the action passes; for a coefficient contrast the models never saw it must fail with exactly the rules in
-  # expected.json (the job summary shows the red trust cards; the job asserts them instead of failing).
+  # range (test set; length-scale samples whose coefficient is inside the training envelope) the action passes; for a
+  # coefficient contrast the models never saw, or a coefficient outside the envelope, it must fail with exactly the
+  # rules in expected.json (the job summary shows the red trust cards; the job asserts them instead of failing).
   darcy-trust:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -75,16 +76,20 @@ jobs:
         uses: ./
         with:
           config: ${{ env.CHECK }}/pinneapple-check.toml
-          paths: ${{ env.CHECK }}/predictions/in_distribution ${{ env.CHECK }}/predictions/length_scale
+          paths: >-
+            ${{ env.CHECK }}/predictions/in_distribution ${{ env.CHECK }}/predictions/length_scale/fno_1.npz
+            ${{ env.CHECK }}/predictions/length_scale/meshgraphnet_1.npz
           fail-on: error
           annotations: "false"
           sarif: "false"
-      - name: pinneapple check, coefficient contrast outside the training range
+      - name: pinneapple check, coefficients outside the training range or envelope
         id: shifted
         uses: ./
         with:
           config: ${{ env.CHECK }}/pinneapple-check.toml
-          paths: ${{ env.CHECK }}/predictions/contrast
+          paths: >-
+            ${{ env.CHECK }}/predictions/contrast ${{ env.CHECK }}/predictions/length_scale/fno_0.npz
+            ${{ env.CHECK }}/predictions/length_scale/meshgraphnet_0.npz
           fail-on: never
           annotations: "false"
           sarif: "false"
@@ -103,7 +108,7 @@ jobs:
               got.setdefault(v["target"], set()).add(v["rule"])
           got = {k: sorted(v) for k, v in got.items()}
           assert got == exp, json.dumps({"expected": exp, "got": got}, indent=1)
-          print(f"{sum(map(len, exp.values()))} expected violations on {len(exp)} shifted predictions")
+          print(f"{sum(map(len, exp.values()))} expected violations on {len(exp)} predictions out of range")
           PY
 
   unit-tests:
@@ -121,4 +126,4 @@ jobs:
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -e ".[check]" pytest
       - name: Tests
-        run: pytest tests/test_physics_check.py tests/test_physics_check_darcy.py -q
+        run: pytest tests/test_physics_check.py tests/test_physics_check_darcy.py tests/test_physicsnemo_darcy_example.py -q
