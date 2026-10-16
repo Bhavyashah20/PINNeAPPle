@@ -20,7 +20,8 @@ MODELS = ["airfoil_cst_rans_mlp", "heatsink_forced_mlp", "heatsink_natural_mlp",
 BUNDLED_DATASETS = ["airfoil_rans_cst_re4e6", "heatsink_forced_convection", "heatsink_natural_convection",
                     "rover_contact_grc1_viper", "single_wheel_tests"]
 HUB_ONLY_DATASETS = ["burgers_1d_li2021", "darcy_2d_li2021"]       # downloaded on first use, never bundled
-DATASETS = BUNDLED_DATASETS + HUB_ONLY_DATASETS
+BLACKHOLE_DATASETS = ["blackhole_riaf_density_256"]                 # Hub-only too, one file per split
+DATASETS = BUNDLED_DATASETS + HUB_ONLY_DATASETS + BLACKHOLE_DATASETS
 
 
 @pytest.fixture
@@ -46,7 +47,7 @@ def test_manifest_is_small_hashed_and_versioned():
             assert e["hf_repo"].startswith("PINNeAPPle-Labs/") and e["revision"] == f"v{e['version']}"
             for fn, spec in e["files"].items():
                 assert len(spec["sha256"]) == 64 and spec["size"] > 0, (name, fn)
-                if name in HUB_ONLY_DATASETS:                          # downloaded on first use, never bundled
+                if name in HUB_ONLY_DATASETS + BLACKHOLE_DATASETS:     # downloaded on first use, never bundled
                     assert "bundled" not in spec, (name, fn)
                     continue
                 p = art.ASSETS / spec["bundled"]
@@ -255,6 +256,16 @@ def test_hub_only_dataset_is_documented(name):
     assert {f for s in info.splits for f in pp.datasets.split_files(name, s)} == set(info.files)
     assert all(d["dtype"] and d["description"] for d in info.columns.values())
     assert all(not f.get("bundled") for f in info.files.values())
+
+
+def test_blackhole_dataset_is_documented_with_its_convergence_study():
+    info = pp.datasets.info("blackhole_riaf_density_256")
+    assert {"train", "val", "test", "ood_alpha0.3", "convergence"} <= set(info.splits)
+    assert info.splits["test"]["n"] == info.splits["val"]["n"] == 401 and info.splits["train"]["n"] == 4 * 401
+    assert "Resolution study" in info.verification and "Not converged" in info.verification
+    assert "trajectory" in info.split_rule
+    assert {f for s in info.splits for f in pp.datasets.split_files("blackhole_riaf_density_256", s)} == set(info.files)
+    assert all(not f.get("bundled") and f["size"] < 100_000_000 for f in info.files.values())
 
 
 def test_hub_only_sharded_dataset_downloads_only_the_split(tmp_path, monkeypatch, isolated_cache):

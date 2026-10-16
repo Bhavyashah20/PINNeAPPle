@@ -141,6 +141,7 @@ def _t95(n: int) -> float:
 SCALARS = {
     "mdot_mean": lambda st: batch_means_ci(st["mdot"]),
     "mdot_rms_over_mean": lambda st: (float(st["mdot"].std() / st["mdot"].mean()), 0.0),
+    "mdot_detrended_rms": lambda st: _rms_ci(_detrended(st["mdot"], st["every"])),
     "mdot_psd_slope": lambda st: (psd_slope(st["mdot"], st["every"], 1 / 2000, 1 / 50), 0.0),
     "window_mass_mean": lambda st: batch_means_ci(st["mass_window"]),
     "persistence_mae_20M": lambda st: batch_means_ci(st["persistence_20"]),
@@ -148,6 +149,20 @@ SCALARS = {
     "persistence_mae_1000M": lambda st: batch_means_ci(st["persistence_1000"]),
     "field_temporal_std_mean": lambda st: (float(st["x_std"][st["mask"]].mean()), 0.0),
 }
+
+
+def _detrended(x: np.ndarray, every: float, window_M: float = 500.0) -> np.ndarray:
+    """x / (running mean over ``window_M``) - 1: the fluctuations without the secular drain of the torus."""
+    from scipy.ndimage import uniform_filter1d
+    trend = uniform_filter1d(np.asarray(x, float), max(int(round(window_M / every)), 1), mode="nearest")
+    return x / trend - 1.0
+
+
+def _rms_ci(x: np.ndarray) -> tuple[float, float]:
+    """rms of x and its 95 % half-width (batch means of x^2, propagated through the square root)."""
+    m2, h2 = batch_means_ci(np.square(x))
+    rms = math.sqrt(m2)
+    return rms, h2 / (2 * rms) if rms > 0 else 0.0
 
 
 def _rho_slope(st, lo=10.0, hi=60.0):

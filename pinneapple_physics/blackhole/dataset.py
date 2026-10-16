@@ -36,7 +36,7 @@ SPLITS = {"train": [("conv_n256_s0", 0.1, 0), ("conv_n256_s1", 0.1, 1), ("conv_n
           "val": [("conv_n256_s4", 0.1, 4)],
           "test": [("conv_n256_s5", 0.1, 5)],
           "ood_alpha0.3": [("ood_n256_a0.3_s0", 0.3, 0)]}
-CONV_SCALARS = ["mdot_mean", "mdot_rms_over_mean", "mdot_psd_slope", "window_mass_mean", "persistence_mae_20M",
+CONV_SCALARS = ["mdot_mean", "mdot_rms_over_mean", "mdot_detrended_rms", "mdot_psd_slope", "window_mass_mean", "persistence_mae_20M",
                 "persistence_mae_100M", "persistence_mae_1000M", "rho_slope_r10_60", "ell_over_kepler_r10",
                 "ell_over_kepler_r30"]
 
