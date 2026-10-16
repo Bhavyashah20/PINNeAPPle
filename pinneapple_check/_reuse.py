@@ -81,6 +81,12 @@ def dataset_audit():
     return leaf("pinneapple_data.audit")
 
 
+def dataset_audit():
+    return leaf("pinneapple_data.audit")
+def spectral():
+    return leaf("pinneapple_analysis.validation.spectral")
+
+
 def method_catalog():
     return leaf("pinneapple_catalog.methods")
 

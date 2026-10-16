@@ -43,11 +43,21 @@ def project_integral(field: Tensor, weights: Tensor, target: float | Tensor, mod
     target = torch.as_tensor(target, dtype=field.dtype, device=field.device)
     expand = (...,) + (None,) * dims
     if mode == "positive":
+        if torch.any(target < 0):
+            raise ValueError("mode='positive' keeps the field non-negative, so the target integral must be >= 0")
         field = torch.clamp(field, min=0.0)
     total = integral(field, weights, dims)
     if mode == "additive":
         return field + ((target - total) / weights.sum())[expand]
-    if torch.any(total.abs() < eps):
+    zero = total.abs() < eps
+    if torch.any(zero & (target.abs() < eps)):          # nothing to rescale: the integral already equals the target
+        total = torch.where(zero & (target.abs() < eps), torch.ones_like(total), total)
+        target = torch.where(zero & (target.abs() < eps), torch.ones_like(total), target)
+        zero = total.abs() < eps
+    if torch.any(zero):
+        if mode == "positive":
+            raise ValueError("mode='positive': the field is <= 0 everywhere, so no non-negative rescaling reaches "
+                             "the target; fix the prediction or use mode='additive'")
         raise ValueError("multiplicative projection needs a non-zero integral; use mode='additive'")
     return field * (target / total)[expand]
 
