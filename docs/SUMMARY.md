@@ -63,6 +63,7 @@
     * [Spectral fidelity: what relative L2 does not see](guides/spectral_fidelity.md)
     * [Validation methods reference](guides/validation_methods_reference.md)
     * [Check power: how often each check catches a defect](guides/check_power.md)
+    * [Red team / blue team for the validation checks](guides/validation_arena.md)
     * [A latent surrogate that says when not to trust it](guides/trusted_latent_surrogate.md)
     * [Detect false data injection with physics residuals](guides/physics_residual_attack_detection.md)
     * [The PINNeAPPle Observatory](guides/observatory.md)

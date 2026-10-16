@@ -88,4 +88,6 @@ on the clean cases.
 - *true error*: median relative L2 error of the faulty output against the correct field; it tells which detections
   matter.
 
-The tolerances here are hand-set: the matrix measures them, it does not tune them.
+The tolerances here are hand-set: the matrix measures them, it does not tune them. The
+[validation arena](validation_arena.md) attacks them, calibrates them with a stated false-alarm rate and hardens the
+set of checks.

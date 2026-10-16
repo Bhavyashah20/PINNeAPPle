@@ -23,6 +23,18 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
   It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
   `pp.datasets.load(name, split="test")` downloads only the two test shards.
+- Validation arena (`pinneapple_analysis.validation.arena`, `pp.validate.arena(problem, checks, budget=...)`, #707):
+  a red team / blue team loop on top of the fault-injection suite. The red team scores the defence with the fault
+  library as mutation operators (mutation score), searches for escapes (wrong outputs every check accepts; differential
+  evolution, CMA-ES or L-BFGS-B over mutants and physics-consistent attacks that solve a nearby problem exactly) and
+  for false alarms (correct cases from the verified solvers that a check rejects). The blue team calibrates one
+  combined test with split-conformal quantiles (`uncertainty.conformal.conformal_quantile`) so the family-wise
+  false-alarm rate is stated (`alpha`), and adds checks from the library until every stored escape is rejected.
+  Escapes and false alarms are stored as regression cases; `pinneapple check --arena-cases` replays them (the
+  Darcy 2-D and Burgers 1-D cases ship with the library). `audit_model(problem, predict)` runs an external model
+  through the hardened defence. Docs: "Red team / blue team for the validation checks"; example:
+  `examples/validation_arena/`. `uncertainty.conformal` gains `conformal_quantile` (any array) and
+  `conformal_quantile_valid`, and keeps float64 scores in float64.
 - Fault-injection suite (`pinneapple_analysis.validation.fault_injection`, #697): measures how often each validation
   check catches known defects. A fault library (model: bias, scale, high-frequency noise, smoothing, wrong boundary
   values, a source-term sign flip, out-of-range use, a stale model; data: a discretisation coefficient off by a

@@ -98,6 +98,11 @@ class BenchmarkProblem:
         nearby problem exactly: the physics-consistent faults)."""
         raise NotImplementedError
 
+    def predict_reference(self, inputs: Mapping[str, np.ndarray], params: Mapping[str, float]) -> np.ndarray:
+        """The reference solver as a model ``predict(inputs, params) -> field`` (the ``audit_model`` interface)."""
+        c = Case(self.name, dict(inputs), np.empty(0), dict(params))
+        return self.resolve(c)
+
     # ---- what the checks need
     def coords(self, case: Case) -> dict[str, np.ndarray]:
         raise NotImplementedError

@@ -138,8 +138,11 @@ pinneapple check [paths] [--config FILE] [--select PC1,PC201] [--ignore PC5] [--
                  [--sarif FILE] [--junit FILE] [--json FILE] [--summary FILE]
                  [--baseline FILE] [--write-baseline] [--no-baseline]
                  [--fail-on error|warning|never] [--exit-zero] [--show-passed] [--no-fixes]
-                 [--list-rules] [--explain PC101]
+                 [--list-rules] [--explain PC101] [--arena-cases [FILE ...]]
 ```
+
+`--arena-cases` replays the regression cases of the [validation arena](validation_arena.md): the stored escapes must
+still be rejected and the stored false alarms still accepted (without a file: the cases shipped with the library).
 
 Exit codes: `0` nothing to report (warnings allowed with `--fail-on error`), `1` violations, `2` a configuration
 or usage error. Inside GitHub Actions the default format is `github` (annotations followed by the readable log).
