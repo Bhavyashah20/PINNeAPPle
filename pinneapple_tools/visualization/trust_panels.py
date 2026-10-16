@@ -4,8 +4,8 @@ use, and where does it break the physics".
 Each row is a case (a regime, a sample); each panel is a field on a 2-D grid. ``kind="field"`` panels of a row share
 one sequential colour scale (blue, light to dark), so the reference and the predictions are directly comparable;
 ``kind="residual"`` panels show a magnitude on a logarithmic orange scale (the PDE residual, an error). A panel may
-carry a verdict badge (APPROVED / REVIEW / REJECT, or any short label) in the status colours, always with its text,
-so the colour never carries the meaning alone.
+carry verdict badges (``verdict``, ``verdicts``), coloured by the status word they end with (APPROVED, REVIEW,
+REJECT, PASS, OK, FAIL) and always shown with their text, so the colour never carries the meaning alone.
 
 ``trust_panels(rows)`` returns a matplotlib figure; ``trust_panels_gif(frames, path)`` writes one figure per frame
 into an animated GIF (Pillow, which matplotlib already depends on).
@@ -32,7 +32,7 @@ INK2 = "#52514e"
 MUTED = "#898781"
 #: Verdict -> colour (good / warning / critical of a validated status palette).
 STATUS_COLOURS = {"APPROVED": "#0ca30c", "REVIEW": "#fab219", "REJECT": "#d03b3b", "PASS": "#0ca30c",
-                  "FAIL": "#d03b3b"}
+                  "OK": "#0ca30c", "FAIL": "#d03b3b"}
 _BLUE = LinearSegmentedColormap.from_list("pp_blue", ["#f4f8fd", "#cde2fb", "#86b6ef", "#3987e5", "#1c5cab",
                                                        "#0d366b"])
 _ORANGE = LinearSegmentedColormap.from_list("pp_orange", ["#fdf3ec", "#f8cfb4", "#f0a070", "#e0703a", "#b44d17",
@@ -46,6 +46,7 @@ class Panel:
     values: np.ndarray
     kind: str = "field"
     verdict: str | None = None
+    verdicts: Sequence[str] = ()
     note: str = ""
 
 
@@ -55,12 +56,13 @@ class Row:
     panels: Sequence[Panel]
 
 
-def _badge(ax, text: str) -> None:
-    key = text.split()[0].upper()
+def _badge(ax, text: str, k: int = 0) -> None:
+    """Badge ``k`` under the panel, coloured by the status word it ends with (``"physics: REJECT"``)."""
+    key = text.replace(":", " ").split()[-1].upper()
     col = STATUS_COLOURS.get(key, MUTED)
     ink = INK if key in ("REVIEW",) else "white"
-    ax.text(0.5, -0.04, text, transform=ax.transAxes, ha="center", va="top", fontsize=9, fontweight="bold",
-            color=ink, bbox=dict(boxstyle="round,pad=0.3", fc=col, ec="none"))
+    ax.text(0.5, -0.04 - 0.13 * k, text, transform=ax.transAxes, ha="center", va="top", fontsize=8.5,
+            fontweight="bold", color=ink, bbox=dict(boxstyle="round,pad=0.25", fc=col, ec="none"))
 
 
 def trust_panels(rows: Sequence[Row], *, title: str = "", footer: str = "", cell: float = 2.4,
@@ -72,12 +74,13 @@ def trust_panels(rows: Sequence[Row], *, title: str = "", footer: str = "", cell
     nf = max(sum(p.kind != "residual" for p in r.panels) for r in rows)
     nr = max(sum(p.kind == "residual" for p in r.panels) for r in rows)
     widths = [1.0] * nf + [0.06, 0.18] + ([1.0] * nr + [0.06] if nr else [])
-    fig = plt.figure(figsize=(cell * (nf + nr) + 1.6, cell * len(rows) * 1.2 + 0.9), dpi=dpi)
+    nb = max((bool(p.verdict) + len(p.verdicts) for r in rows for p in r.panels), default=0)
+    fig = plt.figure(figsize=(cell * (nf + nr) + 1.6, cell * len(rows) * (1.2 + 0.11 * nb) + 0.9), dpi=dpi)
     fig.patch.set_facecolor(SURFACE)
     top = 1 - 0.55 / fig.get_figheight() if title else 0.97
-    bottom = 0.6 / fig.get_figheight() if footer else 0.35 / fig.get_figheight()
+    bottom = (0.35 + 0.3 * nb + (0.3 * (footer.count(chr(10)) + 1) if footer else 0)) / fig.get_figheight()
     gs = GridSpec(len(rows), len(widths), figure=fig, width_ratios=widths, left=0.045, right=0.97, top=top,
-                  bottom=bottom, hspace=0.38, wspace=0.06)
+                  bottom=bottom, hspace=0.25 + 0.13 * nb, wspace=0.06)
     res = [p.values for r in rows for p in r.panels if p.kind == "residual"]
     if residual_range is None and res:
         allv = np.concatenate([np.abs(v[np.isfinite(v)]).ravel() for v in res])
@@ -104,8 +107,8 @@ def trust_panels(rows: Sequence[Row], *, title: str = "", footer: str = "", cell
             if p.note:
                 ax.text(0.03, 0.97, p.note, transform=ax.transAxes, ha="left", va="top", fontsize=7.5, color=INK,
                         bbox=dict(boxstyle="round,pad=0.2", fc=(1, 1, 1, 0.8), ec="none"))
-            if p.verdict:
-                _badge(ax, p.verdict)
+            for k, v in enumerate(([p.verdict] if p.verdict else []) + list(p.verdicts)):
+                _badge(ax, v, k)
             if j == 0:
                 ax.set_ylabel(r.label, fontsize=9.5, color=INK2)
         for im, col in ((im_f, nf), (im_r, len(widths) - 1)):

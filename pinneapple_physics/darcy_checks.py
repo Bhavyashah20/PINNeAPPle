@@ -22,6 +22,10 @@ of them to round-off; a surrogate's prediction passes them only as far as it res
     the same kind of checks for training data stored at the nodes of a finite-difference grid (PhysicsNeMo's
     ``Darcy2D`` datapipe layout): residual of the documented equation, boundary values, a control-volume flux
     balance, positivity and the diversity of the coefficient samples, before anyone trains on the data.
+``physics_metrics`` / ``calibrate_tolerances``
+    the per-sample values of the physics checks, and limits calibrated on a model's own predictions for held-out
+    in-distribution inputs (no labels): a drift monitor that flags inputs where the model is less physical than
+    where it was validated.
 ``darcy_checks`` / ``darcy_trust_report``
     the checks above (plus positivity, the maximum principle for ``f >= 0``, an optional reference comparison and
     an optional applicability check of the coefficient against the training data) for one field or a batch, as
@@ -42,7 +46,7 @@ __all__ = [
     "DEFAULT_TOLERANCES", "darcy_operator_apply", "darcy_residual", "residual_error_bound", "boundary_flux_balance",
     "boundary_values", "coefficient_stats", "CoefficientEnvelope", "DarcyCheck", "darcy_checks",
     "darcy_trust_report", "save_darcy_npz", "nodal_darcy_residual", "nodal_boundary_values", "nodal_flux_balance",
-    "solve_nodal_darcy", "distinct_fields", "check_nodal_darcy_batch",
+    "solve_nodal_darcy", "distinct_fields", "check_nodal_darcy_batch", "physics_metrics", "calibrate_tolerances", "trust_report",
 ]
 
 #: Default limits. ``energy_bound``: certified relative energy-norm error; ``bc``: RMS boundary value over max |u|
@@ -261,18 +265,19 @@ class DarcyCheck:
 
 def darcy_checks(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1.0, *,
                  reference: np.ndarray | None = None, envelope: CoefficientEnvelope | None = None,
-                 tolerances: Mapping[str, float] | None = None, quantile: float = 0.9) -> list[DarcyCheck]:
+                 tolerances: Mapping[str, float] | None = None, quantile: float = 0.9,
+                 physics_kind: str = "physics") -> list[DarcyCheck]:
     """Physics checks of predicted Darcy fields ``u`` for coefficients ``a`` (``(n, n)`` or ``(batch, n, n)``).
 
     Each check is computed per sample and aggregated with the ``quantile`` over the batch (0.9: nine samples in ten
     must pass); the per-sample values are kept. Physics checks (no reference needed): certified energy-error bound
     from the residual, boundary condition, flux balance, positivity (``f >= 0`` only). ``reference`` adds the
     relative L2 error; ``envelope`` adds the applicability of the coefficients (inside the training envelope).
+    ``physics_kind`` labels the physics checks (e.g. ``"drift"`` when ``tolerances`` come from
+    :func:`calibrate_tolerances`).
     """
     tol = {**DEFAULT_TOLERANCES, **(tolerances or {})}
     a, u, _ = _pair(a, u)
-    scale = np.max(np.abs(u), axis=(-2, -1))
-    scale = np.maximum(scale, 1e-300)
     agg = lambda v: float(np.quantile(v, quantile)) if v.size else float("nan")   # noqa: E731
     checks: list[DarcyCheck] = []
 
@@ -284,26 +289,23 @@ def darcy_checks(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1.0, *,
 
     finite = np.isfinite(u).all(axis=(-2, -1))
     if not finite.all():
-        checks.append(DarcyCheck("finite values", "physics", (~finite).astype(float), float((~finite).mean()), 0.0,
+        checks.append(DarcyCheck("finite values", physics_kind, (~finite).astype(float), float((~finite).mean()), 0.0,
                                  False, True, f"{int((~finite).sum())} of {len(finite)} fields have NaN or inf"))
         return checks
-    eb = residual_error_bound(u, a, f)
-    add("PDE residual (certified energy-error bound)", "physics", eb, tol["energy_bound"],
+    pm = physics_metrics(a, u, f)
+    add("PDE residual (certified energy-error bound)", physics_kind, pm["energy_bound"], tol["energy_bound"],
         "||r||_{L^-1} / sqrt(min a) / ||u||_A from the finite-volume residual f + div(a grad u); bounds the "
         "relative energy-norm distance to the discrete solution")
-    bv = np.sqrt(np.mean(boundary_values(u) ** 2, axis=(-2, -1))) / scale
-    add("boundary condition u = 0", "physics", bv, tol["bc"], "RMS of u on the boundary (linear extrapolation "
-        "from the first two cells) over max |u|")
-    fb = boundary_flux_balance(u, a, f)["imbalance"]
-    add("flux balance (net boundary flux = source)", "physics", fb, tol["flux"],
+    add("boundary condition u = 0", physics_kind, pm["bc"], tol["bc"], "RMS of u on the boundary (linear "
+        "extrapolation from the first two cells) over max |u|")
+    add("flux balance (net boundary flux = source)", physics_kind, pm["flux"], tol["flux"],
         "|outflow - integral of f| / |integral of f|, outflow = sum of 2 a u over the boundary faces")
     fmin = float(np.min(np.asarray(f, dtype=np.float64)))
     if fmin >= 0:
-        neg = np.maximum(-np.min(u, axis=(-2, -1)), 0.0) / scale
-        add("positivity (maximum principle)", "physics", neg, tol["positivity"],
+        add("positivity (maximum principle)", physics_kind, pm["positivity"], tol["positivity"],
             "most negative value over max |u| (f >= 0 and u = 0 on the boundary give u >= 0)")
     else:
-        checks.append(DarcyCheck("positivity (maximum principle)", "physics", np.zeros(0), float("nan"), None, None,
+        checks.append(DarcyCheck("positivity (maximum principle)", physics_kind, np.zeros(0), float("nan"), None, None,
                                  False, "not run: the source changes sign"))
     if reference is not None:
         ref, _ = _batch(reference)
@@ -322,6 +324,49 @@ def darcy_checks(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1.0, *,
     return checks
 
 
+def physics_metrics(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1.0) -> dict[str, np.ndarray]:
+    """Per-sample values of the four physics checks, keyed like :data:`DEFAULT_TOLERANCES` (``energy_bound``,
+    ``bc``, ``flux``, ``positivity``); no reference solution needed."""
+    a, u, _ = _pair(a, u)
+    scale = np.maximum(np.max(np.abs(u), axis=(-2, -1)), 1e-300)
+    return {"energy_bound": residual_error_bound(u, a, f),
+            "bc": np.sqrt(np.mean(boundary_values(u) ** 2, axis=(-2, -1))) / scale,
+            "flux": boundary_flux_balance(u, a, f)["imbalance"],
+            "positivity": np.maximum(-np.min(u, axis=(-2, -1)), 0.0) / scale}
+
+
+def calibrate_tolerances(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1.0, *, quantile: float = 0.99,
+                         floor: Mapping[str, float] | None = None) -> dict[str, float]:
+    """Limits for :func:`darcy_checks` from a model's own predictions ``u`` on held-out in-distribution inputs ``a``.
+
+    The fixed :data:`DEFAULT_TOLERANCES` say whether a prediction obeys the physics to an engineering tolerance.
+    These say whether a new prediction is as physical as the model was where it was validated: per check, the
+    ``quantile`` of the per-sample values on the calibration inputs (at least ``floor``, default 1e-12). No
+    reference solution is used, so the limits can be refreshed on any batch of in-distribution inputs. With the
+    default aggregation of :func:`darcy_checks` (the 0.9 quantile of a batch), a batch from the calibration
+    distribution passes, and a batch that departs from it is flagged.
+    """
+    m = physics_metrics(a, u, f)
+    fl = {k: 1e-12 for k in m} | dict(floor or {})
+    return {k: max(float(np.quantile(v, quantile)), fl[k]) for k, v in m.items()}
+
+
+def trust_report(checks: Sequence[DarcyCheck], *, model: str = "",
+                 kinds: Sequence[str] | None = None):
+    """The deploy decision (``TrustReport``: APPROVED / REVIEW / REJECT) of a list of :class:`DarcyCheck`, e.g. the
+    checks of several :func:`darcy_checks` calls (fixed limits and calibrated ones); ``kinds`` keeps only those."""
+    from pinneapple_analysis.trust.trust_report import Check, TrustReport
+    out = []
+    for c in checks:
+        if kinds is not None and c.kind not in kinds:
+            continue
+        status = "not_run" if c.passed is None else ("supports" if c.passed else "contradicts")
+        name = c.name if c.kind in ("physics", "reference", "applicability") else f"{c.name} [{c.kind}]"
+        out.append(Check(name, status, critical=c.critical, value=None if not np.isfinite(c.value) else c.value,
+                         limit=c.limit, source=c.kind, reason=c.detail))
+    return TrustReport(out, model=model)
+
+
 def darcy_trust_report(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1.0, *, model: str = "",
                        kinds: Sequence[str] = ("physics", "reference", "applicability"), **kwargs):
     """``(TrustReport, checks)``: the deploy decision (APPROVED / REVIEW / REJECT) of :func:`darcy_checks`.
@@ -329,14 +374,8 @@ def darcy_trust_report(a: np.ndarray, u: np.ndarray, f: float | np.ndarray = 1.0
     ``kinds`` selects which checks enter the decision (``("physics",)`` gives the verdict the physics alone reach,
     without labels or the training envelope).
     """
-    from pinneapple_analysis.trust.trust_report import Check, TrustReport
     checks = [c for c in darcy_checks(a, u, f, **kwargs) if c.kind in kinds]
-    out = []
-    for c in checks:
-        status = "not_run" if c.passed is None else ("supports" if c.passed else "contradicts")
-        out.append(Check(c.name, status, critical=c.critical, value=None if not np.isfinite(c.value) else c.value,
-                         limit=c.limit, source=c.kind, reason=c.detail))
-    return TrustReport(out, model=model), checks
+    return trust_report(checks, model=model), checks
 
 
 # --------------------------------------------------------------------------------------------- export
@@ -447,9 +486,12 @@ def solve_nodal_darcy(k: np.ndarray, f: float = 1.0, dx: float = 1.0, *,
     return spla.spsolve(A.tocsc(), np.full(n * n, float(f))).reshape(n, n)
 
 
-def distinct_fields(x: np.ndarray, rtol: float = 1e-6) -> dict[str, Any]:
-    """How many of the ``batch`` fields are distinct (two fields are the same when they differ by less than
-    ``rtol`` of their scale everywhere), and the largest correlation between two distinct fields."""
+def _groups(x: np.ndarray, rtol: float = 1e-6) -> list[int]:
+    """Index of the first field of each group of identical fields (see :func:`distinct_fields`)."""
+    return [g[0] for g in _group_fields(x, rtol)]
+
+
+def _group_fields(x: np.ndarray, rtol: float = 1e-6) -> list[list[int]]:
     x, _ = _batch(x)
     flat = x.reshape(len(x), -1)
     scale = max(float(np.max(np.abs(flat))), 1e-300)
@@ -461,6 +503,15 @@ def distinct_fields(x: np.ndarray, rtol: float = 1e-6) -> dict[str, Any]:
                 break
         else:
             groups.append([i])
+    return groups
+
+
+def distinct_fields(x: np.ndarray, rtol: float = 1e-6) -> dict[str, Any]:
+    """How many of the ``batch`` fields are distinct (two fields are the same when they differ by less than
+    ``rtol`` of their scale everywhere), and the largest correlation between two distinct fields."""
+    x, _ = _batch(x)
+    flat = x.reshape(len(x), -1)
+    groups = _group_fields(x, rtol)
     z = flat - flat.mean(axis=1, keepdims=True)
     z /= np.maximum(np.linalg.norm(z, axis=1, keepdims=True), 1e-300)
     reps = [g[0] for g in groups]
@@ -473,13 +524,13 @@ def distinct_fields(x: np.ndarray, rtol: float = 1e-6) -> dict[str, Any]:
 def check_nodal_darcy_batch(k: np.ndarray, u: np.ndarray, f: float = 1.0, dx: float = 1.0, *, cropped: int = 1,
                             alt_cross_denominators: Mapping[str, float] | None = None,
                             tolerances: Mapping[str, float] | None = None,
-                            floor_factor: float = 2.0) -> dict[str, Any]:
+                            floor_factor: float = 2.0, n_reference: int = 8) -> dict[str, Any]:
     """Physics checks of a batch of node-based Darcy training pairs ``(k, u)`` before anyone trains on them.
 
     Residual of the documented equation (relative RMS over the batch, ``residual`` limit), boundary condition
     (``bc``), control-volume flux balance (``flux``), positivity and the diversity of the coefficient samples. For
-    reference, the same equation solved directly on the first sample (:func:`solve_nodal_darcy`, coefficient clamped
-    over the cropped edge) is put through the same checks; the boundary and flux limits are at least
+    reference, the same equation solved directly for up to ``n_reference`` distinct coefficients
+    (:func:`solve_nodal_darcy`, coefficient clamped over the cropped edge) is put through the same checks; the boundary and flux limits are at least
     ``floor_factor`` times what that exact solve reaches on the same grid. ``alt_cross_denominators`` (name -> value) gives the
     residual of other stencils, to say which equation the data do satisfy. Returns a JSON-able dict with the values and pass / fail.
     """
@@ -504,11 +555,13 @@ def check_nodal_darcy_batch(k: np.ndarray, u: np.ndarray, f: float = 1.0, dx: fl
                          "failing_fraction": float(np.mean(v > lim)), "passed": bool(np.median(v) <= lim)}
         return out
 
-    kf = np.pad(k[0], ((0, cropped), (0, cropped)), mode="edge") if cropped else k[0]
-    us = solve_nodal_darcy(kf, f, dx)[:k.shape[-1], :k.shape[-1]]
-    ref_m = metrics(k[:1], us[None])
+    n = k.shape[-1]
+    reps = _groups(k)[:n_reference]                 # one direct solve per distinct coefficient
+    us = np.stack([solve_nodal_darcy(np.pad(k[i], ((0, cropped), (0, cropped)), mode="edge") if cropped else k[i],
+                                     f, dx)[:n, :n] for i in reps])
+    ref_m = metrics(k[reps], us)
     # the boundary extrapolation and the control-volume budget of a non-conservative stencil have a floor on a
-    # coarse grid: the limit is the larger of the tolerance and twice what the exact solve reaches on this grid
+    # coarse grid: the limit is the larger of the tolerance and twice what the exact solves reach on this grid
     limits = {name: max(tol[name], floor_factor * float(np.max(ref_m[name]))) if name in ("bc", "flux")
               else tol[name] for name in ref_m}
     ref = summary(ref_m, limits)
@@ -519,8 +572,11 @@ def check_nodal_darcy_batch(k: np.ndarray, u: np.ndarray, f: float = 1.0, dx: fl
     for name, cd in (alt_cross_denominators or {}).items():
         r = nodal_darcy_residual(u, k, f, dx, cropped=cropped, cross_denominator=cd)
         alt[name] = float(np.median(np.sqrt(np.mean(r ** 2, axis=(-2, -1))) / abs(f)))
-    diff = float(np.linalg.norm(u[0] - us) / max(np.linalg.norm(us), 1e-300))
+    diff = np.linalg.norm((u[reps] - us).reshape(len(reps), -1), axis=1) / \
+        np.maximum(np.linalg.norm(us.reshape(len(reps), -1), axis=1), 1e-300)
     return {"checks": data, "direct_solve_of_the_documented_equation": {"checks": ref,
-                                                                        "relative_l2_data_vs_solve": diff},
+                                                                        "n_solved": len(reps),
+                                                                        "relative_l2_data_vs_solve":
+                                                                            float(np.median(diff))},
             "residual_of_other_stencils": alt,
             "passed": all(v["passed"] for v in data.values())}

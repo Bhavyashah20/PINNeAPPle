@@ -151,3 +151,19 @@ def test_shifted_darcy_sets_and_block_average():
     assert np.array_equal(block_average(x, 2), [[2.5, 4.5], [10.5, 12.5]])
     with pytest.raises(ValueError):
         block_average(np.ones((5, 5)), 2)
+
+
+def test_calibrated_tolerances_flag_drift_without_labels(solved):
+    a, u = solved
+    rng = np.random.default_rng(2)
+    noisy = lambda x, s: x * (1 + s * rng.standard_normal(x.shape))    # noqa: E731  a "model" with 1 % noise
+    cal = dc.calibrate_tolerances(a, noisy(u, 0.01))
+    assert set(cal) == set(dc.physics_metrics(a, u)) and cal["energy_bound"] > 0
+    same = dc.darcy_checks(a, noisy(u, 0.01), tolerances=cal, physics_kind="drift")
+    worse = dc.darcy_checks(a, noisy(u, 0.05), tolerances=cal, physics_kind="drift")
+    by = lambda cs: {c.name.split(" ")[0]: c for c in cs}             # noqa: E731
+    assert {c.kind for c in same} == {"drift"}
+    assert by(same)["PDE"].value < 1.5 * cal["energy_bound"] and not by(worse)["PDE"].passed
+    rep = dc.trust_report(worse + dc.darcy_checks(a, u), model="m")
+    assert rep.decisao == "REJECT" and any("[drift]" in c.name for c in rep.checks)
+    assert dc.trust_report(dc.darcy_checks(a, u), kinds=("physics",)).decisao == "APPROVED"

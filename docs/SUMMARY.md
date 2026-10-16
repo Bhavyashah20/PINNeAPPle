@@ -63,6 +63,7 @@
     * [The PINNeAPPle Observatory](guides/observatory.md)
     * [Playground: physics surrogates in the browser](guides/playground.md)
     * [Choose a model by the scale of the question](guides/scale_aware_ensembles.md)
+    * [PhysicsNeMo trains, PINNeAPPle says when to trust](guides/physicsnemo_trust.md)
 * [API Reference](api/index.md)
   * [pinneapple](api/pinneapple/index.md)
   * [pinneapple_physics](api/pinneapple_physics/index.md)

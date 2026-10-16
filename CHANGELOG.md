@@ -19,8 +19,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
     the reference solver's own finite-volume discretisation and need no reference solution. `residual_error_bound`
     turns the residual into a guaranteed bound on the energy-norm error (one fast sine transform). The module also
     checks the boundary condition, net boundary flux against the source, and positivity. `CoefficientEnvelope`
-    checks applicability against the training coefficients. `darcy_checks` / `darcy_trust_report` give the deploy
-    decision for a batch.
+    checks applicability against the training coefficients. `calibrate_tolerances` derives limits from a model's own
+    predictions on held-out in-distribution inputs (a drift monitor that needs no labels). `darcy_checks`,
+    `darcy_trust_report` and `trust_report` give the deploy decision for a batch.
   - `check_nodal_darcy_batch` (and `nodal_darcy_residual`, `solve_nodal_darcy`, `distinct_fields`): the same kind
     of checks for node-based training data, such as PhysicsNeMo's `Darcy2D` datapipe, before anyone trains on it.
   - `pinneapple_neural.physicsnemo_bridge.field_operators`: `physicsnemo_fno` and `physicsnemo_meshgraphnet` (on the
