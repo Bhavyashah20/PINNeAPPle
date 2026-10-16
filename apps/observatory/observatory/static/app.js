@@ -6,6 +6,7 @@ import { renderBlackHole, renderConditions, renderDecay, renderSmallBodies, rend
 import { applyStatic, fmtDate, lang, num, onLangChange, setLang, sig, t, tOr } from "./i18n.js";
 import { renderLearn, startupTip } from "./learn.js";
 import { Observe } from "./observe.js";
+import { JourneyView } from "./journey.js";
 
 // ------------------------------------------------------------------------------------------------- setup
 const $ = (s) => document.querySelector(s);
@@ -42,6 +43,7 @@ class Labels {
 const labels = new Labels($("#labels"));
 const sky = new SkyView(renderer, labels);
 const sys = new SystemView(renderer, labels);
+const journey = new JourneyView(renderer, labels);
 
 const S = {
   obs: { name: "saopaulo", lat: -23.5505, lon: -46.6333, elev: 760, tz: "America/Sao_Paulo" },
@@ -138,7 +140,7 @@ let last = performance.now();
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
-  for (const c of [sky.camera, sys.camera]) { c.aspect = w / h; c.updateProjectionMatrix(); }
+  for (const c of [sky.camera, sys.camera, journey.camera]) { c.aspect = w / h; c.updateProjectionMatrix(); }
 }
 window.addEventListener("resize", resize); resize();
 
@@ -152,6 +154,10 @@ function frame() {
     sky.update(S.simJD, now / 1000);
     sky.camera.updateProjectionMatrix(); sky.camera.updateMatrixWorld();
     sky.render(); sky.drawLabels(w, h);
+  } else if (S.view === "journey") {
+    journey.update(dt, S.simJD);
+    journey.camera.updateMatrixWorld();
+    journey.render(); journey.drawLabels(w, h, journeyName); journeyHud();
   } else {
     loadSystem();
     sys.observer = S.obs;
@@ -258,6 +264,7 @@ canvas.addEventListener("pointermove", (e) => {
   if (!pointers.has(e.pointerId) || !drag) return;
   const prev = pointers.get(e.pointerId); pointers.set(e.pointerId, [e.clientX, e.clientY]);
   drag.moved += Math.abs(e.clientX - prev[0]) + Math.abs(e.clientY - prev[1]);
+  if (S.view === "journey") { journey.yaw -= (e.clientX - prev[0]) * 0.2; journey.pitch = Math.max(-80, Math.min(80, journey.pitch - (e.clientY - prev[1]) * 0.2)); return; }
   if (S.view !== "sky" || sky.gyro) return;
   if (pointers.size === 2) { const d = pinchDist(); if (drag.dist) sky.fov = clampFov(drag.fov * drag.dist / d); return; }
   const k = sky.fov / window.innerHeight;
@@ -274,6 +281,7 @@ function pinchDist() { const p = [...pointers.values()]; return p.length === 2 ?
 function clampFov(f) { return Math.max(0.5, Math.min(110, f)); }
 function onClick(e) {
   const x = (e.clientX / window.innerWidth) * 2 - 1, y = -(e.clientY / window.innerHeight) * 2 + 1;
+  if (S.view === "journey") return;
   const hit = S.view === "sky" ? sky.pick(x, y) : sys.pick(x, y);
   if (!hit) return;
   S.selected = hit; renderObject(hit); openTab("object");
@@ -313,10 +321,24 @@ function onOrient(e) {
 // ------------------------------------------------------------------------------------ view transitions
 $("#vSky").onclick = () => switchView("sky");
 $("#vSys").onclick = () => switchView("system");
-function setViewButtons() { $("#vSky").classList.toggle("on", S.view === "sky"); $("#vSys").classList.toggle("on", S.view === "system"); document.body.dataset.view = S.view; }
+$("#vJour").onclick = () => openJourney(journey.plan?.target?.body || journey.plan?.target?.id || "moon");
+function setViewButtons() {
+  for (const [id, v] of [["#vSky", "sky"], ["#vSys", "system"], ["#vJour", "journey"]]) $(id).classList.toggle("on", S.view === v);
+  document.body.dataset.view = S.view;
+  $("#journey").hidden = S.view !== "journey";
+}
 async function switchView(v, opts = {}) {
   if (v === S.view) return;
   const fade = $("#fade");
+  if (v === "journey" || S.view === "journey") {                 // a plain cross-fade to and from the journey
+    fade.style.opacity = 1; await sleep(450);
+    if (S.view === "system") sys.controls.enabled = false;
+    S.view = v; setViewButtons();
+    if (v === "sky") loadSky(true);
+    if (v === "system") { await loadSystem(true); sys.controls.enabled = true; const o = sys.overviewShot(); sys.camera.position.copy(o.pos); sys.controls.target.copy(o.target); }
+    fade.style.opacity = 0;
+    return;
+  }
   if (v === "system") {
     await loadSystem(true);
     // widen the field of view in the sky, fade, then start from just above the observer and fly out
@@ -361,7 +383,7 @@ function focusSystem(id) {
   sys.flyTo(tp.clone().add(dir.multiplyScalar(r)), tp, 1800);
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-window.__obs = { S, sky, sys, switchView, focusSystem, loadSky, ctx, setLang, openLearn: (id) => openLearn(id), openObserve: (id) => openObserve(id), get observe() { return observe; } };          // for scripted captures (GIF / screenshots)
+window.__obs = { S, sky, sys, switchView, focusSystem, loadSky, ctx, setLang, openLearn: (id) => openLearn(id), openObserve: (id) => openObserve(id), get observe() { return observe; }, journey, openJourney: (id) => openJourney(id) };          // for scripted captures (GIF / screenshots)
 
 // ------------------------------------------------------------------------------------------------- panels
 for (const b of document.querySelectorAll(".ptabs button")) b.onclick = () => openTab(b.dataset.tab);
@@ -400,6 +422,7 @@ const learnCtx = {
   },
   openLearn: (id) => openLearn(id),
   observe: (c) => openObserve(c.observe || c.id),
+  journey: (c) => openJourney(c.observe || c.id),
 };
 const observe = new Observe({ api, qs, iso: () => isoOf(S.simJD), place: () => placeName(), sky, S, bname: (b) => bname(b), conName,
   tfmt: (iso) => fmtDate(new Date(iso), { hour: "2-digit", minute: "2-digit", timeZone: S.obs.tz }),
@@ -409,6 +432,61 @@ function openObserve(id) {                       // e.g. from a Learn card: plan
   $("#tab-observe").dataset.ready = 1;
   observe.render($("#tab-observe"));
   openTab("observe");
+}
+// ---------------------------------------------------------------------------------------------- journey
+const JOURNEY_BODIES = ["moon", "sun", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune"];
+let journeyStars = null;
+function journeyName(id) {
+  if (JOURNEY_BODIES.includes(id) || id === "earth") return bname(id);
+  const hr = +String(id).replace(/^star-/, ""), i = sky.cat ? sky.cat.hr.indexOf(hr) : -1;
+  return i >= 0 ? sky.cat.name[i] : String(id);
+}
+const fmtKm = (km) => (km < 2e6 ? `${num(km, 0)} km` : km < 0.05 * 9.4607e12 ? `${num(km / 149597870.7, km < 1.5e9 ? 3 : 1)} ${t("unit.au")}` : `${num(km / 9.4607304725808e12, km < 9.46e13 ? 3 : 1)} ${t("unit.ly")}`);
+function fmtDur(s) {
+  const a = Math.abs(s);
+  if (a < 120) return `${num(s, a < 10 ? 2 : 1)} s`;
+  if (a < 7200) return `${num(s / 60, 1)} ${t("unit.min")}`;
+  if (a < 3 * 86400) return `${num(s / 3600, 1)} ${t("unit.h")}`;
+  if (a < 2 * 365.25 * 86400) return `${num(s / 86400, 0)} ${t("unit.f.d")}`;
+  return `${num(s / 3.15576e7, s < 3.15576e9 ? 1 : 0)} ${t("unit.yr")}`;
+}
+async function openJourney(id) {
+  const box = $("#journey");
+  if (!journey.sc) journey.setScene(await api(`/api/journey/scene?t=${isoOf(S.simJD)}`), sky.cat);
+  if (!journeyStars) journeyStars = (await api(`/api/facts/list?kind=star&lang=${lang}`)).cards;
+  box.innerHTML = `<div class="jrow"><select id="jTarget">${JOURNEY_BODIES.map((b) => `<option value="${b}">${bname(b)}</option>`).join("")}
+      <optgroup label="${esc(t("learn.group.star"))}">${journeyStars.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</optgroup></select>
+    <button class="primary" id="jGo">${t("journey.go")}</button><label class="small">${t("journey.speed")} <input id="jRate" type="range" min="-1" max="1.6" step="0.05" value="${Math.log10(journey.rate)}"></label>
+    <button class="ghost" id="jSkip">${t("journey.skip")}</button><button class="ghost" id="jBack">${t("journey.lookBack")}</button></div><div id="jHud" class="small"></div><div id="jMarker" class="jmarker"></div>`;
+  $("#jTarget").value = id;
+  $("#jGo").onclick = () => startJourney($("#jTarget").value);
+  $("#jRate").oninput = (e) => { journey.rate = Math.pow(10, +e.target.value); };
+  $("#jSkip").onclick = () => journey.skip();
+  $("#jBack").onclick = () => { journey.lookBack = !journey.lookBack; $("#jBack").classList.toggle("on", journey.lookBack); };
+  if (S.view !== "journey") await switchView("journey");
+  await startJourney(id);
+}
+async function startJourney(id) {
+  let p;
+  try { p = await api(`/api/journey/plan?target=${encodeURIComponent(id)}&t=${isoOf(S.simJD)}&${qs()}`); } catch (e) { toast(e.message); return; }
+  p.target.id = p.target.id || p.target.body;
+  journey.start(p);
+  $("#jMarker").textContent = "";
+}
+journey.onMarker = (k) => { const el = $("#jMarker"); if (el) { el.textContent = t("journey.passed." + k); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); } };
+journey.onArrive = () => { const p = journey.plan; openLearn(p.target.body || p.target.id); };
+function journeyHud() {
+  const c = journey.counters(), p = journey.plan, el = $("#jHud");
+  if (!c || !el) return;
+  const tt = p.travel_times_s;
+  const sunLine = p.target.kind === "star" && c.arrived ? `<br>${t("journey.sunBehind", { mag: num(p.sun_seen_from_target_mag, 2) })}` : "";
+  const html = `<b>${esc(journeyName(p.target.id))}</b> · ${c.arrived ? t("journey.arrived") : t("journey.flying")}
+    <div class="jbar"><i style="width:${(c.progress * 100).toFixed(1)}%"></i></div>
+    ${t("journey.travelled", { d: fmtKm(c.travelled) })} · ${t("journey.left", { d: fmtKm(c.left) })} · ${t("journey.lightLeft", { tm: fmtDur(c.light_left_s) })}<br>
+    ${t("journey.target", { mag: num(c.magnitude, 1), size: c.ang_deg >= 1 / 60 ? num(c.ang_deg, c.ang_deg < 1 ? 2 : 0) + "°" : num(c.ang_deg * 3600, c.ang_deg * 3600 < 1 ? 4 : 1) + "″" })}<br>
+    ${t("journey.tripTimes", { total: fmtKm(p.distance_km), light: fmtDur(tt.light), voyager: fmtDur(tt.voyager1), nh: fmtDur(tt.new_horizons), plane: fmtDur(tt.airliner), walk: fmtDur(tt.walking) })}${sunLine}`;
+  if (el._h !== html) { el.innerHTML = html; el._h = html; }
+  el.dataset.arrived = c.arrived ? "1" : "0";
 }
 function openLearn(id) {
   $("#tab-learn").dataset.ready = 1;
@@ -777,8 +855,12 @@ $("#tab-object").innerHTML = `<p class="muted">${t("object.hint")}</p>`;
   });
   if (params.get("tab")) openTab(params.get("tab"));
   if (params.get("observe")) openObserve(params.get("observe"));        // e.g. observe=saturn, observe=M31
+  if (params.get("journey")) {                                          // e.g. journey=mars&jrate=1.3
+    if (params.get("jrate")) journey.rate = Math.pow(10, +params.get("jrate"));
+    openJourney(params.get("journey"));
+  }
   if (params.get("learn")) openLearn(params.get("learn"));            // e.g. learn=M31, learn=star:2061, learn=saturn
-  else if (params.get("tip") !== "0" && !params.has("capture") && !params.get("select") && !params.get("tab") && !params.get("observe")) startupTip($("#tip"), learnCtx);
+  else if (params.get("tip") !== "0" && !params.has("capture") && !params.get("select") && !params.get("tab") && !params.get("observe") && !params.get("journey")) startupTip($("#tip"), learnCtx);
   if (params.get("select")) {                    // e.g. select=star:2491 or select=body:saturn
     const [kind, id] = params.get("select").split(":");
     S.selected = { kind, id: kind === "star" ? +id : id }; renderObject(S.selected); openTab("object");

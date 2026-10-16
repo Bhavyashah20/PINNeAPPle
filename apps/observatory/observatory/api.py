@@ -312,6 +312,35 @@ def observe_field(ra: float = Query(..., ge=0, le=360), dec: float = Query(..., 
                                                            "X-Credit": ob.SURVEY_CREDIT.encode("ascii", "replace").decode()})
 
 
+# ----------------------------------------------------------------------------------------------- space journey
+@app.get("/api/journey/plan")
+def journey_plan(target: str = "mars", lat: float = Query(-23.5505), lon: float = Query(-46.6333), elev: float = 0.0,
+                 t: str | None = None):
+    """The trip from the observer to a body or a star (pinneapple_physics.astro.journey.plan): start, end and arrival
+    points (heliocentric ICRS km), distance, light time, travel times at real speeds, scale markers, the target's
+    magnitude and size versus the distance left; plus the Earth's orientation for drawing."""
+    from pinneapple_physics.astro import journey
+    tt, obs = _time(t), _obs(lat, lon, elev)
+    try:
+        j = journey.plan(obs, target, tt, eph=EPH)
+    except (KeyError, ValueError) as exc:
+        raise _error(404, "no_journey", str(exc), value=target) from exc
+    return {**j, "gast_deg": float(np.degrees(gast_rad(tt))), "npb": frames.npb_matrix(float(tt.tt)).tolist()}
+
+
+@lru_cache(maxsize=8)
+def _journey_scene(day_jd: float):
+    from pinneapple_physics.astro import journey
+    return journey.scene(Time(day_jd), eph=EPH)
+
+
+@app.get("/api/journey/scene")
+def journey_scene(t: str | None = None):
+    """Planets, Sun and Moon (heliocentric ICRS km) for the date, and the bright stars with a usable parallax."""
+    tt = _time(t)
+    return JSONResponse(_journey_scene(round(float(tt.utc) * 96) / 96), headers={"Cache-Control": "public, max-age=900"})
+
+
 # ------------------------------------------------------------------------------------------------------- sky
 def _body_now(b: str, t: Time, obs: Observer) -> dict:
     p = apparent(b, t, obs)

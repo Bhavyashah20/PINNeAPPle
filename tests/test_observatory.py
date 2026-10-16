@@ -191,3 +191,15 @@ def test_observe_endpoints(client):
     assert client.get(f"/api/observe/weather?{SP}&t={T}&mode=perfect").json()["hidden"] is False
     presets = client.get("/api/observe/presets").json()
     assert "sct8" in presets["telescopes"] and "hips2fits" in presets["survey_credit"]
+
+
+def test_journey_endpoints(client):
+    from pinneapple_physics.astro import Observer, Time, journey
+    j = client.get(f"/api/journey/plan?target=mars&{SP}&t={T}").json()
+    ref = journey.plan(Observer(-23.5505, -46.6333, 760), "mars", Time.from_iso(T))
+    assert j["distance_km"] == pytest.approx(ref["distance_km"]) and len(j["npb"]) == 3
+    s = client.get(f"/api/journey/plan?target=star:2491&{SP}&t={T}").json()
+    assert s["distance_ly"] == pytest.approx(8.6, abs=0.05) and "sun_seen_from_target_mag" in s
+    assert client.get(f"/api/journey/plan?target=M31&{SP}&t={T}").status_code == 404
+    sc = client.get(f"/api/journey/scene?t={T}").json()
+    assert len(sc["stars"]) > 500 and "mars" in sc["bodies"]
