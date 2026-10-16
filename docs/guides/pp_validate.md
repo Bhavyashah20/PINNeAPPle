@@ -66,6 +66,27 @@ From `tests/test_pp_validate.py` (Darcy 32², an FNO trained in plain PyTorch on
 
 There is no Darcy model in the zoo, so the zoo case uses the forced-convection heat sink.
 
+## The report as an artifact
+
+`pinneapple_analysis.validation.report_artifact` (also `pp.validate.diff`, `pp.validate.badge`, ...):
+
+| What | How |
+|---|---|
+| Versioned schema | `REPORT_SCHEMA` (`validation-report/v1`, JSON Schema 2020-12); `check_report(report)` lists what is wrong, including check IDs outside the vocabulary of `schema.CHECKS` |
+| Provenance | `provenance.model_hash` (SHA-256 of the weights or the ONNX file), `data_hash`, `library_version`, `physics` (problem, tolerances, seed); zoo reports also carry the card's validity range |
+| Diff between versions | `pp.validate.diff(old, new)`: checks lost (passed before, not now), gained, metrics moved beyond 10 %, validity-envelope changes; `.regressed` |
+| Model card | `model_card_section(report)`: verdict, credibility table, checks, model hash |
+| Badge | `badge(report)` (SVG, "physics-validated: 16/16 checks"), `shields_endpoint(report)` (shields.io endpoint JSON) |
+| Signature | `sign_report(report, key)` / `verify_report(envelope, key)` with `pinneapple_security.signing` (#644) |
+
+The zoo stores one report per model (`pinneapple_hub/zoo/validation_reports/`, `scripts/zoo/validation_reports.py
+build`); each Hub card carries its section. The publishing workflow runs `scripts/zoo/validation_reports.py check`
+before any upload: a model whose fresh report loses a check its stored report passed is not published. In the tests a
+heat-sink "v1.1" with a sign error in the resistance loses the zoo gate's checks and is blocked.
+
+Stored reports today: `heatsink_forced_mlp`, `heatsink_natural_mlp`, `rover_contact_grc1_viper` pass;
+`airfoil_cst_rans_mlp` is `warn` because its training split has no recorded `Cm` (documented missing values).
+
 ## Limits
 
 - Built-in physics: Darcy (and steady conduction, the same operator) for fields; tabular models get applicability,

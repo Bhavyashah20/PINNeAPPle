@@ -31,6 +31,7 @@ from __future__ import annotations
 import html
 import json
 import math
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -333,6 +334,29 @@ def _envelope_check(train_a: np.ndarray | None, query: np.ndarray) -> Validation
                            evidence={"ranges": ranges})
 
 
+def _audit_checks(checks, source: str = "") -> list[ValidationCheck]:
+    """Checks of a dataset audit card (``pinneapple_data.audit``) under the ``data.*`` ids; units are left to the
+    dataset's own card."""
+    fam = {"physics": "data.physics", "constraint": "data.physics", "diversity": "data.diversity",
+           "leakage": "data.leakage", "finite": "data.finite"}
+    out = []
+    for c in checks:
+        head = c["id"].split(".")[0].split(":")[0]
+        if head not in fam:
+            continue
+        if head in ("leakage", "finite"):
+            cid, extra = fam[head], ""
+        elif head == "constraint":                            # a stable id; the expression stays in the summary
+            expr = c["id"].split(":", 1)[1].strip()
+            cid, extra = f"data.physics.constraint.{re.sub(r'[^a-z0-9]+', '-', expr.lower()).strip('-')}", \
+                f"{expr}: "
+        else:
+            cid, extra = f"{fam[head]}.{c['id'].split('.', 1)[-1]}", ""
+        out.append(ValidationCheck(cid, c["status"], (f"{source}: " if source else "") + extra + c["summary"],
+                                   value=c.get("value"), threshold=c.get("threshold")))
+    return out
+
+
 # ---------------------------------------------------------------------------------------------- Darcy
 def _darcy_checks(f, data, reference, query, level, tol, rhs, seed) -> list[ValidationCheck]:
     from pinneapple_analysis.uncertainty.residual_bound import (
@@ -417,15 +441,8 @@ def _darcy_checks(f, data, reference, query, level, tol, rhs, seed) -> list[Vali
     if data:
         from pinneapple_data.audit import audit_dataset
         card = audit_dataset(data, physics="darcy", max_physics_samples=16, seed=seed)
-        fam = {"physics": "data.physics", "constraint": "data.physics", "diversity": "data.diversity",
-               "leakage": "data.leakage", "finite": "data.finite"}
-        for c in card.checks:
-            if c.id == "units":
-                continue
-            key = fam[c.id.split(".")[0].split(":")[0]]
-            cid = key if c.id.split(".")[0] in ("leakage", "finite") else f"{key}.{c.id.split('.', 1)[-1]}"
-            st = {"pass": PASS, "warn": WARN, "fail": FAIL, "not-applicable": NA}[c.status]
-            C.append(ValidationCheck(cid, st, c.summary, value=c.value, threshold=c.threshold))
+        C += _audit_checks([{"id": c.id, "status": c.status, "summary": c.summary, "value": c.value,
+                             "threshold": c.threshold} for c in card.checks])
     else:
         C.append(ValidationCheck("data.physics", NA, "no training data given"))
     # ---- calibrated error bound (needs reference pairs: half calibrates, half measures coverage)
@@ -523,10 +540,7 @@ def _zoo_checks(model, query, level, seed) -> list[ValidationCheck]:
     if card is None:
         C.append(ValidationCheck("data.physics", NA, "the training dataset has no stored audit card"))
     else:
-        bad = [c for c in card["checks"] if c["status"] == "fail"]
-        C.append(ValidationCheck("data.physics", FAIL if bad else WARN if card["decision"] == "warn" else PASS,
-                                 f"stored audit card of {card['dataset']}: {card['decision']}",
-                                 evidence={"failing": [c["id"] for c in bad]}))
+        C += _audit_checks(card["checks"], source=f"stored audit card of {card['dataset']}")
     return C
 
 
@@ -590,12 +604,19 @@ def validate(model, problem=None, data: Mapping[str, Mapping[str, np.ndarray]] |
         version = md.version("pinneapple")
     except md.PackageNotFoundError:
         version = "unknown"
-    prov: dict[str, Any] = {"library_version": version, "level": level, "source": "pp.validate"}
+    from .report_artifact import hash_data, hash_model
+    prov: dict[str, Any] = {"library_version": version, "level": level, "source": "pp.validate",
+                            "model_hash": hash_model(model), "data_hash": hash_data(data, reference, query),
+                            "physics": {"problem": problem if isinstance(problem, (str, type(None))) else
+                                        dict(problem) if isinstance(problem, Mapping) else type(problem).__name__,
+                                        "tolerances": tol, "seed": seed}}
     checks: list[ValidationCheck] = [_method_status(method)]
     if problem is None and _is_zoo(model):
         pname = f"zoo card of {model.name}"
         checks += _zoo_checks(model, query, level, seed)
         prov["model_card"] = {"name": model.name, "version": model.card.version}
+        prov["validity_range"] = {k: v for k, v in model.card.validity_range.items()
+                                  if isinstance(v, (list, tuple)) and len(v) == 2}
     else:
         spec = {"pde": "darcy"} if problem in ("darcy", "darcy_2d") else dict(problem or {}) \
             if isinstance(problem, Mapping) else _from_physical_problem(problem)

@@ -125,7 +125,8 @@ def test_zoo_model_report_matches_the_zoo_gate():
     assert rep.to_trust_report().decisao == gate.decisao == "APPROVED"
     assert rep["applicability.range"].status == "pass"
     assert rep.get("metamorphic.monotonicity.resistance-falls-with-air-speed").status == "pass"
-    assert rep["data.physics"].status == "pass"                     # the stored audit card of its dataset
+    data_checks = [c for c in rep.checks if c.id.startswith("data.")]   # the stored audit card of its dataset
+    assert data_checks and all(c.status in ("pass", "not-applicable") for c in data_checks)
     bad = {**ok, "air_velocity_m_s": [20.0]}                        # validity range 0.5 - 6 m/s
     rep = validate("heatsink_forced_mlp", query=bad, level="quick")
     assert rep.verdict.startswith("fail: out of validity range")

@@ -14,6 +14,12 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Validation report as an artifact (`pinneapple_analysis.validation.report_artifact`, #706): JSON schema
+  `validation-report/v1` with provenance hashes, `pp.validate.diff(old, new)` (lost / gained checks, moved metrics,
+  validity-envelope changes), a model-card section, an SVG badge and a shields.io endpoint, signatures with
+  `pinneapple_security.signing`. Stored reports for the zoo models (`pinneapple_hub.zoo.validation_reports`,
+  `scripts/zoo/validation_reports.py build|check`), shown in their Hub cards; the zoo publishing workflow refuses a
+  model version that loses a check the stored report passed.
 - `pp.validate(model, problem, data=None, reference=None, level="standard", query=None)` (#696): one validation
   report for a zoo model, a PyTorch / PhysicsNeMo module, an ONNX file or a callable. It composes the applicability
   envelope, the guaranteed residual bound and the calibrated error bound, flux balance, reference error, spectral
