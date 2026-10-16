@@ -14,6 +14,15 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Validation gallery (`examples/validation/`, #705): 12 CPU examples covering PINN, FNO / DeepONet, MeshGraphNet,
+  POD / DMD / OpInf, MLP / Gaussian process / least squares, neural ODE vs Hamiltonian network, a diffusion model and
+  external models (ONNX, PhysicsNeMo), on heat, Darcy, reaction-diffusion, elasticity, a cylinder wake, advection,
+  molecular dynamics, magnetostatics and cantilever modes. Each ends in `pp.validate`, a trust card and
+  `pinneapple check` outputs (`validation.gallery.conclude`), and catches one real failure on a broken variant. CI
+  workflow `validation-gallery.yml` runs them at smoke size. Also new: `pp.validate(sampler, {"generative": ...})`
+  (per-sample physics, diversity and memorisation of a generative model), state-vector rollouts (`ndim = 0`) with
+  user invariants, `numerical_solvers.reaction_diffusion` (Allen-Cahn, Fisher-KPP) and
+  `pinneapple_neural.utils.fit_supervised`.
 - Physics checks during training (`pinneapple_neural.callbacks`, #704): `PhysicsMonitor` runs the checks of
   `pp.validate` on a validation batch every N steps, warns or stops when a physics metric worsens for K checks while
   the loss improves, and writes the report and trust card at the end; adapters for PyTorch Lightning
@@ -463,6 +472,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- `pp.validate` on Darcy audits the training data with the problem's own source `f` (it assumed `f = 1`), and
+  records callables in the provenance by name (a rollout spec with an invariant function could not be saved).
+- Rollout validation: a user invariant named like a built-in (`energy`) is no longer replaced by the built-in or
+  scaled like it; the spectral band ignores shells below 1e-6 of the peak energy (round-off, not content).
 - `pp.validate` runs PhysicsNeMo field models given without a channel axis (PhysicsNeMo raises `ValueError`).
 - `pinneapple_physics.conservation.project_integral(mode="positive")` returned a negative field when the target
   integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
