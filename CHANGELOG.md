@@ -14,6 +14,12 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Zoo dataset `thermal_channel_cfd` (Hub-only, 360 MB in 8 files): the actuated heated channel of Benchmark
+  experiment 05. It holds 82 trajectories of u, v, p, T on 128 × 32 with 101 snapshots, the actuators and the
+  quantities of interest. The splits are train 48 / val 8 / test 12 of random steps and ramps, plus two actuation
+  families unseen in training. The card carries the solver checks (Poiseuille, Nusselt number) and a three-grid GCI.
+  The recipe is `pinneapple_simulation.numerical_solvers.thermal_channel_datasets` and the command line is
+  `scripts/zoo/thermal_channel_data.py`.
 - Spectral fidelity metrics (`pinneapple_analysis.validation.spectral`, #702): radially binned energy spectra
   (periodic, or mean-removed and Hann-windowed), energy ratio, phase error and coherence per wavenumber band, a
   high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
