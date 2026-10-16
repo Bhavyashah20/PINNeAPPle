@@ -30,6 +30,18 @@ from .fno import _SpectralConv2d
 __all__ = ["RealSpectralConv2d", "to_exportable", "export_onnx"]
 
 
+class _Plain(nn.Module):
+    """``model(x)`` with an ``OperatorOutput`` unwrapped to its tensor: the exporter passes only ``x``."""
+
+    def __init__(self, model: nn.Module):
+        super().__init__()
+        self.model = model
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = self.model(x)
+        return getattr(y, "y", y)
+
+
 class RealSpectralConv2d(nn.Module):
     """Real-arithmetic equivalent of :class:`~.fno._SpectralConv2d` on an ``H x W`` grid."""
 
@@ -86,6 +98,7 @@ def export_onnx(model: nn.Module, example: torch.Tensor, path: str | Path, *, gr
     batch axis, check onnxruntime against PyTorch on ``example`` and return the largest absolute difference (raises
     when it exceeds ``atol`` times the output scale). ``grid`` defaults to the last two axes of ``example``."""
     grid = grid or tuple(example.shape[-2:])
+    model = _Plain(model).eval()
     real = to_exportable(model, grid)
     with torch.no_grad():
         ref = model.eval()(example)

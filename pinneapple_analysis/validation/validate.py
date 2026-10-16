@@ -40,7 +40,7 @@ import numpy as np
 from . import schema
 from .schema import FAIL, NA, PASS, WARN
 
-__all__ = ["ValidationCheck", "ValidationReport", "validate", "DEFAULT_TOLERANCES", "as_field_model"]
+__all__ = ["ValidationCheck", "ValidationReport", "validate", "DEFAULT_TOLERANCES", "as_field_model", "pp_validate"]
 
 #: ``energy_bound``: relative guaranteed error bound above which the prediction is not trusted (at 1 the bound allows
 #: an error as large as the solution itself; the bound is loose, about 10 x the actual error of a good FNO: 0.40 for a
@@ -134,9 +134,9 @@ class ValidationReport:
             cs = [c for c in self.checks if c.factor == f and c.status != NA]
             if not cs:
                 lvl = 0
-            elif any(c.status == FAIL for c in cs):
+            elif any(c.status == FAIL and c.spec.critical for c in cs):
                 lvl = 1
-            elif any(c.status == WARN for c in cs):
+            elif any(c.status in (FAIL, WARN) for c in cs):          # a non-critical failure asks for review
                 lvl = 2
             else:
                 lvl = max(c.spec.strength for c in cs)
@@ -187,7 +187,13 @@ class ValidationReport:
 
     def to_trust_report(self):
         """The same evidence as a :class:`pinneapple_analysis.trust.TrustReport` (the trust card's decision)."""
-        from pinneapple_analysis.trust.trust_report import CONTRADICTS, NOT_RUN, SUPPORTS, Check, TrustReport
+        from pinneapple_analysis.trust.trust_report import (
+            CONTRADICTS,
+            NOT_RUN,
+            SUPPORTS,
+            Check,
+            TrustReport,
+        )
         st = {PASS: SUPPORTS, WARN: SUPPORTS, FAIL: CONTRADICTS, NA: NOT_RUN}
         checks = [Check(c.id, st[c.status], critical=c.spec.critical,
                         value=c.value if isinstance(c.value, (int, float)) else None,
@@ -615,3 +621,24 @@ def _from_physical_problem(problem) -> dict[str, Any]:
     dom = getattr(problem, "domain_bounds", None) or getattr(problem, "bounds", None) or {}
     return {"name": getattr(problem, "name", type(problem).__name__),
             "valid_range": {k: tuple(v) for k, v in dict(dom).items()}}
+
+
+class _PPValidate:
+    """``pp.validate``: call it to validate a model (:func:`validate`); its attributes are those of
+    ``pinneapple_analysis.validation`` (``pp.validate.PhysicsValidator`` as before)."""
+
+    def __call__(self, *args, **kwargs) -> ValidationReport:
+        return validate(*args, **kwargs)
+
+    def __getattr__(self, name: str):
+        import importlib
+        return getattr(importlib.import_module("pinneapple_analysis.validation"), name)
+
+    def __dir__(self):
+        import importlib
+        return sorted(set(dir(importlib.import_module("pinneapple_analysis.validation"))) | {"__call__"})
+
+    __doc__ = validate.__doc__
+
+
+pp_validate = _PPValidate()

@@ -164,3 +164,12 @@ def test_fno_onnx_export_is_exact(tmp_path, H, W, modes):
         warnings.simplefilter("ignore")
         diff = export_onnx(net, torch.randn(3, 1, H, W), tmp_path / "f.onnx")
     assert diff < 1e-5
+
+
+def test_pp_validate_is_callable_and_keeps_the_old_namespace():
+    import pinneapple as pp
+    from pinneapple_analysis.validation import PhysicsValidator
+    assert pp.validate.PhysicsValidator is PhysicsValidator          # pp.validate.<name> as before
+    rep = pp.validate(lambda x: {"y": 2 * np.asarray(x["x"])}, {"valid_range": {"x": (0, 1)}},
+                      query={"x": [0.5, 2.0]}, level="quick")
+    assert rep.verdict.startswith("fail: out of validity range")

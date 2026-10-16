@@ -14,6 +14,16 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- `pp.validate(model, problem, data=None, reference=None, level="standard", query=None)` (#696): one validation
+  report for a zoo model, a PyTorch / PhysicsNeMo module, an ONNX file or a callable. It composes the applicability
+  envelope, the guaranteed residual bound and the calibrated error bound, flux balance, reference error, spectral
+  fidelity, metamorphic relations, the data audit, the zoo gate and robustness; reports pass / warn / fail /
+  not-applicable per check, a credibility level per factor (modelled on NASA-STD-7009A and ASME V&V 40) and a deploy
+  decision; outputs JSON (`validation-report/v1`), HTML, text, the trust report and `pinneapple check` formats
+  (SARIF, JUnit). Statuses, factors and check IDs live in `pinneapple_analysis.validation.schema`.
+  `pp.validate.<name>` still resolves the names of `pinneapple_analysis.validation`.
+- `pinneapple_neural.architectures.neural_operators.fno_export`: ONNX export of FNOs (spectral convolutions in real
+  arithmetic, checked against PyTorch with onnxruntime).
 - Spectral fidelity metrics (`pinneapple_analysis.validation.spectral`, #702): radially binned energy spectra
   (periodic, or mean-removed and Hann-windowed), energy ratio, phase error and coherence per wavenumber band, a
   high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
@@ -37,11 +47,6 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   whose coverage is measured and reported as broken under an input shift; `to_check` for trust reports.
   `operator_benchmarks.darcy_matrix` exposes the finite-volume matrix of `darcy_2d`. Docs: "From residual to error
   bound".
-- Spectral fidelity metrics (`pinneapple_analysis.validation.spectral`, #702): radially binned energy spectra
-  (periodic, or mean-removed and Hann-windowed), energy ratio, phase error and coherence per wavenumber band, a
-  high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
-  wall flux. Reported by `pinneapple check` (new rule PC704 `spectral-bias`, tolerance `hf-bias`) and by the
-  `pp.benchmark` field problems ("HF energy bias" column). Docs: "Spectral fidelity".
 - Zoo dataset `navier_stokes_2d_li2021_nu1e-3` (Hub-only, 919 MB in 12 shards of 100 runs): 2-D incompressible
   Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
   It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.

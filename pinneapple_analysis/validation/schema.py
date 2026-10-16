@@ -13,9 +13,9 @@ Credibility factors
     certification under them.
 
 Credibility levels (per factor)
-    0 no evidence (every check not applicable), 1 evidence contradicts the model (a check failed), 2 passes with
-    warnings or only qualitative evidence, 3 passes quantitative checks, 4 passes against an independent reference or
-    a guaranteed bound.
+    0 no evidence (every check not applicable), 1 evidence contradicts the model (a critical check failed), 2 passes
+    with warnings (a non-critical check failed or warned) or only qualitative evidence, 3 passes quantitative checks,
+    4 passes against an independent reference or a guaranteed bound.
 """
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ FACTORS: dict[str, str] = {
 
 LEVELS: dict[int, str] = {
     0: "no evidence",
-    1: "evidence contradicts the model",
+    1: "evidence contradicts the model (a critical check failed)",
     2: "passes with warnings or qualitative evidence only",
     3: "passes quantitative checks",
     4: "passes against an independent reference or a guaranteed bound",
