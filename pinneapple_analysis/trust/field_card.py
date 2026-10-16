@@ -179,7 +179,12 @@ def field_checks(grid: Mapping[str, Sequence[float]], values: Any, *, pde: str |
     tol = {**DEFAULT_TOLERANCES, **dict(tolerances or {})}
     names, axes = _axes(grid)
     shape = tuple(len(a) for a in axes)
-    u = np.asarray(values, dtype=np.float64)
+    if hasattr(values, "detach"):                     # a torch tensor (on any device, with or without grad)
+        values = values.detach().cpu().numpy()
+    raw = np.asarray(values)
+    # round-off of the data as written: a float32 field is only accurate to float32 epsilon
+    eps = float(np.finfo(raw.dtype).eps) if np.issubdtype(raw.dtype, np.floating) else float(np.finfo(np.float64).eps)
+    u = raw.astype(np.float64)
     if u.size != int(np.prod(shape)):
         raise ValueError(f"values has {u.size} entries, the grid {dict(zip(names, shape, strict=True))} has {int(np.prod(shape))}")
     u = u.reshape(shape)
@@ -224,7 +229,15 @@ def field_checks(grid: Mapping[str, Sequence[float]], values: Any, *, pde: str |
             # relative to the size of the terms that must balance (each second derivative, the source, u_t): a
             # harmonic field has large u_xx and u_yy that cancel, so the residual is judged against them
             scale = float(np.sqrt(np.mean(np.sum([np.abs(t[sl]) for t in terms], axis=0) ** 2)))
-            scale = max(scale, 1e-12 * urange)
+            # floor at the round-off of the finite differences themselves (about 4 eps max|u| / h^2 per second
+            # derivative, 2 eps max|u| / dt for u_t): an exactly harmonic field (a linear one) has terms that are
+            # pure round-off, and judging round-off against round-off would fail it
+            coef = 1.0 if t_ax is None else abs(alpha)
+            per_unit = sum(4.0 * coef / float(np.diff(axes[a]).min()) ** 2 for a in space)
+            if t_ax is not None:
+                per_unit += 2.0 / float(np.diff(axes[t_ax]).min())
+            noise = eps * float(np.abs(u).max()) * per_unit
+            scale = max(scale, 100.0 * noise, 1e-12 * urange)
             rel = float(np.sqrt(np.mean(r[sl] ** 2))) / scale
             eq = "laplace(u) = f" if t_ax is None else f"u_{time_coord} = {alpha:g} laplace(u) + f"
             out.append(FieldCheck("PDE residual", "physics", rel <= tol["residual"], value=rel,
@@ -249,7 +262,10 @@ def field_checks(grid: Mapping[str, Sequence[float]], values: Any, *, pde: str |
         out.append(FieldCheck("boundary conditions", "physics", None, detail="no Dirichlet data given"))
 
     # ---- conservation (divergence theorem) and maximum principle, steady problems
-    if steady:
+    if steady and min(shape) < 3:
+        out.append(FieldCheck("conservation (net boundary flux = integral of the source)", "physics", None,
+                              detail="needs at least 3 points per axis (second-order one-sided boundary gradient)"))
+    elif steady:
         f = np.zeros(shape) if source is None else _evaluate(source, pts, shape)
         net, total = 0.0, 0.0
         for a, x in enumerate(axes):
