@@ -152,3 +152,18 @@ def test_ai_endpoints(client):
     dec = client.get("/api/sat/decay?days=10&f107=150&ap=15&B=0.005&h0=415").json()
     assert dec["verdict"]["status"] in ("trustworthy", "use_with_caution") and len(dec["h_pinn_km"]) == 200
     assert dec["h_pinn_km"][-1] < dec["h_pinn_km"][0]
+
+
+def test_facts_endpoints(client):
+    from pinneapple_physics.astro import facts
+    c = client.get(f"/api/facts/card?id=saturn&lang=pt&{SP}&t={T}").json()
+    assert c["name"] == "Saturno" and c["tonight"]["above_now"] is True
+    assert [r["value"] for r in c["numbers"]] == [r["value"] for r in facts.card("saturn", "pt")["numbers"]]
+    s = client.get(f"/api/facts/card?id=sat:25544&lang=en&{SP}&t={T}").json()
+    assert s["id"] == "sat-iss" and "passes" in s
+    r = client.get("/api/facts/card?id=nothing")
+    assert r.status_code == 404 and r.headers["X-Error-Code"] == "no_card"
+    assert client.get("/api/facts/search?q=cruzeiro&lang=pt").json()["results"][0]["id"] == "con-Cru"
+    assert len(client.get("/api/facts/list?kind=messier").json()["cards"]) == 110
+    assert client.get("/api/facts/tip?lang=en&seed=2").json()["text"]
+    assert client.get("/api/facts/tip?lang=fr").status_code == 400

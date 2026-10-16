@@ -144,6 +144,53 @@ def milkyway():
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
+# ----------------------------------------------------------------------------------------------- learn (facts)
+def _lang(lang: str) -> str:
+    if lang not in ("en", "pt"):
+        raise _error(400, "bad_lang", "lang must be 'en' or 'pt'")
+    return lang
+
+
+@app.get("/api/facts/card")
+def facts_card(id: str, lang: str = "en", lat: float | None = None, lon: float | None = None, elev: float = 0.0,
+               t: str | None = None):
+    """The info card of an object (pinneapple_physics.astro.facts): key numbers with a source each and everyday
+    comparisons, curiosities with sources, history, missions, a quiz; with lat/lon, how to see it tonight."""
+    from pinneapple_physics.astro import facts
+    try:
+        card = facts.card(id, _lang(lang))
+    except KeyError as exc:
+        raise _error(404, "no_card", str(exc), value=id) from exc
+    if lat is not None and lon is not None:
+        tt, obs = _time(t), _obs(lat, lon, elev)
+        if card["kind"] == "satellite":
+            from pinneapple_physics.astro.satellites import find_passes
+            sats, _ = _satellites()
+            sat = next((s for s in sats if s.norad == card["norad"] and abs(float(tt.utc) - s.epoch_jd) <= 30), None)
+            card["passes"] = find_passes(sat, obs, tt, 3.0, eph=EPH)[:4] if sat else []
+        else:
+            card["tonight"] = facts.tonight(card["id"], obs, tt, eph=EPH)
+    return card
+
+
+@app.get("/api/facts/search")
+def facts_search(q: str, lang: str = "en", limit: int = Query(12, ge=1, le=50)):
+    from pinneapple_physics.astro import facts
+    return {"q": q, "results": facts.search(q, _lang(lang), limit)}
+
+
+@app.get("/api/facts/list")
+def facts_list(kind: str | None = None, lang: str = "en"):
+    from pinneapple_physics.astro import facts
+    return {"kind": kind, "cards": facts.list_cards(kind, _lang(lang))}
+
+
+@app.get("/api/facts/tip")
+def facts_tip(lang: str = "en", seed: int | None = None):
+    from pinneapple_physics.astro import facts
+    return facts.did_you_know(_lang(lang), seed)
+
+
 # ------------------------------------------------------------------------------------------------------- sky
 def _body_now(b: str, t: Time, obs: Observer) -> dict:
     p = apparent(b, t, obs)

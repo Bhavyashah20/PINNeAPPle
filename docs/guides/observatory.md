@@ -34,6 +34,18 @@ interface text is hard-coded in `static/*.js` or `index.html` (a lint over the s
 `apps/observatory/tests/e2e/i18n.spec.js` switches to Portuguese, checks that the main panels have no English left and
 switches back (`cd apps/observatory && npm ci && npx playwright test`).
 
+## Learn mode
+
+The **Learn** tab (and the end of the Object tab) shows an info card for the Sun, planets, Moon, dwarf planets,
+major moons, the brightest stars, the 88 constellations, the 110 Messier objects and the ISS, Hubble and Tiangong:
+what it is in one sentence, key numbers with everyday comparisons (size against the Earth, light time, length of day
+and year), how to see it tonight from your place, three to five curiosities, a short history and missions, and a
+short quiz for classrooms. Search works with names in English or Portuguese. Every number carries its source
+(numbered marks, with the list at the end of the card); the dataset is `pinneapple_physics/astro/data/facts/` and the
+library `pinneapple_physics.astro.facts` (`card`, `search`, `quiz`, `tonight`, `validate`).
+
+![Saturn's card in Portuguese](../assets/apps/14-observatory-learn-pt.jpg)
+
 ## What is computed where
 
 The server (`apps/observatory/observatory/api.py`) calls `pinneapple_physics.astro` for every position, event and

@@ -15,6 +15,7 @@ const SHOTS = [
   { name: "star-hr", url: `/?${SP}&t=2026-10-14T00:30:00Z&az=40&alt=40&fov=80&select=star:2061`, wait: "#oHR svg" },
   { name: "system", url: `/?${SP}&t=2026-10-13T23:30:00Z&view=system&tab=engine&focusDelay=99999`, wait: "#eOut .card", settle: 9000, timeout: 600000 },
   { name: "engine", url: `/?${SP}&t=2026-10-13T23:30:00Z&tab=engine&az=90&alt=30`, wait: "#eVal table", timeout: 600000 },
+  { name: "learn", url: `/?${SP}&t=2026-10-13T23:30:00Z&learn=saturn&az=60&alt=35&fov=70`, wait: ".learn-card .lc-quiz" },
   { name: "lensing", url: `/?${SP}&t=2026-10-13T23:30:00Z&tab=analyses&az=225&alt=45&fov=60`, click: "#aLens", wait: "#aLensOut img", scroll: "#aLensOut", timeout: 600000 },
 ];
 const LANGS = { en: "", pt: "-pt" };
