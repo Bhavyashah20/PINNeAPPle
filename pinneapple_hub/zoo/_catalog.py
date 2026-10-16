@@ -477,6 +477,66 @@ OPERATOR_DATASETS = {
 }
 DATASETS.update(OPERATOR_DATASETS)
 
+THERMAL_CHANNEL_DATASETS = {
+    "thermal_channel_cfd": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "Actuated heated-channel CFD, 2-D incompressible flow + heat (82 trajectories, 128 x 32, 101 snapshots)",
+        "description": (
+            "Non-dimensional channel [0, 10] x [0, 1], Re 100, Pr 0.71: parabolic inlet with time-varying mean "
+            "velocity U(t) in [0.6, 1.4] and inlet temperature 0, no-slip walls, adiabatic except a heater on the "
+            "bottom wall at x in [2, 4] with flux -dT/dy = Q(t) in [0, 2], zero-gradient outlet. After a 15-unit "
+            "warm-up each trajectory records u, v, p, T on the 128 x 32 cell centres every 0.4 time units over 40 "
+            "units (101 snapshots), with the actuators and the quantities of interest (bulk outlet temperature, "
+            "maximum temperature, pressure drop, heat in / out, stored energy). Training actuation is random holds, "
+            "steps and ramps; two test splits use families never seen in training (chirped sinusoids, steps "
+            "between the range edges), for digital-twin and forecasting models. Cell centres and all solver "
+            "settings are in meta.json; fields[:, k] is the state at t = 0.4 k."),
+        "license": "cc-by-4.0",
+        "source": (
+            "python scripts/zoo/thermal_channel_data.py generate --out DIR; recipe of PINNeAPPle-Benchmark "
+            "experiment 05 (Apache-2.0) on pinneapple_simulation.numerical_solvers.thermal_channel_2d (staggered "
+            "MAC grid, Chorin projection, dt 0.01), seeds per trajectory in "
+            "pinneapple_simulation.numerical_solvers.thermal_channel_datasets.PLAN"),
+        "verification": (
+            "Solver checks (python scripts/zoo/thermal_channel_data.py verify, "
+            "pinneapple_simulation.numerical_solvers.thermal_channel_datasets.verify): plane Poiseuille flow, max "
+            "error of the velocity profile 4.8e-3 / 1.3e-3 / 3.5e-4 on 64 x 16 / 128 x 32 (the dataset grid) / "
+            "256 x 64 (second order), dp/dx within 1.2 % of -12/Re, max divergence 1e-7; fully developed Nusselt "
+            "number for one wall at uniform flux and one adiabatic, 5.392 / 5.388 vs 5.385 exact (Shah & London "
+            "1978), global energy imbalance 2.7e-8. Three-grid study of an actuated run (64 x 16, 128 x 32, "
+            "256 x 64, dt halved with h): GCI of the dataset grid 3.7 % for the bulk outlet temperature "
+            "(oscillatory convergence, observed order 1.3), 1.1 % for the maximum temperature (order 2.3), 1.3 % "
+            "for the pressure drop (order 1.3). In every trajectory the change of stored energy matches the "
+            "trapezoidal integral of the recorded heat in - out to 0.3 % (median, smooth actuation) and at most "
+            "4 % (steps, limited by the 0.4 sampling of the actuators). All fields finite; float32 storage."),
+        "splits": {"train": "48 trajectories (random steps and ramps)", "val": "8 trajectories (same family)",
+                   "test_same_family": "12 trajectories (same family, held-out seeds)",
+                   "test_unseen_sinusoid": "8 trajectories (chirped sinusoids, unseen family)",
+                   "test_unseen_edge_steps": "6 trajectories (steps between range edges, unseen family)"},
+        "split_rule": ("fixed seeds per split (train 0-47, val 1000-1007, test_same_family 2000-2011, "
+                       "test_unseen_sinusoid 3000-3007, test_unseen_edge_steps 4000-4005)"),
+        "columns": {"family": ("-", "actuation family"), "seed": ("-", "actuation seed"),
+                    "fields": ("-", "u, v, p, T on the 128 x 32 cell centres at the 101 record times "
+                                    "(trajectory x time x 4 x 128 x 32)"),
+                    "U": ("-", "inlet mean velocity at the record times"),
+                    "Q": ("-", "heater flux at the record times"),
+                    "U_fine": ("-", "inlet mean velocity every 0.1 time units (401 values)"),
+                    "Q_fine": ("-", "heater flux every 0.1 time units (401 values)"),
+                    "qoi_T_out": ("-", "bulk (flow-weighted) outlet temperature"),
+                    "qoi_T_max": ("-", "maximum temperature, heater wall included"),
+                    "qoi_dp": ("-", "inlet-to-outlet pressure drop"),
+                    "qoi_heat_in": ("-", "heat input rate of the heater"),
+                    "qoi_heat_out": ("-", "advected heat outflow rate at the outlet"),
+                    "qoi_energy": ("-", "thermal energy stored in the channel")},
+        "tags": ["CFD", "heat transfer", "digital twin", "Navier-Stokes", "forecasting", "benchmark"],
+        "citation": ("PINNeAPPle-Benchmark experiment 05 (actuated heated channel). Data generated with PINNeAPPle "
+                     "(pinneapple_simulation.numerical_solvers.thermal_channel_2d); PINNeAPPle, Zenodo DOI "
+                     "10.5281/zenodo.23343062."),
+    },
+}
+DATASETS.update(THERMAL_CHANNEL_DATASETS)
+
 
 def hf_repo(kind: str, name: str) -> str:
     """Hub repo of a model/dataset: PINNeAPPle-Labs/<name with dashes>."""
