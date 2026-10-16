@@ -61,6 +61,6 @@ test("clicking a planet shows the start of its card in the object tab", async ({
   await page.goto(`/?${SP}&select=body:saturn#lang=pt`);
   await page.waitForFunction(() => window.__ready === true);
   await expect(page.locator("#oLearn .learn-teaser")).toContainText("Saturno");
-  await page.click("#oLearnGo");
+  await page.locator("#oLearnGo").dispatchEvent("click");          // the object tab is redrawn as the sky data refreshes
   await expect(page.locator("#tab-learn .lc-title")).toContainText("Saturno");
 });

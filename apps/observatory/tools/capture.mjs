@@ -16,6 +16,7 @@ const SHOTS = [
   { name: "system", url: `/?${SP}&t=2026-10-13T23:30:00Z&view=system&tab=engine&focusDelay=99999`, wait: "#eOut .card", settle: 9000, timeout: 600000 },
   { name: "engine", url: `/?${SP}&t=2026-10-13T23:30:00Z&tab=engine&az=90&alt=30`, wait: "#eVal table", timeout: 600000 },
   { name: "learn", url: `/?${SP}&t=2026-10-13T23:30:00Z&learn=saturn&az=60&alt=35&fov=70`, wait: ".learn-card .lc-quiz" },
+  { name: "observe", url: `/?${SP}&t=2026-10-14T02:30:00Z&observe=M45&eye=plossl32&az=40&alt=40&fov=60`, wait: "#obChart svg", click: "#obTrack", after: "#epCanvas", settle: 4000 },
   { name: "lensing", url: `/?${SP}&t=2026-10-13T23:30:00Z&tab=analyses&az=225&alt=45&fov=60`, click: "#aLens", wait: "#aLensOut img", scroll: "#aLensOut", timeout: 600000 },
 ];
 const LANGS = { en: "", pt: "-pt" };
@@ -30,8 +31,9 @@ for (const s of SHOTS) {
     page.on("pageerror", (e) => console.error(name, e.message));
     await page.goto(`${BASE}${s.url}&capture=1#lang=${lang}`);
     await page.waitForFunction(() => window.__ready === true, null, { timeout: 120000 });
+    if (s.wait && s.after) await page.locator(s.wait).first().waitFor({ timeout: s.timeout || 60000 });
     if (s.click) await page.click(s.click);
-    if (s.wait) await page.locator(s.wait).first().waitFor({ timeout: s.timeout || 60000 });
+    if (s.wait) await page.locator(s.after || s.wait).first().waitFor({ timeout: s.timeout || 60000 });
     if (s.scroll) await page.locator(s.scroll).scrollIntoViewIfNeeded();
     await page.waitForTimeout(s.settle || 2500);
     await page.screenshot({ path: `${OUT}${name}.jpg`, type: "jpeg", quality: 86 });

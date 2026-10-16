@@ -14,6 +14,20 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Observatory: observing session mode (#722). `pinneapple_physics.astro.observing`: visibility of any target (body,
+  star, Messier object) with altitude, air mass, extinction per band, sky brightness (Krisciunas & Schaefer 1991
+  moonlight + twilight), parallactic angle and field rotation, rise / transit / set for fixed objects (within a
+  minute of Skyfield), the best window; telescope optics (magnification, true field, exit pupil, Dawes and Rayleigh
+  limits, limiting magnitude, image scale, camera field) with presets; GoTo slews with a trapezoidal profile, horizon
+  limit and meridian flip; survey cut-outs from CDS hips2fits (DSS2 colour), cached on the server and credited on
+  screen. `conditions.fetch_cloud_forecast` / `sky_view`: "real sky" from the Open-Meteo cloud forecast, "perfect
+  sky" without weather, and a fallback to perfect sky without a forecast. The app's Observe tab plans the night,
+  sets up the telescope, slews and tracks the target in an eyepiece or camera view at 1x to 3600x (field rotation,
+  extinction, sky brightness, seeing, clouds), with a session log (notes, snapshots, conditions); offline the field
+  is drawn from the star catalogue. `/api/observe/{plan,optics,slew,weather,presets,field.jpg}`. Tests:
+  `tests/test_astro_observing.py` (Skyfield, Kasten & Young, optics formulas, analytic field rotation) and
+  `apps/observatory/tests/e2e/observe.spec.js` (a 2-hour session at 600x stays centred; a forced overcast forecast
+  hides the view and is logged).
 - Observatory: Learn mode with facts and curiosities about each object (#724). `pinneapple_physics.astro.facts` and a
   versioned dataset in `pinneapple_physics/astro/data/facts/` (the Sun, planets, Moon, dwarf planets and major moons,
   the brightest stars, the 88 constellations, the 110 Messier objects, the ISS, Hubble and Tiangong): every number

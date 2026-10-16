@@ -5,6 +5,7 @@ import { D2R, R2D, compass, dateToJd, fmtDec, fmtRA, jdToDate, radecVec } from "
 import { renderBlackHole, renderConditions, renderDecay, renderSmallBodies, renderSpaceWeather, renderStarsML, checkName, verdictBadge } from "./ai.js";
 import { applyStatic, fmtDate, lang, num, onLangChange, setLang, sig, t, tOr } from "./i18n.js";
 import { renderLearn, startupTip } from "./learn.js";
+import { Observe } from "./observe.js";
 
 // ------------------------------------------------------------------------------------------------- setup
 const $ = (s) => document.querySelector(s);
@@ -160,6 +161,7 @@ function frame() {
   if (S.view === "sky" && S.skyData && now - S.lastNowRefresh > 20000 && Math.abs(S.speed) <= 60) {
     S.lastNowRefresh = now; if (Math.abs(S.simJD - S.skyData.jd_utc) * 86400 > 60) loadSky(true);
   }
+  if (observe.tracking) observe.frame();
   updateClock();
   requestAnimationFrame(frame);
 }
@@ -359,7 +361,7 @@ function focusSystem(id) {
   sys.flyTo(tp.clone().add(dir.multiplyScalar(r)), tp, 1800);
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-window.__obs = { S, sky, sys, switchView, focusSystem, loadSky, ctx, setLang, openLearn: (id) => openLearn(id) };          // for scripted captures (GIF / screenshots)
+window.__obs = { S, sky, sys, switchView, focusSystem, loadSky, ctx, setLang, openLearn: (id) => openLearn(id), openObserve: (id) => openObserve(id), get observe() { return observe; } };          // for scripted captures (GIF / screenshots)
 
 // ------------------------------------------------------------------------------------------------- panels
 for (const b of document.querySelectorAll(".ptabs button")) b.onclick = () => openTab(b.dataset.tab);
@@ -370,6 +372,7 @@ function openTab(tab) {
   if (tab === "sats") renderSatsPanel();
   if (tab === "analyses" && !$("#tab-analyses").dataset.ready) renderAnalyses();
   if (tab === "engine" && !$("#tab-engine").dataset.ready) renderEngine();
+  if (tab === "observe" && !$("#tab-observe").dataset.ready) { $("#tab-observe").dataset.ready = 1; observe.render($("#tab-observe")); }
   if (tab === "learn" && !$("#tab-learn").dataset.ready) { $("#tab-learn").dataset.ready = 1; renderLearn($("#tab-learn"), learnCtx); }
   $("#panel").classList.add("open");
 }
@@ -396,7 +399,17 @@ const learnCtx = {
     if (c.kind === "constellation" && sky.cat) { const k = c.id.slice(4), x = sky.cat.constellations.find((y) => y.key === k); if (x) lookRaDec(x.label[0], x.label[1]); }
   },
   openLearn: (id) => openLearn(id),
+  observe: (c) => openObserve(c.observe || c.id),
 };
+const observe = new Observe({ api, qs, iso: () => isoOf(S.simJD), place: () => placeName(), sky, S, bname: (b) => bname(b), conName,
+  tfmt: (iso) => fmtDate(new Date(iso), { hour: "2-digit", minute: "2-digit", timeZone: S.obs.tz }),
+  targetName: (info) => (info.kind === "body" ? bname(info.id) : observe.names?.[info.id] || info.id) });
+function openObserve(id) {                       // e.g. from a Learn card: plan this target
+  observe.target = id;
+  $("#tab-observe").dataset.ready = 1;
+  observe.render($("#tab-observe"));
+  openTab("observe");
+}
 function openLearn(id) {
   $("#tab-learn").dataset.ready = 1;
   renderLearn($("#tab-learn"), learnCtx, id);
@@ -738,7 +751,8 @@ onLangChange(() => {
   if (S.selected) renderObject(S.selected);
   const tab = currentTab();
   const shown = $("#tab-learn .learn-card")?.dataset.card;
-  for (const id of ["tab-analyses", "tab-engine", "tab-learn"]) { $("#" + id).innerHTML = ""; delete $("#" + id).dataset.ready; }
+  for (const id of ["tab-analyses", "tab-engine", "tab-learn", "tab-observe"]) { $("#" + id).innerHTML = ""; delete $("#" + id).dataset.ready; }
+  if (tab === "observe") { $("#tab-observe").dataset.ready = 1; observe.render($("#tab-observe")); }
   if (tab === "learn") openLearn(shown);
   if (tab === "sats") renderSatsPanel(); else $("#tab-sats").innerHTML = "";
   if (tab === "analyses") renderAnalyses();
@@ -762,8 +776,9 @@ $("#tab-object").innerHTML = `<p class="muted">${t("object.hint")}</p>`;
     if (params.get("focus")) setTimeout(() => focusSystem(params.get("focus")), +(params.get("focusDelay") || 7000));
   });
   if (params.get("tab")) openTab(params.get("tab"));
+  if (params.get("observe")) openObserve(params.get("observe"));        // e.g. observe=saturn, observe=M31
   if (params.get("learn")) openLearn(params.get("learn"));            // e.g. learn=M31, learn=star:2061, learn=saturn
-  else if (params.get("tip") !== "0" && !params.has("capture") && !params.get("select") && !params.get("tab")) startupTip($("#tip"), learnCtx);
+  else if (params.get("tip") !== "0" && !params.has("capture") && !params.get("select") && !params.get("tab") && !params.get("observe")) startupTip($("#tip"), learnCtx);
   if (params.get("select")) {                    // e.g. select=star:2491 or select=body:saturn
     const [kind, id] = params.get("select").split(":");
     S.selected = { kind, id: kind === "star" ? +id : id }; renderObject(S.selected); openTab("object");
