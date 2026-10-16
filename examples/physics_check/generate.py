@@ -271,6 +271,41 @@ def surrogate_field(path: Path, *, nan: bool) -> None:
     np.savez_compressed(path, x=x, y=y, T=T, units=np.array(["x=m", "y=m", "T=K"]))
 
 
+def darcy_dataset(path: Path, *, defects: bool) -> None:
+    """Darcy pairs (a, u) on 16 x 16 cells in the zoo layout (``train__a`` ...). The failing set has the three
+    defects of #700: u scaled by 0.9 (does not solve its PDE), permeability samples drawn with one shared Fourier
+    coefficient (two distinct fields) and a test sample copied from the training set."""
+    import sys
+    sys.path.insert(0, str(HERE.parents[1]))
+    from pinneapple_simulation.numerical_solvers import operator_benchmarks as ob
+    n = 16
+    a = ob.threshold_coefficient(ob.periodic_grf(50, (n, n), alpha=2.0, tau=3.0, seed=11))
+    if defects:
+        g = ob.periodic_grf(1, (n, n), alpha=2.0, tau=3.0, seed=11)[0]
+        a = ob.threshold_coefficient(np.random.default_rng(1).standard_normal(50)[:, None, None] * g[None])
+    u = np.stack([ob.darcy_2d(ai, 1.0) for ai in a]) * (0.9 if defects else 1.0)
+    if defects:
+        a[45], u[45] = a[3], u[3]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(path, train__a=a[:40], train__u=u[:40], test__a=a[40:], test__u=u[40:])
+def mixing_field(path: Path, ref_path: Path, *, blurred: bool) -> None:
+    """A multi-scale scalar (spectrum ~ k^-5/3, random phases) and its reference; the failing copy is the same field
+    through a Gaussian filter of one cell: a small relative L2 error, most of the small-scale energy gone (PC704)."""
+    n = 64
+    rng = np.random.default_rng(7)
+    m = np.fft.fftfreq(n) * n
+    KX, KY = np.meshgrid(m, m, indexing="ij")
+    K = np.hypot(KX, KY)
+    amp = np.where(K > 0, np.maximum(K, 1.0) ** (-(5 / 3 + 1) / 2), 0.0)
+    c = 300 + 2.0 * np.fft.ifft2(np.fft.fft2(rng.standard_normal((n, n))) * amp).real / 0.05
+    x = np.linspace(0, 1, n, endpoint=False)
+    np.savez_compressed(ref_path, x=x, y=x, c=c)
+    if blurred:
+        k2 = (2 * np.pi * KX / n) ** 2 + (2 * np.pi * KY / n) ** 2
+        c = 300 + np.fft.ifft2(np.fft.fft2(c - 300) * np.exp(-0.5 * k2)).real
+    np.savez_compressed(path, x=x, y=x, c=c)
+
+
 def temperature_table(path: Path, unit: str, celsius: bool) -> None:
     """A probe export (CSV of points): ``celsius`` writes degC values."""
     x = np.linspace(0, 1, 15)
@@ -446,6 +481,8 @@ def main() -> None:
         vof_tank(d / "fields/tank_alpha.vtu", overshoot=bad)
         porosity(d / "fields/porosity.npz", out_of_range=bad)
         surrogate_field(d / "fields/surrogate_T.npz", nan=bad)
+        darcy_dataset(d / "datasets/darcy.npz", defects=bad)
+        mixing_field(d / "fields/mixing_c.npz", d / "reference/mixing_c.npz", blurred=bad)
         temperature_table(d / "fields/probe_T.csv", "degC" if bad else "K", celsius=bad)
         qoi(d / "qoi/airfoil.csv", cd=0.0129 if bad else 0.01231, cl=0.802)
         qoi(d / "reference/airfoil.csv", cd=0.01230, cl=0.801)

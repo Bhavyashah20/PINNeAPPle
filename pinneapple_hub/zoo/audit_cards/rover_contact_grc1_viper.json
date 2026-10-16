@@ -1,0 +1,97 @@
+{
+ "schema": "dataset-audit/v1",
+ "dataset": "rover_contact_grc1_viper",
+ "splits": {
+  "test": 2000,
+  "train": 3600
+ },
+ "physics": null,
+ "decision": "pass",
+ "tolerances": {
+  "physics": 0.02,
+  "bc": 0.02,
+  "flux": 0.02,
+  "duplicates": 0.0,
+  "leakage": 0.0,
+  "near": 0.001,
+  "diversity": 0.5,
+  "spectrum": 2.0,
+  "min_effective": 2.0
+ },
+ "checks": [
+  {
+   "id": "finite",
+   "status": "pass",
+   "summary": "every value finite",
+   "value": null,
+   "threshold": null,
+   "evidence": {}
+  },
+  {
+   "id": "physics",
+   "status": "not-applicable",
+   "summary": "no PDE stated for this dataset",
+   "value": null,
+   "threshold": null,
+   "evidence": {}
+  },
+  {
+   "id": "diversity.duplicates",
+   "status": "pass",
+   "summary": "train: 0 exact, 0 near copies of 3600; test: 0 exact, 0 near copies of 2000",
+   "value": 0.0,
+   "threshold": 0.0,
+   "evidence": {
+    "train": {
+     "exact": 0,
+     "near": 0,
+     "pairs": [],
+     "median_nn": 0.041412088848008746
+    },
+    "test": {
+     "exact": 0,
+     "near": 0,
+     "pairs": [],
+     "median_nn": 0.051540675206084345
+    }
+   }
+  },
+  {
+   "id": "diversity.effective",
+   "status": "pass",
+   "summary": "effective sample count 2.53 of 3600 (no generator stated: only a collapse to one pattern is flagged)",
+   "value": 2.5280326212455186,
+   "threshold": 2.0,
+   "evidence": {
+    "effective": 2.5280326212455186,
+    "n": 3600
+   }
+  },
+  {
+   "id": "leakage",
+   "status": "pass",
+   "summary": "0 of 2000 test samples are (near) copies of train samples (closest: 0.0193 x the median train spacing)",
+   "value": 0.0,
+   "threshold": 0.0,
+   "evidence": {
+    "n_test": 2000,
+    "n_flagged": 0,
+    "fraction": 0.0,
+    "pairs": [],
+    "median_train_nn": 0.041412088848008746,
+    "min_ratio": 0.019288555100234226
+   }
+  },
+  {
+   "id": "units",
+   "status": "pass",
+   "summary": "5 column units parse",
+   "value": null,
+   "threshold": null,
+   "evidence": {
+    "unparseable": [],
+    "mismatch": []
+   }
+  }
+ ]
+}

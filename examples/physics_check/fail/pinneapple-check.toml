@@ -91,6 +91,10 @@ path = "fields/corrupt.vtu"                 # a truncated file
 [[result]]
 path = "fields/stream.npz"                  # declared, but nothing applies to it
 
+[[result]]
+path = "fields/mixing_c.npz"                     # blurred by one cell: rel. L2 0.2 %, high-wavenumber energy -99 %
+reference = "reference/mixing_c.npz"
+
 # ---------------------------------------------------------------- quantities of interest
 [[result]]
 path = "qoi/airfoil.csv"                    # Cd moved by 5 %
@@ -139,6 +143,11 @@ relations = [
   { name = "better-conductor-cooler", kind = "monotonic", input = "k", output = "T", direction = "decreasing" },
   { name = "same-q-L2", kind = "invariant", inputs = { q = "4 * q", L = "L / 2" }, output = "T", tol = 1e-9 },
 ]
+# ---------------------------------------------------------------- datasets
+[[dataset]]
+path = "datasets/darcy.npz"                      # u scaled by 0.9, two distinct permeabilities, a test copy
+physics = "darcy"
+constraints = ["u > 0", "u < 1 / 24"]
 
 # ---------------------------------------------------------------- artefacts
 [integrity]

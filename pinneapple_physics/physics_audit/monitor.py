@@ -81,13 +81,24 @@ def residual_check(residual_fn: Callable[[np.ndarray, Any], float], tolerance: f
     return ValidityCheck(name, "residual", residual_fn, tolerance, critical)
 
 
+def _relative(delta: float, target: float, rel_tol: float, abs_tol: float) -> float:
+    """``|delta|`` over ``max(|target|, abs_tol / rel_tol)``: the check passes when ``|delta| <= rel_tol |target|`` or
+    ``|delta| <= abs_tol``, so a conserved total whose expected value is zero (net charge, net momentum of a closed
+    system) can be checked by giving ``abs_tol``."""
+    floor = abs_tol / rel_tol if abs_tol > 0 and rel_tol > 0 else 0.0
+    return abs(delta) / max(abs(target), floor, 1e-300)
+
+
 def conservation_check(total_fn: Callable[[np.ndarray, Any], float], target_fn: Callable[[Any], float],
-                       rel_tol: float = 0.01, name: str = "conservation", critical: bool = False) -> ValidityCheck:
+                       rel_tol: float = 0.01, name: str = "conservation", critical: bool = False,
+                       abs_tol: float = 0.0) -> ValidityCheck:
     """Relative imbalance ``|total(prediction) - target(query)| / |target(query)|``. ``total_fn`` is typically a
-    quadrature (``np.sum(cell_volumes * rho)``); ``target_fn`` the initial total plus sources minus outflow."""
+    quadrature (``np.sum(cell_volumes * rho)``); ``target_fn`` the initial total plus sources minus outflow.
+    ``abs_tol``: an absolute imbalance that is always accepted (needed when the target is zero); the value reported
+    is then ``|imbalance| / max(|target|, abs_tol / rel_tol)``."""
     def fn(p, q):
         t = float(target_fn(q))
-        return abs(float(total_fn(p, q)) - t) / max(abs(t), 1e-300)
+        return _relative(float(total_fn(p, q)) - t, t, rel_tol, abs_tol)
     return ValidityCheck(name, "conservation", fn, rel_tol, critical,
                          lambda v: f"imbalance {100 * v:.3g} % (tolerance {100 * rel_tol:.3g} %)")
 
@@ -111,13 +122,22 @@ def bounds_check(lo: float | None = None, hi: float | None = None, name: str = "
 
 def boundary_check(predict_boundary: Callable[[np.ndarray, Any], np.ndarray],
                    boundary_value: Callable[[Any], np.ndarray], rel_tol: float = 0.01, name: str = "boundary_condition",
-                   critical: bool = False) -> ValidityCheck:
-    """Relative RMS mismatch between the prediction on the boundary and the boundary condition."""
+                   critical: bool = False, scale: float | None = None) -> ValidityCheck:
+    """Relative RMS mismatch between the prediction on the boundary and the boundary condition: RMS(a - b) divided
+    by ``scale`` if given, else by the larger of the RMS of the boundary condition and the RMS of the whole
+    prediction. (Dividing by the RMS of the boundary prediction itself would make a homogeneous condition, b = 0,
+    fail for any non-zero value however small.)"""
     def fn(p, q):
         a = np.asarray(predict_boundary(p, q), dtype=float)
         b = np.asarray(boundary_value(q), dtype=float)
-        scale = max(float(np.sqrt(np.mean(b ** 2))), float(np.sqrt(np.mean(a ** 2))), 1e-300)
-        return float(np.sqrt(np.mean((a - b) ** 2))) / scale
+        if scale is not None:
+            ref = float(scale)
+        else:
+            pv = np.asarray(p, dtype=float)
+            pv = pv[np.isfinite(pv)] if pv.size else pv
+            ref = max(float(np.sqrt(np.mean(b ** 2))) if b.size else 0.0,
+                      float(np.sqrt(np.mean(pv ** 2))) if pv.size else 0.0)
+        return float(np.sqrt(np.mean((a - b) ** 2))) / max(ref, 1e-300)
     return ValidityCheck(name, "boundary", fn, rel_tol, critical,
                          lambda v: f"boundary mismatch {100 * v:.3g} % (tolerance {100 * rel_tol:.3g} %)")
 
@@ -129,11 +149,13 @@ def constitutive_check(fn: Callable[[np.ndarray, Any], float], tolerance: float,
 
 
 def invariant_check(invariant_fn: Callable[[np.ndarray, Any], float], expected: float | Callable[[Any], float],
-                    rel_tol: float = 0.01, name: str = "invariant", critical: bool = False) -> ValidityCheck:
-    """Relative change of an invariant (energy of a conservative system, a symmetry measure)."""
+                    rel_tol: float = 0.01, name: str = "invariant", critical: bool = False,
+                    abs_tol: float = 0.0) -> ValidityCheck:
+    """Relative change of an invariant (energy of a conservative system, a symmetry measure). ``abs_tol`` as in
+    :func:`conservation_check`, for an invariant whose expected value is zero (an antisymmetry measure)."""
     def fn(p, q):
         e = float(expected(q) if callable(expected) else expected)
-        return abs(float(invariant_fn(p, q)) - e) / max(abs(e), 1e-300)
+        return _relative(float(invariant_fn(p, q)) - e, e, rel_tol, abs_tol)
     return ValidityCheck(name, "invariant", fn, rel_tol, critical)
 
 

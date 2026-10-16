@@ -267,3 +267,14 @@ def test_action_and_workflow_are_consistent():
     example = (ROOT / "examples" / "physics_check" / "workflow.yml").read_text()
     assert "PINNeAPPle-Labs/PINNeAPPle@" in example and "security-events: write" in example
     assert os.path.isfile(ROOT / "docs" / "guides" / "physics_checks_in_ci.md")
+
+
+def test_main_modules_do_not_run_on_import():
+    # regression: the __main__ modules called sys.exit at import, so walking the packages (API docs, import smoke
+    # tests) raised SystemExit, which `except Exception` does not catch, and aborted the whole pytest session
+    import importlib
+    import sys
+
+    for name in ("pinneapple_check.__main__", "pinneapple.check.__main__", "pinneapple_analysis.benchmark.__main__"):
+        sys.modules.pop(name, None)
+        importlib.import_module(name)

@@ -244,6 +244,9 @@ checker loads them without the package `__init__` files that do, so it starts in
 | [PC401](#pc401) | `out-of-bounds` | error | data_geometry | A field leaves its declared bounds |
 | [PC402](#pc402) | `unphysical-value` | error | data_geometry | A field takes a physically impossible value |
 | [PC403](#pc403) | `non-finite` | error | data_geometry | A field contains NaN or infinite values |
+| [PC451](#pc451) | `dataset-physics` | error | data_geometry | Training data do not solve the stated PDE or break a declared constraint |
+| [PC452](#pc452) | `dataset-diversity` | error | data_geometry | Training data are less diverse than stated or contain duplicates |
+| [PC453](#pc453) | `dataset-leakage` | error | data_geometry | Test samples are copies of training samples |
 | [PC501](#pc501) | `unit-mismatch` | error | data_geometry | A field's unit differs from the declared unit |
 | [PC502](#pc502) | `unit-missing` | warning | data_geometry | A field used by a physics check has no unit |
 | [PC503](#pc503) | `implausible-magnitude` | warning | data_geometry | Values are implausible for the declared unit |
@@ -253,6 +256,7 @@ checker loads them without the package `__init__` files that do, so it starts in
 | [PC701](#pc701) | `field-regression` | error | benchmark | A field differs from the stored reference |
 | [PC702](#pc702) | `qoi-regression` | error | benchmark | A quantity of interest differs from the stored reference |
 | [PC703](#pc703) | `reference-unusable` | warning | benchmark | The reference cannot be compared |
+| [PC704](#pc704) | `spectral-bias` | warning | benchmark | A field loses or gains small-scale energy against the reference |
 | [PC801](#pc801) | `hash-mismatch` | error | data_geometry | An artefact does not match its recorded hash |
 | [PC802](#pc802) | `bad-signature` | error | data_geometry | An artefact's signature does not verify |
 | [PC803](#pc803) | `unsafe-checkpoint` | error | model | A model checkpoint can execute code when loaded |
@@ -365,6 +369,24 @@ checker loads them without the package `__init__` files that do, so it starts in
 
 *Fix:* The run diverged or the model was evaluated outside its numeric range; inspect the time step and the residual history.
 
+#### PC451
+
+**`dataset-physics`** (error). Samples of a dataset (`[[dataset]]`) differ from the solution of their own discrete problem (or their boundary values or flux balance are off), or rows break a relation declared between columns. A model trained on such data inherits the error, and model-level checks may never see it (NVIDIA/physicsnemo#2036: Darcy data generated with a wrongly scaled cross term). Guide: [Dataset physics audit](dataset_audit.md).
+
+*Fix:* Regenerate the data with the documented equation and discretisation; the failing samples are listed in the evidence.
+
+#### PC452
+
+**`dataset-diversity`** (error). The effective number of distinct samples (participation ratio of the principal components) collapses, or samples are exact or near copies of each other (NVIDIA/physicsnemo#2035: every Fourier coefficient of a permeability sample shared one value).
+
+*Fix:* Check the sampler: independent random coefficients per mode and per sample, a fresh seed per sample.
+
+#### PC453
+
+**`dataset-leakage`** (error). A test sample's nearest training sample is closer than a thousandth of the typical spacing between training samples: the held-out error measures memorisation, not generalisation.
+
+*Fix:* Split before deduplicating, split by case or geometry rather than by row, and drop the flagged pairs.
+
 ### Units (PC5xx)
 
 #### PC501
@@ -425,6 +447,12 @@ checker loads them without the package `__init__` files that do, so it starts in
 
 *Fix:* Regenerate the reference with the same mesh/points and field names, or give `fields` to compare.
 
+#### PC704
+
+**`spectral-bias`** (warning). Energy in the high-wavenumber band of the field differs from the reference's by more than the tolerance (`E_pred / E_ref - 1` over the top third of the resolved shells). A smoothed field has a small relative L2 error and still misses the small scales that carry heat transfer, mixing or loads; added noise shows up as a positive bias. Computed on grid results with the same shape as the reference (`pinneapple_analysis.validation.spectral`). In the failing fixture `fields/mixing_c.npz` the field is blurred by one cell: relative L2 0.18 % (PC701 passes), high-band energy 0.5 % of the reference's.
+
+*Fix:* Check the model's spectral bias (more Fourier modes, a finer output grid, a loss on gradients or spectra), or raise `tolerances.hf-bias` deliberately if the small scales do not matter for the use.
+
 ### Integrity (PC8xx)
 
 #### PC801
@@ -472,6 +500,7 @@ checker loads them without the package `__init__` files that do, so it starts in
 | `wall-velocity` | 1e-6 | PC203 |
 | `residual` / `model-residual` | 5e-2 / 5e-2 | PC301 / PC302 |
 | `rel-l2` / `qoi` | 1e-2 / 1e-2 | PC701 / PC702 |
+| `hf-bias` | 0.25 | PC704 (\|high-band energy ratio - 1\|) |
 | `fraction-slack` | 1e-6 | PC402 (fractions) |
 
 ## The fixtures

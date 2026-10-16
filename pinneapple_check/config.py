@@ -65,6 +65,7 @@ DEFAULT_TOLERANCES: dict[str, float] = {
     "residual": 5e-2,          # PC301 relative PDE residual of stored fields
     "model-residual": 5e-2,    # PC302 relative PDE residual of a model
     "rel-l2": 1e-2,            # PC701 relative L2 against the reference
+    "hf-bias": 0.25,           # PC704 |E_pred / E_ref - 1| in the high-wavenumber band
     "qoi": 1e-2,               # PC702 relative tolerance of a quantity of interest (default)
     "fraction-slack": 1e-6,    # PC402 slack on [0, 1] for fractions
 }
@@ -145,6 +146,16 @@ class ModelTarget(_Target):
 
 
 @dataclass
+class DatasetTarget(_Target):
+    zoo: str | None = None              # a pp.datasets name
+    inputs: list[str] = field(default_factory=list)
+    constraints: list[str] = field(default_factory=list)
+    train: str = "train"
+    test: str = "test"
+    audit: dict[str, float] = field(default_factory=dict)          # tolerances of pinneapple_data.audit
+
+
+@dataclass
 class Integrity:
     manifests: list[Path] = field(default_factory=list)
     public_key: Path | None = None
@@ -165,11 +176,12 @@ class Config:
     exclude: list[str] = field(default_factory=list)
     results: list[ResultTarget] = field(default_factory=list)
     models: list[ModelTarget] = field(default_factory=list)
+    datasets: list[DatasetTarget] = field(default_factory=list)
     integrity: Integrity = field(default_factory=Integrity)
 
     @property
     def targets(self) -> list[_Target]:
-        return [*self.results, *self.models]
+        return [*self.results, *self.models, *self.datasets]
 
     def rel(self, p: Path | str) -> str:
         """Path relative to the project root, posix style (what SARIF and GitHub annotations want)."""
@@ -208,9 +220,9 @@ def _read(f: Path, whole: bool = False) -> dict[str, Any]:
         raise ConfigError(f"{f}: {e}") from e
     if whole:
         return data
-    # pinneapple-check.toml: the [check] table plus [[result]] / [[model]] at the top level
+    # pinneapple-check.toml: the [check] table plus [[result]] / [[model]] / [[dataset]] at the top level
     out = dict(data.get("check", {}))
-    for k in ("result", "results", "model", "models", "integrity"):
+    for k in ("result", "results", "model", "models", "dataset", "datasets", "integrity"):
         if k in data:
             out[k] = data[k]
     return out
@@ -244,7 +256,7 @@ def load_config(file: Path | None = None, start: Path | None = None, root: Path 
     text = file.read_text(encoding="utf-8") if file else ""
     raw = _keys(raw)
     known = {"select", "ignore", "extend-select", "fail-on", "baseline", "severity", "exclude", "result", "results",
-             "model", "models", "integrity"}
+             "model", "models", "dataset", "datasets", "integrity"}
     unknown = set(raw) - known
     if unknown:
         raise ConfigError(f"{file}: unknown key(s) {', '.join(sorted(unknown))} under [check]")
@@ -272,6 +284,11 @@ def load_config(file: Path | None = None, start: Path | None = None, root: Path 
         t = _model(_keys(m), base, f"{file.name if file else ''} model #{i + 1}")
         pos = t.line = _line_of(text, _path_needle(m), pos)
         cfg.models.append(t)
+    pos = 0
+    for i, d in enumerate(_tables(raw, "dataset", "datasets")):
+        t = _dataset(_keys(d), base, f"{file.name if file else ''} dataset #{i + 1}")
+        pos = t.line = _line_of(text, _path_needle(d), pos)
+        cfg.datasets.append(t)
     for t in cfg.targets:
         if t.name in seen:
             raise ConfigError(f"{file}: two targets are named {t.name!r}; give one a `name`")
@@ -285,6 +302,25 @@ def load_config(file: Path | None = None, start: Path | None = None, root: Path 
             signed=_list(it.get("signed", []), "integrity.signed"),
             line=_line_of(text, "integrity"))
     return cfg
+
+
+def _dataset(r: dict[str, Any], base: Path, where: str) -> DatasetTarget:
+    known = {"name", "path", "zoo", "physics", "units", "inputs", "constraints", "train", "test", "audit",
+             "sha256"}
+    if set(r) - known:
+        raise ConfigError(f"{where}: unknown key(s) {', '.join(sorted(set(r) - known))}")
+    if not r.get("path") and not r.get("zoo"):
+        raise ConfigError(f"{where}: a dataset needs `path` (an .npz with <split>__<column> arrays) or `zoo`")
+    physics = r.get("physics")
+    if physics is not None and physics not in ("darcy",):
+        raise ConfigError(f"{where}: dataset physics {physics!r} is not built in (darcy)")
+    p = base / r["path"] if r.get("path") else Path(f"zoo:{r['zoo']}")
+    return DatasetTarget(name=str(r.get("name") or r.get("path") or r.get("zoo")), path=p, physics=physics,
+                         units={str(k): str(v) for k, v in (r.get("units") or {}).items()},
+                         sha256=r.get("sha256"), zoo=r.get("zoo"), inputs=[str(x) for x in r.get("inputs", [])],
+                         constraints=[str(x) for x in r.get("constraints", [])], train=str(r.get("train", "train")),
+                         test=str(r.get("test", "test")),
+                         audit={str(k): float(v) for k, v in (r.get("audit") or {}).items()})
 
 
 def _path_needle(t: dict[str, Any]) -> str:
