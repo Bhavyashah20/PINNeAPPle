@@ -88,7 +88,8 @@ class Workspace:
         p = self.root / "config.yaml"
         if p.exists():
             old = BenchmarkConfig.from_yaml(p)
-            if old.result_hash() != self.cfg.result_hash() and not force:
+            changed = old.result_hash() != self.cfg.result_hash() or not self.cfg.extends_studies(old)
+            if changed and not force:
                 diff = {k: (v, self.cfg.to_dict()[k]) for k, v in old.to_dict().items() if self.cfg.to_dict()[k] != v}
                 raise ConfigMismatch(f"{self.root} holds results of another configuration (changed: {sorted(diff)}); "
                                      "use another out_dir or force=True / --force to mix them")
