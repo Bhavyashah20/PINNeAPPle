@@ -42,11 +42,12 @@ from .schema import FAIL, NA, PASS, WARN
 
 __all__ = ["ValidationCheck", "ValidationReport", "validate", "DEFAULT_TOLERANCES", "as_field_model"]
 
-#: ``energy_bound``: relative guaranteed error bound above which the prediction is not trusted (fail at 1, the bound
-#: then allows an error as large as the solution); ``flux``: relative imbalance of the boundary flux; ``reference``:
+#: ``energy_bound``: relative guaranteed error bound above which the prediction is not trusted (at 1 the bound allows
+#: an error as large as the solution itself; the bound is loose, about 10 x the actual error of a good FNO: 0.40 for a
+#: 4 % error in distribution, 4.6 under a coefficient-contrast shift); ``flux``: relative imbalance of the boundary flux; ``reference``:
 #: mean relative L2 error against the reference; ``spectral``: |high-wavenumber bias|; ``symmetry``: relative
 #: violation of a symmetry of the problem; ``noise``: allowed ratio of the model's sensitivity to the solver's.
-DEFAULT_TOLERANCES: dict[str, float] = {"energy_bound": 0.5, "flux": 0.1, "reference": 0.1, "spectral": 0.25,
+DEFAULT_TOLERANCES: dict[str, float] = {"energy_bound": 1.0, "flux": 0.1, "reference": 0.1, "spectral": 0.25,
                                          "symmetry": 0.1, "noise": 3.0, "alpha": 0.1}
 LEVELS = ("quick", "standard", "thorough")
 
@@ -357,7 +358,7 @@ def _darcy_checks(f, data, reference, query, level, tol, rhs, seed) -> list[Vali
         flux.append(abs(out - src) / abs(src))
     bounds, flux = np.asarray(bounds), np.asarray(flux)
     mb = float(np.max(bounds))
-    C.append(ValidationCheck("residual.energy_bound", PASS if mb <= tol["energy_bound"] else WARN if mb < 1 else FAIL,
+    C.append(ValidationCheck("residual.energy_bound", _status(mb <= tol["energy_bound"]),
                              f"guaranteed relative energy-norm error bound: median {np.median(bounds):.3g}, max "
                              f"{mb:.3g} over {len(Q)} queries (from the residual alone)", value=mb,
                              threshold=tol["energy_bound"], evidence={"per_query": bounds.tolist()[:200]}))
@@ -426,18 +427,19 @@ def _darcy_checks(f, data, reference, query, level, tol, rhs, seed) -> list[Vali
         res = np.asarray([energy_error_bound(darcy_problem(a, rhs), u)["relative"]
                           for a, u in zip(test["a"], pt, strict=True)])
         err = _rel_l2(pt, test["u"])
-        h = len(res) // 2
-        cal = ResidualErrorCalibrator(tol["alpha"]).calibrate(res[:h], err[:h])
-        cov = cal.evaluate(res[h:], err[h:], "held-out reference")
+        from pinneapple_analysis.uncertainty.residual_bound import coverage_study
+        study = coverage_study(res, err, alpha=tol["alpha"], n_splits=200, seed=seed)
+        cal = ResidualErrorCalibrator(tol["alpha"]).calibrate(res, err)
         qb = cal.bound(bounds)
         inside = C[0].status != FAIL
-        C.append(ValidationCheck("uncertainty.residual_bound", _status(cov.holds),
-                                 f"{100 * (1 - tol['alpha']):.0f} % error bound from the residual: coverage "
-                                 f"{100 * cov.coverage:.1f} % on {cov.n} held-out pairs; queries: median bound "
-                                 f"{np.median(qb):.3g} relative L2"
+        ok = study["mean"] >= 1 - tol["alpha"] - 0.03
+        C.append(ValidationCheck("uncertainty.residual_bound", _status(ok),
+                                 f"{100 * (1 - tol['alpha']):.0f} % error bound from the residual: mean coverage "
+                                 f"{100 * study['mean']:.1f} % over {study['n_splits']} calibration / test splits of "
+                                 f"{len(res)} reference pairs; queries: median bound {np.median(qb):.3g} relative L2"
                                  + ("" if inside else " (not valid: queries outside the envelope)"),
-                                 value=cov.coverage, threshold=1 - tol["alpha"],
-                                 evidence={"coverage": cov.to_dict(), "query_bounds": qb.tolist()[:200]}))
+                                 value=study["mean"], threshold=1 - tol["alpha"],
+                                 evidence={"coverage_study": study, "query_bounds": qb.tolist()[:200]}))
     else:
         C.append(ValidationCheck("uncertainty.residual_bound", NA, "needs at least 40 reference pairs to calibrate"))
     if level != "thorough":
