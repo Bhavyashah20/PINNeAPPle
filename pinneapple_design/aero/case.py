@@ -1,16 +1,21 @@
 """OpenFOAM case for one airfoil at one angle of attack: simpleFoam, k-omega SST resolved to the wall (y+ < 1).
 
 Non-dimensional: chord 1, |U| = 1, nu = 1/Re. Far field with freestream conditions, forces with forceCoeffs about the
-quarter chord. ``run_case`` runs it and returns the coefficients, their convergence and the wall/cell fields.
+quarter chord. ``run_case`` runs it and returns the coefficients, their convergence and the wall/cell fields;
+``case_zip`` packs a ready-to-run case (with a stand-alone coefficient script) for download.
 """
 from __future__ import annotations
 
+import io
+import json
 import math
 import os
 import re
 import shutil
 import subprocess
+import tempfile
 import time
+import zipfile
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -219,3 +224,78 @@ def run_case(case: str, shape: np.ndarray, alpha_deg: float, reynolds: float = 4
         res["status"] = "unsteady"                                 # oscillating: separated flow near/after stall
     res["converged_in"] = int(m.group(1)) if m else None
     return res
+
+
+# Stand-alone post-processing shipped inside the case of :func:`case_zip` (numpy only, no pinneapple): the same wall
+# integration as :func:`forces` (pressure + viscous shear of the wall-adjacent cells, non-dimensional q = 1/2).
+COEF_SCRIPT = r'''"""Lift, drag and pitching moment from this case's last time directory (numpy only).
+Run after simpleFoam:  python coefficients.py
+"""
+import glob, json, math, os, re
+import numpy as np
+
+info = json.load(open("grid.json"))
+ni, nj, nu, alpha = info["ni"], info["nj"], info["nu"], math.radians(info["alpha"])
+
+def internal(path):
+    t = open(path).read()
+    m = re.search(r"internalField\s+nonuniform\s+List<(\w+)>\s*(\d+)\s*\(", t)
+    body = t[m.end(): t.index("\n)\n", m.end())]
+    a = np.array(body.replace("(", " ").replace(")", " ").split(), float)
+    return a.reshape(int(m.group(2)), -1)
+
+pts = open("constant/polyMesh/points").read()
+pts = np.array(pts[pts.index("(", pts.index("\n(")) + 1: pts.rindex(")")].replace("(", " ").replace(")", " ").split(), float).reshape(-1, 3)
+P = pts[: len(pts) // 2, :2].reshape(nj + 1, ni, 2)
+last = max((d for d in os.listdir(".") if re.fullmatch(r"[0-9.]+", d) and float(d) > 0), key=float)
+p = internal(os.path.join(last, "p"))[:ni, 0]
+U = internal(os.path.join(last, "U"))[:ni, :2]
+w, w1 = P[0], np.roll(P[0], -1, 0)
+e = w1 - w
+L = np.linalg.norm(e, axis=1)
+n = np.stack([e[:, 1], -e[:, 0]], 1) / L[:, None]                 # into the body
+c = 0.5 * (w + w1)
+q = np.concatenate([P, P[:, :1]], 1)
+cc = 0.25 * (q[0, :-1] + q[0, 1:] + q[1, :-1] + q[1, 1:])
+d = np.abs(((cc - c) * n).sum(1))
+ut = U - (U * n).sum(1, keepdims=True) * n
+f = (p[:, None] * n + nu * ut / d[:, None]) * L[:, None]
+F = f.sum(0)
+drag, lift = np.array([math.cos(alpha), math.sin(alpha)]), np.array([-math.sin(alpha), math.cos(alpha)])
+r = c - [0.25, 0]
+Mz = (r[:, 0] * f[:, 1] - r[:, 1] * f[:, 0]).sum()
+print(f"time {last}:  Cl = {F @ lift / 0.5:.4f}   Cd = {F @ drag / 0.5:.5f}   Cm(c/4, nose-up +) = {-Mz / 0.5:.4f}")
+'''
+
+
+ALLRUN = ("#!/bin/sh\n# OpenFOAM v1912 or newer (ESI); about 1 minute on one core\nsimpleFoam > log.simpleFoam 2>&1\n"
+          "python3 coefficients.py\n")
+
+
+def case_zip(shape: np.ndarray, alpha_deg: float, reynolds: float = 4e6, iterations: int = 1200,
+             grid: GridSpec | None = None) -> bytes:
+    """A ready-to-run OpenFOAM case for one airfoil at one angle, as zip bytes.
+
+    The case of :func:`write_case` plus ``grid.json`` (ni, nj, nu, alpha, shape), ``coefficients.py``
+    (:data:`COEF_SCRIPT`: Cl, Cd, Cm from the last time directory, numpy only) and an executable ``Allrun``, all
+    under the folder ``airfoil_a<alpha>/``.
+    """
+    g = grid or GridSpec()
+    shape = np.asarray(shape, float)
+    with tempfile.TemporaryDirectory() as tmp:
+        case = os.path.join(tmp, "case")
+        write_case(case, shape, alpha_deg, reynolds=reynolds, iterations=iterations, grid=g)
+        with open(os.path.join(case, "grid.json"), "w") as f:
+            json.dump({"ni": g.ni, "nj": g.nj, "nu": 1 / reynolds, "alpha": alpha_deg, "shape": shape.tolist()}, f)
+        with open(os.path.join(case, "coefficients.py"), "w") as f:
+            f.write(COEF_SCRIPT)
+        with open(os.path.join(case, "Allrun"), "w") as f:
+            f.write(ALLRUN)
+        os.chmod(os.path.join(case, "Allrun"), 0o755)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            for root, _, files in os.walk(case):
+                for fn in files:
+                    full = os.path.join(root, fn)
+                    z.write(full, os.path.join(f"airfoil_a{alpha_deg:g}", os.path.relpath(full, case)))
+    return buf.getvalue()

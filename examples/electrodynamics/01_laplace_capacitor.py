@@ -17,7 +17,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from pinneapple_neural.trainer.parallel import best_device
+from pinneapple_physics.pinn_solver.compiler.autograd_ops import grad, laplacian
+
+DEVICE = best_device()
 RESULTS = Path(__file__).parent / "results"
 RESULTS.mkdir(exist_ok=True)
 torch.manual_seed(42)
@@ -35,22 +38,6 @@ class MLP(nn.Module):
 
     def forward(self, x):
         return self.net(x)
-
-
-def laplacian(net, xy):
-    """Returns (u, nabla^2 u) with shared forward pass."""
-    u = net(xy)
-    du = torch.autograd.grad(u, xy, torch.ones_like(u), create_graph=True)[0]
-    uxx = torch.autograd.grad(du[:, 0].sum(), xy, create_graph=True)[0][:, 0:1]
-    uyy = torch.autograd.grad(du[:, 1].sum(), xy, create_graph=True)[0][:, 1:2]
-    return u, uxx + uyy
-
-
-def du_dx(net, xy):
-    """Returns dphi/dx for Neumann BC on x=0 and x=1."""
-    u = net(xy)
-    du = torch.autograd.grad(u, xy, torch.ones_like(u), create_graph=True)[0]
-    return du[:, 0:1]
 
 
 def train():
@@ -71,16 +58,16 @@ def train():
     for epoch in range(5000):
         xy = torch.rand(N_COL, 2, device=DEVICE).requires_grad_(True)
 
-        _, lap = laplacian(net, xy)
+        lap = laplacian(net(xy), xy)
         loss_pde = (lap ** 2).mean()
 
         loss_bot = (net(bot) ** 2).mean()
         loss_top = ((net(top) - 1.0) ** 2).mean()
 
         xl = left.clone().detach().requires_grad_(True)
-        loss_neu = (du_dx(net, xl) ** 2).mean()
+        loss_neu = (grad(net(xl), xl)[:, 0:1] ** 2).mean()        # dphi/dx = 0
         xr = right.clone().detach().requires_grad_(True)
-        loss_neu = loss_neu + (du_dx(net, xr) ** 2).mean()
+        loss_neu = loss_neu + (grad(net(xr), xr)[:, 0:1] ** 2).mean()
 
         loss = loss_pde + 20.0 * (loss_bot + loss_top) + loss_neu
 
@@ -112,7 +99,7 @@ def plot_results(net, losses):
     # Electric field E = -grad(phi)
     xy_g = xy_grid.requires_grad_(True)
     phi_g = net(xy_g)
-    dphi = torch.autograd.grad(phi_g, xy_g, torch.ones_like(phi_g))[0]
+    dphi = grad(phi_g, xy_g)
     Ex = -dphi[:, 0].reshape(N, N).detach().cpu().numpy()
     Ey = -dphi[:, 1].reshape(N, N).detach().cpu().numpy()
 

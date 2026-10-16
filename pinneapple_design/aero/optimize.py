@@ -5,13 +5,14 @@ Speed and CO2 both come from low drag; what they fight is the low-speed side, so
 
 Each candidate gets a section polar from the MLP ensemble (fast, with a spread), aircraft performance from it, the
 requirement checks, and a trust level. The graph network adds the flow field and a second, independent set of
-coefficients for the designs you look at; OpenFOAM is the last word (see apps/aero_optimizer/tools/verify.py).
+coefficients for the designs you look at; OpenFOAM is the last word (see :mod:`.verify`).
 """
 from __future__ import annotations
 
 import dataclasses
 import math
 import time
+from collections.abc import Iterable
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
@@ -162,3 +163,20 @@ def summarize(rec: Dict[str, Any]) -> Dict[str, Any]:
     s["t"] = rec["props"]["thickness"]
     s["camber"] = rec["props"]["camber"]
     return s
+
+
+def infeasibility_reasons(designs: Iterable[dict[str, Any]]) -> dict[str, int]:
+    """Why designs of a search are out of the Pareto set: count per failed requirement.
+
+    For each design record (of :meth:`Engine.search`, or of the airliner search) that is not ``feasible``, every
+    entry of its ``violations`` counts once ("no solution" when it has none); a feasible design with ``trust ==
+    "low"`` counts as "low surrogate trust". Keys appear in the order first met.
+    """
+    reasons: dict[str, int] = {}
+    for r in designs:
+        if not r.get("feasible"):
+            for v in r.get("violations") or ["no solution"]:
+                reasons[v] = reasons.get(v, 0) + 1
+        elif r.get("trust") == "low":
+            reasons["low surrogate trust"] = reasons.get("low surrogate trust", 0) + 1
+    return reasons

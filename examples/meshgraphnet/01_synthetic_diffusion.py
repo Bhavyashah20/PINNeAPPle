@@ -12,10 +12,15 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from _common import eval_rollout, pick_device, train_dynamics
 from scipy.spatial import Delaunay
 
-from pinneapple_neural.architectures.graphnn.mgn_dynamics import MeshDynamicsMGN, MeshGraph
+from pinneapple_neural.architectures.graphnn.mgn_dynamics import (
+    MeshDynamicsMGN,
+    MeshGraph,
+    eval_rollout,
+    train_dynamics,
+)
+from pinneapple_neural.trainer.parallel import best_device
 
 
 def make_sample(rng, n_pts=150, T=30, alpha=0.2):
@@ -49,7 +54,7 @@ def run(n_train=24, n_test=6, n_pts=150, steps=2500, rollout=20, log_every=250, 
     torch.manual_seed(seed)
     train = [make_sample(rng, n_pts) for _ in range(n_train)]
     test = [make_sample(rng, n_pts) for _ in range(n_test)]
-    dev = pick_device()
+    dev = best_device(allow_mps=False)  # tiny graphs: MPS launch latency dominates
     model = MeshDynamicsMGN(vel_dim=1, num_node_types=4, edge_dim=3, out_p=False, hidden_dim=32,
                             n_layers=2, n_message_passing=4, activation="relu")
     model.fit_stats([v for _, v, _ in train], None, [g for g, _, _ in train])

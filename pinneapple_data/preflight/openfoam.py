@@ -44,7 +44,8 @@ TRANSPORTED = {"U", "k", "epsilon", "omega", "nuTilda", "v2", "T", "ReThetat", "
 CONSTRAINT = {"empty", "wedge", "symmetryPlane", "symmetry", "cyclic", "cyclicAMI", "cyclicACMI", "processor"}
 P_FIXED = {"fixedValue", "totalPressure", "uniformFixedValue", "fixedMean", "uniformTotalPressure", "prghPressure",
            "prghTotalPressure", "fanPressure", "timeVaryingTotalPressure", "fixedMeanOutletInlet", "outletInlet",
-           "prghTotalHydrostaticPressure", "fixedProfile", "codedFixedValue", "mappedField", "waveTransmissive"}
+           "prghTotalHydrostaticPressure", "fixedProfile", "codedFixedValue", "mappedField", "waveTransmissive",
+           "freestreamPressure", "freestream"}   # freestream*: fixed value where the flow enters (external aerodynamics)
 NEEDS = {"fixedValue": ["value"], "inletOutlet": ["inletValue"], "outletInlet": ["outletValue"],
          "uniformFixedValue": ["uniformValue"], "totalPressure": ["p0"], "uniformTotalPressure": ["p0"],
          "fixedMean": ["meanValue"], "flowRateInletVelocity": [("volumetricFlowRate", "massFlowRate")],

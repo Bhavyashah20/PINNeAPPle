@@ -152,8 +152,14 @@ PLATE_SENSORS_MM = [[10, 10], [50, 10], [90, 10], [70, 30], [90, 50], [50, 50], 
 
 
 def run_plate(*, power: float, h_true: float, noise: float, h_guess: float = 60.0, steps: int = 1500, seed: int = 0,
-              progress: Progress = None) -> Dict:
-    """Synthetic readings from the finite-volume model, then the PINN learns T(x, y) and h; compared to the model."""
+              progress: Progress = None, budget=None, width: int = 48, depth: int = 4, n_colloc: int = 2500,
+              lr: float = 2e-3) -> Dict:
+    """Synthetic readings from the finite-volume model, then the PINN learns T(x, y) and h; compared to the model.
+
+    ``budget``: a ``pinneapple_analysis.cost.ComputeBudget`` (wall clock, FLOPs or steps) to train under instead of a
+    fixed ``steps``, for equal-budget comparisons; the learning-rate steps (x0.3 at 1/3 and 2/3) then follow the
+    fraction of the budget used, and the result carries the run's accounting under ``"train"``. ``width``,
+    ``depth``, ``n_colloc``, ``lr``: the network and the collocation set (the defaults are the app's)."""
     if not (0.5 <= power <= 50 and 2 <= h_true <= 200 and 0 <= noise <= 3 and 1 <= h_guess <= 500):
         raise InputError("power 0.5-50 W, true h 2-200 W/m2K, noise 0-3 °C, starting h 1-500")
     lx, ly, thk, k, t_air = PLATE["lx"], PLATE["ly"], PLATE["t"], PLATE["k"], PLATE["t_air"]
@@ -185,11 +191,12 @@ def run_plate(*, power: float, h_true: float, noise: float, h_guess: float = 60.
         loss_weights={"pde": 1.0, "conditions": 1.0, "data": 50.0},
     )
     loss_fn = PINNFactory(spec).generate_loss_function()
-    net = NeuralNetwork(num_inputs=2, num_outputs=1, num_layers=4, num_neurons=48, activation=torch.nn.Tanh())
+    net = NeuralNetwork(num_inputs=2, num_outputs=1, num_layers=depth, num_neurons=width, activation=torch.nn.Tanh())
     model = PINN(net, inverse_params_names=["h"], initial_guesses={"h": h_guess})
-    opt = torch.optim.Adam([{"params": net.parameters(), "lr": 2e-3},
-                            {"params": model.inverse_params.parameters(), "lr": 0.2 * h_guess / 60}])
-    sched = torch.optim.lr_scheduler.StepLR(opt, step_size=max(1, steps // 3), gamma=0.3)
+    lr_h = 0.2 * h_guess / 60
+    opt = torch.optim.Adam([{"params": net.parameters(), "lr": lr},
+                            {"params": model.inverse_params.parameters(), "lr": lr_h}])
+    sched = None if budget is not None else torch.optim.lr_scheduler.StepLR(opt, step_size=max(1, steps // 3), gamma=0.3)
     g = torch.Generator().manual_seed(seed)
     xc, yc, half = dev[0] / length, dev[1] / length, dev[2] / length
 
@@ -208,16 +215,23 @@ def run_plate(*, power: float, h_true: float, noise: float, h_guess: float = 60.
              torch.tensor(s[:, 1:] / 1000 / length, dtype=torch.float32)),
             torch.tensor(((t_meas - t_air) / dtemp).reshape(-1, 1), dtype=torch.float32))
     history = []
-    for step in range(steps + 1):
+    state = {"step": 0, "batch": None}
+
+    def one_step(frac: Optional[float] = None):
+        step = state["step"]
         if step % 250 == 0:
-            batch = {"collocation": col(2500), "data": data,
-                     "conditions": [edge(150, "xi", 0.0), edge(150, "xi", 1.0), edge(150, "eta", 0.0),
-                                    edge(150, "eta", ar)]}
+            state["batch"] = {"collocation": col(n_colloc), "data": data,
+                              "conditions": [edge(150, "xi", 0.0), edge(150, "xi", 1.0), edge(150, "eta", 0.0),
+                                             edge(150, "eta", ar)]}
+        if frac is not None:                                     # budgeted: the same x0.3 steps, by budget fraction
+            f = 0.3 ** min(2, int(3 * frac))
+            opt.param_groups[0]["lr"], opt.param_groups[1]["lr"] = lr * f, lr_h * f
         opt.zero_grad(set_to_none=True)
-        loss, _ = loss_fn(model, batch)
+        loss, _ = loss_fn(model, state["batch"])
         loss.backward()
         opt.step()
-        sched.step()
+        if sched is not None:
+            sched.step()
         with torch.no_grad():
             model.inverse_params["h"].clamp_(min=0.1)
         if step % 25 == 0:
@@ -225,6 +239,17 @@ def run_plate(*, power: float, h_true: float, noise: float, h_guess: float = 60.
             history.append([step, h_now])
             if progress:
                 progress(step, steps, h_now)
+        state["step"] = step + 1
+        return loss.detach()
+
+    run = None
+    if budget is None:
+        for _ in range(steps + 1):
+            one_step()
+    else:
+        from pinneapple_analysis.cost.equal_budget import train_within_budget
+        run = train_within_budget(one_step, budget)
+        steps = run.steps
     xx, yy = np.meshgrid(x, y)
     with torch.no_grad():
         th = model(torch.tensor(xx.reshape(-1, 1) / length, dtype=torch.float32),
@@ -238,7 +263,8 @@ def run_plate(*, power: float, h_true: float, noise: float, h_guess: float = 60.
             "x_mm": (x * 1000).round(2).tolist(), "y_mm": (y * 1000).round(2).tolist(),
             "sensors_mm": PLATE_SENSORS_MM, "readings": np.round(t_meas, 2).tolist(), "history": history,
             "device_mm": [v * 1000 for v in dev[:3]],
-            "hot_spot_if_guess": float(plate_2d(h_guess, nx=100, ny=60, **fv)[2].max())}
+            "hot_spot_if_guess": float(plate_2d(h_guess, nx=100, ny=60, **fv)[2].max()),
+            **({"train": run.to_dict()} if run is not None else {})}
 
 
 # --------------------------------------------------------------------------- precomputed full runs

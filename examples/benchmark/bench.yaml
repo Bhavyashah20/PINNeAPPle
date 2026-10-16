@@ -1,0 +1,11 @@
+# pinneapple benchmark run --config examples/benchmark/bench.yaml --out results/x [--smoke]
+problems: [burgers, darcy]
+methods: [pinn, fno, deeponet]
+budget: {wall_s: 300}
+budget_levels: [0.1111, 0.3333, 1.0]
+seeds: 3
+n_trials: 4
+search_fraction: 0.3333
+equal_flops: true
+n_workers: 4
+threads_per_run: 1

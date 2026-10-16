@@ -51,6 +51,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
+from pinneapple_neural.utils import as_tensor  # noqa: E402
 
 # ============================================================
 # Global settings
@@ -77,11 +78,8 @@ else:
 # ============================================================
 
 def _pred(model: nn.Module, x: torch.Tensor) -> torch.Tensor:
-    """Call model and return prediction tensor (handles PINNOutput / ModelOutput)."""
-    out = model(x)
-    if isinstance(out, torch.Tensor):
-        return out
-    return out.y  # PINNOutput.y or ModelOutput.y
+    """Call model and return the prediction tensor (PINNOutput / ModelOutput / Tensor)."""
+    return as_tensor(model(x))
 
 
 def _grad(y: torch.Tensor, x: torch.Tensor) -> torch.Tensor:

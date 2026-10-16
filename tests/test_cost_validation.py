@@ -93,7 +93,8 @@ def test_ledger_round_trip_and_regression_gate(tmp_path):
     bigger = torch.rand(96, 96)
     now = CostLedger()
     now.measure("matmul", lambda: bigger @ bigger, repeats=3)
-    regs = now.compare(loaded, time_factor=1e9)  # ignore noisy time; FLOPs are exact
+    # time and peak memory (process RSS, page-granular) are noisy on shared runners; FLOPs are exact
+    regs = now.compare(loaded, time_factor=1e9, mem_factor=1e9)
     assert [r.quantity for r in regs] == ["flops"] and regs[0].ratio == pytest.approx((96 / 64) ** 3)
     assert now.compare(now) == []
     assert str(regs[0]).startswith("matmul: flops")
@@ -118,7 +119,8 @@ def test_pinn_operation_costs_forward_flops_are_exact_and_derivatives_cost_more(
     assert set(costs) == {"forward", "grad1", "grad2", "backward", "step"}
     assert costs["forward"].flops == 2 * n * (2 * 16 + 16 * 16 + 16 * 1)
     assert costs["forward"].flops < costs["grad1"].flops < costs["grad2"].flops < costs["backward"].flops
-    assert costs["grad1"].flops_source == "profiler"  # flop_counter cannot run around autograd.grad
+    # flop_counter cannot run around autograd.grad; the hook-free dispatch counter (same formulas) can
+    assert costs["grad1"].flops_source == "dispatch_counter"
 
 
 def test_profile_ops_lists_the_matmul_with_its_flops():

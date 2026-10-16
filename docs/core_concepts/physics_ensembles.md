@@ -40,6 +40,29 @@ assumptions and training envelope are checked against the current case, the comp
 predicting, and experts outside their physics sleep for that case without losing weight. See
 [Physics audit](physics_audit.md).
 
+`prediction_checks={name: fn(prediction, case)}` runs label-free checks on each model's prediction for the current
+case before choosing: a closure check of an LES, a cross-scale consistency check, a conservation check. Each returns
+a score in [0, 1] (or `(score, reason)`). A model whose score is below `check_threshold` is left out of that case but
+still scored, so its weight learns from the failure. The others are tilted by `score ** check_strength`. When every
+awake model fails, the router's `escalate_from` moves up a fidelity ladder. `predict` reports `checks`,
+`failed_checks` and `escalated_by_checks`.
+
+### Scales: which model can answer the question at all
+
+A model trained or run at one resolution and filter represents the field at that scale and nothing finer. A small
+validation error does not make it fit for a question about smaller scales. `pinneapple_physics.multiscale`
+lets every expert declare its scales and every case declare the scales it needs:
+
+- `ScaleProfile`: output filter (kind and width), grid spacing, closure, Reynolds range, time step and fidelity rung;
+- `ScaleQuery`: the filter of the requested output, the Reynolds number and the time scale;
+- `ScaleAwareRouter`: a model asked for scales below the ones it resolves sleeps. A filter it cannot reproduce by
+  post-filtering its own output is tilted down. The lowest fidelity rung that covers the case is used
+  (surrogate, then LES with a closure, then a resolved solver), and the router moves up a rung when the
+  closure checks fail.
+
+The filters, the closure tests, the multiscale residuals and the experiment on 2-D turbulence are described in
+[Multiscale ensembles: scales, filters and closures](multiscale_ensembles.md).
+
 Other options: `conserve=(weights, target_fn)` projects the combined field onto a conserved total;
 `min_weight` keeps near-zero weights out of the "combine" average; `point_weights` gives quadrature weights for the norms.
 `fit_static_weights(predictions, references)` fits fixed convex weights on a validation set and reports their

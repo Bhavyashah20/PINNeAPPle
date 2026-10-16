@@ -14,6 +14,59 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Spectral fidelity metrics (`pinneapple_analysis.validation.spectral`, #702): radially binned energy spectra
+  (periodic, or mean-removed and Hann-windowed), energy ratio, phase error and coherence per wavenumber band, a
+  high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
+  wall flux. Reported by `pinneapple check` (new rule PC704 `spectral-bias`, tolerance `hf-bias`) and by the
+  `pp.benchmark` field problems ("HF energy bias" column). Docs: "Spectral fidelity".
+- Zoo dataset `navier_stokes_2d_li2021_nu1e-3` (Hub-only, 919 MB in 12 shards of 100 runs): 2-D incompressible
+  Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
+  It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
+  `pp.datasets.load(name, split="test")` downloads only the two test shards.
+- `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
+  benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
+  levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves
+  and hashes the solver configuration, geometry, data and its cost; validation runs PINNeAPPle's own stack on them
+  (solver verification, GCI, preflight, mesh quality, y+, physics audit, applicability envelope, trust card);
+  correctness gates (architecture, training, determinism) run by default and mark rows INVALID or "did not converge";
+  an advisor lists diagnostics with evidence and configuration edits. Built-in problems: `burgers`, `darcy`,
+  `navier_stokes`, `airfoil`, `inverse_heat`; methods: `pinn`, `fno`, `deeponet`, `mgn`, `mlp`, `mlp_fields`,
+  `pinn_rans`; `ArrayProblem` and `register_problem` / `register_method` for your own. Docs: "Running a benchmark";
+  example: `examples/benchmark/`.
+- `pp.benchmark`: `budget_study` (the best configuration again at longer budgets, a table per instance and
+  `figures/budget_study.png`) and `ablations` (a setup audit: changes to the best configuration at the full budget,
+  next to the unchanged run). The airfoil RANS PINN gets two options, off by default: an exact far field and
+  collocation points even in log r (`airfoil_impl.RANS_FAR`, `RANS_MIX`).
+- `pp.benchmark` gates: the airfoil PINNs' exact-solution check runs their own training residuals on solutions that
+  exercise every term (a harmonic stream function; Kovasznay flow with an eddy viscosity) and must fail with a flipped
+  sign; `Problem.main_metric_for(method)` judges "did not converge" on what each method predicts (Cd for the
+  integrals-only MLP, the velocity field for the field models: potential flow has zero drag by construction).
+- Equal-budget method comparison (#299), `pinneapple_analysis.cost.equal_budget`: `ComputeBudget` (wall clock,
+  FLOPs, steps), `train_within_budget` (stops at the budget, budget-aware schedules, evaluation off the clock),
+  `count_flops` (PyTorch's operator formulas plus FFTs, and unlike `FlopCounterMode` it runs around
+  `torch.autograd.grad`, so PINN residuals are counted), `equal_budget_search` (the same number of trials for every
+  method), `AmortizedCost` (data, training and inference cost per query, break-even), `relative_l2`,
+  `time_per_query`, `hardware_record`.
+- `pinneapple_simulation.numerical_solvers.operator_benchmarks`: the reference solvers of the standard
+  operator-learning benchmarks (Li et al. 2021) written from the equations and checked on exact solutions: batched
+  pseudo-spectral Burgers and 2-D vorticity Navier-Stokes (ETDRK4), finite-volume Darcy, periodic Gaussian random
+  fields, and `FourierInterpolant` (a differentiable periodic interpolant for hard initial conditions in PINNs).
+- `train_within_budget(checkpoint=..., resume=...)`: long budgeted runs save their accounting and continue the same
+  budget after an interruption.
+- `pinneapple_design.aero.panel`: a Hess-Smith panel method (inviscid reference for airfoils: Cl, Cp, Cm, velocity
+  anywhere), checked against thin-airfoil theory.
+- `run_plate` (Inverse Heat Lab) takes an optional `budget=ComputeBudget(...)` and the network and collocation
+  sizes; without them it behaves as before.
+- Docs page "Choosing a method" (`docs/guides/choosing_a_method.md`): a decision table backed by the equal-budget
+  benchmark (PINNeAPPle-Benchmark experiment 09), linking every row to the library entry points.
+- `CONTRIBUTING.md` explains who reviews pull requests, the best-effort response targets, and how someone becomes a
+  maintainer.
+- `pp.zoo.catalogue()` and the docs page `docs/guides/zoo_catalogue.md` generated from it. The page lists every zoo
+  model and dataset: version, task, held-out metrics, trust decision, size (bundled or Hub-only), licence and
+  Hugging Face link. A test keeps the committed page in sync with the manifest.
+- `pp.` shortcuts for the helpers consolidated from the apps, examples and satellite repositories: `pp.uncertainty`,
+  `pp.closed_form`, `pp.excitation`, `pp.reporting` (modules) and `pp.as_tensor`, `pp.to_jsonable`, `pp.dominant_frequency`,
+  `pp.assess_drift`, `pp.propagate_tolerances`, `pp.score_against_reference` (resolved on first use).
 - Zoo datasets for operator learning (Hub-only), the problems and input distributions of Li et al. (2021),
   generated with PINNeAPPle's verified solvers:
   - `burgers_1d_li2021`: viscous Burgers, ν = 0.1, 1200 trajectories on 1024 points, 11 snapshots. The grid and
@@ -24,6 +77,89 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - `pinneapple_simulation.numerical_solvers.operator_benchmarks` (reference solvers and Gaussian random fields of
   the three standard problems) and `operator_datasets` (the dataset recipes: inputs, solves, convergence study,
   generation). `scripts/zoo/operator_data.py` is the command-line front end.
+- `PhysicsEnsemble.run_delayed(queries, references, available_at, issue_times=None)`: prequential evaluation where
+  each label is used only once it exists (pending updates replayed in order of availability), returning an
+  `EnsembleRun` like `run`; `PhysicsEnsemble.last_state()` and `update(..., state=...)` score a stored prediction
+  when its label arrives later. `hstack_gifs` in `pinneapple_tools.visualization.dashboard.static` stitches
+  animations side by side (replaces the `stitch` helper of the physics-ensemble examples).
+- Surrogate monitoring and sensor design: `pinneapple_analysis.uncertainty.assess_drift` (nRMSE, bias, interval
+  coverage, per-feature KS input shift, out-of-range fraction, Mann-Kendall residual trend and an ok / review /
+  retrain decision), `uncertainty.propagate` (Monte-Carlo tolerance propagation with Wilson intervals on the
+  probability of meeting limits) and `pinneapple_analysis.data_assimilation.sensor_placement` (NumPy Gaussian process
+  with an anisotropic Matern kernel, closed-form leave-one-out, marginal-likelihood fit, and greedy sensor placement
+  by integrated-variance reduction after Krause, Singh & Guestrin 2008).
+- Library homes for helpers that lived in examples: `pinneapple_neural.utils.as_tensor` (model output ->
+  prediction Tensor); `pinneapple_data.datasets.deepmind_mgn` (DeepMind meshgraphnets partial download over HTTP
+  Range, TFRecord reader, `cylinder_flow` conversion) and `train_dynamics` / `eval_rollout` in
+  `graphnn.mgn_dynamics`; `pinneapple_systems.excitation` (step, ramp, sinusoid, PRBS, chirp, ... actuator signals and
+  rate limit); `NASAPowerClient` and `OpenMeteoClient` in `pinneapple_data.datasets.external_sources`;
+  `pinneapple_physics.solid.axisymmetric` (strains, stresses, equilibrium residual and von Mises in (r, z) with
+  optional torsion, tested against the Lame cylinder); `burgers_periodic_solve` / `burgers_periodic_pairs` in
+  `pinneapple_data.datasets.physics` (pseudo-spectral, checked against Cole-Hopf). The examples import them.
+  `best_device(allow_mps=False)` skips Apple MPS.
+- Helpers that lived inside the apps are now library API, and the apps call them: `pinneapple_core.jsonable.to_jsonable`
+  (one JSON sanitiser instead of six private copies), `pinneapple_data.cae.dataset.preview` / `field_scalar`,
+  `cae.report.worst_cells`, `cae.compare.tolerance_verdicts`, `Lineage.report` / `flags` / `Artifact.verified`,
+  `pinneapple_data.preflight.attach_snippets` / `drop_results` / `is_result_file`, `formfill.compile_documents` /
+  `check_overrides` / `output_filename` / `FormSpec.describe`, and `unified.before_after_series`. The heat-sink and PCB
+  apps import the library modules directly (their alias modules stay for old imports).
+- Zoo models as ONNX, with per-query trust checks:
+  - `pp.zoo.export_onnx` / `onnx_parity` (`pinneapple_hub.zoo.export`): one graph from the card's physical inputs
+    to its physical outputs, with pre- and post-processing included. The export is refused above 1e-5 difference
+    from PyTorch on the zoo's held-out inputs.
+  - `pp.zoo.query_checks` / `check_spec` (`pinneapple_hub.zoo.checks`): range (PC601), physical output (PC402/403),
+    ensemble spread (PC602) and the gate's physics checks at the query (PC302), plus a verdict (pass / warn / fail).
+    As in the gate, the rover's dFx/ds check follows the sign of the recorded Wong–Reece reference (v1.1.0).
+    Design constraints are reported apart.
+  - `pp.zoo.export_web` and `python -m pinneapple_hub.zoo.web DIR`: a browser bundle (graph with checks, card, spec,
+    reference data). The JS runtime `pinneapple_hub/zoo/web/{onnx,zoo}.js` ships with it.
+  - The airfoil predictor also returns `LD` and `LD_std` (L/D per ensemble member).
+- CST airfoil geometry:
+  - `pinneapple_design.aero.geometry`: `handles`, `shape_from_handles`, `out_of_bounds`.
+  - `pinneapple_design.aero.geometry_onnx`: the geometry and the handle solve as ONNX graphs.
+- `pp.geometries.export_web`: gallery index and thumbnails for the browser.
+- PINNeAPPle Playground (`apps/playground`): a static web page in which the zoo models answer live in the browser,
+  with the trust verdict next to every number. It has four modes:
+  - airfoil: drag the CST shape or pick a NACA preset; the polar against held-out OpenFOAM and XFOIL;
+  - heat sink: R with its conformal 95 % bound, and ΔP;
+  - VIPER rover wheel;
+  - the geometry library in 3-D.
+
+  The app is UI code only, built on the library features above. The state lives in the URL, the page works offline,
+  and the mobile layout is supported. `engine=ort` runs onnxruntime-web instead of the built-in interpreter. CI
+  (`.github/workflows/playground.yml`) runs the Python and JS tests of the export and the runtime, a Playwright
+  smoke test, and a Docker build. Deploy config: `apps/playground/Dockerfile`, a `playground` service in
+  `apps/deploy` (port 8095), and an opt-in GitHub Pages step (`PLAYGROUND_PAGES`) in the docs workflow.
+  Guide: `docs/guides/playground.md`.
+- Multiscale adaptive ensembles (`pinneapple_physics.multiscale`, #599-#604). Models declare the scales they resolve;
+  queries declare the scales they need.
+  - Filters: box, Gaussian and sharp spectral, with exact transfer functions. Restriction and prolongation, post-filter
+    realizability, variable-width filters and their commutation error.
+  - 2-D vorticity DNS and LES (pseudo-spectral, ETDRK4).
+  - Closures: Smagorinsky, dynamic Smagorinsky, gradient (Clark). A-priori tests (stress and tendency correlation,
+    energy transfer, backscatter), a-posteriori tests (spectrum, dissipation, long-run stability) and a label-free
+    closure health check (enstrophy growth, spectral pile-up, Germano-identity error).
+  - Multiscale residuals split into subfilter, commutation and model parts.
+  - Cross-scale consistency check, which names the integral that broke.
+  - `ScaleProfile`, `ScaleQuery` and `ScaleAwareRouter`: a fidelity ladder from surrogate to LES with closure to
+    resolved solver, with a "not covered" answer when no model resolves the requested scale.
+  - Scale-linking models (PyTorch): a scale-conditioned FNO with a filtering-consistency loss, a differentiable LES,
+    and a closure trained a posteriori through the solver.
+  - Decaying 2-D turbulence benchmark, ensemble comparison and animation.
+  - Results (180 held-out queries, 256² DNS reference):
+    - The scale-aware ensembles never answer below a model's resolved scale. The scale-blind ensemble, once cost
+      counts, does so on 25-29 queries, with 32-36 % error at the finest width against 3.3 %.
+    - In mean error per unit cost the scale-aware ensembles do not beat the scale-blind one on this small 2-D
+      case, where the 128² DNS costs about as much as the LES.
+    - The closure check flags static Smagorinsky on every query (Germano error 1.35, dissipation 1.5-7.9× too
+      high) and never the dynamic, gradient or learned closures.
+    - The closure trained a posteriori is the best LES: spectrum error 0.008-0.013 against 0.04-0.05.
+    - The scale-conditioned FNO beats the scale-blind network at the held-out width but not fixed-width FNOs
+      post-filtered exactly.
+  - Example `examples/physics_ensemble/multiscale_turbulence.py`; docs page "Multiscale ensembles" and the guide
+    "Choose a model by the scale of the question".
+- `PhysicsEnsemble(prediction_checks=..., error_tolerance=...)`: label-free checks of each prediction, and an error
+  tolerance per context, both escalate through the router's fidelity ladder. A model that fails is still scored.
 - `pinneapple_tools.reporting.paperkit`: the report figure style (`setup_mpl`, `savefig`, `CAT`/`SEQ`/`DIV`
   palettes), `fmt`, `sanitize` and `Paper`, an A4 PDF builder for numbered technical reports (reportlab, from the
   `veriphysics` extra, is imported only when a `Paper` is built). Moved from the benchmark and climate repos.
@@ -151,6 +287,19 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   surrogate with conformal bands and a trust verdict; black-hole lensing of the real sky. Validated against USNO NOVAS,
   JPL Horizons, the USNO almanac, NASA eclipse predictions and skyfield (`validation.run_all()`). Extra `sky`.
   Docs: `docs/core_concepts/astro.md`.
+- PINNs and machine learning in the observatory (`pinneapple_physics.astro`): orbit-decay PINN with NRLMSIS 2.0
+  density and an input-uncertainty envelope, checked against RK integration and SGP4 (`decay`); small-body
+  propagator from JPL SBDB elements checked against JPL Horizons (Ceres) and the JPL close-approach table (Apophis
+  2029) (`smallbodies`, `validation_summary()`); the orbit PINN of `surrogate.train_orbit_pinn` for any small body
+  (Apophis: 0.11″ over a year); a learned propagator for many near-Earth asteroids that fails its own gate and says
+  so (`neural_propagator.trust_report()`); a Kp forecaster with
+  conformal intervals and the aurora probability at the observer's geomagnetic latitude, verified on observed Kp
+  (`spaceweather`); clustering and classification of the HR diagram against the catalogue's MK types (`stars_ml`);
+  Open-Meteo ensemble post-processing for observing conditions (`conditions`); a thin accretion disc traced along
+  exact Schwarzschild null geodesics and lensed in front of the real sky (`lensing.trace_thin_disc`, `disc_image`,
+  `accretion_view`). `pp.astro` points to `pinneapple_physics.astro`. In the app: decay card in Satellites, space weather, conditions, asteroids
+  and close approaches, stellar ML and the black-hole panel in Analyses, planet-size control and asteroid orbits in
+  the solar-system view. Optional dependency `pymsis` (extra `sky`).
 - PINNeAPPle Observatory app (`apps/observatory`): the sky and the solar system now from the visitor's location in
   3-D (three.js), with satellites, astrophysics analyses, the orbit surrogate with its checks, and the validation table;
   deploy service `observatory` (`OBS_DOMAIN`). Guide: `docs/guides/observatory.md`.
@@ -224,11 +373,26 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   2-D airfoil, OpenFOAM simpleFoam k-omega SST, CST geometry, the 436-run campaign, baseline against XFOIL, a
   surrogate optimum checked in CFD) and `free_surface_trough` (water jet into an open trough, interFoam VOF via
   `pp.cfd.FreeSurfaceFlow`, two meshes with mass balance, impingement, splash, floor shear and mean k).
+- Aero optimizer logic in the library: `pinneapple_design.aero.train` (load OpenFOAM runs, split by shape, metrics,
+  MLP-ensemble and MeshGraphNet training/prediction, `train_surrogates` -> the `Engine` bundle),
+  `pinneapple_design.aero.dataset` (run plan, `run_job`, `steady_values`, the one averaging rule for unsteady runs),
+  `pinneapple_design.aero.verify` (Pareto picks checked in OpenFOAM), `pinneapple_design.aero.case.case_zip` (a
+  ready OpenFOAM case with a stand-alone `COEF_SCRIPT`), `pinneapple_design.aero.optimize.infeasibility_reasons`
+  and `pinneapple_design.design_optimizer.representatives` (best per objective + balanced pick of a Pareto front).
 
 ### Changed
+- **Behavior:** `pinneapple_analysis.cost.measure` now counts FLOPs of code that calls `torch.autograd.grad` with
+  the hook-free counter (`flops_source == "dispatch_counter"`) instead of the profiler's matmul-only lower bound.
 - `compressible_fv.sod_exact` delegates to `astrophysics.sod_exact_solution` (same output to round-off; covers every wave pattern);
   `internal_flow.colebrook` delegates to `closed_form.pipe_flow.colebrook`; the LBM shedding benchmark, the
   cylinder / car / ROM lab experiments, the SSQN benchmarks and the missile example use the library functions above.
+- Examples, benchmarks, scripts and a notebook use the library helpers instead of local copies: autograd
+  `grad`/`laplacian`/`divergence`, `pinneapple_physics.metrics`, `pinneapple_lab.uq.gci`, `latin_hypercube`,
+  `use_cfd_style(dark=True)`, `compressible_fv.sod_exact`, the `pinneapple_data.cae.foam` readers, `set_seed`,
+  `best_device` and `load_leaderboard` (20 lines fewer in `scripts/app_helpers_baseline.txt`).
+  `heat_fv_reference.footprint_area` is public (`_footprint_area` kept as an alias) and `interp_grid`/`convergence`
+  are in its `__all__`; the `fin_convection_inverse/fv_reference.py` shim is removed.
+  `examples/architectures/04_pinns.py` uses the real `PINNFactory` instead of stubs that ignored the PDE residuals.
 - **Behavior:** the zoo gate of `rover_contact_grc1_viper` checks that dFx/ds has the sign of the recorded Wong-Reece
   reference (with slip-sinkage the pull need not grow with slip at a fixed sinkage) instead of dFx/ds >= 0.
 - **Behavior:** GRC-1 and JSC-1A carry n1 = 0.8 (estimate from the five single-wheel calibrations; was 0), so their
@@ -236,13 +400,76 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   exponent lags the wheel's slip over `sink_length` (0.15 m) of rim travel.
 - **Behavior:** `vehicle.dashboard.render_frames` and `vehicle_dashboard` default to the geometry-only view (no
   stress colour map, no colour bar); pass `field=` / `field_label=` for the overlay.
+- `apps/aero_optimizer`: `tools/train_surrogate.py`, `tools/generate_dataset.py` and `tools/verify.py` are thin CLIs
+  over the library; the API uses the library picks, reasons and case zip (same responses);
+  `tools/render_airliner.py` uses the studio `colorbar` (tick labels now follow the viewer's format) and
+  `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- `pinneapple_physics.conservation.project_integral(mode="positive")` returned a negative field when the target
+  integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
+  for a field that is <= 0 everywhere. A zero field with a zero target is returned unchanged in the multiplicative
+  modes instead of dividing 0 by 0.
+- `TrustGate` OOD score (`pinneapple_analysis.trust`): a batch of query points was scored by the chi-squared p-value
+  of its mean point, so two points 50 standard deviations on either side of the training mean averaged to the mean
+  and scored 0.9998, "in distribution". **Behavior:** each point is now tested on its own and `ood_score` is the
+  fraction of query points whose Mahalanobis p-value is at least `ood_level` (new argument, default 0.01: inside the
+  99 % region of the fitted Gaussian). `TrustGate.ood_p_values(x)` returns the per-point p-values; NaN coordinates
+  count as outside and a wrong number of coordinates raises a clear `ValueError`. `TrustScore.details` reports
+  `ood_fraction_inside`, `ood_p_value_min` and `ood_level` (replacing `ood_p_value`).
+- `pp.trust_card` / `field_checks`: an exactly harmonic field that is linear along an axis (`u = x + 2y`,
+  `T = 300 + x + y`) failed the critical PDE-residual check and was rejected, because its finite-difference terms are
+  pure round-off and the residual was judged against that round-off. The residual scale now has a floor at the
+  round-off of the stencil, computed from the dtype of the data as written (float32 fields get float32 epsilon).
+  Grids with 2 points on an axis now report the conservation check as not run instead of raising NumPy's
+  "Shape of array too small" error, and torch tensors (including ones that require grad) are accepted as values.
+  New tests check the residual against exact Laplace, Poisson and heat solutions (second-order convergence on
+  uniform and stretched grids) and the conservation check against the divergence theorem.
+- `pinneapple check` on tensor-product grids (`pinneapple_check.numerics.GridD`): second derivatives were the
+  derivative of the derivative, which next to the boundary divides the one-sided edge value by h (an O(h) error),
+  so the PDE residual (PC301) converged at order 1.5 instead of 2 and an exact harmonic field on a 17 x 17 grid
+  scored 0.095, above the 0.05 default. Pure second derivatives now use the three-point stencil (non-uniform
+  spacing allowed); the residual of the same field is 0.017 and converges at order 2 on uniform and stretched grids.
+- Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
+  repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
+- Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
+  grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
+  footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
+  pixels; peak ~ sqrt(flux)) and a brighter, tinted Milky Way; `tone_map` replaces the app's ad-hoc exposure.
+  `lensed_sky` now traces with the exact Binet tracer of `trace_thin_disc` and takes the asymptotic escape direction
+  in closed form: the old trace stopped at 1.5 r_cam and used the local tangent, which left concentric banding and
+  under-deflected rays. The deflection now matches the weak-field value (2M/b)(1 + cos θ) + 15πM²/(4b²) within
+  1.5 % (new test). New `lensing_view` (used by `/api/analysis/lensing.png`) adds the thin accretion disc of
+  `accretion_view` when the 60° field has fewer than 2 stars brighter than V 2.0 (`bright_stars_in_field`), with a
+  disc auto / on / off control in the panel; the default camera distance is 120 GM/c². Screenshot
+  `docs/assets/apps/14-observatory-lensing.jpg` regenerated with the hole in front of Sagittarius.
+- Observatory, solar-system view: the planets were a few pixels across. The planet-size slider now defaults to ×12
+  (range 1–24, `?size=` in the URL), the glow halo is brighter, and the Earth follows the slider (its hand-set
+  orientation matrix used to drop the scale). The Moon's exaggerated distance and the observer pin scale with it,
+  so the Moon stays outside the enlarged Earth. Screenshot `docs/assets/apps/14-observatory-system.jpg` regenerated.
+- Observatory, solar-system view: the overview now frames every planet inside the free part of the canvas (left of
+  the side panel, above the time controls; Jupiter used to sit under the panel). It looks from 50° above the
+  ecliptic, from the side opposite the Earth, and fits the projected planets by iteration. The Earth shader lacked
+  the linear-to-sRGB output conversion, so the Earth rendered several times too dark; it now has it, plus the blue of
+  the sunlit atmosphere on the day side. The Sun's light and an ambient floor were raised so that Mercury and Venus
+  show their sunlit side and their surface at large phase angles. Screenshot
+  `docs/assets/apps/14-observatory-system.jpg` regenerated.
+- `pinneapple_data.preflight`: `freestreamPressure` / `freestream` fix the pressure level; external-aerodynamics cases
+  were reported as having no pressure reference.
 - Geometry library: `build()` snaps vertices to a 0.1 um grid, so the files rebuilt on another machine (the Hub
   publishing job) are bit-identical to the manifest; the publishing job pins the NumPy / SciPy / manifold3d
   versions the manifest was generated with. All files and the manifest were regenerated. The self-intersection
   check measures distances about each triangle pair's centre with a size-relative tolerance (no false hits on flat
   caps far from the origin or on nearly parallel neighbours).
+
+### Documentation
+- New guide "Validation methods reference" (`docs/guides/validation_methods_reference.md`, under Guides): every
+  check of `pinneapple check`, `pp.trust_card`, `TrustGate`, `pinneapple_analysis.validation`, `.uncertainty`,
+  `.verification`, veriphysics, the physics audit monitor and the zoo query gate, with what it detects, its
+  assumptions, default thresholds, references and known limitations; a table that maps the status vocabularies of
+  these modules onto pass / warn / fail / not-applicable; and how check power is measured (ASME V&V 40 and
+  NASA-STD-7009A credibility, mutation testing, metamorphic relations, adversarial robustness of neural operators,
+  the arena proposed in #707).
 
 ## [0.7.0] - 2026-10-13
 

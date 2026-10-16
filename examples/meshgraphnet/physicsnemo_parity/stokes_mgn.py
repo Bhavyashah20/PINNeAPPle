@@ -21,23 +21,20 @@ separate item: use ``pinneapple_physics`` Stokes residuals; not part of this scr
 import argparse
 import json
 import re
-import sys
 import time
 from pathlib import Path
 
 import numpy as np
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from _common import pick_device  # noqa: E402
-
-from pinneapple_neural.architectures.graphnn.base import GraphBatch  # noqa: E402
-from pinneapple_neural.architectures.graphnn.mesh_graph_net import MeshGraphNet  # noqa: E402
-from pinneapple_neural.architectures.graphnn.mgn_dynamics import (  # noqa: E402
+from pinneapple_neural.architectures.graphnn.base import GraphBatch
+from pinneapple_neural.architectures.graphnn.mesh_graph_net import MeshGraphNet
+from pinneapple_neural.architectures.graphnn.mgn_dynamics import (
     Normalizer,
     edge_features,
     triangles_to_edges,
 )
+from pinneapple_neural.trainer.parallel import best_device
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--data", default="results")
@@ -50,7 +47,7 @@ ap.add_argument("--seed", type=int, default=0)
 a = ap.parse_args()
 torch.manual_seed(a.seed)
 rng = np.random.default_rng(a.seed)
-dev = pick_device()
+dev = best_device(allow_mps=False)  # tiny graphs: MPS launch latency dominates
 out = Path(a.out)
 out.mkdir(parents=True, exist_ok=True)
 

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -48,7 +49,7 @@ def compute_pareto_front(objectives: np.ndarray) -> np.ndarray:
     return is_pareto
 
 
-def fast_non_dominated_sort(objectives: np.ndarray) -> List[np.ndarray]:
+def fast_non_dominated_sort(objectives: np.ndarray) -> list[np.ndarray]:
     """Partition solutions into successive Pareto fronts (NSGA-II).
 
     Parameters
@@ -65,7 +66,7 @@ def fast_non_dominated_sort(objectives: np.ndarray) -> List[np.ndarray]:
     """
     n = objectives.shape[0]
     dominated_counts = np.zeros(n, dtype=int)
-    dominates_lists: List[List[int]] = [[] for _ in range(n)]
+    dominates_lists: list[list[int]] = [[] for _ in range(n)]
 
     for i in range(n):
         for j in range(i + 1, n):
@@ -76,11 +77,11 @@ def fast_non_dominated_sort(objectives: np.ndarray) -> List[np.ndarray]:
                 dominates_lists[j].append(i)
                 dominated_counts[i] += 1
 
-    fronts: List[List[int]] = []
+    fronts: list[list[int]] = []
     current = [i for i in range(n) if dominated_counts[i] == 0]
     while current:
         fronts.append(current)
-        nxt: List[int] = []
+        nxt: list[int] = []
         for i in current:
             for j in dominates_lists[i]:
                 dominated_counts[j] -= 1
@@ -128,6 +129,73 @@ def crowding_distance(objectives: np.ndarray) -> np.ndarray:
     return dist
 
 
+def representatives(
+    objectives: np.ndarray,
+    senses: Sequence[str],
+    names: Sequence[str | None],
+    ids: Sequence[Any] | None = None,
+    balanced: str | None = "balanced",
+    weights: Sequence[float] | None = None,
+) -> dict[str, Any]:
+    """Named representative designs of a Pareto front: the best one per objective and a balanced compromise.
+
+    Parameters
+    ----------
+    objectives:
+        Objective values of the front members, shape (n, m), in their own units and directions.
+    senses:
+        ``"max"`` or ``"min"`` per objective.
+    names:
+        Key of the best design on each objective (``None``: no key for that objective), e.g.
+        ``["fastest", "greenest", "safest"]``.
+    ids:
+        What to return for row ``k`` (e.g. indices into the full design list); default the row index.
+    balanced:
+        Key of the compromise design (``None``: none). It is the member closest to the ideal point after each
+        objective is scaled to [0, 1] over the front (1 = best): argmin of sum_j w_j (1 - f~_j)^2, the
+        min-max-normalised distance to the utopia point (compromise programming; Zeleny, "Multiple Criteria
+        Decision Making", 1982, ch. 7).
+    weights:
+        ``w_j`` per objective for the compromise (default 1; 0 leaves an objective out of it).
+
+    Returns
+    -------
+    dict
+        ``{name: id}`` in the order of ``names``, then ``balanced``; empty for an empty front. Ties go to the
+        first member.
+    """
+    F = np.asarray(objectives, dtype=float)
+    if F.size == 0 or len(F) == 0:
+        return {}
+    F = F.reshape(len(F), -1)
+    m = F.shape[1]
+    if len(senses) != m or len(names) != m:
+        raise ValueError(f"need one sense and one name per objective ({m})")
+    if any(s not in ("max", "min") for s in senses):
+        raise ValueError("senses must be 'max' or 'min'")
+    w = [1.0] * m if weights is None else [float(v) for v in weights]
+    if len(w) != m:
+        raise ValueError(f"need one weight per objective ({m})")
+    key = (lambda k: k) if ids is None else (lambda k: ids[k])
+    out: dict[str, Any] = {}
+    for j, (sense, name) in enumerate(zip(senses, names, strict=True)):
+        if name is not None:
+            a = F[:, j]
+            out[name] = key(int(np.argmax(a) if sense == "max" else np.argmin(a)))
+    if balanced is not None:
+        dist = 0.0
+        for j, sense in enumerate(senses):
+            if w[j] == 0:
+                continue
+            a = F[:, j]
+            span = np.ptp(a) or 1
+            good = (a - a.min()) / span if sense == "max" else (a.max() - a) / span
+            term = (1 - good) ** 2
+            dist = dist + (term if w[j] == 1 else w[j] * term)
+        out[balanced] = key(int(np.argmin(dist)))
+    return out
+
+
 @dataclass
 class ParetoFront:
     """Container for a multi-objective Pareto front.
@@ -144,14 +212,14 @@ class ParetoFront:
     """
 
     objectives: np.ndarray
-    params: Optional[np.ndarray]
+    params: np.ndarray | None
     mask: np.ndarray
 
     # ------------------------------------------------------------------
     # Accessors
     # ------------------------------------------------------------------
 
-    def filter(self) -> tuple[np.ndarray, Optional[np.ndarray]]:
+    def filter(self) -> tuple[np.ndarray, np.ndarray | None]:
         """Return ``(objectives_pareto, params_pareto)`` for optimal solutions."""
         obj_pareto = self.objectives[self.mask]
         par_pareto = self.params[self.mask] if self.params is not None else None
@@ -209,8 +277,8 @@ class ParetoFront:
     def plot(
         self,
         ax: Any = None,
-        labels: Optional[List[str]] = None,
-        save_path: Optional[str] = None,
+        labels: list[str] | None = None,
+        save_path: str | None = None,
     ) -> Any:
         """Plot the Pareto front for the first two objectives.
 

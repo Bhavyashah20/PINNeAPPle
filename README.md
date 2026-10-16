@@ -28,6 +28,22 @@ checks each prediction against the physics (equation residuals, conservation, bo
 assumptions) without needing a reference. It bridges to DeepXDE and PhysicsNeMo instead of replacing them. See
 [`paper/paper.md`](paper/paper.md) for how it relates to other libraries.
 
+## The whole Physics-AI workflow, not only PINNs
+
+Physics-informed neural networks are one tool among several. PINNeAPPle covers the workflow industrial Physics-AI runs on:
+
+| Step | In the library |
+|---|---|
+| Geometry | CAD and parametric shapes, fit-for-purpose meshes and their quality report (`pinneapple_design`, `pinneapple_data.cae`) |
+| Simulation campaigns | OpenFOAM, CalculiX, lattice Boltzmann and spectral solvers, run many times over a design space (`pp.cfd`, the OpenFOAM campaign runner) |
+| Surrogates | neural operators (FNO, DeepONet), graph networks (MeshGraphNet), MLPs and reduced-order models trained on those campaigns |
+| Physics-informed models | PINNs from symbolic equations (`PINNFactory`), inverse problems, hard constraints |
+| Optimisation | design search on top of a surrogate, verified back in the solver |
+| Verification | grid convergence, physics audit, applicability domains, evidence records, equal-budget benchmarks (`pp.benchmark`, `pinneapple benchmark run`) |
+
+Which learned method fits which problem is a question of evidence, not of taste: see
+[Choosing a method](docs/guides/choosing_a_method.md) and the equal-budget benchmark behind it.
+
 ## What makes it different
 
 Most Physics AI libraries stop at the prediction. PINNeAPPle adds a **trust layer**, so a model can say how good it is right now:

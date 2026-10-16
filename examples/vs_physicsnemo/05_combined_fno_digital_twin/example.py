@@ -52,6 +52,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from pinneapple_neural.trainer.parallel import best_device
+from pinneapple_physics.pinn_solver.compiler.autograd_ops import divergence
+
 # PhysicsNeMo (opcional)
 try:
     from physicsnemo.models.fno import FNO as _PhysicsNemoFNO
@@ -313,12 +316,8 @@ def validate_physics(model: nn.Module, XX: np.ndarray, YY: np.ndarray, device: s
 
     with torch.enable_grad():
         pred = model(x_t)   # (N, 3): (u, v, p)
-        u    = pred[:, 0:1]
-        v    = pred[:, 1:2]
-
-        u_x = torch.autograd.grad(u.sum(), x_t, create_graph=False, retain_graph=True)[0][:, 1]
-        v_y = torch.autograd.grad(v.sum(), x_t, create_graph=False)[0][:, 2]
-        div = (u_x + v_y).detach().cpu().numpy()
+        # du/dx + dv/dy: velocity columns (0, 1) against input columns (x, y) = (1, 2); column 0 is Re
+        div = divergence(pred[:, 0:2], x_t, coord_indices=[1, 2]).detach().cpu().numpy().ravel()
 
     max_div  = float(np.abs(div).max())
     mean_div = float(np.abs(div).mean())
@@ -462,7 +461,7 @@ def make_plots(model, uq_result, val_result, anomaly_log, XX, YY, device,
 # ---------------------------------------------------------------------------
 
 def main():
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = str(best_device())
     print(f"Device: {device}")
     print("=" * 55)
     print("Pipeline Combinado: PhysicsNeMo FNO + PINNeAPPle")

@@ -1,0 +1,1052 @@
+[
+ {
+  "name": "synthetic",
+  "max_err_km": 28063.391196760564,
+  "kepler_max_err_km": 34955.0308042544,
+  "max_angle_arcsec": 21.881814035900835,
+  "speedup": 251.64481160940642
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 41346.809426283195,
+  "kepler_max_err_km": 34028.557974161915,
+  "max_angle_arcsec": 46.128604707044346,
+  "speedup": 897.0050713153724
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 17325.5832333885,
+  "kepler_max_err_km": 57974.3541422834,
+  "max_angle_arcsec": 10.089353482155172,
+  "speedup": 373.99122656115605
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 36995.306546530664,
+  "kepler_max_err_km": 49421.402126397785,
+  "max_angle_arcsec": 39.137029710074785,
+  "speedup": 729.1850507982583
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 526908.5303272449,
+  "kepler_max_err_km": 469133.39823721815,
+  "max_angle_arcsec": 785.5320753991452,
+  "speedup": 1194.487135259451
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 120775.14706940776,
+  "kepler_max_err_km": 70076.28525477539,
+  "max_angle_arcsec": 109.44050342722012,
+  "speedup": 523.4093137254902
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 54800.7724133222,
+  "kepler_max_err_km": 103563.98233445766,
+  "max_angle_arcsec": 47.53566656513462,
+  "speedup": 933.5545921075916
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 7768.30105255307,
+  "kepler_max_err_km": 55104.484763709006,
+  "max_angle_arcsec": 6.2689731921100975,
+  "speedup": 422.8187673839848
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 27955.97490512707,
+  "kepler_max_err_km": 41794.50266335983,
+  "max_angle_arcsec": 46.571839626933,
+  "speedup": 1136.8055511245814
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 390001.53084949456,
+  "kepler_max_err_km": 242146.01541180737,
+  "max_angle_arcsec": 188.93371368463056,
+  "speedup": 305.32349878514407
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 158130.7940763183,
+  "kepler_max_err_km": 67035.27170497486,
+  "max_angle_arcsec": 216.11167606447384,
+  "speedup": 629.242497412901
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 367380.78903736314,
+  "kepler_max_err_km": 359091.29218461516,
+  "max_angle_arcsec": 390.2052783685918,
+  "speedup": 353.61277052405654
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 29505.347031791178,
+  "kepler_max_err_km": 69252.00718282792,
+  "max_angle_arcsec": 34.854238531792674,
+  "speedup": 819.8988893144389
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 19825.74420987197,
+  "kepler_max_err_km": 55026.04725973169,
+  "max_angle_arcsec": 24.874128921966296,
+  "speedup": 722.7421309543848
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 3585.597757129856,
+  "kepler_max_err_km": 72231.29036491425,
+  "max_angle_arcsec": 1.4550699477951194,
+  "speedup": 244.95204157386786
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 120518.06080610414,
+  "kepler_max_err_km": 142180.96144110584,
+  "max_angle_arcsec": 71.08706437504114,
+  "speedup": 341.41239530988275
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 16922.404155229007,
+  "kepler_max_err_km": 25267.04198506543,
+  "max_angle_arcsec": 28.517204913955467,
+  "speedup": 965.9575913346796
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 179782.04683620692,
+  "kepler_max_err_km": 81662.20414368578,
+  "max_angle_arcsec": 566.2993170201554,
+  "speedup": 1497.8488838927253
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 35945.28347286887,
+  "kepler_max_err_km": 36396.647136615444,
+  "max_angle_arcsec": 110.57798842195146,
+  "speedup": 1123.7091059602649
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 260121.35039904108,
+  "kepler_max_err_km": 524197.9196837845,
+  "max_angle_arcsec": 138.29359235129257,
+  "speedup": 275.5345115038346
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 122248.05127634738,
+  "kepler_max_err_km": 38904.511688707,
+  "max_angle_arcsec": 66.42864247026498,
+  "speedup": 869.4768951978255
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 25520.849642002744,
+  "kepler_max_err_km": 105629.37772531428,
+  "max_angle_arcsec": 33.73393103556397,
+  "speedup": 493.4379742033384
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 28813.24364760537,
+  "kepler_max_err_km": 53585.42530154293,
+  "max_angle_arcsec": 87.74839196397599,
+  "speedup": 1632.7942216074996
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 117578.35253970655,
+  "kepler_max_err_km": 75388.18514163984,
+  "max_angle_arcsec": 84.33708873125308,
+  "speedup": 350.7630370613316
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 29758.090490755643,
+  "kepler_max_err_km": 22678.45873213302,
+  "max_angle_arcsec": 27.166960529639816,
+  "speedup": 564.0398365679265
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 20758.600996823352,
+  "kepler_max_err_km": 41220.91830154006,
+  "max_angle_arcsec": 19.02372463305875,
+  "speedup": 521.2906556530718
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 18967.41924033291,
+  "kepler_max_err_km": 35266.79985291137,
+  "max_angle_arcsec": 16.482750501846233,
+  "speedup": 718.6985306828003
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 48052.404223010664,
+  "kepler_max_err_km": 68250.48552854787,
+  "max_angle_arcsec": 19.91972784027471,
+  "speedup": 321.93784479588084
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 108597.62077762632,
+  "kepler_max_err_km": 73979.70448281223,
+  "max_angle_arcsec": 49.264783505416155,
+  "speedup": 229.32955314827353
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 387466.9690899201,
+  "kepler_max_err_km": 249560.3147093145,
+  "max_angle_arcsec": 236.98061379299182,
+  "speedup": 379.6647256043762
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 110930.21269029367,
+  "kepler_max_err_km": 33923.49009778741,
+  "max_angle_arcsec": 71.25223729938325,
+  "speedup": 520.7317847593583
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 71994.2697392752,
+  "kepler_max_err_km": 36243.19372456057,
+  "max_angle_arcsec": 45.860078899561515,
+  "speedup": 842.9071818563629
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 187556.4155964902,
+  "kepler_max_err_km": 183458.45762389543,
+  "max_angle_arcsec": 108.39692207510947,
+  "speedup": 305.48228092783506
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 67343.95744711188,
+  "kepler_max_err_km": 63593.02535137343,
+  "max_angle_arcsec": 43.16906747526088,
+  "speedup": 386.3291518952822
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 262260.36389559443,
+  "kepler_max_err_km": 138538.73450944072,
+  "max_angle_arcsec": 214.10519706142338,
+  "speedup": 628.488290530603
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 15726.38371110286,
+  "kepler_max_err_km": 72958.68068073629,
+  "max_angle_arcsec": 8.072248919868336,
+  "speedup": 397.0071563088512
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 110154.02077521736,
+  "kepler_max_err_km": 42057.788956444216,
+  "max_angle_arcsec": 277.02237728318767,
+  "speedup": 725.5901523559681
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 208353.34318351262,
+  "kepler_max_err_km": 54132.12177599745,
+  "max_angle_arcsec": 431.5595811365146,
+  "speedup": 656.010727056019
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 58073.695755639266,
+  "kepler_max_err_km": 45991.12378358786,
+  "max_angle_arcsec": 74.816443517974,
+  "speedup": 696.0824776973574
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 34051.243401623295,
+  "kepler_max_err_km": 67474.30841035476,
+  "max_angle_arcsec": 20.317936237588537,
+  "speedup": 305.1869853059906
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 174492.85599981388,
+  "kepler_max_err_km": 168723.82979626875,
+  "max_angle_arcsec": 182.45016120376596,
+  "speedup": 609.5425053742428
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 84141.95412463178,
+  "kepler_max_err_km": 35726.79527877972,
+  "max_angle_arcsec": 62.145596248085944,
+  "speedup": 555.1459062281316
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 162654.3185519202,
+  "kepler_max_err_km": 8359.71525250433,
+  "max_angle_arcsec": 341.03303945367367,
+  "speedup": 1292.1284289276807
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 122590.47761704188,
+  "kepler_max_err_km": 48849.347648754454,
+  "max_angle_arcsec": 361.9036083091877,
+  "speedup": 46.58893400138217
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 145061.14446520043,
+  "kepler_max_err_km": 142997.4872181111,
+  "max_angle_arcsec": 79.78972574678373,
+  "speedup": 471.85974025974025
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 461663.0407439333,
+  "kepler_max_err_km": 43460.34703696368,
+  "max_angle_arcsec": 1255.473397333516,
+  "speedup": 931.7841423443109
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 36043.69223279847,
+  "kepler_max_err_km": 69098.18487254388,
+  "max_angle_arcsec": 17.681638881776713,
+  "speedup": 334.4193119494765
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 48356.1139902665,
+  "kepler_max_err_km": 85263.36126037153,
+  "max_angle_arcsec": 43.54966492652212,
+  "speedup": 830.9362912400455
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 12859.242174445602,
+  "kepler_max_err_km": 56310.603401177534,
+  "max_angle_arcsec": 7.029972460617166,
+  "speedup": 311.34049186006234
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 47992.05987467565,
+  "kepler_max_err_km": 62098.397584678394,
+  "max_angle_arcsec": 58.705287328789495,
+  "speedup": 34.816737153854135
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 23445.5178753228,
+  "kepler_max_err_km": 36369.964822687325,
+  "max_angle_arcsec": 18.45363344314045,
+  "speedup": 552.8591422931994
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 561663.4099630833,
+  "kepler_max_err_km": 168054.42677773745,
+  "max_angle_arcsec": 720.7707455884768,
+  "speedup": 528.7574089068826
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 109307.38900878023,
+  "kepler_max_err_km": 93082.87160975496,
+  "max_angle_arcsec": 148.87624206661948,
+  "speedup": 444.27082702211453
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 23448.614347555947,
+  "kepler_max_err_km": 32954.64763984408,
+  "max_angle_arcsec": 36.3933808305418,
+  "speedup": 841.9542139384116
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 54851.865513593424,
+  "kepler_max_err_km": 61875.170905118,
+  "max_angle_arcsec": 44.99880995491192,
+  "speedup": 496.34262521059884
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 78096.63695701165,
+  "kepler_max_err_km": 61916.17842744368,
+  "max_angle_arcsec": 52.91104199083658,
+  "speedup": 175.82324330510414
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 79182.44663952914,
+  "kepler_max_err_km": 30783.86473606238,
+  "max_angle_arcsec": 56.42192570723267,
+  "speedup": 994.88841473052
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 57302.30556148359,
+  "kepler_max_err_km": 15463.919398340486,
+  "max_angle_arcsec": 102.42371523426996,
+  "speedup": 969.9920288765228
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 96547.09035727255,
+  "kepler_max_err_km": 158095.52137480688,
+  "max_angle_arcsec": 56.48358666847227,
+  "speedup": 279.29680426098537
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 97715.81794450022,
+  "kepler_max_err_km": 34410.70967726223,
+  "max_angle_arcsec": 82.91220297828363,
+  "speedup": 1297.4662210982658
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 31008.053060073275,
+  "kepler_max_err_km": 53772.731427847626,
+  "max_angle_arcsec": 11.944173320548558,
+  "speedup": 269.97749576988156
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 361345.64113257645,
+  "kepler_max_err_km": 204791.82030104348,
+  "max_angle_arcsec": 340.2907762221705,
+  "speedup": 1110.8314492998145
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 42871.07841459391,
+  "kepler_max_err_km": 117512.21818720463,
+  "max_angle_arcsec": 70.71217975447377,
+  "speedup": 22.96437577552736
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 16693.38981484874,
+  "kepler_max_err_km": 54084.5865915142,
+  "max_angle_arcsec": 29.7438085318383,
+  "speedup": 770.0429505135387
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 78736.9181804112,
+  "kepler_max_err_km": 84595.39064470989,
+  "max_angle_arcsec": 90.81809884218998,
+  "speedup": 698.0675897249043
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 19375.653057172494,
+  "kepler_max_err_km": 41688.562595871495,
+  "max_angle_arcsec": 8.617566695583696,
+  "speedup": 357.3009971111732
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 39195.91311193772,
+  "kepler_max_err_km": 71836.38090534628,
+  "max_angle_arcsec": 20.69962582735578,
+  "speedup": 462.9550173010381
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 20858.44359309542,
+  "kepler_max_err_km": 57863.64522913133,
+  "max_angle_arcsec": 14.472819752958687,
+  "speedup": 16.13778294937048
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 14239.410377573216,
+  "kepler_max_err_km": 21910.48280814005,
+  "max_angle_arcsec": 20.141270858676755,
+  "speedup": 36.48753050208277
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 69104.58711973918,
+  "kepler_max_err_km": 213987.34935742427,
+  "max_angle_arcsec": 50.57795032718869,
+  "speedup": 23.010153134738463
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 55775.304372357255,
+  "kepler_max_err_km": 41174.05253241037,
+  "max_angle_arcsec": 33.00822145724328,
+  "speedup": 34.0115635997989
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 36023.80331394882,
+  "kepler_max_err_km": 79193.34792381697,
+  "max_angle_arcsec": 28.668400598321718,
+  "speedup": 157.86678073820582
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 99670.39858077923,
+  "kepler_max_err_km": 65546.52226948168,
+  "max_angle_arcsec": 101.24010526565638,
+  "speedup": 19.534275865078325
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 20117.286995261493,
+  "kepler_max_err_km": 69661.06065743625,
+  "max_angle_arcsec": 10.292480964470672,
+  "speedup": 7.733695722304665
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 57438.67318831347,
+  "kepler_max_err_km": 26894.042341201028,
+  "max_angle_arcsec": 60.86995100922207,
+  "speedup": 1234.315242290749
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 48233.04440516886,
+  "kepler_max_err_km": 80533.99315982475,
+  "max_angle_arcsec": 32.570900938378436,
+  "speedup": 262.1467869957595
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 26785.22573424453,
+  "kepler_max_err_km": 69017.72266361056,
+  "max_angle_arcsec": 20.330077545509322,
+  "speedup": 557.1136780344701
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 153878.5301407977,
+  "kepler_max_err_km": 71864.944360879,
+  "max_angle_arcsec": 83.42640464776633,
+  "speedup": 424.1542430172567
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 53740.0587901412,
+  "kepler_max_err_km": 56073.573506659064,
+  "max_angle_arcsec": 24.47917090577315,
+  "speedup": 8.848856761919924
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 57020.84233257781,
+  "kepler_max_err_km": 52692.79938954968,
+  "max_angle_arcsec": 98.86300499680571,
+  "speedup": 535.0590909090909
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 72166.10609885001,
+  "kepler_max_err_km": 66817.79437342369,
+  "max_angle_arcsec": 92.37126557674995,
+  "speedup": 689.9132086943305
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 141150.16988741496,
+  "kepler_max_err_km": 79203.56538983516,
+  "max_angle_arcsec": 118.77079123841666,
+  "speedup": 745.4539507660527
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 91773.47438856358,
+  "kepler_max_err_km": 101534.52513590544,
+  "max_angle_arcsec": 121.918871931362,
+  "speedup": 896.9236561022587
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 39813.879972969386,
+  "kepler_max_err_km": 103389.93572960536,
+  "max_angle_arcsec": 58.882857666617646,
+  "speedup": 934.926499032882
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 151316.79668096302,
+  "kepler_max_err_km": 171908.5696145781,
+  "max_angle_arcsec": 86.77249132278159,
+  "speedup": 403.7806585919758
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 41729.606624991335,
+  "kepler_max_err_km": 21797.65564372036,
+  "max_angle_arcsec": 62.2608396572114,
+  "speedup": 983.4060727394061
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 11298.001239557949,
+  "kepler_max_err_km": 32669.837673371323,
+  "max_angle_arcsec": 8.424350314837564,
+  "speedup": 209.20756334539914
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 59113.97505898753,
+  "kepler_max_err_km": 105807.23144398729,
+  "max_angle_arcsec": 69.16069804515489,
+  "speedup": 464.83316204179516
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 64690.45689719882,
+  "kepler_max_err_km": 93178.67588988211,
+  "max_angle_arcsec": 74.70286427967164,
+  "speedup": 34.63016014381607
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 46509.193115762086,
+  "kepler_max_err_km": 72341.59488010676,
+  "max_angle_arcsec": 24.502469731350523,
+  "speedup": 15.930540858756725
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 92189.73969864607,
+  "kepler_max_err_km": 77623.3912129297,
+  "max_angle_arcsec": 100.62875380732515,
+  "speedup": 27.51062767641943
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 59872.836728166214,
+  "kepler_max_err_km": 38200.83258490254,
+  "max_angle_arcsec": 118.82105483621666,
+  "speedup": 74.9590512903875
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 13312.72944225289,
+  "kepler_max_err_km": 64815.5657727401,
+  "max_angle_arcsec": 11.390235178007586,
+  "speedup": 12.374062333500712
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 32879.985427996515,
+  "kepler_max_err_km": 11763.721252467989,
+  "max_angle_arcsec": 101.01016582961299,
+  "speedup": 42.68143910231291
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 42644.844694860905,
+  "kepler_max_err_km": 3750.641154501842,
+  "max_angle_arcsec": 73.60239053583244,
+  "speedup": 79.58284341507567
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 101155.717155856,
+  "kepler_max_err_km": 44888.59361489142,
+  "max_angle_arcsec": 71.59535900363684,
+  "speedup": 18.56524431984875
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 21640.679344005363,
+  "kepler_max_err_km": 68735.65983134859,
+  "max_angle_arcsec": 17.944547118524888,
+  "speedup": 7.329124817206372
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 41131.52766765098,
+  "kepler_max_err_km": 83451.55429122761,
+  "max_angle_arcsec": 35.01677523078487,
+  "speedup": 15.726862564850329
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 43414.43218196573,
+  "kepler_max_err_km": 42783.89373389141,
+  "max_angle_arcsec": 28.777661424132113,
+  "speedup": 22.666818725631117
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 21576.173087441683,
+  "kepler_max_err_km": 33500.11569577245,
+  "max_angle_arcsec": 21.781480891892997,
+  "speedup": 22.19752666563611
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 127126.16691150104,
+  "kepler_max_err_km": 101992.80610813593,
+  "max_angle_arcsec": 166.09610603413682,
+  "speedup": 25.896603053710916
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 69323.42538601681,
+  "kepler_max_err_km": 26405.954156811782,
+  "max_angle_arcsec": 51.28276724916477,
+  "speedup": 495.70040996531066
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 16681.64279657132,
+  "kepler_max_err_km": 50645.21676552279,
+  "max_angle_arcsec": 12.119920911044158,
+  "speedup": 633.6865945045795
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 84749.52618190362,
+  "kepler_max_err_km": 207470.73479482986,
+  "max_angle_arcsec": 45.97419785349601,
+  "speedup": 334.9908256880734
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 21519.342487279533,
+  "kepler_max_err_km": 34575.927605222016,
+  "max_angle_arcsec": 25.718508535215598,
+  "speedup": 698.1902392037246
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 42521.61938198892,
+  "kepler_max_err_km": 82240.1863686733,
+  "max_angle_arcsec": 29.16783148489949,
+  "speedup": 314.90414463585194
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 177521.72052897702,
+  "kepler_max_err_km": 169726.02882932837,
+  "max_angle_arcsec": 111.8861942613938,
+  "speedup": 351.548322147651
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 39190.59923430458,
+  "kepler_max_err_km": 53291.66641074015,
+  "max_angle_arcsec": 36.493214244258176,
+  "speedup": 110.78747690683558
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 188488.6963470733,
+  "kepler_max_err_km": 172312.60876529213,
+  "max_angle_arcsec": 84.14444472549076,
+  "speedup": 365.12854914196566
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 56495.545052254616,
+  "kepler_max_err_km": 42523.829181677436,
+  "max_angle_arcsec": 44.04194244772659,
+  "speedup": 668.2445642073964
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 33838.714384496656,
+  "kepler_max_err_km": 32739.746781831214,
+  "max_angle_arcsec": 48.94431543681364,
+  "speedup": 1132.4364921181373
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 27473.18911173582,
+  "kepler_max_err_km": 57370.95548522392,
+  "max_angle_arcsec": 19.595181683229637,
+  "speedup": 410.2384602566239
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 52807.32759004956,
+  "kepler_max_err_km": 24252.47810360305,
+  "max_angle_arcsec": 55.70119693702547,
+  "speedup": 346.06095406360424
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 24743.226277119345,
+  "kepler_max_err_km": 34469.448167396986,
+  "max_angle_arcsec": 59.120560049272385,
+  "speedup": 1540.5109223300972
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 41830.771694724324,
+  "kepler_max_err_km": 78823.54079677447,
+  "max_angle_arcsec": 34.54623623473762,
+  "speedup": 461.49835345773874
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 38648.49308242558,
+  "kepler_max_err_km": 81791.12339829805,
+  "max_angle_arcsec": 39.634514288067635,
+  "speedup": 577.6670169907164
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 49544.397309189066,
+  "kepler_max_err_km": 74439.88024291991,
+  "max_angle_arcsec": 27.289603077717082,
+  "speedup": 360.4836276674025
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 18401.918315906907,
+  "kepler_max_err_km": 41917.089278308915,
+  "max_angle_arcsec": 25.257967952777516,
+  "speedup": 904.7276712328767
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 125690.38284331872,
+  "kepler_max_err_km": 79599.15178834363,
+  "max_angle_arcsec": 95.44888504147072,
+  "speedup": 252.77787994220412
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 45825.01156793994,
+  "kepler_max_err_km": 37938.71277438883,
+  "max_angle_arcsec": 45.38876287417194,
+  "speedup": 841.1184269328169
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 29838.153317062905,
+  "kepler_max_err_km": 74155.40468494219,
+  "max_angle_arcsec": 26.240588358048385,
+  "speedup": 387.8052799433026
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 17297.133583078903,
+  "kepler_max_err_km": 30652.862147649095,
+  "max_angle_arcsec": 26.66203320231492,
+  "speedup": 935.7067919951486
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 19774.28364544175,
+  "kepler_max_err_km": 26084.018773848715,
+  "max_angle_arcsec": 14.96048705861236,
+  "speedup": 495.9143103448276
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 324135.50185614644,
+  "kepler_max_err_km": 285196.255164595,
+  "max_angle_arcsec": 955.4726051612412,
+  "speedup": 837.4551358742095
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 24795.29721440116,
+  "kepler_max_err_km": 37904.99501610734,
+  "max_angle_arcsec": 42.74803380085047,
+  "speedup": 853.2110225979516
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 76246.43376155182,
+  "kepler_max_err_km": 40573.48500299626,
+  "max_angle_arcsec": 55.43086668882183,
+  "speedup": 310.7324304292164
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 106019.03810428335,
+  "kepler_max_err_km": 56660.87378376106,
+  "max_angle_arcsec": 235.41093656358993,
+  "speedup": 1708.459863210943
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 129543.62196666884,
+  "kepler_max_err_km": 39332.81262519655,
+  "max_angle_arcsec": 71.39299092161367,
+  "speedup": 419.15384615384613
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 22863.807735846498,
+  "kepler_max_err_km": 67592.37280252289,
+  "max_angle_arcsec": 8.799411901091172,
+  "speedup": 248.87568087151553
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 90388.71423727606,
+  "kepler_max_err_km": 68124.41773456371,
+  "max_angle_arcsec": 51.5732796397009,
+  "speedup": 392.2966948501153
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 161344.26523995158,
+  "kepler_max_err_km": 146323.4518927255,
+  "max_angle_arcsec": 93.21732544685837,
+  "speedup": 271.5335963792503
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 25382.990067170238,
+  "kepler_max_err_km": 84618.09729153414,
+  "max_angle_arcsec": 29.719874999137577,
+  "speedup": 31.330992556021496
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 157233.53912217251,
+  "kepler_max_err_km": 138095.55573644338,
+  "max_angle_arcsec": 163.09954197379113,
+  "speedup": 50.85253078565421
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 39384.048530067404,
+  "kepler_max_err_km": 53270.66473979834,
+  "max_angle_arcsec": 35.06865767500223,
+  "speedup": 18.496906796906796
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 61705.93128568091,
+  "kepler_max_err_km": 189094.1345234914,
+  "max_angle_arcsec": 203.74693853979198,
+  "speedup": 60.243133496431184
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 60848.088166831585,
+  "kepler_max_err_km": 27434.761187537137,
+  "max_angle_arcsec": 56.55214231712451,
+  "speedup": 40.88555255689507
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 137902.9198086267,
+  "kepler_max_err_km": 93375.00413266134,
+  "max_angle_arcsec": 102.23968072526992,
+  "speedup": 348.41820580474933
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 94478.1434904502,
+  "kepler_max_err_km": 45459.682398212484,
+  "max_angle_arcsec": 69.62928388161839,
+  "speedup": 368.9792247276412
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 60058.6044147953,
+  "kepler_max_err_km": 11234.33139434758,
+  "max_angle_arcsec": 87.9441752573187,
+  "speedup": 175.75531694159145
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 22099.397145778137,
+  "kepler_max_err_km": 22039.416301215166,
+  "max_angle_arcsec": 23.79367935800628,
+  "speedup": 846.3770293609672
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 50801.15429681111,
+  "kepler_max_err_km": 77679.46968062216,
+  "max_angle_arcsec": 28.043381957670537,
+  "speedup": 358.07759722475805
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 75318.39494112832,
+  "kepler_max_err_km": 135445.94858065312,
+  "max_angle_arcsec": 204.5539348353716,
+  "speedup": 1233.02001953125
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 32002.79255044934,
+  "kepler_max_err_km": 34385.05496323441,
+  "max_angle_arcsec": 31.998311143159906,
+  "speedup": 1033.503442999235
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 30038.05499668964,
+  "kepler_max_err_km": 61418.722791003376,
+  "max_angle_arcsec": 10.538098350259835,
+  "speedup": 258.60365296803656
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 23054.15725191347,
+  "kepler_max_err_km": 65896.30929826554,
+  "max_angle_arcsec": 10.785023034374802,
+  "speedup": 398.736812464802
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 6000.929484523727,
+  "kepler_max_err_km": 36509.69090727977,
+  "max_angle_arcsec": 4.509015110716484,
+  "speedup": 281.3347126436782
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 34297.896162641766,
+  "kepler_max_err_km": 24383.275357788127,
+  "max_angle_arcsec": 45.83658162136837,
+  "speedup": 317.100102406554
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 122080.83817877181,
+  "kepler_max_err_km": 86063.84773332934,
+  "max_angle_arcsec": 69.42518365560515,
+  "speedup": 148.98053788499087
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 91332.50226081777,
+  "kepler_max_err_km": 22413.09716200753,
+  "max_angle_arcsec": 94.25593680161285,
+  "speedup": 359.5183341235973
+ },
+ {
+  "name": "synthetic",
+  "max_err_km": 52912.03124213029,
+  "kepler_max_err_km": 29492.2760291405,
+  "max_angle_arcsec": 34.86029331522335,
+  "speedup": 427.15489788854273
+ }
+]

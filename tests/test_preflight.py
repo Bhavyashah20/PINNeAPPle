@@ -76,3 +76,17 @@ def test_api_snippets_and_logs():
             j = c.post("/api/preflight", files={"files": ("beam.inp", fh.read())}).json()
         assert j["status"] == "FAIL"
         assert c.post("/api/preflight", files={"files": ("readme.txt", b"hi")}).status_code == 422
+
+
+def test_freestream_pressure_fixes_the_pressure_level(tmp_path):
+    """External aerodynamics: freestreamPressure on the far field sets the pressure level (no pRefCell needed);
+    the aero app's 436-run campaign ran with exactly this case."""
+    from pathlib import Path
+
+    from pinneapple_design.aero.case import write_case
+    from pinneapple_design.aero.geometry import REFERENCE
+    write_case(str(tmp_path / "case"), REFERENCE["NACA 2412"], 4.0, reynolds=4e6)
+    root = Path(tmp_path / "case")
+    r = preflight({str(p.relative_to(root)): p.read_bytes() for p in root.rglob("*") if p.is_file()})
+    assert "pref" not in {f["rule"] for f in r["findings"]}
+    assert r["status"] != "FAIL"

@@ -15,13 +15,13 @@ import os
 import sys
 from typing import List, Tuple
 
-import numpy as np
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from pinneapple_data.cae import METRICS, FormatError, mesh_report, read_any, view_payload
+from pinneapple_data.cae.report import worst_cells
 from pinneapple_data.cae.upload import expand as read_upload
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "_shared"))
@@ -99,25 +99,6 @@ def scope() -> dict:
             ]}
 
 
-def _clean(rep: dict) -> dict:
-    rep = {k: v for k, v in rep.items() if not k.startswith("_")}
-    return rep
-
-
-def _worst_cells(mesh, rep, n: int = 40) -> List[dict]:
-    vals, cents = rep["_cell_values"], rep.get("_centres")
-    out = []
-    for k, v in vals.items():
-        spec = METRICS[k]
-        if not np.isfinite(v).any():
-            continue
-        order = np.argsort(-np.nan_to_num(v, nan=-np.inf)) if spec["better"] == "low" else np.argsort(np.nan_to_num(v, nan=np.inf))
-        for c in order[:n]:
-            out.append({"metric": k, "cell": int(c), "label": mesh.cell_label(int(c)), "value": float(v[c]),
-                        "centre": cents[c].tolist() if cents is not None else None})
-    return out
-
-
 def _run(files: List[Tuple[str, bytes]], target: str) -> dict:
     if not files:
         raise HTTPException(422, "No files uploaded.")
@@ -134,14 +115,14 @@ def _run(files: List[Tuple[str, bytes]], target: str) -> dict:
                 raise HTTPException(422, "The file has points but no cells.")
             rep = mesh_report(mesh, target)
             view = view_payload(mesh, rep)
-            worst = _worst_cells(mesh, rep)
+            worst = worst_cells(mesh, rep)
     except HTTPException:
         raise
     except FormatError as e:
         raise HTTPException(422, str(e)) from e
     except Exception as e:
         raise HTTPException(422, f"{type(e).__name__}: {e}") from e
-    out = _clean(rep)
+    out = {k: v for k, v in rep.items() if not k.startswith("_")}   # drop the report's internal arrays
     out.update(view=view, worst_cells=worst, scope=scope(),
                metric_info={k: {kk: vv for kk, vv in v.items()} for k, v in METRICS.items()},
                files=[{"name": n, "bytes": len(b)} for n, b in files])
