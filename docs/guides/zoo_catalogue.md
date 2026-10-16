@@ -25,10 +25,10 @@ Metric names are `<split>/<metric>`; the full set, the validity range and the ph
 | `burgers_1d_li2021` | 1.0.0 | 1-D viscous Burgers, Li et al. (2021) operator-learning benchmark (1200 trajectories, 1024 points) | train 1000, test 200 | cc-by-4.0 | 55 MB (Hub-only) | [PINNeAPPle-Labs/burgers-1d-li2021](https://huggingface.co/datasets/PINNeAPPle-Labs/burgers-1d-li2021/tree/v1.0.0) |
 | `darcy_2d_li2021` | 1.0.0 | 2-D Darcy flow, Li et al. (2021) operator-learning benchmark (1200 coefficient / pressure pairs, 128 x 128) | train 1000, test 200 | cc-by-4.0 | 71 MB (Hub-only) | [PINNeAPPle-Labs/darcy-2d-li2021](https://huggingface.co/datasets/PINNeAPPle-Labs/darcy-2d-li2021/tree/v1.0.0) |
 | `navier_stokes_2d_li2021_nu1e-3` | 1.0.0 | 2-D incompressible Navier-Stokes (vorticity), nu = 1e-3, Li et al. (2021) benchmark (1200 runs, 64 x 64, t 0-50) | train 1000, test 200 | cc-by-4.0 | 919 MB (Hub-only) | [PINNeAPPle-Labs/navier-stokes-2d-li2021-nu1e-3](https://huggingface.co/datasets/PINNeAPPle-Labs/navier-stokes-2d-li2021-nu1e-3/tree/v1.0.0) |
+| `thermal_channel_cfd` | 1.0.0 | Actuated heated-channel CFD, 2-D incompressible flow + heat (82 trajectories, 128 x 32, 101 snapshots) | train 48, val 8, test_same_family 12, test_unseen_sinusoid 8, test_unseen_edge_steps 6 | cc-by-4.0 | 360 MB (Hub-only) | [PINNeAPPle-Labs/thermal-channel-cfd](https://huggingface.co/datasets/PINNeAPPle-Labs/thermal-channel-cfd/tree/v1.0.0) |
 
-4 models and 8 datasets, 1047.5 MB in total (2.7 MB bundled with the package; the rest is downloaded on first use and checked against its SHA-256).
+4 models and 9 datasets, 1407.8 MB in total (2.7 MB bundled with the package; the rest is downloaded on first use and checked against its SHA-256).
 
 ## Cite
 
 Each Hub card carries its own citation. For the software, cite PINNeAPPle (Zenodo DOI [10.5281/zenodo.23343062](https://doi.org/10.5281/zenodo.23343062), [CITATION.cff](https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/CITATION.cff)).
-
