@@ -168,6 +168,7 @@ class AirfoilMLP(ZooModel):
     adapter = "airfoil_mlp"
     reference_outputs = ["Cl", "Cd", "Cm"]
     eval_splits = ("test", "naca_reference", "xfoil_naca2412")
+    n_random_checks = 2000
 
     def _build(self, config):
         from pinneapple_design.aero.surrogate import MLPEnsemble
@@ -238,7 +239,8 @@ class AirfoilMLP(ZooModel):
         anti = float(max(abs(sym[1]), abs(sym[0] + sym[2])))
         rng = np.random.default_rng(0)
         b = np.array([self.card.validity_range[k] for k in self.input_names[:6]])
-        R = np.c_[b[:, 0] + rng.random((2000, 6)) * (b[:, 1] - b[:, 0]), rng.uniform(-2, 14, 2000)]
+        n = self.n_random_checks
+        R = np.c_[b[:, 0] + rng.random((n, 6)) * (b[:, 1] - b[:, 0]), rng.uniform(-2, 14, n)]
         P = self._forward(R)
         positive = bool(np.all(P["Cd"] > 0) and np.all(np.isfinite(P["Cl"])) and np.all(np.isfinite(P["Cm"])))
         return [
@@ -248,10 +250,109 @@ class AirfoilMLP(ZooModel):
                               fonte="attached-flow lift curve", critica=True),
             checagem_erro_relativo("symmetric airfoil: |Cl(0)| and |Cl(2)+Cl(-2)| (NACA 0012)", anti, 0.01,
                                    fonte="symmetry", critica=True),
-            checagem_booleana("Cd > 0 and finite outputs on 2000 random in-range inputs", positive,
+            checagem_booleana(f"Cd > 0 and finite outputs on {n} random in-range inputs", positive,
                               fonte="second law (drag is dissipative)", critica=True),
         ]
 
+
+
+# ====================================================================== airfoil (graph network, fields + coefficients)
+class AirfoilGNN(AirfoilMLP):
+    """MeshGraphNet on the near field of the campaign's O-grid: p, Ux, Uy, log(1 + nut/nu) at the graph nodes and
+    Cl, Cd, Cm from a pooled wall readout. Coefficient metrics and checks are the MLP adapter's; the field metrics
+    are relative L2 errors on the held-out shapes of the field dataset (steady runs)."""
+    adapter = "airfoil_gnn"
+    n_random_checks = 300                                         # graph evaluations are ~1000x costlier than the MLP
+
+    def _build(self, config):
+        from pinneapple_design.aero.surrogate import AeroGNN, Layout
+        self._layout = Layout()
+        return AeroGNN(config["node_in"], hidden=config["hidden"], mp=config["mp"])
+
+    def _graphs(self, X):
+        from pinneapple_design.aero.surrogate import edge_features, node_features
+        lay = self._layout
+        F, E, P = [], [], []
+        for row in X:
+            pos = lay.positions(row[:6])
+            F.append(node_features(lay, row[:6], float(row[6]), pos))
+            E.append(edge_features(lay, pos))
+            P.append(pos)
+        return np.stack(F), np.stack(E), np.stack(P)
+
+    def _run(self, X):
+        import torch
+        c = self.config
+        F, E, P = self._graphs(np.atleast_2d(X))
+        ei = torch.from_numpy(self._layout.edge_index)
+        wall = torch.arange(len(self._layout.i_sel))
+        ys, cs = [], []
+        with torch.no_grad():
+            for b in range(0, len(F), 16):
+                y, cc = self.module(torch.from_numpy(F[b:b + 16]), ei, torch.from_numpy(E[b:b + 16]), wall)
+                ys.append(y.numpy())
+                cs.append(cc.numpy())
+        fields = np.concatenate(ys) * np.asarray(c["field_std"]) + np.asarray(c["field_mean"])
+        coef = np.concatenate(cs) * np.asarray(c["coef_std"]) + np.asarray(c["coef_mean"])
+        return fields, coef, P
+
+    def _forward(self, X):
+        _, coef, _ = self._run(X)
+        cl, cd, cm = coef[:, 0], np.exp(coef[:, 1]), coef[:, 2]
+        return {"Cl": cl, "Cd": cd, "Cm": cm, "LD": cl / cd}
+
+    def predict_fields(self, inputs=None, **named) -> dict[str, np.ndarray]:
+        """Fields at the graph nodes: ``x``, ``y`` (node positions), ``p``, ``Ux``, ``Uy``, ``nut`` (n, N) for each
+        input row (6 CST weights and the angle of attack)."""
+        X = self.as_array(named if inputs is None else inputs)
+        f, _, P = self._run(X)
+        nu = 1.0 / float(self.config["reynolds"])
+        return {"x": P[..., 0], "y": P[..., 1], "p": f[..., 0], "Ux": f[..., 1], "Uy": f[..., 2],
+                "nut": np.expm1(f[..., 3]) * nu}
+
+    def field_errors(self, split: str = "test", *, offline=None) -> dict[str, float]:
+        """Relative L2 error per field and run (against the field's variation over the graph nodes), mean over the
+        steady runs of ``split`` of the field dataset."""
+        from . import datasets
+        d = datasets.load(self.config["field_dataset"], split=split, offline=offline)
+        steady = np.asarray(d["status"]) != "unsteady"
+        X = np.stack([np.asarray(d[k], float) for k in self.input_names], 1)[steady]
+        f, _, _ = self._run(X)
+        idx = self._layout.cell_index
+        nu = 1.0 / float(self.config["reynolds"])
+        true = np.stack([d["p"][steady][:, idx], d["Ux"][steady][:, idx], d["Uy"][steady][:, idx],
+                         np.log1p(d["nut"][steady][:, idx] / nu)], -1)
+        out = {}
+        for k, name in enumerate(("p", "Ux", "Uy", "nut_log")):
+            e = f[..., k] - true[..., k]
+            ref = true[..., k] - true[..., k].mean(1, keepdims=True)
+            rel = np.sqrt((e ** 2).sum(1) / (ref ** 2).sum(1))
+            out[f"{name}_rel_l2"] = float(rel.mean())
+            out[f"{name}_rel_l2_p90"] = float(np.percentile(rel, 90))
+        out["fields_n"] = float(steady.sum())
+        return out
+
+    def evaluate_splits(self, splits=("test",), *, offline=None):
+        out = super().evaluate_splits(splits, offline=offline)
+        if "test" in splits:
+            out.update({f"test/{k}": v for k, v in self.field_errors("test", offline=offline).items()})
+        return out
+
+    def physics_checks(self):
+        from pinneapple_analysis.trust.trust_report import checagem_booleana
+        checks = super().physics_checks()
+        X, _ = self.reference("test")
+        f, _, _ = self._run(np.unique(X, axis=0))
+        cp_max = float(2 * f[..., 0].max())                         # Cp = p / (U^2 / 2), U = 1
+        nw = len(self._layout.i_sel)                                # first graph level = wall-adjacent cells
+        u_wall = float(np.percentile(np.hypot(f[:, :nw, 1], f[:, :nw, 2]), 99))
+        checks += [
+            checagem_booleana(f"stagnation bound: max Cp {cp_max:.3f} <= 1.05 on the held-out runs", cp_max <= 1.05,
+                              fonte="Bernoulli (total pressure is not exceeded in the free stream)", critica=True),
+            checagem_booleana(f"no-slip: 99th percentile |U| at the wall-adjacent nodes {u_wall:.3f} <= 0.1",
+                              u_wall <= 0.1, fonte="no-slip wall, first cell at y+ ~ 1", critica=True),
+        ]
+        return checks
 
 # ====================================================================== heat sink (forced)
 class HeatsinkForced(ZooModel):
@@ -484,7 +585,7 @@ class RoverContact(ZooModel):
         ]
 
 
-ADAPTERS = {c.adapter: c for c in (AirfoilMLP, HeatsinkForced, HeatsinkNatural, RoverContact)}
+ADAPTERS = {c.adapter: c for c in (AirfoilMLP, AirfoilGNN, HeatsinkForced, HeatsinkNatural, RoverContact)}
 
 
 def load_dir(directory: str | Path) -> ZooModel:
