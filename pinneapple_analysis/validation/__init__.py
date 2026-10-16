@@ -45,6 +45,8 @@ from .validator import PhysicsValidator, validate_model
 from .analytical import compare_to_analytical, validate_against_solver
 from .spectral import energy_spectrum, high_wavenumber_bias, spectral_fidelity, structure_functions
 from .metamorphic import MetamorphicReport, check_relations
+from .metamorphic import MetamorphicReport, check_relations
+from .spectral import energy_spectrum, high_wavenumber_bias, spectral_fidelity, structure_functions
 
 __all__ = [
     "CheckResult",
@@ -56,6 +58,8 @@ __all__ = [
     "validate_model",
     "compare_to_analytical",
     "validate_against_solver",
+    "MetamorphicReport",
+    "check_relations",
     "energy_spectrum",
     "high_wavenumber_bias",
     "spectral_fidelity",

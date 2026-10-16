@@ -81,6 +81,10 @@ def dataset_audit():
     return leaf("pinneapple_data.audit")
 
 
+
+
+def metamorphic():
+    return leaf("pinneapple_analysis.validation.metamorphic")
 def dataset_audit():
     return leaf("pinneapple_data.audit")
 def spectral():
