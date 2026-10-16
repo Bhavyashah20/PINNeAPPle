@@ -13,9 +13,9 @@ const SP = "lat=-23.5505&lon=-46.6333&elev=760&tz=America/Sao_Paulo&name=saopaul
 const SHOTS = [
   { name: "sky", url: `/?${SP}&t=2026-10-13T21:49:59Z&az=250&alt=11&fov=62&panel=0` },
   { name: "star-hr", url: `/?${SP}&t=2026-10-14T00:30:00Z&az=40&alt=40&fov=80&select=star:2061`, wait: "#oHR svg" },
-  { name: "system", url: `/?${SP}&t=2026-10-13T23:30:00Z&view=system&tab=engine&focusDelay=99999`, wait: "#eOut .card", settle: 9000, timeout: 240000 },
-  { name: "engine", url: `/?${SP}&t=2026-10-13T23:30:00Z&tab=engine&az=90&alt=30`, wait: "#eVal table", timeout: 400000 },
-  { name: "lensing", url: `/?${SP}&t=2026-10-13T23:30:00Z&tab=analyses&az=225&alt=45&fov=60`, click: "#aLens", wait: "#aLensOut img", scroll: "#aLensOut", timeout: 240000 },
+  { name: "system", url: `/?${SP}&t=2026-10-13T23:30:00Z&view=system&tab=engine&focusDelay=99999`, wait: "#eOut .card", settle: 9000, timeout: 600000 },
+  { name: "engine", url: `/?${SP}&t=2026-10-13T23:30:00Z&tab=engine&az=90&alt=30`, wait: "#eVal table", timeout: 600000 },
+  { name: "lensing", url: `/?${SP}&t=2026-10-13T23:30:00Z&tab=analyses&az=225&alt=45&fov=60`, click: "#aLens", wait: "#aLensOut img", scroll: "#aLensOut", timeout: 600000 },
 ];
 const LANGS = { en: "", pt: "-pt" };
 

@@ -610,7 +610,7 @@ function renderAnalyses() {
     img.onload = () => {
       $("#aLensOut").innerHTML = ""; $("#aLensOut").appendChild(img);
       $("#aLensOut").insertAdjacentHTML("beforeend", `<p class="small">${t("an.lensOut", { ra: fmtRA(ra), dec: fmtDec(dec), rc, n: nb, mag: bm })}${disc ? " · " + t("an.lensDisc") : ""}.</p>
-      <table><tr><th>${t("an.bhCol")}</th><th class="r">${t("an.shadowPred")}</th><th class="r">${t("an.ehtRing")}</th><th class="r">σ</th></tr>${info.eht.map((r) => `<tr><td>${esc(r.object)}</td><td class="r">${num(r.predicted_uas, 1)} µas</td><td class="r">${r.observed_uas} ± ${r.observed_err_uas}</td><td class="r">${num(r.sigma, 2)}</td></tr>`).join("")}</table>
+      <table><tr><th>${t("an.bhCol")}</th><th class="r">${t("an.shadowPred")}</th><th class="r">${t("an.ehtRing")}</th><th class="r">σ</th></tr>${info.eht.map((r) => `<tr><td>${esc(r.object)}</td><td class="r">${num(r.predicted_uas, 1)} µas</td><td class="r">${num(r.observed_uas, 1)} ± ${num(r.observed_err_uas, 1)}</td><td class="r">${num(r.sigma, 2)}</td></tr>`).join("")}</table>
       <p class="small muted">${t("an.sunDefl", { v: num(info.sun_deflection_arcsec, 3) })} ${t("method.lensing")}.</p>`);
     };
     img.onerror = () => { $("#aLensOut").textContent = t("err.render"); };
