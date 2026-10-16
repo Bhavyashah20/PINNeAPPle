@@ -97,29 +97,41 @@ tolerances (fixed limits) every prediction of both models fails PC101 and PC301,
 
 ## Checking data, not only models: PhysicsNeMo's `Darcy2D` datapipe
 
-The same kind of checks can run on training data before anyone trains on them. `check_nodal_darcy_batch` handles
-data stored at the nodes of a finite-difference grid, the layout of PhysicsNeMo's `Darcy2D` datapipe. Two open
-issues on that datapipe are already acknowledged by NVIDIA, with a fix under review in
+The same kind of checks can run on training data before anyone trains on them. Two open issues on that datapipe are
+already acknowledged by NVIDIA, with a fix under review in
 [NVIDIA/physicsnemo#2048](https://github.com/NVIDIA/physicsnemo/pull/2048):
 [#2036](https://github.com/NVIDIA/physicsnemo/issues/2036) (the Jacobi kernel divides `grad k · grad u` by `2 dx`
 instead of `4 dx²`) and [#2035](https://github.com/NVIDIA/physicsnemo/issues/2035) (the Fourier coefficients of a
 permeability sample share one random value). The installed version, `nvidia-physicsnemo` 2.2.2, still has the
-`2 dx` denominator, so it does not include that fix. `python run.py datapipe`: resolution 64, 4 batches of 32 on CPU
-(warp 1.18), 84 s.
+`2 dx` denominator, so it does not include that fix.
 
-| Check | Datapipe data | Direct solve of the documented equation, same grid |
+The datapipe stores `u` at the nodes of a finite-difference grid with zero ghost nodes and a one-node crop, not in
+the cell-centred layout of `darcy_2d_li2021`. So the residual is computed by `check_nodal_darcy_batch` in the
+datapipe's own layout, against a direct solve of the documented equation on the same nodes. Applied to node data,
+the cell-centred physics check of [the dataset audit](dataset_audit.md) also fails a correct direct solve (solve
+error 16 %), so it cannot separate the bug from the layout there. Its diversity measures (`near_duplicates`,
+`effective_sample_count`) are used as they are.
+
+`python run.py datapipe`: resolution 64, 4 batches of 32 on CPU (warp 1.18), 80 s.
+
+| Check | Datapipe data | Direct solve of the documented equation, same nodes |
 |---|---|---|
-| residual of `-div(k grad u) = 1` (relative RMS, median) | **4.93** | 1.7e-13 |
-| same data, stencil with `grad k · grad u` over `2 dx` | 0.0039 (the Jacobi tolerance) | — |
-| flux balance (median; limit 2× the direct solve's floor) | 0.28, fails for 50 % of samples | 0.076 |
+| residual of `-div(k grad u) = 1` (relative RMS, median) | **4.44** | 1.7e-13 |
+| same data, stencil with `grad k · grad u` over `2 dx` | 0.0036 (the Jacobi tolerance) | — |
+| distance to the direct solve (relative L2) | 24 % | — |
+| flux balance (median; limit 2× the direct solve's floor, 0.061) | 0.42, fails for every sample | 0.020 |
 | boundary condition, positivity | pass | pass |
-| distinct permeability fields | **4 of 128** (every sample in a batch is identical) | — |
-| distinct Fourier amplitudes per sample | **4 of 100** (one per sin/cos family) | — |
+| permeability samples | **4 distinct of 128**: every sample is an exact copy of others in its batch; effective sample count 1.8 | — |
+| Fourier amplitudes per sample | **4 distinct of 100** (one per sin/cos family) | — |
 
-The residual check catches #2036 without ambiguity: the data solve the shipped stencil, not the documented equation,
-and differ from a direct solve of that equation by 19 % (L2). The diversity check catches #2035. The issue reports
-8 distinct fields in 32 on its set-up; in this CPU run all 32 samples of a batch were identical. The flux check sees
-the first problem only partly, and the boundary and positivity checks, as expected, not at all.
+Each run draws new seeds. Over three runs the residual was 4.4 to 5.0 and the flux imbalance 0.22 to 0.68; in one
+run, half the samples stayed under the flux limit.
+
+- **#2036:** the residual check catches it without ambiguity. The data solve the shipped stencil, not the documented
+  equation.
+- **#2035:** the diversity check catches it. The issue reports 8 distinct fields in 32 on its set-up; in these CPU
+  runs every sample of a batch was identical.
+- **Not caught:** the boundary and positivity checks, as expected, do not see either problem.
 
 ## Limits
 

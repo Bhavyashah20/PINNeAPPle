@@ -122,16 +122,14 @@ def test_nodal_batch_check_flags_a_mis_scaled_stencil_and_duplicate_samples():
     c = bad["checks"]
     assert not c["residual"]["passed"] and c["residual"]["median"] > 0.1
     assert not c["flux"]["passed"]
-    assert c["distinct_coefficients"]["n_distinct"] == 1 and not c["distinct_coefficients"]["passed"]
+    d = c["distinct_coefficients"]
+    assert d["n_distinct"] == 1 and d["exact_copies"] == 3 and not d["passed"]
     assert bad["residual_of_other_stencils"]["2 dx"] < 1e-9           # the data solve that other stencil
     assert bad["direct_solve_of_the_documented_equation"]["checks"]["residual"]["passed"]
 
 
-def test_distinct_fields_and_save_npz(tmp_path):
+def test_save_npz(tmp_path):
     x = np.random.default_rng(0).standard_normal((5, 8, 8))
-    x[3] = x[1]
-    d = dc.distinct_fields(x)
-    assert d["n_distinct"] == 4 and d["largest_group"] == 2
     p = dc.save_darcy_npz(tmp_path / "r" / "f.npz", np.full((8, 8), 3.0), x[0])
     with np.load(p) as z:
         assert np.allclose(z["x"], (np.arange(8) + 0.5) / 8) and z["u"].dtype == np.float32

@@ -508,21 +508,23 @@ _SKY = {}
 
 @app.get("/api/analysis/lensing.png")
 def lensing_png(ra: float = Query(266.4, ge=0, le=360), dec: float = Query(-29.0, ge=-90, le=90),
-                fov: float = Query(50.0, ge=5, le=120), r_cam: float = Query(40.0, ge=6, le=500),
-                width: int = Query(480, ge=64, le=960)):
+                fov: float = Query(60.0, ge=5, le=120), r_cam: float = Query(120.0, ge=6, le=500),
+                width: int = Query(480, ge=64, le=960), disc: str = Query("auto", pattern="^(auto|on|off)$")):
     from PIL import Image
 
-    from pinneapple_physics.astro.lensing import catalog_sky, lensed_sky
+    from pinneapple_physics.astro.lensing import catalog_sky, lensing_view
     height = int(width * 9 / 16) // 2 * 2
     with _HEAVY:
         if "sky" not in _SKY:
             _SKY["sky"] = catalog_sky()
-        L = lensed_sky(ra, dec, fov, width, height, r_cam, sky=_SKY["sky"])
-    img = (np.clip(L["image"] * 2.4, 0, 1) ** 0.62 * 255).astype("uint8")
+        L = lensing_view(ra, dec, fov, width, height, r_cam, sky=_SKY["sky"],
+                         disc={"auto": "auto", "on": True, "off": False}[disc])
     buf = io.BytesIO()
-    Image.fromarray(img).save(buf, "PNG")
+    Image.fromarray((L["image"] * 255).astype("uint8")).save(buf, "PNG")
     return Response(buf.getvalue(), media_type="image/png",
-                    headers={"X-Shadow-Radius-Deg": f"{L['shadow_radius_deg']:.4f}", "Cache-Control": "max-age=3600"})
+                    headers={"X-Shadow-Radius-Deg": f"{L['shadow_radius_deg']:.4f}", "X-Disc": str(int(L["disc"])),
+                             "X-Bright-Stars": str(L["bright_stars"]), "X-Bright-Mag": f"{L['bright_mag']:.1f}",
+                             "Cache-Control": "max-age=3600"})
 
 
 @app.get("/api/analysis/lensing")
@@ -828,7 +830,7 @@ def accretion_png(ra: float = Query(266.4, ge=0, le=360), dec: float = Query(-29
     with _HEAVY:
         if "sky_disc" not in _SKY:
             from pinneapple_physics.astro.lensing import catalog_sky
-            _SKY["sky_disc"] = catalog_sky(2048, 1024, milky_way=0.10)
+            _SKY["sky_disc"] = catalog_sky(2048, 1024)
         r = accretion_view(ra, dec, 640, 360, inclination_deg=incl, doppler=doppler, sky=_SKY["sky_disc"])
     buf = io.BytesIO()
     Image.fromarray((np.clip(r["image"], 0, 1) * 255).astype("uint8")).save(buf, "PNG")

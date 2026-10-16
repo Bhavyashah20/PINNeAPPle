@@ -46,7 +46,7 @@ def _torch_ok() -> bool:
 def test_pass_fixtures_have_no_violation(pass_report):
     assert not pass_report.violations, "\n".join(f"{o.rule} {o.target}: {o.message}" for o in pass_report.violations)
     assert pass_report.exit_code("warning") == 0
-    assert len(pass_report.targets) == 13
+    assert len(pass_report.targets) == 15
 
 
 def test_fail_fixtures_break_exactly_the_expected_rules(fail_report):
@@ -267,3 +267,14 @@ def test_action_and_workflow_are_consistent():
     example = (ROOT / "examples" / "physics_check" / "workflow.yml").read_text()
     assert "PINNeAPPle-Labs/PINNeAPPle@" in example and "security-events: write" in example
     assert os.path.isfile(ROOT / "docs" / "guides" / "physics_checks_in_ci.md")
+
+
+def test_main_modules_do_not_run_on_import():
+    # regression: the __main__ modules called sys.exit at import, so walking the packages (API docs, import smoke
+    # tests) raised SystemExit, which `except Exception` does not catch, and aborted the whole pytest session
+    import importlib
+    import sys
+
+    for name in ("pinneapple_check.__main__", "pinneapple.check.__main__", "pinneapple_analysis.benchmark.__main__"):
+        sys.modules.pop(name, None)
+        importlib.import_module(name)

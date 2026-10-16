@@ -51,6 +51,8 @@
   * [Reduced-order models](core_concepts/reduced_order_models.md)
 * [Validation status](validation_status.md)
 * Guides
+    * [Choosing a method: PINN, operator, graph network or solver](guides/choosing_a_method.md)
+    * [Running a benchmark](guides/running_a_benchmark.md)
     * [Recreate a 3D wear twin](guides/recreate_a_wear_twin.md)
     * [Pre-trained models and datasets (pp.zoo)](guides/model_zoo.md)
     * [Zoo catalogue](guides/zoo_catalogue.md)
@@ -58,6 +60,8 @@
     * [Colab notebooks](guides/colab_notebooks.md)
     * [PINNeAPPle from coding agents (MCP server)](guides/mcp_server.md)
     * [Physics checks in CI](guides/physics_checks_in_ci.md)
+    * [Spectral fidelity: what relative L2 does not see](guides/spectral_fidelity.md)
+    * [Validation methods reference](guides/validation_methods_reference.md)
     * [A latent surrogate that says when not to trust it](guides/trusted_latent_surrogate.md)
     * [Detect false data injection with physics residuals](guides/physics_residual_attack_detection.md)
     * [The PINNeAPPle Observatory](guides/observatory.md)

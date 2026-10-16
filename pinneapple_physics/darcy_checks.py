@@ -18,10 +18,11 @@ of them to round-off; a surrogate's prediction passes them only as far as it res
     the integral of the source: the discrete conservation statement.
 ``boundary_values``
     the value of ``u`` on the boundary, extrapolated linearly from the first two cells (second order).
-``check_nodal_darcy_batch`` (and ``nodal_*``, ``solve_nodal_darcy``, ``distinct_fields``)
+``check_nodal_darcy_batch`` (and ``nodal_*``, ``solve_nodal_darcy``)
     the same kind of checks for training data stored at the nodes of a finite-difference grid (PhysicsNeMo's
-    ``Darcy2D`` datapipe layout): residual of the documented equation, boundary values, a control-volume flux
-    balance, positivity and the diversity of the coefficient samples, before anyone trains on the data.
+    ``Darcy2D`` datapipe layout), before anyone trains on the data: residual of the documented equation in that
+    layout, boundary values, a control-volume flux balance, positivity, and the diversity measures of
+    ``pinneapple_data.audit``. For cell-centred data in the layout of ``darcy_2d_li2021``, use ``audit_dataset``.
 ``physics_metrics`` / ``calibrate_tolerances``
     the per-sample values of the physics checks, and limits calibrated on a model's own predictions for held-out
     in-distribution inputs (no labels): a drift monitor that flags inputs where the model is less physical than
@@ -46,7 +47,7 @@ __all__ = [
     "DEFAULT_TOLERANCES", "darcy_operator_apply", "darcy_residual", "residual_error_bound", "boundary_flux_balance",
     "boundary_values", "coefficient_stats", "CoefficientEnvelope", "DarcyCheck", "darcy_checks",
     "darcy_trust_report", "save_darcy_npz", "nodal_darcy_residual", "nodal_boundary_values", "nodal_flux_balance",
-    "solve_nodal_darcy", "distinct_fields", "check_nodal_darcy_batch", "physics_metrics", "calibrate_tolerances", "trust_report",
+    "solve_nodal_darcy", "check_nodal_darcy_batch", "physics_metrics", "calibrate_tolerances", "trust_report",
 ]
 
 #: Default limits. ``energy_bound``: certified relative energy-norm error; ``bc``: RMS boundary value over max |u|
@@ -487,7 +488,7 @@ def solve_nodal_darcy(k: np.ndarray, f: float = 1.0, dx: float = 1.0, *,
 
 
 def _groups(x: np.ndarray, rtol: float = 1e-6) -> list[int]:
-    """Index of the first field of each group of identical fields (see :func:`distinct_fields`)."""
+    """Index of the first field of each group of identical fields (equal to ``rtol`` of their scale everywhere)."""
     return [g[0] for g in _group_fields(x, rtol)]
 
 
@@ -506,19 +507,14 @@ def _group_fields(x: np.ndarray, rtol: float = 1e-6) -> list[list[int]]:
     return groups
 
 
-def distinct_fields(x: np.ndarray, rtol: float = 1e-6) -> dict[str, Any]:
-    """How many of the ``batch`` fields are distinct (two fields are the same when they differ by less than
-    ``rtol`` of their scale everywhere), and the largest correlation between two distinct fields."""
-    x, _ = _batch(x)
-    flat = x.reshape(len(x), -1)
-    groups = _group_fields(x, rtol)
-    z = flat - flat.mean(axis=1, keepdims=True)
-    z /= np.maximum(np.linalg.norm(z, axis=1, keepdims=True), 1e-300)
-    reps = [g[0] for g in groups]
-    corr = z[reps] @ z[reps].T if len(reps) > 1 else np.zeros((1, 1))
-    np.fill_diagonal(corr, -np.inf)
-    return {"n_fields": len(flat), "n_distinct": len(groups), "largest_group": max(len(g) for g in groups),
-            "max_correlation_between_distinct": float(corr.max()) if len(reps) > 1 else None}
+def _audit():
+    """``pinneapple_data.audit`` (numpy only), without the package ``__init__`` when the checker's loader is there."""
+    try:
+        from pinneapple_check._reuse import leaf
+        return leaf("pinneapple_data.audit")
+    except ImportError:
+        import importlib
+        return importlib.import_module("pinneapple_data.audit")
 
 
 def check_nodal_darcy_batch(k: np.ndarray, u: np.ndarray, f: float = 1.0, dx: float = 1.0, *, cropped: int = 1,
@@ -566,8 +562,12 @@ def check_nodal_darcy_batch(k: np.ndarray, u: np.ndarray, f: float = 1.0, dx: fl
               else tol[name] for name in ref_m}
     ref = summary(ref_m, limits)
     data = summary(metrics(k, u), limits)
-    div = distinct_fields(k)
-    data["distinct_coefficients"] = {**div, "passed": div["n_distinct"] == div["n_fields"]}
+    audit = _audit()                                               # diversity: the dataset audit's own measures
+    dup = audit.near_duplicates(k)
+    div = {"n_fields": len(k), "n_distinct": len(_groups(k)), "exact_copies": dup["exact"],
+           "near_copies": dup["near"], "effective_sample_count": audit.effective_sample_count(k)}
+    data["distinct_coefficients"] = {**div, "passed": dup["near"] == 0                 # centred: rank <= n - 1
+                                     and div["effective_sample_count"] >= min(2.0, len(k) - 1) - 1e-9}
     alt = {}
     for name, cd in (alt_cross_denominators or {}).items():
         r = nodal_darcy_residual(u, k, f, dx, cropped=cropped, cross_denominator=cd)

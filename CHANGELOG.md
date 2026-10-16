@@ -22,22 +22,66 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
     checks applicability against the training coefficients. `calibrate_tolerances` derives limits from a model's own
     predictions on held-out in-distribution inputs (a drift monitor that needs no labels). `darcy_checks`,
     `darcy_trust_report` and `trust_report` give the deploy decision for a batch.
-  - `check_nodal_darcy_batch` (and `nodal_darcy_residual`, `solve_nodal_darcy`, `distinct_fields`): the same kind
-    of checks for node-based training data, such as PhysicsNeMo's `Darcy2D` datapipe, before anyone trains on it.
+  - `check_nodal_darcy_batch` (and `nodal_darcy_residual`, `solve_nodal_darcy`): the same kind of checks for
+    training data stored at the nodes of a finite-difference grid, such as PhysicsNeMo's `Darcy2D` datapipe. It
+    uses the diversity measures of `pinneapple_data.audit`; the audit's own physics check covers cell-centred data.
   - `pinneapple_neural.physicsnemo_bridge.field_operators`: `physicsnemo_fno` and `physicsnemo_meshgraphnet` (on the
     grid graph, `grid_graph`) build PhysicsNeMo's own models as NumPy predictors (`GridFieldPredictor`, with
     save / load). `train_grid_operator` trains them under a `ComputeBudget`.
   - `pinneapple check`: `physics = "darcy"` for cell-centred grid results with fields `a` and `u` (PC301 error
     bound, PC101 flux balance, PC201 `u = 0`, PC402 positivity), with tolerances `darcy-energy`, `darcy-flux`,
     `darcy-bc` and `darcy-positivity`.
-  - `pinneapple_analysis.cost.equal_budget` (`ComputeBudget`, `train_within_budget`, `count_flops`, ...), taken
-    unchanged from the equal-budget benchmark branch, which `pinneapple_hub.zoo._bench` already imports.
   - `operator_datasets.darcy_set` (Darcy pairs from shifted input distributions, solved like the zoo dataset) and
     `block_average`. `darcy_inputs` takes `tau`, `high` and `low`.
   - `pinneapple_tools.visualization.trust_panels`: field panels with a trust verdict per model, as PNG or GIF.
   - Example `examples/vs_physicsnemo/07_physicsnemo_trains_pinneapple_checks` and the guide
     `docs/guides/physicsnemo_trust.md`. The `darcy-trust` job of the physics-check workflow runs the GitHub Action
     on the exported predictions.
+- Spectral fidelity metrics (`pinneapple_analysis.validation.spectral`, #702): radially binned energy spectra
+  (periodic, or mean-removed and Hann-windowed), energy ratio, phase error and coherence per wavenumber band, a
+  high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
+  wall flux. Reported by `pinneapple check` (new rule PC704 `spectral-bias`, tolerance `hf-bias`) and by the
+  `pp.benchmark` field problems ("HF energy bias" column). Docs: "Spectral fidelity".
+- Zoo dataset `navier_stokes_2d_li2021_nu1e-3` (Hub-only, 919 MB in 12 shards of 100 runs): 2-D incompressible
+  Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
+  It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
+  `pp.datasets.load(name, split="test")` downloads only the two test shards.
+- `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
+  benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
+  levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves
+  and hashes the solver configuration, geometry, data and its cost; validation runs PINNeAPPle's own stack on them
+  (solver verification, GCI, preflight, mesh quality, y+, physics audit, applicability envelope, trust card);
+  correctness gates (architecture, training, determinism) run by default and mark rows INVALID or "did not converge";
+  an advisor lists diagnostics with evidence and configuration edits. Built-in problems: `burgers`, `darcy`,
+  `navier_stokes`, `airfoil`, `inverse_heat`; methods: `pinn`, `fno`, `deeponet`, `mgn`, `mlp`, `mlp_fields`,
+  `pinn_rans`; `ArrayProblem` and `register_problem` / `register_method` for your own. Docs: "Running a benchmark";
+  example: `examples/benchmark/`.
+- `pp.benchmark`: `budget_study` (the best configuration again at longer budgets, a table per instance and
+  `figures/budget_study.png`) and `ablations` (a setup audit: changes to the best configuration at the full budget,
+  next to the unchanged run). The airfoil RANS PINN gets two options, off by default: an exact far field and
+  collocation points even in log r (`airfoil_impl.RANS_FAR`, `RANS_MIX`).
+- `pp.benchmark` gates: the airfoil PINNs' exact-solution check runs their own training residuals on solutions that
+  exercise every term (a harmonic stream function; Kovasznay flow with an eddy viscosity) and must fail with a flipped
+  sign; `Problem.main_metric_for(method)` judges "did not converge" on what each method predicts (Cd for the
+  integrals-only MLP, the velocity field for the field models: potential flow has zero drag by construction).
+- Equal-budget method comparison (#299), `pinneapple_analysis.cost.equal_budget`: `ComputeBudget` (wall clock,
+  FLOPs, steps), `train_within_budget` (stops at the budget, budget-aware schedules, evaluation off the clock),
+  `count_flops` (PyTorch's operator formulas plus FFTs, and unlike `FlopCounterMode` it runs around
+  `torch.autograd.grad`, so PINN residuals are counted), `equal_budget_search` (the same number of trials for every
+  method), `AmortizedCost` (data, training and inference cost per query, break-even), `relative_l2`,
+  `time_per_query`, `hardware_record`.
+- `pinneapple_simulation.numerical_solvers.operator_benchmarks`: the reference solvers of the standard
+  operator-learning benchmarks (Li et al. 2021) written from the equations and checked on exact solutions: batched
+  pseudo-spectral Burgers and 2-D vorticity Navier-Stokes (ETDRK4), finite-volume Darcy, periodic Gaussian random
+  fields, and `FourierInterpolant` (a differentiable periodic interpolant for hard initial conditions in PINNs).
+- `train_within_budget(checkpoint=..., resume=...)`: long budgeted runs save their accounting and continue the same
+  budget after an interruption.
+- `pinneapple_design.aero.panel`: a Hess-Smith panel method (inviscid reference for airfoils: Cl, Cp, Cm, velocity
+  anywhere), checked against thin-airfoil theory.
+- `run_plate` (Inverse Heat Lab) takes an optional `budget=ComputeBudget(...)` and the network and collocation
+  sizes; without them it behaves as before.
+- Docs page "Choosing a method" (`docs/guides/choosing_a_method.md`): a decision table backed by the equal-budget
+  benchmark (PINNeAPPle-Benchmark experiment 09), linking every row to the library entry points.
 - `CONTRIBUTING.md` explains who reviews pull requests, the best-effort response targets, and how someone becomes a
   maintainer.
 - `pp.zoo.catalogue()` and the docs page `docs/guides/zoo_catalogue.md` generated from it. The page lists every zoo
@@ -360,6 +404,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   and `pinneapple_design.design_optimizer.representatives` (best per objective + balanced pick of a Pareto front).
 
 ### Changed
+- **Behavior:** `pinneapple_analysis.cost.measure` now counts FLOPs of code that calls `torch.autograd.grad` with
+  the hook-free counter (`flops_source == "dispatch_counter"`) instead of the profiler's matmul-only lower bound.
 - `compressible_fv.sod_exact` delegates to `astrophysics.sod_exact_solution` (same output to round-off; covers every wave pattern);
   `internal_flow.colebrook` delegates to `closed_form.pipe_flow.colebrook`; the LBM shedding benchmark, the
   cylinder / car / ROM lab experiments, the SSQN benchmarks and the missile example use the library functions above.
@@ -383,11 +429,70 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- `pinneapple_physics.conservation.project_integral(mode="positive")` returned a negative field when the target
+  integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
+  for a field that is <= 0 everywhere. A zero field with a zero target is returned unchanged in the multiplicative
+  modes instead of dividing 0 by 0.
+- `TrustGate` OOD score (`pinneapple_analysis.trust`): a batch of query points was scored by the chi-squared p-value
+  of its mean point, so two points 50 standard deviations on either side of the training mean averaged to the mean
+  and scored 0.9998, "in distribution". **Behavior:** each point is now tested on its own and `ood_score` is the
+  fraction of query points whose Mahalanobis p-value is at least `ood_level` (new argument, default 0.01: inside the
+  99 % region of the fitted Gaussian). `TrustGate.ood_p_values(x)` returns the per-point p-values; NaN coordinates
+  count as outside and a wrong number of coordinates raises a clear `ValueError`. `TrustScore.details` reports
+  `ood_fraction_inside`, `ood_p_value_min` and `ood_level` (replacing `ood_p_value`).
+- `pp.trust_card` / `field_checks`: an exactly harmonic field that is linear along an axis (`u = x + 2y`,
+  `T = 300 + x + y`) failed the critical PDE-residual check and was rejected, because its finite-difference terms are
+  pure round-off and the residual was judged against that round-off. The residual scale now has a floor at the
+  round-off of the stencil, computed from the dtype of the data as written (float32 fields get float32 epsilon).
+  Grids with 2 points on an axis now report the conservation check as not run instead of raising NumPy's
+  "Shape of array too small" error, and torch tensors (including ones that require grad) are accepted as values.
+  New tests check the residual against exact Laplace, Poisson and heat solutions (second-order convergence on
+  uniform and stretched grids) and the conservation check against the divergence theorem.
+- `pinneapple check` on tensor-product grids (`pinneapple_check.numerics.GridD`): second derivatives were the
+  derivative of the derivative, which next to the boundary divides the one-sided edge value by h (an O(h) error),
+  so the PDE residual (PC301) converged at order 1.5 instead of 2 and an exact harmonic field on a 17 x 17 grid
+  scored 0.095, above the 0.05 default. Pure second derivatives now use the three-point stencil (non-uniform
+  spacing allowed); the residual of the same field is 0.017 and converges at order 2 on uniform and stretched grids.
+- Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
+  repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
+- Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
+  grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
+  footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
+  pixels; peak ~ sqrt(flux)) and a brighter, tinted Milky Way; `tone_map` replaces the app's ad-hoc exposure.
+  `lensed_sky` now traces with the exact Binet tracer of `trace_thin_disc` and takes the asymptotic escape direction
+  in closed form: the old trace stopped at 1.5 r_cam and used the local tangent, which left concentric banding and
+  under-deflected rays. The deflection now matches the weak-field value (2M/b)(1 + cos θ) + 15πM²/(4b²) within
+  1.5 % (new test). New `lensing_view` (used by `/api/analysis/lensing.png`) adds the thin accretion disc of
+  `accretion_view` when the 60° field has fewer than 2 stars brighter than V 2.0 (`bright_stars_in_field`), with a
+  disc auto / on / off control in the panel; the default camera distance is 120 GM/c². Screenshot
+  `docs/assets/apps/14-observatory-lensing.jpg` regenerated with the hole in front of Sagittarius.
+- Observatory, solar-system view: the planets were a few pixels across. The planet-size slider now defaults to ×12
+  (range 1–24, `?size=` in the URL), the glow halo is brighter, and the Earth follows the slider (its hand-set
+  orientation matrix used to drop the scale). The Moon's exaggerated distance and the observer pin scale with it,
+  so the Moon stays outside the enlarged Earth. Screenshot `docs/assets/apps/14-observatory-system.jpg` regenerated.
+- Observatory, solar-system view: the overview now frames every planet inside the free part of the canvas (left of
+  the side panel, above the time controls; Jupiter used to sit under the panel). It looks from 50° above the
+  ecliptic, from the side opposite the Earth, and fits the projected planets by iteration. The Earth shader lacked
+  the linear-to-sRGB output conversion, so the Earth rendered several times too dark; it now has it, plus the blue of
+  the sunlit atmosphere on the day side. The Sun's light and an ambient floor were raised so that Mercury and Venus
+  show their sunlit side and their surface at large phase angles. Screenshot
+  `docs/assets/apps/14-observatory-system.jpg` regenerated.
+- `pinneapple_data.preflight`: `freestreamPressure` / `freestream` fix the pressure level; external-aerodynamics cases
+  were reported as having no pressure reference.
 - Geometry library: `build()` snaps vertices to a 0.1 um grid, so the files rebuilt on another machine (the Hub
   publishing job) are bit-identical to the manifest; the publishing job pins the NumPy / SciPy / manifold3d
   versions the manifest was generated with. All files and the manifest were regenerated. The self-intersection
   check measures distances about each triangle pair's centre with a size-relative tolerance (no false hits on flat
   caps far from the origin or on nearly parallel neighbours).
+
+### Documentation
+- New guide "Validation methods reference" (`docs/guides/validation_methods_reference.md`, under Guides): every
+  check of `pinneapple check`, `pp.trust_card`, `TrustGate`, `pinneapple_analysis.validation`, `.uncertainty`,
+  `.verification`, veriphysics, the physics audit monitor and the zoo query gate, with what it detects, its
+  assumptions, default thresholds, references and known limitations; a table that maps the status vocabularies of
+  these modules onto pass / warn / fail / not-applicable; and how check power is measured (ASME V&V 40 and
+  NASA-STD-7009A credibility, mutation testing, metamorphic relations, adversarial robustness of neural operators,
+  the arena proposed in #707).
 
 ## [0.7.0] - 2026-10-13
 

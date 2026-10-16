@@ -19,7 +19,7 @@ from pinneapple_hub.zoo import _artifacts as art  # noqa: E402
 MODELS = ["airfoil_cst_rans_mlp", "heatsink_forced_mlp", "heatsink_natural_mlp", "rover_contact_grc1_viper"]
 BUNDLED_DATASETS = ["airfoil_rans_cst_re4e6", "heatsink_forced_convection", "heatsink_natural_convection",
                     "rover_contact_grc1_viper", "single_wheel_tests"]
-HUB_ONLY_DATASETS = ["burgers_1d_li2021", "darcy_2d_li2021"]       # downloaded on first use, never bundled
+HUB_ONLY_DATASETS = ["burgers_1d_li2021", "darcy_2d_li2021", "navier_stokes_2d_li2021_nu1e-3"]       # downloaded on first use, never bundled
 DATASETS = BUNDLED_DATASETS + HUB_ONLY_DATASETS
 
 

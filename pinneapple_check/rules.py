@@ -142,6 +142,25 @@ RULES: dict[str, Rule] = {r.id: r for r in [
        """The run diverged or the model was evaluated outside its numeric range; inspect the time step and the
        residual history."""),
     # ------------------------------------------------------------------ PC5 units
+    # ---- datasets (pinneapple_data.audit)
+    _r("PC451", "dataset-physics", "Training data do not solve the stated PDE or break a declared constraint", ERROR,
+       "data_geometry", "",
+       """Samples of a dataset differ from the solution of their own discrete problem (or their boundary values or
+       flux balance are off), or rows break a relation declared between columns. A model trained on such data
+       inherits the error, and model-level checks may never see it (NVIDIA/physicsnemo#2036: Darcy data generated
+       with a wrongly scaled cross term).""",
+       """Regenerate the data with the documented equation and discretisation; the failing samples are listed in
+       the evidence."""),
+    _r("PC452", "dataset-diversity", "Training data are less diverse than stated or contain duplicates", ERROR,
+       "data_geometry", "",
+       """The effective number of distinct samples (participation ratio of the principal components) collapses, or
+       samples are exact or near copies of each other (NVIDIA/physicsnemo#2035: every Fourier coefficient of a
+       permeability sample shared one value).""",
+       """Check the sampler: independent random coefficients per mode and per sample, a fresh seed per sample."""),
+    _r("PC453", "dataset-leakage", "Test samples are copies of training samples", ERROR, "data_geometry", "",
+       """A test sample's nearest training sample is closer than a thousandth of the typical spacing between
+       training samples: the held-out error measures memorisation, not generalisation.""",
+       """Split before deduplicating, split by case or geometry rather than by row, and drop the flagged pairs."""),
     _r("PC501", "unit-mismatch", "A field's unit differs from the declared unit", ERROR, "data_geometry",
        "dimensional_analysis",
        """The unit written in the file (OpenFOAM `dimensions`, a CSV header `T [degC]`, an HDF5 `units` attribute)
@@ -192,6 +211,15 @@ RULES: dict[str, Rule] = {r.id: r for r in [
        """The reference file is missing, unreadable, lacks the field, or has a shape that cannot be matched to the
        result.""",
        """Regenerate the reference with the same mesh/points and field names, or give `fields` to compare."""),
+    _r("PC704", "spectral-bias", "A field loses or gains small-scale energy against the reference", WARNING,
+       "benchmark", "reference_data_match",
+       """Energy in the high-wavenumber band of the field differs from the reference's by more than the tolerance
+       (`E_pred / E_ref - 1` over the top third of the resolved shells). A smoothed field has a small relative L2
+       error and still misses the small scales that carry heat transfer, mixing or loads; added noise shows up as a
+       positive bias. Computed on grid results with the same shape as the reference
+       (`pinneapple_analysis.validation.spectral`).""",
+       """Check the model's spectral bias (more Fourier modes, a finer output grid, a loss on gradients or spectra),
+       or raise `tolerances.hf-bias` deliberately if the small scales do not matter for the use."""),
     # ------------------------------------------------------------------ PC8 integrity
     _r("PC801", "hash-mismatch", "An artefact does not match its recorded hash", ERROR, "data_geometry", "",
        """The SHA-256 of a file differs from the one in the integrity manifest (or a listed file is missing): the

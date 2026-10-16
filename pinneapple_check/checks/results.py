@@ -548,6 +548,34 @@ def _reference(ctx: Ctx, t: ResultTarget, fd: FieldData) -> None:
         ctx.emit("PC701", n, ok, f"{n}: relative L2 error {fmt(e)} against {ctx.cfg.rel(ref.path)} "
                  f"{'<=' if ok else '>'} {fmt(tol)}{how}{extra if not ok else ''}", _field_loc(ctx, fd, n)
                  if not t.declared else loc, value=e, threshold=tol)
+        if fd.kind == "grid" and rd.kind == "grid" and fd.fields[n].shape == rd.fields[n].shape:
+            _spectral(ctx, t, fd, n, rd.fields[n], ref)
+
+
+def _spectral(ctx: Ctx, t: ResultTarget, fd: FieldData, n: str, b: np.ndarray, ref) -> None:
+    """PC704: high-wavenumber energy of the field against the reference (grid results of the same shape)."""
+    from .. import _reuse
+    names = list(fd.axes)
+    nd = len(fd.spatial_axes)
+    a, b = np.asarray(fd.fields[n], float), np.asarray(b, float)
+    if a.ndim > len(names):                                           # components last -> first
+        a, b = np.moveaxis(a, -1, 0), np.moveaxis(b, -1, 0)
+    if "t" in names:                                                  # time axis -> leading
+        it = names.index("t") + (a.ndim - len(names))
+        a, b = np.moveaxis(a, it, 0), np.moveaxis(b, it, 0)
+    if nd == 0 or min(a.shape[-nd:]) < 8:
+        return
+    try:
+        r = _reuse.spectral().spectral_comparison(a, b, nd, periodic=False)
+    except ValueError as e:
+        ctx.emit("PC703", n, False, f"{n}: no spectral comparison with the reference ({e})", _field_loc(ctx, fd, n))
+        return
+    tol = t.tol("hf-bias")
+    ok = abs(r.hf_bias) <= tol
+    lo, hi = r.bands["high"]
+    ctx.emit("PC704", n, ok, f"{n}: high-wavenumber energy {fmt(r.band_ratio['high'])} x the reference's "
+             f"(shells {lo}-{hi}, bias {r.hf_bias:+.3g}, tolerance {fmt(tol)}); coherence {fmt(r.band_coherence['high'])}"
+             f" against {ctx.cfg.rel(ref.path)}", _field_loc(ctx, fd, n), value=r.hf_bias, threshold=tol)
 
 
 def _field_metrics(a, b, ndim):
