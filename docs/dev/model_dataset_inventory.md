@@ -110,6 +110,7 @@ and its SHA-256 is recorded in `pinneapple_hub/zoo/manifest.json`.
 | `burgers_1d_li2021` (Hub-only) | Viscous Burgers on [0, 1), ν = 0.1. Initial conditions u0 ~ N(0, 625(−Δ+25I)⁻²) (Li et al. 2021, §5.1); 11 snapshots t = 0…1 on 1024 points | train 1000, test 200 | Pseudo-spectral ETDRK4. Cole–Hopf check in the tests. Grid/time-step study vs 4096 points, dt 2.5e-5: 4.4e-12 rel. L2 | 54.7 MB | CC-BY-4.0 |
 | `darcy_2d_li2021` (Hub-only) | −div(a ∇u) = 1, u = 0 on ∂Ω. a = 12 / 3 thresholded from N(0, (−Δ+9I)⁻²) (Li et al. 2021, §5.2), 128 × 128 cells | train 1000, test 200 | Two-point-flux FV, solved on 512² and cell-averaged. Grid study vs 1024²: 4.3e-4 rel. L2 (order 1.2–1.4; Richardson about 8e-4). Manufactured-solution check in the tests | 71.1 MB | CC-BY-4.0 |
 | `navier_stokes_2d_li2021_nu1e-3` (Hub-only) | 2-D incompressible Navier–Stokes, vorticity form, periodic unit square, ν = 10⁻³. Forcing 0.1(sin + cos)(2π(x+y)); w0 ~ N(0, 7^1.5(−Δ+49I)^−2.5) (Li et al. 2021, §5.3). Stored on 64 × 64 at t = 0…50 | train 1000, test 200 (12 shards of 100) | Pseudo-spectral ETDRK4 on 128², dt 0.05. Taylor–Green check in the tests. Grid / time-step study vs 256², dt 5e-3: 4.0e-8 rel. L2 (fourth order in dt; 64² alone would give 1.7e-4) | 919 MB | CC-BY-4.0 |
+| `thermal_channel_cfd` (Hub-only) | Actuated heated channel (Benchmark exp. 05): 2-D incompressible flow + heat, Re 100, Pr 0.71, heater flux Q(t) and inlet velocity U(t); u, v, p, T on 128 × 32, 101 snapshots per trajectory | train 48, val 8, test_same_family 12, test_unseen_sinusoid 8, test_unseen_edge_steps 6 | MAC finite volumes with Chorin projection. Poiseuille (second order), Nusselt 5.388 vs 5.385, energy imbalance 3e-8; three-grid GCI of the dataset grid: T_out 3.7 % (oscillatory), T_max 1.1 %, Δp 1.3 % | 360 MB | CC-BY-4.0 |
 
 The bundled items are small, 2.70 MB in total. They are bundled in the package, so the zoo works offline and in CI.
 They are also mirrored to the Hugging Face Hub (`PINNeAPPle-Labs/<name>`, tag `v<version>`) by the "Publish zoo to the
@@ -130,7 +131,7 @@ download.
 | Thermal-mass ODE twin (PINN, λ = 10) | Benchmark repo, exp. 02 | **Not shipped.** The PINN is no better than persistence (RMSE h6 2.972 °C vs 2.971). No weights are committed. |
 | Bumper-beam Transolver | Benchmark repo, exp. 03 | **Not shipped.** No weights. The classical POD+GP is better on the field (0.0055 vs 0.018). There is no mesh refinement study. The input deck is an Altair example under CC BY-NC 4.0, which is incompatible. |
 | Terramechanics "robust PINN" (2-D / 8-D) | Benchmark repo, exp. 04 | **Not shipped.** No weights. OOD rel. L2 is 0.37–0.68. Monotonicity fails for z up to 0.1 m. The in-range use case is covered by `rover_contact_grc1_viper`. |
-| Thermal channel ROM / FNO / DeepONet | Benchmark repo, exp. 05 | **Not shipped.** No weights, and the data (82 CFD runs) is not committed. Pressure rel. L2 is about 0.99 (pressure fails); POD+DMDc diverged. The solver verification is strong (GCI, Nusselt), so this is a candidate after regeneration. |
+| Thermal channel ROM / FNO / DeepONet | Benchmark repo, exp. 05 | **Not shipped.** No weights. Pressure rel. L2 is about 0.99 (pressure fails); POD+DMDc diverged. The data now ships as `thermal_channel_cfd`; a temperature model is a candidate only if it passes the gate on the unseen families. |
 | Millennium probes (BSD, Hodge, Riemann, …) | Benchmark repo, exp. 06 | **Not shipped.** These are mathematical classifiers, not physics surrogates; the self-similar Burgers PINN failed (λ 0.418 vs 0.5). No weights. |
 | PDR velocity network (TLIO/DIVE) | Benchmark repo, exp. 07 | **Not shipped.** No weights. The data is RIDI (5.2 GB, not ours to redistribute), and it is out of the zoo's physics scope. |
 | Supersonic shock train | Benchmark repo, exp. 08 | **Not shipped.** There is no model, and the shock position is not grid-converged (x/H 6.98 / 4.55 / 3.30 on 3 grids). |
@@ -149,7 +150,6 @@ download.
 | `pinneapple_data.datasets` registry entries | **Not shipped as zoo items.** They are generated on the fly. Several `real_world` entries silently fall back to synthetic placeholders. Zoo datasets are registered in that registry as `zoo/<name>`. |
 | ERA5 regional subset (`rs_floods_2024_40.npy`) | **Not shipped.** It has no documented splits, and its companion model is unfinished. |
 | Shock-train fields (exp. 08) | **Not shipped:** not grid-converged. |
-| Thermal-channel CFD runs (exp. 05) | **Not shipped yet:** not committed. The solver verification is strong; regenerate with `src/gen_data.py dataset` (about 1 h). |
 | Bumper-beam DoE (exp. 03) | **Excluded.** It is 11 GB, not in git, and its input deck is CC BY-NC. |
 | Free-surface trough package | **Not shipped.** It is 4 interFoam runs, not a dataset, and the 5 mm and 10 mm meshes settle into different flow states (not mesh-converged). |
 
