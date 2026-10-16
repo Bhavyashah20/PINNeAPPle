@@ -20,6 +20,10 @@ CST_RANGE = {"T0": [0.10, 0.24], "T1": [0.08, 0.22], "T2": [0.08, 0.22], "M0": [
 AIRFOIL_CITATION = ("PINNeAPPle contributors (2026). Airfoil RANS campaign (OpenFOAM v1912 simpleFoam, k-omega SST, "
                     "Re 4e6, 436 runs) and MLP-ensemble surrogate. PINNeAPPle model zoo, "
                     "https://github.com/PINNeAPPle-Labs/PINNeAPPle")
+AIRFOIL_FIELDS_CITATION = ("PINNeAPPle contributors (2026). Airfoil RANS campaign (OpenFOAM v1912 simpleFoam, k-omega "
+                           "SST, Re 4e6, 436 runs): flow fields and MeshGraphNet surrogate (Pfaff T., Fortunato M., "
+                           "Sanchez-Gonzalez A., Battaglia P., Learning Mesh-Based Simulation with Graph Networks, "
+                           "ICLR 2021). PINNeAPPle, Zenodo DOI 10.5281/zenodo.23343062.")
 
 MODELS = {
     "airfoil_cst_rans_mlp": {
@@ -495,7 +499,17 @@ AIRFOIL_FIELDS = {
                    "(apps/aero_optimizer/tools/generate_dataset.py), written by "
                    "pinneapple_design.aero.field_dataset.write_field_dataset; same case set-up as the 436-run "
                    "campaign of airfoil_rans_cst_re4e6"),
-        "verification": "@AIRFIELD@",
+        "verification": (
+            "Regenerated with the campaign's case set-up; the 436 runs reproduce the coefficients of "
+            "airfoil_rans_cst_re4e6 (median |dCl| 1.8e-7, median |dCd|/Cd 1.6e-6, same run status in all 436). The "
+            "only differences above 1e-4 in Cl are 6 runs flagged unsteady, whose final-iteration values move "
+            "within their recorded oscillation (largest |dCl| 0.037, NACA 0012 at 14 deg); filter on status for "
+            "steady data. Solver verification of the campaign: grid study on NACA 2412 at alpha 4 deg "
+            "(6840/20064/45144 cells: Cl 0.6614/0.6625/0.6624, Cd GCI 1.9 %, observed order 2.4), XFOIL 6.99 "
+            "tripped (Cl -2.3 %, Cd +4.5 %), lift slope 0.110/deg as thin-airfoil theory, NASA TMR NACA 0012 SST "
+            "(Cd 0.00812 vs 0.0081). Field checks: all values finite; far-field pressure 0 and total pressure 0.5 "
+            "(U = 1); stagnation pressure within 2 % of 0.5 in 433 runs (max 0.527 in one converged run, 0.587 in "
+            "an unsteady snapshot). Status: 330 converged, 74 steady-ish, 32 unsteady."),
         "splits": {
             "train": "LHS runs of the 85 training shapes (every run, final-iteration values; filter on status)",
             "test": "60 runs of the 15 held-out shapes of the airfoil surrogates (s003 s007 s008 s015 s016 s021 s026 "
@@ -513,7 +527,7 @@ AIRFOIL_FIELDS = {
             "Ux": ("U", "velocity x"), "Uy": ("U", "velocity y"),
             "nut": ("U c", "turbulent eddy viscosity (molecular nu = 2.5e-7)")},
         "tags": ["aerodynamics", "RANS", "OpenFOAM", "airfoil", "flow fields", "graph networks"],
-        "citation": AIRFOIL_CITATION,
+        "citation": AIRFOIL_FIELDS_CITATION,
     },
 }
 DATASETS.update(AIRFOIL_FIELDS)

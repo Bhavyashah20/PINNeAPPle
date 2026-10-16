@@ -53,3 +53,15 @@ def test_field_dataset_layout(tmp_path, n_lhs_shapes):
         assert z["naca_reference__p"].shape == (36, meta["n_cells"]) and z["naca_reference__x"].dtype == np.float32
         assert np.allclose(z["naca_reference__p"][:, 0], z["naca_reference__alpha_deg"])
         assert list(z["naca_reference__run_id"])[:2] == ["NACA0012_a+00", "NACA0012_a+02"]
+
+
+def test_field_dataset_shards_large_splits(tmp_path):
+    jobs = [j for j in c.plan(100, 4) if j["set"] == "reference" or int(j["shape_id"][1:]) < 20]
+    _fake_runs(tmp_path, jobs)
+    meta = write_field_dataset(str(tmp_path), str(tmp_path / "out"), shard_rows=30)
+    assert meta["files"] == ["train-00.npz", "train-01.npz", "train-02.npz", "test.npz",
+                             "naca_reference-00.npz", "naca_reference-01.npz"]
+    d = tmp_path / "out" / meta["name"]
+    ids = [r for f in ("naca_reference-00.npz", "naca_reference-01.npz")
+           for r in np.load(d / f)["naca_reference__run_id"]]
+    assert len(ids) == 36 and ids == sorted(ids)

@@ -31,13 +31,18 @@ def _write_npz(path: str, arrays: dict[str, np.ndarray]) -> None:
             zout.writestr(zi, zin.read(item.filename))
 
 
-def write_field_dataset(run_dir: str, out: str, name: str = "airfoil_rans_cst_re4e6_fields") -> dict:
+SHARD_ROWS = 120                 # ~50 MB per file: every file stays below the 100 MB limit of a git host
+
+
+def write_field_dataset(run_dir: str, out: str, name: str = "airfoil_rans_cst_re4e6_fields",
+                        shard_rows: int = SHARD_ROWS) -> dict:
     """Write the zoo field dataset from the campaign's run files: ``out/<name>/{train,test,naca_reference}.npz``
     (arrays ``<split>__<column>``) and ``meta.json``.
 
     Every run is kept with its final-iteration coefficients and a ``status`` column; the split is
     :func:`.train.split` applied to all LHS shapes (the held-out shapes are those of the shipped surrogates). Cell
-    centres ``x``, ``y`` are stored per run (the grid moves with the shape)."""
+    centres ``x``, ``y`` are stored per run (the grid moves with the shape). A split of more than ``shard_rows`` runs
+    is written as ``<split>-00.npz``, ``<split>-01.npz``, ..."""
     from .mesh import GridSpec, cell_centres, grid_points
 
     recs = []
@@ -74,13 +79,16 @@ def write_field_dataset(run_dir: str, out: str, name: str = "airfoil_rans_cst_re
         arrays = {}
         for k, v in cols.items():
             if k in ("run_id", "shape_id", "status"):
-                arrays[f"{split}__{k}"] = np.array(v, dtype=str)
+                arrays[k] = np.array(v, dtype=str)
             elif k in ("x", "y", "p", "Ux", "Uy", "nut"):
-                arrays[f"{split}__{k}"] = np.stack(v).astype(np.float32)
+                arrays[k] = np.stack(v).astype(np.float32)
             else:
-                arrays[f"{split}__{k}"] = np.asarray(v, dtype=np.float64)
-        _write_npz(os.path.join(d, f"{split}.npz"), arrays)
-        files.append(f"{split}.npz")
+                arrays[k] = np.asarray(v, dtype=np.float64)
+        starts = range(0, len(rs), shard_rows)
+        for j, i0 in enumerate(starts):
+            fn = f"{split}.npz" if len(starts) == 1 else f"{split}-{j:02d}.npz"
+            _write_npz(os.path.join(d, fn), {f"{split}__{k}": v[i0:i0 + shard_rows] for k, v in arrays.items()})
+            files.append(fn)
         rows[split] = len(rs)
     meta = {"name": name, "files": files, "rows": rows, "n_cells": int(g.ni * (g.nj)),
             "grid": {"ni": g.ni, "nj": g.nj}, "test_shapes": sorted({r["shape_id"] for r in te})}
