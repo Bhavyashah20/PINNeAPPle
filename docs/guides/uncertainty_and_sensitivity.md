@@ -59,5 +59,7 @@ below the threshold with a wider interval is reported as *inconclusive* (more sa
 
 ## Apps
 
+- [Engineering Sensitivity Lab](sensitivity_lab.md) (sensitivity.pinneapple.org): Sobol, Morris, effect curves,
+  derivatives and the freeze recommendation for a model, solver runs or a dataset.
 - [Engineering Uncertainty Lab](uncertainty_lab.md) (uncertainty.pinneapple.org): intervals, applicability alerts,
   the routing rule and propagation for a model and its data.
