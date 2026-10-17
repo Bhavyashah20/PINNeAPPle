@@ -14,6 +14,28 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Engineering Uncertainty Lab (`apps/uncertainty_lab`, day 15, uncertainty.pinneapple.org, port 8098): split-conformal
+  intervals with coverage measured on held-out data, applicability alerts, a routing rule checked against the heat-sink
+  physics engine, and propagation of uncertain inputs, for zoo models or uploaded ONNX graphs. Deployed as service
+  `uncertainty` (`UQL_*` variables).
+- Sensitivity analysis package `pinneapple_analysis.sensitivity` (`pp.sensitivity`, `pp.sobol_indices`): first-order,
+  total and second-order Sobol indices with bootstrap intervals (Saltelli 2010 / Jansen 1999 / Saltelli 2002
+  estimators, checked against the exact Ishigami and Sobol' G indices), indices from runs done elsewhere
+  (`saltelli_design` + `sobol_from_runs`), given-data first-order indices, Morris elementary effects, partial
+  dependence and ICE curves, local derivatives by autodiff or central differences, and a freeze recommendation that
+  uses the upper confidence bound plus a direct re-run check (`verify_freeze`); `sensitivity_study` runs them
+  together on one model and `study_cost` gives its number of evaluations beforehand.
+- Uncertainty-study helpers in `pp.uncertainty`: input distributions (uniform, normal, truncated normal, lognormal,
+  triangular) sampled by MC, LHS or Sobol (`distributions`); `propagate_space` (`pp.propagate_uncertainty`);
+  least-squares polynomial chaos with leave-one-out Q2 and Sobol indices (`polynomial_chaos`); split-conformal
+  intervals on any model's predictions with the coverage measured on held-out data, reliability across levels and
+  per-group coverage (`conformal_study`, `pp.conformal_study`); a range + k-NN density applicability gate
+  (`ApplicabilityDomain`) and the rule that routes cases to the high-fidelity solver (`route_cases`);
+  `uncertainty_study` runs them together for one model output.
+- `pinneapple_analysis.study_models.StudyModel` (`pp.StudyModel`): one interface for zoo models (with their torch
+  module for autodiff, ensemble spread and reference splits), ONNX graphs and Python callables.
+- `pinneapple_design.thermal.heatsink.surrogate.reference_solve`: the heat-sink physics engine on one design given in
+  the dataset's columns (the high-fidelity answer the zoo surrogates approximate), and `reference_solve_batch`.
 - Simulation workflows (`pinneapple_core.workflows`). A workflow is a DAG of steps (dependencies, cycle check,
   per-case expansion with `workflow_from_cases`) run by `WorkflowRunner`, which provides:
   - per-step states, logs, attempts and outputs in SQLite;

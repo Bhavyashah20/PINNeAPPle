@@ -70,6 +70,8 @@
     * [Simulation Workflow Runner: campaigns as traceable, resumable workflows](guides/workflow_runner.md)
     * [Simulation Campaign Planner: which simulations need to run](guides/campaign_planner.md)
     * [Choose a model by the scale of the question](guides/scale_aware_ensembles.md)
+    * [Uncertainty and sensitivity studies on any model](guides/uncertainty_and_sensitivity.md)
+    * [Engineering Uncertainty Lab](guides/uncertainty_lab.md)
 * [API Reference](api/index.md)
   * [pinneapple](api/pinneapple/index.md)
   * [pinneapple_physics](api/pinneapple_physics/index.md)
