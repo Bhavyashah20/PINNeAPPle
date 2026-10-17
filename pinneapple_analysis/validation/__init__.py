@@ -68,4 +68,14 @@ __all__ = [
     "high_wavenumber_bias",
     "spectral_fidelity",
     "structure_functions",
+    "fault_injection",
+    "arena",
 ]
+
+
+def __getattr__(name):
+    # the fault-injection suite (#697) and the arena (#707) load on first use: ``pp.validate.arena(...)``
+    if name in ("fault_injection", "arena"):
+        import importlib
+        return importlib.import_module(f"{__name__}.{name}")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

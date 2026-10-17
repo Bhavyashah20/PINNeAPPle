@@ -72,6 +72,8 @@
     * [Physics checks during training (Lightning, PhysicsNeMo, Hugging Face)](guides/training_callbacks.md)
     * [Validation gallery: one example per model family and physics](guides/validation_gallery.md)
     * [Validation methods reference](guides/validation_methods_reference.md)
+    * [Check power: how often each check catches a defect](guides/check_power.md)
+    * [Red team / blue team for the validation checks](guides/validation_arena.md)
     * [Evidence ledger: a test passed only if it ran](guides/evidence_ledger.md)
     * [A latent surrogate that says when not to trust it](guides/trusted_latent_surrogate.md)
     * [Reduced-order models and meshless methods, measured](guides/rom_and_meshless_studies.md)
