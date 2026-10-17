@@ -142,6 +142,24 @@ def test_pp_validate_runs_rollout_checks(ks_reference):
     assert check_report(rep) == [] and check_report(bad) == []
 
 
+def test_state_vector_rollout_with_a_custom_invariant_named_like_a_builtin():
+    # a harmonic oscillator (q, p): energy q^2 + p^2 is the user's "energy"; the field energy of the built-in must
+    # not be used in its place, and a state vector (ndim = 0) has no spectrum
+    th = 0.1 * np.arange(101)
+    exact = np.stack([np.cos(th), -np.sin(th)], 1)
+    euler = [np.array([1.0, 0.0])]
+    for _ in range(100):
+        q, p = euler[-1]
+        euler.append(np.array([q + 0.1 * p, p - 0.1 * q]))               # explicit Euler gains energy
+    energy = {"energy": lambda tr, ndim: (np.asarray(tr) ** 2).sum(-1)}
+    ok = validate_rollout(exact, 0, exact, conserved=["energy"], invariants=energy, dt=0.1)
+    bad = validate_rollout(np.stack(euler), 0, exact, conserved=["energy"], invariants=energy, dt=0.1)
+    assert ok["rollout.invariant.energy"]["status"] == "pass" and ok["rollout.spectrum"]["status"] == "not-applicable"
+    assert bad["rollout.invariant.energy"]["status"] == "fail"
+    growth = 1.01 ** 100                                                # |z|^2 grows by (1 + dt^2) per step
+    assert bad["rollout.invariant.energy"]["value"] == pytest.approx((growth - 1) / growth, rel=1e-6)   # / its max
+
+
 def test_pp_validate_passes_burn_in_to_the_long_run_statistics():
     from pinneapple_analysis.validation.validate import validate
     rng = np.random.default_rng(0)

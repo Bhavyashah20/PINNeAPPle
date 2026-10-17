@@ -105,8 +105,9 @@ def invariant_drift(pred: np.ndarray, ndim: int, ref: np.ndarray | None = None, 
     out = {}
     t = dt * np.arange(len(pred))
     for k, s in sp.items():
-        sc = float(np.nanmax(np.abs(_SCALES[k](np.asarray(base, float), ndim)))) if k in _SCALES \
-            else _scale(s, sr.get(k))
+        builtin = k in _SCALES and (not isinstance(invariants, Mapping) or invariants[k] is BUILTIN_INVARIANTS[k])
+        sc = float(np.nanmax(np.abs(_SCALES[k](np.asarray(base, float), ndim)))) if builtin \
+            else _scale(s, sr.get(k))                         # a user function named like a built-in: its own scale
         sc = max(sc, 1e-300)
         fin = np.isfinite(s)
         rate = float(np.polyfit(t[fin], s[fin], 1)[0] / sc) if fin.sum() > 1 else float("nan")
@@ -124,16 +125,17 @@ def _band_energy(u: np.ndarray, ndim: int, periodic: bool, band: tuple[int, int]
 
 
 def spectral_drift(pred: np.ndarray, ndim: int, ref: np.ndarray | None = None, *, ref_spectrum: np.ndarray | None
-                   = None, periodic: bool = True, window: int = 1) -> dict[str, np.ndarray]:
+                   = None, periodic: bool = True, window: int = 1, floor: float = 1e-6) -> dict[str, np.ndarray]:
     """High-wavenumber energy bias ``E_pred / E_ref - 1`` at every horizon, the band being the top third of the
-    shells the reference resolves; against ``ref[t]`` (same initial state) or a fixed reference spectrum (e.g. the
+    shells the reference resolves (energy above ``floor`` times its peak: amplitudes below 0.1 % of the peak are
+    round-off for a float32 model, not content); against ``ref[t]`` (same initial state) or a fixed reference spectrum (e.g. the
     mean spectrum of the training data). Energies are averaged over ``window`` frames first, so the fluctuations of a
     chaotic state do not count as bias. Returns ``hf_bias`` (``(T,)``) and the ``band``."""
     T = len(pred)
     R = ref_spectrum if ref is None else energy_spectrum(ref[0], ndim, periodic=periodic)[1]
     if R is None:
         raise ValueError("give ref or ref_spectrum")
-    top = int(np.nonzero(R[1:] > 1e-10 * R[1:].max())[0].max()) + 1
+    top = int(np.nonzero(R[1:] > floor * R[1:].max())[0].max()) + 1
     band = (max(1, int(round(2 * top / 3))), top)
     ep = np.full(T, np.nan)
     er = np.full(T, np.nan)
@@ -168,7 +170,8 @@ def divergence_time(pred: np.ndarray, ref: np.ndarray, ndim: int, *, dt: float =
     err = np.where(np.isfinite(num), num / np.maximum(den, 1e-300), np.inf)
     bad = ~np.all(np.isfinite(p.reshape(T, -1)), axis=1)
     err[bad] = np.inf
-    spec = np.abs(spectral_drift(p, ndim, r, periodic=periodic, window=window)["hf_bias"])
+    spec = np.zeros(T) if ndim == 0 else \
+        np.abs(spectral_drift(p, ndim, r, periodic=periodic, window=window)["hf_bias"])       # ndim 0: a state vector
     spec[bad | ~np.isfinite(spec)] = np.inf
     inv = invariant_drift(p, ndim, r, dt=dt, invariants=invariants, window=window)
     dev = np.max(np.stack([d["deviation"] for d in inv.values()]), axis=0)
@@ -252,7 +255,8 @@ def validate_rollout(pred: np.ndarray, ndim: int, ref: np.ndarray | None = None,
     """``rollout.*`` checks of a model rollout (status pass / fail / not-applicable with evidence).
 
     ``ref``: the reference trajectory from the same initial state; ``conserved``: invariants that must stay constant
-    (checked without a reference); ``long_ref``: a long reference run for the statistics of a chaotic system (the
+    (checked without a reference; built-in names or keys of ``invariants``, a mapping ``name -> f(traj, ndim)``);
+    ``ndim = 0``: the state is a vector (particles, a ROM's coefficients), with no spatial spectrum; ``long_ref``: a long reference run for the statistics of a chaotic system (the
     model's run ``pred`` must be long too); ``chaotic``: after the pointwise error crosses its tolerance the two
     trajectories are decorrelated, so a later spectral or invariant crossing compares two different states of the
     attractor and is reported, not failed (``rollout.statistics`` judges that regime). Tolerances: ``error``, ``spectrum``, ``invariants`` (divergence time),
@@ -265,7 +269,9 @@ def validate_rollout(pred: np.ndarray, ndim: int, ref: np.ndarray | None = None,
               "summary": "every state finite" if finite else
               f"the rollout blows up at frame {int(np.argmax(~np.all(np.isfinite(pred.reshape(len(pred), -1)), 1)))}"})
     for name in conserved:
-        d = invariant_drift(pred, ndim, None, dt=dt, invariants=[name] if name in BUILTIN_INVARIANTS else {})[name]
+        custom = dict(invariants) if isinstance(invariants, Mapping) else {}
+        fn = {name: custom[name]} if name in custom else [name]          # a user function wins over a built-in name
+        d = invariant_drift(pred, ndim, None, dt=dt, invariants=fn)[name]
         ok = d["max_drift"] <= tol["drift"]
         C.append({"id": f"rollout.invariant.{name}", "status": "pass" if ok else "fail",
                   "summary": f"{name} drifts by {d['max_drift']:.3g} of its scale over the rollout (rate "
@@ -289,12 +295,16 @@ def validate_rollout(pred: np.ndarray, ndim: int, ref: np.ndarray | None = None,
             return not (chaotic and ts["error"] is not None and t > ts["error"])
         early = ts["spectrum"] is not None and (ts["error"] is None or ts["spectrum"] < ts["error"])
         after = "" if ts["error"] is None else f" (after decorrelation at t = {ts['error']:.4g}: judged by statistics)"
-        C.append({"id": "rollout.spectrum", "status": "fail" if judged("spectrum") else "pass",
-                  "summary": ("small-scale energy within tolerance over the whole rollout" if ts["spectrum"] is None
-                              else f"spectral bias above {tol['spectrum']:g} from t = {ts['spectrum']:.4g}"
-                              + (" (before the pointwise error crosses its tolerance)" if early else
-                                 after if not judged("spectrum") else "")),
-                  "value": ts["spectrum"], "threshold": tol["spectrum"]})
+        if ndim == 0:
+            C.append({"id": "rollout.spectrum", "status": "not-applicable",
+                      "summary": "a state vector (ndim = 0): no spatial spectrum"})
+        else:
+            C.append({"id": "rollout.spectrum", "status": "fail" if judged("spectrum") else "pass",
+                      "summary": ("small-scale energy within tolerance over the whole rollout" if ts["spectrum"] is None
+                                  else f"spectral bias above {tol['spectrum']:g} from t = {ts['spectrum']:.4g}"
+                                  + (" (before the pointwise error crosses its tolerance)" if early else
+                                     after if not judged("spectrum") else "")),
+                      "value": ts["spectrum"], "threshold": tol["spectrum"]})
         C.append({"id": "rollout.invariants", "status": "fail" if judged("invariants") else "pass",
                   "summary": ("invariants follow the reference" if ts["invariants"] is None else
                               f"an invariant deviates by more than {tol['invariants']:g} from t = "

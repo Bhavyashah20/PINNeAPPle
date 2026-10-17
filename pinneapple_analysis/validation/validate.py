@@ -274,6 +274,21 @@ def as_field_model(model) -> Callable[[np.ndarray], np.ndarray]:
     raise TypeError(f"cannot run {type(model).__name__} as a field model")
 
 
+def _describe(x: Any) -> Any:
+    """``x`` as JSON for the provenance: callables by name, arrays by shape, other objects by type."""
+    if x is None or isinstance(x, (str, bool, int, float)):
+        return x
+    if isinstance(x, Mapping):
+        return {str(k): _describe(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_describe(v) for v in x]
+    if isinstance(x, np.ndarray):
+        return f"array{list(x.shape)}"
+    if callable(x):
+        return f"<function {getattr(x, '__name__', type(x).__name__)}>"
+    return getattr(x, "name", None) or type(x).__name__
+
+
 def _name(model) -> str:
     if _is_zoo(model):
         return f"{model.name} v{model.card.version}"
@@ -441,8 +456,11 @@ def _darcy_checks(f, data, reference, query, level, tol, rhs, seed) -> list[Vali
         C.append(ValidationCheck("metamorphic", NA, "the source has neither symmetry: no symmetry to test"))
     # ---- data audit
     if data:
-        from pinneapple_data.audit import audit_dataset
-        card = audit_dataset(data, physics="darcy", max_physics_samples=16, seed=seed)
+        from dataclasses import replace
+
+        from pinneapple_data.audit import DARCY, audit_dataset, darcy_consistency
+        phys = replace(DARCY, check=lambda s: darcy_consistency(s["a"], s["u"], rhs))     # the problem's own source
+        card = audit_dataset(data, physics=phys, max_physics_samples=16, seed=seed)
         C += _audit_checks([{"id": c.id, "status": c.status, "summary": c.summary, "value": c.value,
                              "threshold": c.threshold} for c in card.checks])
     else:
@@ -486,8 +504,8 @@ def _darcy_checks(f, data, reference, query, level, tol, rhs, seed) -> list[Vali
 
 
 def _rollout_checks(step, cfg: Mapping[str, Any], data: Mapping[str, Any], level: str) -> list[ValidationCheck]:
-    """``problem={"rollout": {"ndim", "dt", "conserved", "chaotic", "steps", "burn_in"}}``, ``data={"u0", "reference",
-    "long_u0", "long_reference"}``: the model is a stepper ``u -> u_next`` (``validation.rollout``)."""
+    """``problem={"rollout": {"ndim", "dt", "conserved", "invariants", "chaotic", "steps", "burn_in"}}``, ``data={"u0",
+    "reference", "long_u0", "long_reference"}``: the model is a stepper ``u -> u_next`` (``validation.rollout``)."""
     from .rollout import rollout, validate_rollout
     ref = data.get("reference")
     long_ref = data.get("long_reference") if level != "quick" else None
@@ -496,6 +514,8 @@ def _rollout_checks(step, cfg: Mapping[str, Any], data: Mapping[str, Any], level
     long_pred = rollout(step, data.get("long_u0", data["u0"]), len(long_ref) - 1) if long_ref is not None else None
     kw = dict(dt=float(cfg.get("dt", 1.0)), conserved=cfg.get("conserved", ()), chaotic=bool(cfg.get("chaotic")),
               periodic=bool(cfg.get("periodic", True)), tolerances=cfg.get("tolerances"))
+    if cfg.get("invariants") is not None:                     # {name: f(traj, ndim)}, e.g. a particle system's energy
+        kw["invariants"] = cfg["invariants"]
     rep = validate_rollout(pred, int(cfg["ndim"]), ref, **kw)
     checks = rep.checks
     if long_pred is not None:
@@ -507,6 +527,33 @@ def _rollout_checks(step, cfg: Mapping[str, Any], data: Mapping[str, Any], level
                        "long-run statistics run from level 'standard'"})
     return [ValidationCheck(c["id"], c["status"], c["summary"], value=c.get("value"), threshold=c.get("threshold"))
             for c in checks]
+
+
+def _generative_checks(sampler, cfg: Mapping[str, Any], data: Mapping[str, Any], level: str, seed: int
+                       ) -> list[ValidationCheck]:
+    """``problem={"generative": {"physics": "darcy", "f": 1.0, "n_samples": 32}}``, ``data={"train": {...}}``: a
+    generative model given as a sampler ``n -> {column: (n, ...)}``. Its samples are audited like a dataset
+    (``pinneapple_data.audit``): every sample against the PDE (``data.physics.*``), diversity and mode collapse
+    (``data.diversity.*``), and memorisation as leakage, generated samples that copy training samples
+    (``data.leakage``)."""
+    from dataclasses import replace
+
+    from pinneapple_data.audit import BUILTIN_PHYSICS, DARCY, audit_dataset, darcy_consistency
+    n = int(cfg.get("n_samples", 32 if level == "quick" else 64))
+    gen = {k: np.asarray(v, float) for k, v in sampler(n).items()}
+    phys = cfg.get("physics")
+    if phys == "darcy":
+        rhs = cfg.get("f", 1.0)
+        phys = replace(DARCY, check=lambda s: darcy_consistency(s["a"], s["u"], rhs))
+    elif isinstance(phys, str):
+        phys = BUILTIN_PHYSICS[phys]
+    splits = {"test": gen}
+    if (data or {}).get("train") is not None:
+        splits["train"] = {k: np.asarray(v, float) for k, v in data["train"].items()}
+    card = audit_dataset(splits, name="generated samples", physics=phys, max_physics_samples=n, seed=seed,
+                         duplicate_splits=("test",))
+    return _audit_checks([{"id": c.id, "status": c.status, "summary": c.summary, "value": c.value,
+                           "threshold": c.threshold} for c in card.checks], source=f"{n} generated samples")
 
 
 def _pinn_checks(model, spec: Mapping[str, Any], data: Mapping[str, Any], level: str, seed: int
@@ -644,8 +691,7 @@ def validate(model, problem=None, data: Mapping[str, Mapping[str, np.ndarray]] |
     from .report_artifact import hash_data, hash_model
     prov: dict[str, Any] = {"library_version": version, "level": level, "source": "pp.validate",
                             "model_hash": hash_model(model), "data_hash": hash_data(data, reference, query),
-                            "physics": {"problem": problem if isinstance(problem, (str, type(None))) else
-                                        dict(problem) if isinstance(problem, Mapping) else type(problem).__name__,
+                            "physics": {"problem": _describe(problem),
                                         "tolerances": tol, "seed": seed}}
     checks: list[ValidationCheck] = [_method_status(method)]
     if problem is None and _is_zoo(model):
@@ -657,10 +703,13 @@ def validate(model, problem=None, data: Mapping[str, Mapping[str, np.ndarray]] |
     else:
         spec = {"pde": "darcy"} if problem in ("darcy", "darcy_2d") else dict(problem or {}) \
             if isinstance(problem, Mapping) else _from_physical_problem(problem)
-        if "pinn" in spec:
+        if "generative" in spec:
+            pname = spec.get("name", "generative model")
+            checks += _generative_checks(model, spec["generative"], data or {}, level, seed)
+        elif "pinn" in spec:
             checks += _pinn_checks(model, spec, data or {}, level, seed)
             pname = f"PINN, {getattr(spec['pinn'], 'name', spec['pinn'])}"
-            prov["physics"]["problem"] = {**spec, "pinn": getattr(spec["pinn"], "name", spec["pinn"])}
+            prov["physics"]["problem"] = _describe({**spec, "pinn": getattr(spec["pinn"], "name", spec["pinn"])})
         elif "rollout" in spec:
             pname = spec.get("name", "autoregressive rollout")
             checks += _rollout_checks(model, spec["rollout"], data or {}, level)

@@ -70,6 +70,7 @@
     * [Rollout validation: trust horizon of an autoregressive surrogate](guides/rollout_validation.md)
     * [PINN validation: what the training loss does not say](guides/pinn_validation.md)
     * [Physics checks during training (Lightning, PhysicsNeMo, Hugging Face)](guides/training_callbacks.md)
+    * [Validation gallery: one example per model family and physics](guides/validation_gallery.md)
     * [Validation methods reference](guides/validation_methods_reference.md)
     * [Evidence ledger: a test passed only if it ran](guides/evidence_ledger.md)
     * [A latent surrogate that says when not to trust it](guides/trusted_latent_surrogate.md)
