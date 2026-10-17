@@ -418,6 +418,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- Veriphysics robustness studies (`pinneapple_veriphysics.robustness`): an extrapolation margin of 0 (or a negative
+  one) left no point outside the training box and `_sample_shell` looped forever, hanging `ensemble_study` and
+  `extrapolation_study`; it now raises a clear `ValueError`. The evaluation points came from the global NumPy
+  random state, so the same study gave different evidence on every run; sampling is now seeded and reproducible.
 - Zoo query checks (`pp.zoo.query_checks`, the Playground's trust panel): the range checks run in float32 (the
   torch module and its ONNX graph), but the bounds had a slack of only 1e-9, so a query exactly at the edge of the
   training range was rejected as "outside the validity range". `T1 = 0.08` on `airfoil_cst_rans_mlp`, a value in
