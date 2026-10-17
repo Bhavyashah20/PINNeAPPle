@@ -172,3 +172,105 @@ def test_numba_backend_matches_the_torch_reference():
     for q in range(5):
         assert np.max(np.abs(a[0][q] - b[0][q])) <= 1e-10 * (np.abs(a[0][q]).max() + 1e-30)
     assert abs(a[2] - b[2]) <= 1e-10 * abs(a[2])
+
+
+def test_mode_perturbation_is_the_same_field_on_every_grid():
+    """The resolution study needs one initial perturbation for all grids: the 'modes' field sampled on two grids
+    agrees where the cells coincide in physical position, the per-cell white noise does not."""
+    fields = {}
+    for nr in (32, 64):
+        cfg = RIAFConfig(nr=nr, ntheta=nr // 2, perturbation_kind="modes", seed=3, perturbation=0.05)
+        flow = AccretionFlow(cfg)
+        base = torus_state(AccretionFlow(RIAFConfig(nr=nr, ntheta=nr // 2, perturbation=0.0)))[0]
+        fields[nr] = (torus_state(flow)[0], base)
+    (pc, bc), (pf, bf) = fields[32], fields[64]
+    torus = (bc > 1e-2)
+    noise_c = np.where(torus, pc / np.where(torus, bc, 1) - 1, 0)
+    torus_f = (bf > 1e-2)
+    noise_f = np.where(torus_f, pf / np.where(torus_f, bf, 1) - 1, 0)
+    # average 2 x 2 fine cells onto the coarse grid: a smooth field agrees to the averaging error
+    avg = noise_f.reshape(32, 2, 16, 2).mean((1, 3))
+    both = torus & (torus_f.reshape(32, 2, 16, 2).all((1, 3)))
+    assert both.sum() > 20
+    assert np.abs(avg[both] - noise_c[both]).max() < 0.25 * 0.05
+    assert np.abs(noise_c[torus]).max() <= 0.05 + 1e-12
+
+
+def test_rollout_loss_noise_and_mass_penalty_train(tmp_path):
+    from pinneapple_physics.blackhole.forecast import TrainConfig, load_forecaster, train_forecaster
+    rng = np.random.default_rng(0)
+    x = (0.5 + 0.05 * np.cumsum(rng.normal(size=(40, 16, 16)), 0) / 10).astype(np.float32)
+    X, Y = make_blocks(x, 5, out_blocks=2)
+    assert Y.shape[1] == 10 and np.array_equal(Y[0], x[5:15])
+    codec = DensityCodec(-6.0, 0.0, 16, 0)
+    cfg = TrainConfig(filters=2, epochs=2, residual=True, rollout_blocks=2, noise=0.01, mass_weight=0.1,
+                      mass_rate_weight=1.0, padding="replicate")
+    hist = train_forecaster(X, Y, X[:4], Y[:4], cfg, codec, str(tmp_path), log=lambda s: None,
+                            cell_volume=np.ones((16, 16)))
+    assert len(hist["val"]) == 2 and all(np.isfinite(hist["val"]))
+    model, c2, ck = load_forecaster(str(tmp_path / "forecaster.pt"))
+    assert ck["train"]["rollout_blocks"] == 2 and c2 == codec
+    with pytest.raises(ValueError, match="cell_volume"):
+        train_forecaster(X, Y, X[:4], Y[:4], cfg, codec, str(tmp_path), log=lambda s: None)
+
+
+def test_conservative_remap_keeps_mass_between_non_nested_grids():
+    from pinneapple_physics.blackhole.convergence import cell_volumes, remap, remap_r
+    grids = {}
+    for nr in (45, 32):
+        f = AccretionFlow(RIAFConfig(nr=nr, ntheta=nr // 2))
+        grids[nr] = f.grid()
+    rng = np.random.default_rng(0)
+    a = rng.random((45, 22))
+    faces = {n: (g["r_faces"], g["theta_faces"]) for n, g in grids.items()}
+    b = remap(a, faces[45], faces[32])
+    m_f = (a * cell_volumes(grids[45])).sum()
+    m_c = (b * cell_volumes(grids[32])).sum()
+    assert b.shape == (32, 16) and abs(m_c / m_f - 1) < 1e-12
+    assert np.allclose(remap(np.full((45, 22), 3.0), faces[45], faces[32]), 3.0)
+    assert np.allclose(remap_r(np.full(45, 2.0), grids[45]["r_faces"], grids[32]["r_faces"]), 2.0)
+
+
+def test_dataset_codec_roundtrip():
+    from pinneapple_physics.blackhole.dataset import Q_HI, Q_LO, decode, encode
+    lg = np.random.default_rng(1).uniform(-7.5, 0.5, (4, 6, 5))
+    assert np.abs(decode(encode(lg)) - lg).max() <= 0.5 * (Q_HI - Q_LO) / 65535 + 1e-6
+    with pytest.raises(ValueError):
+        encode(np.array([Q_LO - 1.0]))
+
+
+def test_dmd_baseline_is_exact_on_a_linear_system():
+    from pinneapple_physics.blackhole.skill import DMDBaseline
+    rng = np.random.default_rng(2)
+    modes = rng.normal(size=(2, 4, 4))
+    t, w = np.arange(30), 2 * np.pi * 3 / 29         # whole periods over the 29 snapshot pairs: mean = 0.5 exactly
+    traj = [(0.5 + 0.1 * np.cos(w * t + ph)[:, None, None] * modes[0] + 0.1 * np.sin(w * t + ph)[:, None, None]
+             * modes[1]) for ph in (0.0, 1.0)]
+    d = DMDBaseline(traj, rank=2)
+    f = d.forecast(traj[0][10], 5)
+    assert np.abs(f - traj[0][11:16]).max() < 1e-6
+
+
+def test_forecast_skill_horizon_and_intervals():
+    from pinneapple_analysis.verification.forecast_skill import batch_means_ci, skill_vs_lead
+    rng = np.random.default_rng(3)
+    ref = 1.0 + 0.05 * rng.random((200, 6))
+    model = ref.copy()
+    model[:, :4] *= 0.8                                   # better for 4 leads, then equal
+    res = skill_vs_lead(model, ref, np.arange(1, 7) * 10.0, block=5)
+    assert res.horizon == 40.0
+    assert res.skill_score[0, 1] > 0.15 and res.diff[0, 2] < 0
+    m, h = batch_means_ci(rng.normal(size=4000))
+    assert abs(m) < 3 * h and 0 < h < 0.2
+
+
+def test_simulate_run_resumes_from_its_checkpoint(tmp_path):
+    """A run interrupted after its first chunk continues from state.pt (the flow is rebuilt without set_primitives)."""
+    from pinneapple_physics.blackhole.runs import load_run, simulate_run
+    cfg = RIAFConfig(nr=16, ntheta=8, backend="torch", perturbation_kind="modes")
+    simulate_run(cfg, str(tmp_path / "a"), t_end=20.0, every=10.0, chunk=1, log=lambda m: None)
+    simulate_run(cfg, str(tmp_path / "a"), t_end=40.0, every=10.0, chunk=1, log=lambda m: None)
+    simulate_run(cfg, str(tmp_path / "b"), t_end=40.0, every=10.0, chunk=1, log=lambda m: None)
+    a, b = load_run(str(tmp_path / "a")), load_run(str(tmp_path / "b"))
+    assert len(a["t"]) == len(b["t"]) == 5
+    assert np.array_equal(a["frames"], b["frames"])
