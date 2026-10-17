@@ -45,6 +45,9 @@ names.
   greatest elongations, lunar and solar eclipses with local circumstances, transits of Mercury and Venus), and a
   Schwarzschild black hole placed in front of the sky you are looking at (null geodesics from
   `pinneapple_physics.blackhole`), with the predicted shadow sizes of M87* and Sgr A* against the EHT rings.
+- **Learn**: an info card for every object (planets, moons, bright stars, constellations, Messier objects,
+  satellites): key numbers with a source each and everyday comparisons, curiosities, history, how to see it tonight,
+  a quiz; search in English or Portuguese. Data: `pinneapple_physics/astro/data/facts/`.
 - **Engine**: the PINNeAPPle part. A physics-informed neural network learns a planet's orbit for the next year,
   `r(t) = r_Kepler(t) + τ² g_θ(τ)`, from the residual of the full N-body equation of motion plus 8 anchor states, and is
   judged against the classical integrator: error, split-conformal band, energy / angular-momentum checks, residual, a

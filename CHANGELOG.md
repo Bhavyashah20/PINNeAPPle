@@ -14,6 +14,16 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Observatory: Learn mode with facts and curiosities about each object (#724). `pinneapple_physics.astro.facts` and a
+  versioned dataset in `pinneapple_physics/astro/data/facts/` (the Sun, planets, Moon, dwarf planets and major moons,
+  the brightest stars, the 88 constellations, the 110 Messier objects, the ISS, Hubble and Tiangong): every number
+  carries its source (NASA fact sheets, Hipparcos 2007, IAU, d3-celestial, published distances), text written in
+  English and Portuguese. Cards give key numbers with everyday comparisons, three to five curiosities, history,
+  missions, how to see the object tonight from your place (`facts.tonight`) and a quiz; search by name in both
+  languages and a "Did you know?" tip on start-up. The app has a Learn tab, the start of the card in the Object tab,
+  and `/api/facts/{card,search,list,tip}`. Constellation areas are computed from the IAU boundaries
+  (`scripts/astro/build_facts.py`). Tests: `tests/test_astro_facts.py` (NASA fact sheet values, DE421 cross-checks,
+  IAU areas, sources and both languages) and `apps/observatory/tests/e2e/learn.spec.js`.
 - Observatory: Portuguese and English interface (#721). A language switcher (EN / PT) in the top bar; the default
   follows the browser, the choice is kept in the URL (`#lang=pt`) and in local storage. Every string the page shows is
   in the message catalogues `static/i18n/en.json` / `pt.json`, including check names, verdicts, units and API errors

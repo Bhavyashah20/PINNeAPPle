@@ -4,6 +4,7 @@ import { SystemView } from "./system.js";
 import { D2R, R2D, compass, dateToJd, fmtDec, fmtRA, jdToDate, radecVec } from "./astro.js";
 import { renderBlackHole, renderConditions, renderDecay, renderSmallBodies, renderSpaceWeather, renderStarsML, checkName, verdictBadge } from "./ai.js";
 import { applyStatic, fmtDate, lang, num, onLangChange, setLang, sig, t, tOr } from "./i18n.js";
+import { renderLearn, startupTip } from "./learn.js";
 
 // ------------------------------------------------------------------------------------------------- setup
 const $ = (s) => document.querySelector(s);
@@ -358,7 +359,7 @@ function focusSystem(id) {
   sys.flyTo(tp.clone().add(dir.multiplyScalar(r)), tp, 1800);
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-window.__obs = { S, sky, sys, switchView, focusSystem, loadSky, ctx, setLang };          // for scripted captures (GIF / screenshots)
+window.__obs = { S, sky, sys, switchView, focusSystem, loadSky, ctx, setLang, openLearn: (id) => openLearn(id) };          // for scripted captures (GIF / screenshots)
 
 // ------------------------------------------------------------------------------------------------- panels
 for (const b of document.querySelectorAll(".ptabs button")) b.onclick = () => openTab(b.dataset.tab);
@@ -369,7 +370,51 @@ function openTab(tab) {
   if (tab === "sats") renderSatsPanel();
   if (tab === "analyses" && !$("#tab-analyses").dataset.ready) renderAnalyses();
   if (tab === "engine" && !$("#tab-engine").dataset.ready) renderEngine();
+  if (tab === "learn" && !$("#tab-learn").dataset.ready) { $("#tab-learn").dataset.ready = 1; renderLearn($("#tab-learn"), learnCtx); }
   $("#panel").classList.add("open");
+}
+// ------------------------------------------------------------------------------------------------- learn
+function conName(key) {
+  const c = sky.cat?.constellations?.find((x) => x.key === key || x.id === key);
+  return c ? (c.names?.[lang] || c.name) : key;
+}
+function lookRaDec(ra, dec) {                    // J2000 RA/Dec -> look there in the sky view
+  const M = sky.Mj2000; if (!M) return;
+  const v = radecVec(ra, dec), p = [0, 1, 2].map((r) => M[r][0] * v[0] + M[r][1] * v[1] + M[r][2] * v[2]);
+  const alt = Math.asin(p[1]) * R2D, az = ((Math.atan2(p[0], -p[2]) * R2D) + 360) % 360;
+  if (S.view !== "sky") switchView("sky");
+  sky.lookAt(alt, az); sky.fov = Math.min(sky.fov, 40);
+}
+const learnCtx = {
+  api, qs, iso: () => isoOf(S.simJD), place: () => placeName(), conName,
+  dfmt: (iso) => fmtDate(new Date(iso), { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: S.obs.tz }),
+  canLook: (c) => !!(S.skyData?.now?.[c.id] || c.ra_deg !== undefined || c.hr || c.kind === "constellation"),
+  look: (c) => {
+    if (S.skyData?.now?.[c.id]) { const o = S.skyData.now[c.id]; if (S.view !== "sky") switchView("sky"); sky.lookAt(o.alt, o.az); return; }
+    if (c.ra_deg !== undefined) return lookRaDec(c.ra_deg, c.dec_deg);
+    if (c.hr && sky.cat) { const i = sky.cat.hr.indexOf(c.hr); if (i >= 0) lookRaDec(sky.cat.ra[i], sky.cat.dec[i]); return; }
+    if (c.kind === "constellation" && sky.cat) { const k = c.id.slice(4), x = sky.cat.constellations.find((y) => y.key === k); if (x) lookRaDec(x.label[0], x.label[1]); }
+  },
+  openLearn: (id) => openLearn(id),
+};
+function openLearn(id) {
+  $("#tab-learn").dataset.ready = 1;
+  renderLearn($("#tab-learn"), learnCtx, id);
+  openTab("learn");
+}
+// the object tab ends with the start of the object's info card and a link to the full card
+const TEASERS = new Map();                       // cards already fetched, so redraws of the object tab are instant
+async function learnTeaser(hit) {
+  const id = hit.kind === "body" ? hit.id : hit.kind === "star" ? `star:${hit.id}` : hit.kind === "sat" ? `sat:${hit.sat.s.norad}` : null;
+  const box = $("#oLearn");
+  if (!id || !box) return;
+  const k = id + "|" + lang;
+  if (!TEASERS.has(k)) TEASERS.set(k, await api(`/api/facts/card?id=${encodeURIComponent(id)}&lang=${lang}`).catch(() => null));
+  const c = TEASERS.get(k);
+  if (!c || !box.isConnected) return;
+  box.innerHTML = `<div class="card learn-teaser"><b>${esc(c.name)}</b> <span class="badge neutral">${esc(c.kind_label)}</span><p>${esc(c.summary)}</p>
+    <p class="small">${esc(c.curiosities[0]?.text || "")}</p><button class="primary" id="oLearnGo">${t("learn.openCard")}</button></div>`;
+  box.querySelector("#oLearnGo").onclick = () => openLearn(c.id);
 }
 const BODY_KEYS = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "earth"];
 const bname = (b) => tOr("body." + b, b);
@@ -435,6 +480,7 @@ async function renderObject(hit) {
     $("#oLook").onclick = () => { if (S.view === "sky") { sky.lookAt(o.alt, o.az); sky.fov = Math.min(sky.fov, b === "moon" || b === "sun" ? 5 : 30); } else focusSystem(b); };
     if ($("#oOrbit")) $("#oOrbit").onclick = () => orbitInto($("#oMore"), b);
     if ($("#oPlan")) $("#oPlan").onclick = () => planInto($("#oMore"), b);
+    el.insertAdjacentHTML("beforeend", `<div id="oLearn"></div>`); learnTeaser(hit);
   } else if (hit.kind === "star") {
     el.innerHTML = `<p class="muted">${t("object.loadingStar", { hr: hit.id })}</p>`;
     try {
@@ -455,12 +501,14 @@ async function renderObject(hit) {
       <p class="small muted">${t("method.star")}. ${t("object.bscNote")}</p>
       <h3>${t("object.hr")}</h3><div id="oHR"></div><p class="small muted">${t("object.hrNote")}</p>`;
       drawHR($("#oHR"), hit.id);
+      el.insertAdjacentHTML("beforeend", `<div id="oLearn"></div>`); learnTeaser(hit);
     } catch (e) { el.innerHTML = `<p>${esc(e.message)}</p>`; }
   } else if (hit.kind === "sat") {
     const o = hit.sat;
     el.innerHTML = `<h3>${esc(o.s.name)} <span class="muted">NORAD ${o.s.norad}</span></h3><div class="kv">
       <span>${t("object.altAz")}</span><span>${num(o.alt, 2)}° · ${num(o.az, 1)}°</span><span>${t("object.sunlit")}</span><span>${o.lit ? t("object.yes") : t("object.inShadow")}</span>
-      <span>${t("object.magnitude")}</span><span>${num(o.mag, 1)}</span><span>${t("object.tleAge")}</span><span>${num(o.s.tle_age_days, 2)} d</span></div><div id="oPass"></div>`;
+      <span>${t("object.magnitude")}</span><span>${num(o.mag, 1)}</span><span>${t("object.tleAge")}</span><span>${num(o.s.tle_age_days, 2)} d</span></div><div id="oPass"></div><div id="oLearn"></div>`;
+    learnTeaser(hit);
     const p = await api(`/api/passes?${qs()}&t=${isoOf(S.simJD)}&days=2&norad=${o.s.norad}`).catch(() => null);
     if (p) $("#oPass").innerHTML = passesTable(p.passes);
   }
@@ -689,7 +737,9 @@ onLangChange(() => {
   renderTonight();
   if (S.selected) renderObject(S.selected);
   const tab = currentTab();
-  for (const id of ["tab-analyses", "tab-engine"]) { $("#" + id).innerHTML = ""; delete $("#" + id).dataset.ready; }
+  const shown = $("#tab-learn .learn-card")?.dataset.card;
+  for (const id of ["tab-analyses", "tab-engine", "tab-learn"]) { $("#" + id).innerHTML = ""; delete $("#" + id).dataset.ready; }
+  if (tab === "learn") openLearn(shown);
   if (tab === "sats") renderSatsPanel(); else $("#tab-sats").innerHTML = "";
   if (tab === "analyses") renderAnalyses();
   if (tab === "engine") renderEngine();
@@ -712,6 +762,8 @@ $("#tab-object").innerHTML = `<p class="muted">${t("object.hint")}</p>`;
     if (params.get("focus")) setTimeout(() => focusSystem(params.get("focus")), +(params.get("focusDelay") || 7000));
   });
   if (params.get("tab")) openTab(params.get("tab"));
+  if (params.get("learn")) openLearn(params.get("learn"));            // e.g. learn=M31, learn=star:2061, learn=saturn
+  else if (params.get("tip") !== "0" && !params.has("capture") && !params.get("select") && !params.get("tab")) startupTip($("#tip"), learnCtx);
   if (params.get("select")) {                    // e.g. select=star:2491 or select=body:saturn
     const [kind, id] = params.get("select").split(":");
     S.selected = { kind, id: kind === "star" ? +id : id }; renderObject(S.selected); openTab("object");

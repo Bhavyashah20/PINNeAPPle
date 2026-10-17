@@ -1,7 +1,6 @@
 {
   "meta.title": "PINNeAPPle Observatory",
   "meta.description": "The sky and the solar system, now, from where you stand: JPL ephemerides, satellites, astrophysics and a physics-informed orbit surrogate with its trust checks.",
-
   "top.brand": "Observatory",
   "top.locate": "Use my location",
   "top.location": "Location",
@@ -12,7 +11,6 @@
   "top.point": "📱 Point",
   "top.drag": "✋ Drag",
   "top.panels": "Panels",
-
   "hud.now": "Now",
   "hud.nowTitle": "Back to now",
   "hud.slower": "Slower / reverse",
@@ -26,13 +24,11 @@
   "hud.perSecond": "{v} {u}/s",
   "clock.sub": "{utc} UTC · LST {h}h{m} · {place} {lat}°, {lon}°",
   "clock.sun": "Sun {alt}°",
-
   "tab.tonight": "Tonight",
   "tab.object": "Object",
   "tab.sats": "Satellites",
   "tab.analyses": "Analyses",
   "tab.engine": "Engine",
-
   "layer.constellations": "Constellations",
   "layer.names": "Names",
   "layer.altaz": "Alt-az grid",
@@ -44,7 +40,6 @@
   "layer.planetsBig": "Planets ×60",
   "layer.log": "Log distances",
   "layer.size": "Planet size ×",
-
   "loc.here": "My location",
   "loc.custom": "Custom location",
   "city.saopaulo": "São Paulo",
@@ -61,7 +56,6 @@
   "city.reykjavik": "Reykjavík",
   "city.capetown": "Cape Town",
   "city.equator": "Equator (0°, 0°)",
-
   "body.sun": "Sun",
   "body.moon": "Moon",
   "body.mercury": "Mercury",
@@ -73,9 +67,7 @@
   "body.uranus": "Uranus",
   "body.neptune": "Neptune",
   "system.you": "You",
-
   "compass.points": "N NNE NE ENE E ESE SE SSE S SSW SW WSW W WNW NW NNW",
-
   "unit.au": "AU",
   "unit.ly": "ly",
   "unit.ld": "LD",
@@ -93,10 +85,8 @@
   "unit.fraction": "fraction",
   "unit.x": "×",
   "unit.Kp": "Kp",
-
   "common.computing": "Computing…",
   "common.loading": "Loading…",
-
   "toast.sky": "Sky: {msg}",
   "toast.system": "Solar system: {msg}",
   "toast.catalogue": "Catalogue: {msg}",
@@ -105,7 +95,6 @@
   "toast.motionDenied": "Motion permission denied",
   "toast.motionNone": "Motion sensors unavailable",
   "toast.pointPhone": "Point your phone at the sky. Heading uses the compass: calibrate it if the sky looks rotated.",
-
   "err.network": "The server could not be reached. Check your connection.",
   "err.generic": "The server answered with an error ({status}).",
   "err.busy": "The server is busy with other heavy computations; try again in a minute.",
@@ -117,7 +106,6 @@
   "err.unknown_star": "HR {hr} is not in the Bright Star Catalogue.",
   "err.not_moon_or_planet": "Choose the Moon or a planet.",
   "err.not_planet": "Choose a planet.",
-
   "skystate.day": "day",
   "skystate.civil_twilight": "civil twilight",
   "skystate.nautical_twilight": "nautical twilight",
@@ -135,7 +123,6 @@
   "twilight.civil": "Civil (−6°)",
   "twilight.nautical": "Nautical (−12°)",
   "twilight.astronomical": "Astronomical (−18°)",
-
   "tonight.skyNow": "Sky now",
   "tonight.sky": "Sky",
   "tonight.sunAlt": "Sun altitude",
@@ -158,7 +145,6 @@
   "tonight.set": "set",
   "tonight.localTz": "local time",
   "tonight.note": "Times in {tz} for the day starting {day}. Rise/set: centre of the disc 34′ (refraction) + semi-diameter below the horizon, as in the USNO tables.",
-
   "object.hint": "Tap or click any star, planet, the Moon, the Sun or a satellite.",
   "object.earth": "Home. The pin marks you at {lat}°, {lon}°; the terminator is computed from the Sun's direction.",
   "object.above": "above horizon",
@@ -200,7 +186,6 @@
   "object.yes": "yes",
   "object.inShadow": "no (in Earth's shadow)",
   "object.tleAge": "TLE age",
-
   "elements.title": "Osculating elements (J2000 ecliptic)",
   "elements.titleGeo": "Osculating elements (J2000 ecliptic, geocentric)",
   "elements.a": "Semi-major axis a",
@@ -211,7 +196,6 @@
   "elements.M": "Mean anomaly M",
   "elements.period": "Period",
   "elements.periAph": "Perihelion · aphelion",
-
   "orbit.title": "Light time & Doppler",
   "orbit.oneWay": "One-way light time",
   "orbit.rangeRate": "Range rate",
@@ -219,14 +203,12 @@
   "orbit.approaching": "approaching",
   "orbit.halpha": "Hα 656.281 nm observed at",
   "orbit.shift": "Shift",
-
   "plan.title": "Altitude, next 24 h",
   "plan.best": "<b>Best window</b>: {start} – {end} ({hours} h dark, above {min}°)",
   "plan.highest": "highest at {when}: {alt}°, airmass {X}; Moon {sep}° away at {malt}° altitude",
   "plan.none": "No dark-sky window with the target above {min}° in the next 24 h.",
   "plan.horizon": "horizon",
   "plan.astroDark": "astro. dark",
-
   "sats.none": "No passes above 10° in the window.",
   "sats.satellite": "Satellite",
   "sats.max": "max",
@@ -235,7 +217,6 @@
   "sats.title": "Next passes: ISS, Tiangong, Hubble",
   "sats.noTle": "No current TLEs: CelesTrak could not be reached from the server ({err}). The pass predictor is validated offline against an independent implementation (Engine tab).",
   "sats.tleSource": "TLEs: CelesTrak GP data, refreshed every 6 h.",
-
   "an.sep": "Angular separation",
   "an.measure": "Measure",
   "an.sepOut": "<b>{dms}</b> ({deg}°), position angle {pa}°",
@@ -276,7 +257,6 @@
   "an.shadowPred": "shadow predicted",
   "an.ehtRing": "EHT ring",
   "an.sunDefl": "Sun's deflection at the limb: {v}″ (Eddington 1919: 1.75″).",
-
   "ev.new_moon": "New Moon",
   "ev.full_moon": "Full Moon",
   "ev.first_quarter": "First quarter",
@@ -300,7 +280,6 @@
   "ev.partial_solar_eclipse": "Partial solar eclipse",
   "ev.transit_of_mercury": "Transit of Mercury",
   "ev.transit_of_venus": "Transit of Venus",
-
   "trust.check": "Check",
   "trust.value": "value",
   "trust.limit": "limit",
@@ -314,7 +293,6 @@
   "verdict.not_trustworthy": "not trustworthy",
   "verdict.not_available": "not available",
   "verdict.unknown": "unknown",
-
   "check.angle_vs_integrator": "Heliocentric angular error vs integrator (test)",
   "check.energy_vs_signal": "Orbital energy error / perturbation signal",
   "check.angmom_vs_signal": "Angular momentum error / perturbation signal",
@@ -337,7 +315,6 @@
   "check.ml_lum_class": "Luminosity class from (B−V, M_V): CV accuracy vs majority baseline",
   "check.ml_spec_class": "Spectral class from B−V: CV accuracy vs majority baseline",
   "check.ml_cluster_purity": "Unsupervised clusters: purity against MK luminosity classes",
-
   "val.novas_planets": "Apparent places, Sun and planets (own pipeline + DE421)",
   "val.novas_moon": "Apparent place, Moon",
   "val.horizons": "Apparent / astrometric places (Sun, Mars, topocentric Moon)",
@@ -366,7 +343,6 @@
   "valref.nbody_energy": "exact invariant",
   "valref.nbody_angmom": "exact invariant",
   "valref.nbody_vs_de421": "JPL DE421",
-
   "method.sky": "pinneapple_physics.astro: JPL DE421, light time, solar deflection, aberration, IAU 2006/1980 precession-nutation, Saemundsson refraction",
   "method.passes": "SGP4 (sgp4 package, Vallado 2006) → TEME → ITRS (GMST82); conical Earth shadow; diffuse-sphere magnitude from the standard magnitude at 1000 km, 90° phase.",
   "method.separation": "Vincenty great-circle formula on apparent places of date (topocentric)",
@@ -376,7 +352,6 @@
   "method.lensing": "Schwarzschild null geodesics (RK4 on u″ = 3u² − u) from pinneapple_physics.blackhole; shadow diameter 2√27 GM/(c² D); weak-field deflection 4GM/(c² b)",
   "method.smallbodies": "DOP853 test-particle integration in the DE421 field of the Sun, planets and Moon, with the Sun's 1PN relativistic term; no Yarkovsky or asteroid perturbers.",
   "method.surrogateRef": "Yoshida 4th-order symplectic N-body (Sun, 8 planets, Moon), dt = 6 h",
-
   "decay.title": "Orbit decay (physics-informed)",
   "decay.days": "days",
   "decay.run": "Predict ISS decay",
@@ -391,7 +366,6 @@
   "decay.trust": "The PINN reproduces the integrator to metres; the forecast itself is limited by the inputs: solar flux and geomagnetic storms weeks ahead are uncertain (shown by the envelope), and the attitude-dependent drag area of a real spacecraft varies.",
   "decay.s.rk": "RK integration",
   "decay.s.envelope": "5–95 % envelope",
-
   "sw.loading": "Loading Kp and training the forecaster (first time ~1 min)…",
   "sw.kpNow": "Kp now",
   "sw.maglat": "Your geomagnetic latitude",
@@ -406,7 +380,6 @@
   "sw.cardTitle": "Kp forecaster",
   "sw.how": "Quantile MLP (pinball loss) for the change from persistence, on the last 24 h of Kp, the 27-day recurrence and F10.7; split-conformal widening on Sep–Oct; scored on Nov–Dec 2000 against observed Kp (GFZ); aurora boundary 66.5 − 2.04 Kp (geomagnetic latitude, IGRF-13 dipole). At 3 h the network's median lost to persistence on the calibration block, so persistence is used as the median with the calibrated network interval around it.",
   "sw.trust": "Trained and scored on one year (2000, solar maximum): it beats persistence at 24 h but misses most storm onsets (they are driven by solar-wind structures it does not see). Treat it as a calibrated range, not a storm warning. Aurora visibility also needs a dark, clear sky.",
-
   "wx.fetching": "Fetching the ensemble forecast…",
   "wx.cardTitleOM": "Observing conditions (Open-Meteo ensemble)",
   "wx.cardTitle": "Observing conditions",
@@ -417,7 +390,6 @@
   "wx.members": "{n} members",
   "wx.s.pclear": "P(clear) %",
   "wx.s.cloud": "cloud cover (median, 10–90 %)",
-
   "sb.years": "{n} years",
   "sb.to2049": "to 2049",
   "sb.approaches": "Close approaches",
@@ -441,7 +413,6 @@
   "sb.pinnLine": "max error (held-out times) {km} km = {arcsec}″ from the Sun; Kepler alone {kep} km; trained in {s} s.",
   "sb.pinnHow": "r(t) = r<sub>Kepler</sub>(t) + τ² g<sub>θ</sub>(τ): the network learns the planetary perturbation only, from the residual of the full N-body equation of motion (planets from DE421) and 8 anchor states; split-conformal band on held-out integrator states.",
   "sb.pinnTrust": "Valid for this body over this year; it is a compact, differentiable surrogate of one trajectory, not a general propagator.",
-
   "ml.clustering": "Clustering and cross-validating…",
   "ml.bright": "Bright dots: above your horizon now.",
   "ml.cardTitle": "Stellar ML on the HR diagram",
@@ -452,7 +423,6 @@
   "ml.group.subgiant_iv": "subgiant (IV)",
   "ml.group.giant_iii": "giant (III)",
   "ml.group.bright_giant_supergiant_i_ii": "bright giant / supergiant (I–II)",
-
   "bh.doppler": "Doppler beaming (physical)",
   "bh.incl": "inclination",
   "bh.tracing": "Tracing null geodesics through the disc (first render ~20 s, then about a second for any direction)…",
@@ -462,7 +432,6 @@
   "bh.zooPassed": "(gate passed).",
   "bh.placeholder": "placeholder",
   "bh.zooNote": "The black-hole accretion forecaster is not in the model zoo yet (or has not passed its gate); its forecast and skill horizon will appear here when it does.",
-
   "eng.title": "Physics-informed orbit surrogate",
   "eng.intro": "A PINN learns a planet's heliocentric orbit for the next year: <i>r(t) = r<sub>Kepler</sub>(t) + τ² g<sub>θ</sub>(τ)</i>, trained on the residual of the full N-body equation of motion plus 8 anchor states, then judged against the classical integrator with split-conformal bands and physics checks.",
   "eng.run": "Train / show",
@@ -504,5 +473,61 @@
   "eng.ref": "Reference",
   "eng.result": "result",
   "eng.limitN": "limit {lim} · n={n}",
-  "eng.valNote": "Computed by pinneapple_physics.astro.validation at server start ({s} s); the same checks run in the test suite."
+  "eng.valNote": "Computed by pinneapple_physics.astro.validation at server start ({s} s); the same checks run in the test suite.",
+  "tab.learn": "Learn",
+  "learn.searchPh": "Search: Saturn, Betelgeuse, M31, ISS, Crux…",
+  "learn.noResults": "Nothing found.",
+  "learn.group.planet": "Planets",
+  "learn.group.dwarf_planet": "Dwarf planets",
+  "learn.group.moon": "Moons",
+  "learn.group.star": "Stars",
+  "learn.group.constellation": "Constellations",
+  "learn.group.messier": "Messier objects",
+  "learn.group.satellite": "Satellites",
+  "learn.didYouKnow": "Did you know?",
+  "learn.more": "More about {name}",
+  "learn.close": "Close",
+  "learn.openCard": "Open the full card",
+  "learn.tonightTitle": "Tonight from {place}",
+  "learn.upNow": "It is above the horizon now, at {alt}°.",
+  "learn.downNow": "It is below the horizon now.",
+  "learn.neverSets": "From here it never sets.",
+  "learn.neverRises": "It never rises above the horizon from {place}: it is too far into the other hemisphere's sky.",
+  "learn.highest": "Highest",
+  "learn.darkBest": "Best time with a dark sky: {when}, at {alt}° altitude.",
+  "learn.notDark": "It is not up while the sky is dark in the next 24 h.",
+  "learn.noPasses": "No passes in the next three days.",
+  "learn.passesLine": "Next passes over you:",
+  "learn.maxAlt": "up to {alt}°",
+  "learn.visible": "visible",
+  "learn.numbers": "Key numbers",
+  "learn.curiosities": "Curiosities",
+  "learn.history": "History",
+  "learn.missions": "Missions:",
+  "learn.quiz": "Quiz",
+  "learn.right": "Right!",
+  "learn.wrong": "Not quite: the right answer is highlighted.",
+  "learn.sources": "Sources",
+  "unit.millionKm": "million km",
+  "unit.f.km": "km",
+  "unit.f.kg": "kg",
+  "unit.f.kg/m3": "kg/m³",
+  "unit.f.m/s2": "m/s²",
+  "unit.f.h": "h",
+  "unit.f.d": "days",
+  "unit.f.C": "°C",
+  "unit.f.W": "W",
+  "unit.f.K": "K",
+  "unit.f.ly": "light-years",
+  "unit.f.kly": "thousand light-years",
+  "unit.f.Mly": "million light-years",
+  "unit.f.Lsun": "× the Sun",
+  "unit.f.Rsun": "× the Sun's radius",
+  "unit.f.deg2": "square degrees",
+  "unit.f.m": "m",
+  "unit.f.m3": "m³",
+  "err.bad_lang": "Unknown language.",
+  "err.no_card": "There is no card for {value} yet.",
+  "learn.rises": "Rises",
+  "learn.sets": "Sets"
 }
