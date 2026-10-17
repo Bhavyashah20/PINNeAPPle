@@ -10,6 +10,10 @@ Equations (SI, any consistent units):
   ratio; plane strain in 2-D). The displacement is ``D`` (OpenFOAM), ``disp``, or ``ux, uy[, uz]``.
 * ``conservation``: dq/dt + div F = S for every conserved field ``q`` with its flux field ``F`` declared under
   ``flux = { q = "F" }``.
+* ``darcy``: -div(a grad u) = f on the unit square with u = 0 on the boundary, cell-centred grid results with the
+  coefficient ``a`` (or ``K``) and the solution ``u`` (or ``p``) stored side by side; checked with the finite-volume
+  discretisation of the reference solver (``pinneapple_physics.darcy_checks``), not with the generic derivatives
+  below.
 """
 from __future__ import annotations
 
@@ -31,6 +35,7 @@ PARAMS: dict[str, dict[str, tuple[str, Any]]] = {
     "heat": {"k": ("W/(m*K)", 1.0), "q": ("W/m^3", 0.0), "rho_cp": ("J/(m^3*K)", 1.0), "alpha": ("m^2/s", None)},
     "elasticity": {"E": ("Pa", None), "nu": ("1", None), "f": ("N/m^3", 0.0)},
     "conservation": {"S": ("1", 0.0)},
+    "darcy": {"f": ("1", 1.0)},
     "none": {},
 }
 
@@ -160,6 +165,8 @@ def equations(physics: str, D, p: dict[str, Any], conserved: dict[str, str] | No
         st = lambda L: np.stack(L, axis=-1)                         # noqa: E731
         sc = E * max(ptp(c) for c in u) / L ** 2 + float(np.abs(f).max())
         eqs.append(Equation("equilibrium", st(R), [st(t1), st(t2), st(t3)], D.interior, "div sigma + f = 0", sc))
+    elif physics == "darcy":
+        return [], ["darcy is checked on stored cell-centred grid results (fields a and u), not on point samples"]
     elif physics == "conservation":
         if not conserved:
             return [], ["declare the flux of each conserved field: flux = { q = \"F\" }"]

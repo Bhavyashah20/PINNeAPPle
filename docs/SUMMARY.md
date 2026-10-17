@@ -83,6 +83,7 @@
     * [Simulation Workflow Runner: campaigns as traceable, resumable workflows](guides/workflow_runner.md)
     * [Simulation Campaign Planner: which simulations need to run](guides/campaign_planner.md)
     * [Choose a model by the scale of the question](guides/scale_aware_ensembles.md)
+    * [PhysicsNeMo trains, PINNeAPPle says when to trust](guides/physicsnemo_trust.md)
 * Apps
     * [Engineering Evidence Report (day 30)](apps/evidence_report.md)
     * [Physics Validation Lab (day 24)](apps/validation_lab.md)

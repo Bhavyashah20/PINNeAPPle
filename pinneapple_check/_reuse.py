@@ -87,3 +87,7 @@ def method_catalog():
 
 def trust_stages():
     return leaf("pinneapple_lab.curation").STAGES
+
+
+def darcy_checks():
+    return leaf("pinneapple_physics.darcy_checks")
