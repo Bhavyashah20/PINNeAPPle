@@ -14,6 +14,23 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Simulation workflows (`pinneapple_core.workflows`). A workflow is a DAG of steps (dependencies, cycle check,
+  per-case expansion with `workflow_from_cases`) run by `WorkflowRunner`, which provides:
+  - per-step states, logs, attempts and outputs in SQLite;
+  - retries; failures that cancel only dependent steps (or `fail_fast`);
+  - resume of interrupted runs; cancel;
+  - skip-done by content hash (kind, parameters, declared input files, upstream hashes).
+
+  Executors are a plugin registry: `local`, `docker` (`docker run --network none`), and `slurm` (sbatch scripts; dry
+  run by default). Step adapters are a registry too: `command`, `python`, `openfoam` (reuses
+  `openfoam.campaign.edit_file` / `parse_solver_log`), and `calculix` (`ccx` + `read_frd`). `dataset_from_run` turns
+  finished runs into a `DatasetSpec` and its table. Whitelisted templates: slab heating (exact solution), CalculiX
+  cantilever vs Euler-Bernoulli, and the OpenFOAM cavity.
+- Day 27 app: Simulation Workflow Runner (`apps/simulation_runner`, runner.pinneapple.org, port 8110). It runs case
+  tables (e.g. Campaign Planner exports) through the templates, with traceable runs, resume, rerun with skip-done,
+  Slurm script generation, and dataset downloads (CSV / Parquet / HDF5 / JSON + DatasetSpec). Usage is metered as
+  jobs run, compute seconds and storage. Public servers run only the templates; `RUNNER_SELF_HOSTED=1` enables
+  custom workflows.
 - Simulation Campaign Planner (day 13, `apps/simulation_campaign`, campaign.pinneapple.org, port 8096): plan which
   simulations to run over a `ParameterSpace` and a budget. It returns a design of experiments, coverage before and
   after, repeats of existing runs dropped, a run order, OpenFOAM / CalculiX / Python case files, and a `StudyResult`

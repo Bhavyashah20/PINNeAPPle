@@ -67,6 +67,7 @@
     * [Detect false data injection with physics residuals](guides/physics_residual_attack_detection.md)
     * [The PINNeAPPle Observatory](guides/observatory.md)
     * [Playground: physics surrogates in the browser](guides/playground.md)
+    * [Simulation Workflow Runner: campaigns as traceable, resumable workflows](guides/workflow_runner.md)
     * [Simulation Campaign Planner: which simulations need to run](guides/campaign_planner.md)
     * [Choose a model by the scale of the question](guides/scale_aware_ensembles.md)
 * [API Reference](api/index.md)
