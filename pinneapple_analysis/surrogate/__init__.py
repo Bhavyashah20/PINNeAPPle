@@ -10,7 +10,8 @@
 Modules: ``data`` (tables and arrays -> ``SurrogateData``), ``splits`` (held-out and distribution-shift splits),
 ``methods`` (ridge, gp, gbt, mlp, fno, deeponet, pinn and when each applies), ``pde`` (declared equations for the
 PINN), ``limits`` (validity bounds, OOD gate, error concentration), ``model`` (``SurrogateModel``), ``study``
-(``run_study``), ``examples`` (datasets that need no download). Needs ``pip install "pinneapple[surrogate]"``
+(``run_study``), ``examples`` (datasets that need no download), ``contracts`` (``DatasetSpec``, ``ModelRef``,
+``StudyResult`` of ``pinneapple_data.contracts``; imported on use). Needs ``pip install "pinneapple[surrogate]"``
 (scikit-learn; Parquet, HDF5 and ONNX support).
 """
 from . import examples

@@ -21,7 +21,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   the result as a `SurrogateModel` (predict with an OOD gate, save / load with a sha256 check, TorchScript and ONNX
   export, ModelRef fields). The limitations report gives validity bounds, the OOD gate, where the errors concentrate
   and the PDE residual of predicted fields; a `TrustReport` decides. Readers for CSV, Parquet, JSON, HDF5 and NPZ;
-  examples that need no download (the OpenFOAM airfoil campaign, exact Burgers fields and an FDM baseline). Guide:
+  examples that need no download (the OpenFOAM airfoil campaign, exact Burgers fields and an FDM baseline);
+  `surrogate.contracts` converts data, models, studies and arena results to and from the shared contracts
+  (`DatasetSpec`, `ModelRef`, `StudyResult` of `pinneapple_data.contracts`). Guide:
   `docs/guides/surrogates_arena_gateway.md`.
 - Regime arena (`pinneapple_arena.regimes.run_regime_arena`): ranks methods per regime (interpolation, few data,
   extrapolation, geometry change, steep fronts) over several seeds with equal data, budget and stopping rule, with
