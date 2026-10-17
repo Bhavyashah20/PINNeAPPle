@@ -61,6 +61,7 @@
     * [Colab notebooks](guides/colab_notebooks.md)
     * [PINNeAPPle from coding agents (MCP server)](guides/mcp_server.md)
     * [Physics checks in CI](guides/physics_checks_in_ci.md)
+    * [FMI import compatibility](guides/fmi_compatibility.md)
     * [Spectral fidelity: what relative L2 does not see](guides/spectral_fidelity.md)
     * [Validation methods reference](guides/validation_methods_reference.md)
     * [Evidence ledger: a test passed only if it ran](guides/evidence_ledger.md)
