@@ -145,3 +145,11 @@ def test_infeasible_space_is_reported():
     space = _space(["a > 2"])
     with pytest.raises(ValueError, match="constraints"):
         design(space, 5, "lhs", max_candidates=2000)
+
+
+def test_coverage_of_a_categorical_counts_its_values():
+    space = ParameterSpace(name="s", parameters=[Parameter(name="a", low=0, high=1),
+                                                 Parameter(name="m", kind="categorical", values=["x", "y", "z"])])
+    plan = plan_campaign(space, 30, "lhs", seed=0)
+    assert plan.coverage_planned["projection_1d"]["m"] == 1.0          # all 3 categories used
+    assert plan.coverage_planned["projection_1d"]["a"] == 1.0          # LHS: every one of the 30 bins

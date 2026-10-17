@@ -18,7 +18,7 @@ from .designs import greedy_maximin
 
 
 def coverage(unit: np.ndarray, names: list[str] | None = None, *, n_probe: int = 2 ** 14, seed: int = 0,
-             bins_2d: int | None = None) -> dict[str, Any]:
+             bins_2d: int | None = None, levels: dict[str, int] | None = None) -> dict[str, Any]:
     """Space-coverage metrics of points in [0, 1]^d.
 
     ``discrepancy``      centred L2 discrepancy (scipy ``qmc.discrepancy``, method "CD"): lower is more uniform
@@ -26,7 +26,8 @@ def coverage(unit: np.ndarray, names: list[str] | None = None, *, n_probe: int =
     ``mean_nn_distance`` mean distance to the nearest other point
     ``fill_distance``    largest distance from any probe point of the cube to its nearest case: the biggest hole
     ``ideal_spacing``    (1/n)^(1/d), the spacing of a regular grid with n points, to read the distances against
-    ``projection_1d``    per parameter: fraction of n equal bins (or of the categories) holding at least one case
+    ``projection_1d``    per parameter: fraction of n equal bins holding at least one case; for a discrete parameter
+                         with k values (``levels``), of min(n, k) bins
     ``projection_2d``    per pair of parameters: fraction of b x b cells holding a case (b = floor(sqrt(n)))
     """
     unit = np.atleast_2d(np.asarray(unit, float))
@@ -46,7 +47,8 @@ def coverage(unit: np.ndarray, names: list[str] | None = None, *, n_probe: int =
     out["fill_distance"] = float(tree.query(probe)[0].max())
     p1 = {}
     for j, nm in enumerate(names):
-        p1[nm] = float(len(np.unique(np.minimum((clipped[:, j] * n).astype(int), n - 1))) / n)
+        b1 = min(n, int((levels or {}).get(nm, n)))
+        p1[nm] = float(len(np.unique(np.minimum((clipped[:, j] * b1).astype(int), b1 - 1))) / b1)
     out["projection_1d"] = p1
     b = bins_2d or max(2, int(math.floor(math.sqrt(n))))
     p2 = {}

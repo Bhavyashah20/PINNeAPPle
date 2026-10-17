@@ -157,9 +157,12 @@ def plan_campaign(space: ParameterSpace, n: int | None = None, method: str = "lh
     width = max(3, len(str(len(kept))))
     kept.insert(0, "case_id", [f"{id_prefix}_{i + 1:0{width}d}" for i in range(len(kept))])
     names = [p.name for p in space.free]
-    cov_plan = coverage(unit, names, seed=seed) if len(unit) else {"n": 0}
-    cov_ex = coverage(ex_unit, names, seed=seed) if ex_unit is not None else None
-    cov_all = coverage(np.vstack([ex_unit, unit]), names, seed=seed) if ex_unit is not None and len(unit) else None
+    levels = {p.name: len(p.values) if p.kind == "categorical" else int(p.high - p.low) + 1
+              for p in space.free if p.kind in ("categorical", "integer")}
+    cov_plan = coverage(unit, names, seed=seed, levels=levels) if len(unit) else {"n": 0}
+    cov_ex = coverage(ex_unit, names, seed=seed, levels=levels) if ex_unit is not None else None
+    cov_all = (coverage(np.vstack([ex_unit, unit]), names, seed=seed, levels=levels)
+               if ex_unit is not None and len(unit) else None)
     red_summary = {**red, "cases": [flags[i] for i in np.flatnonzero(keep)]}
     if outside is not None:
         red_summary["n_existing_outside_space"] = int(len(outside))
