@@ -14,6 +14,29 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Surrogates from simulation results (`pinneapple_analysis.surrogate`): `run_study` trains every applicable method
+  (polynomial ridge, Gaussian process, gradient-boosted trees, MLP, FNO, DeepONet, and a PINN when a PDE is
+  declared) on the same splits and `ComputeBudget`, measures them on a held-out split and a distribution-shift split
+  (held-out groups, the edge of the input space, or one end of an input), selects by validation error and packages
+  the result as a `SurrogateModel` (predict with an OOD gate, save / load with a sha256 check, TorchScript and ONNX
+  export, ModelRef fields). The limitations report gives validity bounds, the OOD gate, where the errors concentrate
+  and the PDE residual of predicted fields; a `TrustReport` decides. Readers for CSV, Parquet, JSON, HDF5 and NPZ;
+  examples that need no download (the OpenFOAM airfoil campaign, exact Burgers fields and an FDM baseline);
+  `surrogate.contracts` converts data, models, studies and arena results to and from the shared contracts
+  (`DatasetSpec`, `ModelRef`, `StudyResult` of `pinneapple_data.contracts`). Guide:
+  `docs/guides/surrogates_arena_gateway.md`.
+- Regime arena (`pinneapple_arena.regimes.run_regime_arena`): ranks methods per regime (interpolation, few data,
+  extrapolation, geometry change, steep fronts) over several seeds with equal data, budget and stopping rule, with
+  training and inference cost, model size, physics violations of declared constraints, numerical-solver baselines
+  and an audit of the splits by `pinneapple_data.audit`.
+- Model gateway (`pinneapple_registry.ModelGateway`, on `ModelStore`): versioned endpoints for surrogates, zoo
+  models and ONNX graphs, one `predict` that enforces each version's OOD policy (warn or refuse; callers may only
+  tighten it), a run log, operational metrics (calls, rows, errors, OOD rows, latency p50 / p95) and exports.
+  `pinneapple_registry.gateway_api.gateway_router` is its REST shape (`/v1/models/...`), shared by the apps that
+  serve models. `GatewayClient` calls it from Python with the standard library only. A `remote` kind serves another
+  app's model through this gateway, with local validity bounds, policy, logging and metering. `publish_ref` publishes
+  from a `ModelRef` (`zoo:<name>` or an http(s) gateway URI).
+- `pinneapple_data.audit.constraint_mask`: the evaluator of declared constraints, public for checking predictions.
 - Engineering Sensitivity Lab (`apps/sensitivity_lab`, day 16, sensitivity.pinneapple.org, port 8099): Sobol indices
   with bootstrap intervals, Morris screening, interactions, PDP/ICE curves, autodiff derivatives and the freeze
   recommendation with its re-run check, for a model, runs done in a solver (design CSV round trip) or a dataset.
