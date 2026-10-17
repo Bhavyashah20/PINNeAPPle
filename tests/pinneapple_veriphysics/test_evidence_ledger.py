@@ -259,3 +259,20 @@ def test_uploads_are_written_safely_and_tables_become_csv(tmp_path):
     cfg, done = tables_to_csv(tmp_path, '[[result]]\npath = "probe.json"\n')
     assert done == {"probe.json": "probe.csv"} and '"probe.csv"' in cfg
     assert pd.read_csv(tmp_path / "probe.csv")["T"].tolist() == [300.0, 310.0]
+
+
+def test_trust_card_checks_are_recorded_and_na_reads_not_run():
+    np = pytest.importorskip("numpy")
+    import pinneapple as pp
+    from pinneapple_veriphysics.ledger import record_checks
+
+    x = y = np.linspace(0, 1, 21)
+    X, Y = np.meshgrid(x, y, indexing="ij")
+    led = EvidenceLedger()
+    t0 = utc_now()
+    card = pp.trust_card({"x": x, "y": y}, X + Y, pde="laplace", dirichlet={"x_min": lambda P: P[:, 1]})
+    record_checks(led, card.checks, prefix="plate", inputs_sha256=sha256_bytes((X + Y).tobytes()), started_at=t0,
+                  finished_at=utc_now(), tool="pp.trust_card")
+    assert led.status("plate/PDE residual") == "passed" and led.latest("plate/PDE residual").category == "verification"
+    assert led.status("plate/boundary condition on x_min") == "passed"
+    assert led.status("plate/reference (relative L2)") == NOT_RUN          # N/A: no reference was given
