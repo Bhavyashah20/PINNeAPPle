@@ -51,7 +51,7 @@ from pinneapple_analysis.surrogate.pde import parse_pde
 from pinneapple_analysis.surrogate.splits import make_splits
 from pinneapple_analysis.surrogate.study import _sample_error
 
-__all__ = ["REGIMES", "ArenaResult", "run_regime_arena", "NOT_IN_LIBRARY"]
+__all__ = ["REGIMES", "ArenaResult", "run_regime_arena", "arena_markdown", "NOT_IN_LIBRARY"]
 
 REGIMES = {
     "interpolation": "random held-out samples inside the training distribution",
@@ -89,6 +89,59 @@ class ArenaResult:
                 "rankings": self.rankings, "overall": self.overall, "baselines": self.baselines, "audit": self.audit,
                 "created": self.created, "hardware": self.hardware, "wall_s": self.wall_s, "notes": self.notes,
                 "not_run": NOT_IN_LIBRARY}
+
+    def to_markdown(self, title: str = "") -> str:
+        return arena_markdown(self.to_dict(), title)
+
+
+def arena_markdown(r: dict[str, Any], title: str = "") -> str:
+    """A comparative report from ``ArenaResult.to_dict()`` (also from a stored result file)."""
+    f = lambda v: "—" if v is None else f"{v:.4g}"  # noqa: E731
+    p, pr, hw = r["problem"], r["protocol"], r.get("hardware", {})
+    budget = ", ".join(f"{v:g} {k}" for k, v in pr["budget"].items() if v is not None)
+    out = [f"# {title or 'Regime arena'}", "",
+           f"Run {r['created']} on {hw.get('cpu', '?')} ({hw.get('logical_cpus', '?')} logical CPUs, torch "
+           f"{hw.get('torch', '?')}), {r.get('wall_s', 0):.0f} s in total. Dataset sha256 `{pr['dataset_sha256'][:16]}`, "
+           f"{p['n_samples']} samples ({p['kind']}), inputs {', '.join(p['inputs'])}, outputs {', '.join(p['outputs'])}.",
+           "", "## Protocol", "", f"- Metric: {pr['metric']} — {pr['metric_definition']}.",
+           f"- Budget per training run: {budget}; seeds {pr['seeds']}; split seed {pr['split_seed']}.",
+           f"- {pr['equal_data']}.", f"- Stopping: {pr['stopping']}.", f"- Hyper-parameters: {pr['hyperparameters']}.",
+           *[f"- {n}" for n in r.get("notes", [])], "", "## Regimes", ""]
+    for g in r["regimes"]:
+        out.append(f"- **{g['title']}**: " + (f"{g['description']} ({g['n_train']} training, {g['n_eval']} evaluated)"
+                                              if g["available"] else f"not run — {g['reason']}"))
+    out += ["", "## Rankings (mean ± std over seeds; lower is better)", ""]
+    regs = list(r["rankings"])
+    out += ["| method | " + " | ".join(x.replace("_", " ") for x in regs) + " | mean rank |",
+            "|---" * (len(regs) + 2) + "|"]
+    mr = {o["method"]: o["mean_rank"] for o in r["overall"]}
+    for m in sorted([m for m in r["methods"] if m["applicable"]], key=lambda m: mr.get(m["id"], 1e9)):
+        cells = []
+        for g in regs:
+            x = next((y for y in r["rankings"][g] if y["method"] == m["id"]), None)
+            cells.append("—" if x is None else f"{f(x['error_mean'])} ± {f(x['error_std'])} (#{x['rank']})")
+        out.append(f"| {m['title']} | " + " | ".join(cells) + f" | {f(mr.get(m['id']))} |")
+    out += ["", "## Cost and physics", "", "| method | train s | inference s/query | model bytes | parameters | "
+            "constraint violations | PDE residual / data |", "|---|---|---|---|---|---|---|"]
+    for m in r["methods"]:
+        if not m["applicable"]:
+            continue
+        c = m.get("cost", {})
+        v = "; ".join(f"{k}: {100 * x:.1f} %" for k, x in m.get("violations", {}).items()) or "—"
+        out.append(f"| {m['title']} | {f(c.get('train_s'))} | {f(c.get('infer_s_per_query'))} | "
+                   f"{f(c.get('size_bytes'))} | {f(c.get('n_params'))} | {v} | {f(m.get('pde_residual_ratio'))} |")
+    for b in r.get("baselines", []):
+        out.append(f"| baseline: {b['id']} ({b.get('description', '')}) | — | {f(b.get('s_per_query'))} | — | — | "
+                   + ("; ".join(f"{k}: {100 * x:.1f} %" for k, x in b.get("violations", {}).items()) or "—")
+                   + f" | {f(b.get('pde_residual_ratio'))} |")
+        out.append(f"|  error of the baseline (interpolation): {f(b.get('error_mean'))} | | | | | | |")
+    out += ["", "## Not run", ""]
+    out += [f"- {m['title']}: {m['reason']}" for m in r["methods"] if not m["applicable"]]
+    out += [f"- {k}: {v}" for k, v in r.get("not_run", {}).items()]
+    a = r.get("audit", {})
+    out += ["", f"## Dataset audit: {a.get('decision', '—')}", "", f"{a.get('tool', '')}", ""]
+    out += [f"- {c['status']}: {c['id']} — {c['summary']}" for c in a.get("checks", [])]
+    return "\n".join(out) + "\n"
 
 
 def _steepness(data: SurrogateData, idx: np.ndarray) -> np.ndarray:

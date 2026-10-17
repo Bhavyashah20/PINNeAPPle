@@ -41,6 +41,8 @@ def test_regime_arena_scalar():
     assert o["audit"]["decision"] in ("pass", "warn", "fail") and o["audit"]["checks"]
     assert o["protocol"]["budget"]["steps"] == 60 and o["hardware"] and o["created"]
     assert set(NOT_IN_LIBRARY) <= set(o["not_run"])
+    md = r.to_markdown("demo")
+    assert md.startswith("# demo") and "## Rankings" in md and "steep fronts" in md and "R-OAMS" in md
 
 
 def test_regime_arena_fields_with_baseline():
