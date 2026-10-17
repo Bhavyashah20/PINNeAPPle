@@ -393,8 +393,12 @@ class AirfoilProblem(Problem):
         A.set_data_dir(self._prepared)
         S = A.splits()
         shapes = sorted({r["shape_id"] for r in S["test"]})[:2]
-        test = [f"{s}_a{b}" for s in shapes for b in (1, 2)]
-        val = sorted(r["id"] for r in S["val"] if r["id"].endswith("_a1"))[0]
+        have = {r["id"] for r in S["test"]}
+        test = [f"{s}_a{b}" for s in shapes for b in (1, 2) if f"{s}_a{b}" in have]
+        if not test:                                     # small campaigns (smoke): whatever angles the two shapes have
+            test = sorted(i for i in have if i.rsplit("_a", 1)[0] in shapes)[:4]
+        val_ids = sorted(r["id"] for r in S["val"])
+        val = next((i for i in val_ids if i.endswith("_a1")), val_ids[0])
         ood = [c for c in PINN_OOD if c in {r["id"] for r in S.get("ood", [])}]
         return {"val": val, "test": test, "naca": "NACA2412_a+04", "ood": ood}
 
