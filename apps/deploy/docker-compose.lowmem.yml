@@ -56,3 +56,6 @@ services:
   validate:
     command: ["uvicorn", "validation_lab.api:app", "--host", "0.0.0.0", "--port", "8107", "--workers", "1"]
     mem_limit: 700m
+  evidence:
+    command: ["uvicorn", "evidence_report.api:app", "--host", "0.0.0.0", "--port", "8113", "--workers", "1"]
+    mem_limit: 900m     # torch for the example study (~450 MB while it trains)

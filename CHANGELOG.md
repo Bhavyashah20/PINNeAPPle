@@ -14,6 +14,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Engineering Evidence Report app (day 30, `apps/evidence_report`, evidence.pinneapple.org, port 8113). It
+  turns the outputs of a study into a report (HTML, PDF) with methodology, conditions, baseline comparison,
+  tests, limitations and artifact references by SHA-256 and URL, and into an evidence package (zip with a SHA-256
+  manifest). A test is printed as passed only when its own evidence record shows it ran; otherwise it reads "not
+  run". The example runs a real FEM-vs-PINN study. Deployed with `apps/deploy` (service `evidence`).
 - Physics Validation Lab app (day 24, `apps/validation_lab`, validate.pinneapple.org, port 8107). Give it
   predictions or results with a form, a `pinneapple check` configuration or a zoo ModelRef. It reports numerical
   verification, validation against data and physical consistency separately, lists the groups that did not run,
