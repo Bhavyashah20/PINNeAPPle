@@ -18,7 +18,7 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   - `ledger`: `EvidenceEntry` / `EvidenceLedger`. Each entry records the check, the SHA-256 of its inputs, its
     outputs, start and finish times and the verdict, sealed with the SHA-256 of its content. `status()` is
     "passed" or "failed" only for a complete, intact entry; anything else reads "not run" (an edited entry, a
-    crash, a missing hash or time).
+    crash, a missing hash or time). `record_checks` records the checks of a trust card (N/A checks get no entry).
   - `validation_lab`: runs `pinneapple check` on the inputs of a folder and groups the outcomes into numerical
     verification, validation against data and physical consistency. Per target, it lists the groups in which
     nothing ran. Every outcome gets a ledger entry; the report holds the input manifest with hashes and the

@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any
 
 __all__ = ["EvidenceEntry", "EvidenceLedger", "sha256_bytes", "sha256_file", "sha256_json", "canonical_json",
-           "utc_now", "PASSED", "FAILED", "NOT_RUN", "LEDGER_SCHEMA"]
+           "utc_now", "record_checks", "PASSED", "FAILED", "NOT_RUN", "LEDGER_SCHEMA"]
 
 PASSED, FAILED, NOT_RUN = "passed", "failed", "not run"
 LEDGER_SCHEMA = "pinneapple-evidence-ledger/v1"
@@ -212,3 +212,30 @@ class EvidenceLedger:
         """Entries are taken as stored (never re-sealed), so an edited entry stays invalid."""
         items = d.get("entries", []) if isinstance(d, dict) else d
         return cls([EvidenceEntry.from_dict(x) for x in items if isinstance(x, dict) and x.get("check_id")])
+
+
+def _check_category(name: str, kind: str) -> str:
+    n, k = name.lower(), kind.lower()
+    if "residual" in n or k in ("sanity", "numerics", "verification"):
+        return "verification"
+    if k in ("reference", "generalization", "validation", "benchmark"):
+        return "validation"
+    return "physics" if k else ""
+
+
+def record_checks(ledger: EvidenceLedger, checks: Iterable[Any], *, prefix: str, inputs_sha256: str,
+                  started_at: str, finished_at: str, tool: str = "", tool_version: str = "") -> list[EvidenceEntry]:
+    """Record the checks of a trust card (``pp.trust_card(...).checks`` or its ``to_dict()["checks"]``): one entry
+    per check that ran, under ``f"{prefix}/{name}"``. A check with ``passed is None`` (N/A) did not run and gets no
+    entry, so it reads "not run"."""
+    out = []
+    for c in checks:
+        d = c if isinstance(c, dict) else vars(c)
+        if d.get("passed") is None:
+            continue
+        out.append(ledger.record(f"{prefix}/{d['name']}", passed=bool(d["passed"]), inputs_sha256=inputs_sha256,
+                                 outputs={k: d.get(k) for k in ("value", "threshold", "critical", "detail")},
+                                 started_at=started_at, finished_at=finished_at, name=str(d["name"]),
+                                 category=_check_category(str(d["name"]), str(d.get("kind", ""))), tool=tool,
+                                 tool_version=tool_version))
+    return out
