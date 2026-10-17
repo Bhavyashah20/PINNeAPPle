@@ -85,6 +85,13 @@ _SPECS = [
     CheckSpec("robustness.fault_injection", "robustness", "checks detect injected faults (check power)", "", 3,
               False),
     CheckSpec("rollout", "validation", "long rollouts keep invariants and spectra", "", 3, False),
+    CheckSpec("rollout.finite", "solution_verification", "the rollout stays finite", "", 3),
+    CheckSpec("rollout.invariant", "solution_verification", "conserved quantities stay constant along the rollout",
+              "PC105", 3),
+    CheckSpec("rollout.invariants", "validation", "invariants follow the reference trajectory", "", 3, False),
+    CheckSpec("rollout.spectrum", "validation", "small-scale energy kept along the rollout", "PC704", 3, False),
+    CheckSpec("rollout.horizon", "uncertainty", "trust horizon (first divergence from the reference)", "", 2, False),
+    CheckSpec("rollout.statistics", "validation", "long-run statistics match the reference attractor", "", 3),
     CheckSpec("applicability.range", "applicability", "queries inside the validity range", "PC601", 3),
     CheckSpec("applicability.envelope", "applicability", "query inputs inside the training envelope", "PC601", 3),
 ]

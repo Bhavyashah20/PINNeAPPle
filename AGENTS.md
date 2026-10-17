@@ -30,6 +30,7 @@ On Colab: the notebooks in [`notebooks/colab/`](notebooks/colab/README.md) insta
 | Compare methods on the same points | `pp.compare(problem, methods, reference=...)` |
 | Check a result | `pp.trust_card(grid, values, pde=..., dirichlet=..., reference=..., train_bounds=...)` (decision APPROVED / REVIEW / REJECT) |
 | Validate a model (zoo, PyTorch, ONNX, callable) | `pp.validate(model, problem, data=..., query=..., level="quick" / "standard" / "thorough")` (credibility per factor, decision pass / warn / fail; [docs](docs/guides/pp_validate.md)) |
+| Validate an autoregressive rollout (trust horizon, drift, long-run statistics) | `pinneapple_analysis.validation.rollout.validate_rollout(pred, ndim, ref, long_ref=...)` or `pp.validate(step, {"rollout": {...}}, data=...)` ([docs](docs/guides/rollout_validation.md)) |
 | Deploy decision from your own checks | `pinneapple_analysis.trust.TrustReport`, `Check` |
 | Which methods are validated | `pinneapple_catalog.validated_methods()`, `pinneapple_catalog.methods.method_status()` |
 | Equal-budget benchmark | `pp.compare` with the same epochs / collocation / seeds per method (below); `pp.benchmark.run(...)` where installed |
