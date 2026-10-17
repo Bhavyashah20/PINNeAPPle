@@ -356,6 +356,17 @@ cost = [
   "psutil>=5.9",
 ]
 
+# Surrogate studies, regime arena and model gateway (pinneapple_analysis.surrogate, pinneapple_arena.regimes,
+# pinneapple_registry.gateway): GP / ridge / trees, Parquet and HDF5 readers, ONNX export and serving.
+# XGBoost is used when installed (else scikit-learn's gradient boosting).
+surrogate = [
+  "scikit-learn>=1.4",
+  "pyarrow>=14",
+  "h5py>=3.8",
+  "onnx>=1.15",
+  "onnxruntime>=1.17",
+]
+
 # Dev tools
 dev = [
   "ruff>=0.5",
