@@ -192,3 +192,14 @@ def test_zoo_model_with_injected_asymmetry_fails(zoo):
     r = rep["camber-mirror-lift"]
     assert not r.passed and r.worst == pytest.approx(6.0, rel=0.25)  # |-(Cl+0.03) - (-Cl+0.03)| / 0.01 = 6
     assert set(r.counterexample["input"]) >= {"M0", "alpha_deg"}
+
+
+def test_relation_expressions_cannot_run_code():
+    from pinneapple_analysis.validation.metamorphic import _expr_map
+    f = _expr_map({"q": "4 * q", "a": "-sin(a) + pi"})
+    out = f({"q": np.array([1.0, 2.0]), "a": np.array([0.0, 0.0])})
+    assert np.allclose(out["q"], [4, 8]) and np.allclose(out["a"], np.pi)
+    for bad in ("().__class__.__base__.__subclasses__()", "q[0]", "__import__('os')", "open('x')",
+                "sin(q, out=q)"):
+        with pytest.raises(ValueError):
+            _expr_map({"q": bad})({"q": np.array([1.0])})

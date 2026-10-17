@@ -53,3 +53,40 @@ def test_point_cloud_residual_decreases_with_density():
         e = equations("heat", PointD(P, {"T": T}, ["x", "y"]), HEAT)[0][0]
         vals.append(rel_rms(e.residual, e.terms, e.mask, e.scale))
     assert vals[0] > vals[1] > vals[2]
+
+
+def _write_case(tmp_path, n_x):
+    x, y = np.linspace(0, 1, n_x), np.linspace(0, 1, 30)
+    X, Y = np.meshgrid(x, y, indexing="ij")
+    np.savez(tmp_path / "plate.npz", x=x, y=y, T=300.0 + X + Y)
+    np.savez(tmp_path / "other.npz", x=y, y=y, T=np.full((30, 30), np.nan))
+    (tmp_path / "pinneapple-check.toml").write_text(
+        '[[result]]\nname = "plate"\npath = "plate.npz"\nphysics = "heat"\nunits = { T = "K" }\n'
+        '[[result]]\nname = "other"\npath = "other.npz"\nunits = { T = "K" }\n')
+    return tmp_path
+
+
+def test_two_point_axis_is_not_evaluated_instead_of_crashing(tmp_path):
+    # regression: numpy.gradient(edge_order=2) raised "Shape of array too small" and the whole run ended with a
+    # traceback; an empty interior must not count as a passing residual either
+    from pinneapple_check import run
+    rep = run([_write_case(tmp_path, 2)])
+    assert not [o for o in rep.outcomes if o.rule == "PC301"]
+    assert any("residual not evaluated" in n for n in rep.notes)
+    assert any(o.rule == "PC403" and not o.passed for o in rep.outcomes)      # the other target was still checked
+
+
+def test_a_crashing_check_is_an_error_on_its_target_and_the_run_goes_on(tmp_path, monkeypatch):
+    import pinneapple_check.engine as engine
+    real = engine.check_result
+
+    def boom(ctx, t):
+        if t.name == "plate":
+            raise RuntimeError("simulated bug")
+        return real(ctx, t)
+    monkeypatch.setattr(engine, "check_result", boom)
+    rep = engine.run([_write_case(tmp_path, 30)])
+    crash = [o for o in rep.outcomes if o.rule == "PC001" and not o.passed]
+    assert crash and "simulated bug" in crash[0].message
+    assert any(o.rule == "PC403" and o.target == "other" for o in rep.outcomes)
+    assert rep.exit_code("error") != 0
