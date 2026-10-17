@@ -191,6 +191,127 @@ def facts_tip(lang: str = "en", seed: int | None = None):
     return facts.did_you_know(_lang(lang), seed)
 
 
+# ------------------------------------------------------------------------------------------- observing session
+_SURVEY_DOWN = {"t": 0.0}
+
+
+def _observe_target(target: str):
+    """(spec for pinneapple_physics.astro.observing, display info) for a body, star:HR, M<n>, con-.. or facts id."""
+    from pinneapple_physics.astro import facts
+    key = target.strip().lower()
+    if key in BODIES:
+        return key, {"id": key, "kind": "body"}
+    try:
+        oid = facts.resolve(target)
+    except KeyError as exc:
+        raise _error(404, "unknown_target", str(exc), value=target) from exc
+    pos = facts.position(oid)
+    if pos is None:
+        raise _error(404, "unknown_target", f"{target!r} has no fixed position", value=target)
+    info = {"id": oid, "kind": facts.ids()[oid], "ra_deg": pos[0], "dec_deg": pos[1]}
+    size = facts.numbers(oid).get("size_arcmin")
+    if size:
+        info["size_arcmin"] = size["value"]
+    if oid.startswith("star-"):
+        info["hr"] = int(oid[5:])
+    return pos, info
+
+
+@app.get("/api/observe/presets")
+def observe_presets():
+    from dataclasses import asdict
+
+    from pinneapple_physics.astro import observing as ob
+    return {"telescopes": {k: asdict(v) for k, v in ob.TELESCOPES.items()},
+            "eyepieces": {k: asdict(v) for k, v in ob.EYEPIECES.items()},
+            "cameras": {k: asdict(v) for k, v in ob.CAMERAS.items()}, "survey_credit": ob.SURVEY_CREDIT}
+
+
+@app.get("/api/observe/plan")
+def observe_plan(target: str = "saturn", lat: float = Query(-23.5505), lon: float = Query(-46.6333), elev: float = 0.0,
+                 t: str | None = None, hours: float = Query(24.0, gt=1, le=48), step_min: float = Query(5.0, ge=1, le=30),
+                 min_alt: float = Query(30.0, ge=0, le=80)):
+    """The night for a target: altitude / air mass / extinction / sky brightness / field rotation curves, rise,
+    transit and set, twilight, the Moon, the best window (pinneapple_physics.astro.observing.visibility)."""
+    from pinneapple_physics.astro import observing as ob
+    spec, info = _observe_target(target)
+    tt, obs = _time(t), _obs(lat, lon, elev)
+    with _HEAVY:
+        v = ob.visibility(spec, obs, tt, hours, step_min, min_alt, eph=EPH)
+    return {**v, "target": info, "t": tt.iso()}
+
+
+@app.get("/api/observe/optics")
+def observe_optics(telescope: str = "newton200", eyepiece: str | None = "plossl25", camera: str | None = None,
+                   aperture_mm: float | None = Query(None, gt=5, le=2000), focal_mm: float | None = Query(None, gt=10, le=40000)):
+    from pinneapple_physics.astro import observing as ob
+    if aperture_mm and focal_mm:
+        tel = ob.Telescope(f"{aperture_mm:g} mm f/{focal_mm / aperture_mm:.1f}", aperture_mm, focal_mm, "custom")
+    elif telescope in ob.TELESCOPES:
+        tel = ob.TELESCOPES[telescope]
+    else:
+        raise _error(404, "unknown_preset", f"unknown telescope {telescope!r}", value=telescope)
+    ep = ob.EYEPIECES.get(eyepiece) if eyepiece else None
+    cam = ob.CAMERAS.get(camera) if camera else None
+    return ob.optics(tel, ep, cam)
+
+
+@app.get("/api/observe/slew")
+def observe_slew(from_alt: float, from_az: float, to_alt: float, to_az: float, lat: float = -23.5505,
+                 mount: str = Query("altaz", pattern="^(altaz|equatorial)$"), rate: float = Query(4.0, gt=0.1, le=20)):
+    from pinneapple_physics.astro import observing as ob
+    return ob.slew((from_alt, from_az), (to_alt, to_az), lat, mount, rate_deg_s=rate)
+
+
+@app.get("/api/observe/weather")
+def observe_weather(lat: float = Query(-23.5505), lon: float = Query(-46.6333), t: str | None = None,
+                    mode: str = Query("real", pattern="^(real|perfect)$"),
+                    force: str | None = Query(None, pattern="^(clear|cloudy)$")):
+    """Cloud cover from the Open-Meteo forecast and what it leaves of the view ("real sky"), or no weather at all
+    ("perfect sky"). Without a forecast "real" falls back to "perfect" and says so. ``force`` replaces the
+    forecast by a clear or overcast one (demos, tests); OBS_WEATHER_FILE reads a saved forecast (offline)."""
+    from pinneapple_physics.astro import conditions as cd
+    tt = _time(t)
+    fc, err = None, None
+    if force:
+        jd0 = math.floor(float(tt.utc) * 24) / 24
+        fc = {"time": [Time(jd0 + h / 24).iso() for h in range(-24, 73)], "cloud_cover": [100 if force == "cloudy" else 0] * 97,
+              "source": f"forced {force} forecast"}
+    elif os.environ.get("OBS_WEATHER_FILE"):
+        fc = json.load(open(os.environ["OBS_WEATHER_FILE"]))
+    elif mode == "real":
+        try:
+            fc = _forecast(round(lat, 2), round(lon, 2), int(time.time() // 1800))
+        except Exception as exc:  # noqa: BLE001
+            err = type(exc).__name__
+    view = cd.sky_view(mode, fc, tt.iso())
+    return {**view, "forecast": fc, "error": err, "threshold": cd.CLOUDY_PCT}
+
+
+@lru_cache(maxsize=64)
+def _forecast(lat, lon, half_hour):
+    from pinneapple_physics.astro import conditions as cd
+    return cd.fetch_cloud_forecast(lat, lon)
+
+
+@app.get("/api/observe/field.jpg")
+def observe_field(ra: float = Query(..., ge=0, le=360), dec: float = Query(..., ge=-90, le=90),
+                  fov: float = Query(1.0, gt=0.01, le=10), size: int = Query(512, ge=64, le=1024)):
+    """A survey cut-out (DSS2 colour from CDS hips2fits) around a position, cached on the server. 503 when the
+    survey cannot be reached (the page then draws the field from the star catalogue)."""
+    from pinneapple_physics.astro import observing as ob
+    if os.environ.get("OBS_SURVEY", "1") == "0" or time.time() - _SURVEY_DOWN["t"] < 600:
+        raise _error(503, "no_survey", "survey images unavailable")
+    cache = os.path.join(os.environ.get("OBS_CACHE_DIR") or os.path.expanduser("~/.cache/pinneapple"), "hips")
+    try:
+        data = ob.survey_cutout(ra, dec, fov, size, size, cache_dir=cache, timeout=6.0)
+    except Exception as exc:  # noqa: BLE001
+        _SURVEY_DOWN["t"] = time.time()
+        raise _error(503, "no_survey", f"survey images unavailable ({type(exc).__name__})") from exc
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800",
+                                                           "X-Credit": ob.SURVEY_CREDIT.encode("ascii", "replace").decode()})
+
+
 # ------------------------------------------------------------------------------------------------------- sky
 def _body_now(b: str, t: Time, obs: Observer) -> dict:
     p = apparent(b, t, obs)

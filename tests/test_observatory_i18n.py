@@ -15,7 +15,7 @@ JS = sorted(f for f in os.listdir(STATIC) if f.endswith(".js"))
 
 # Tokens that are the same in both languages: units, symbols, catalogue designations, proper names, code words.
 ALLOW = {
-    "km", "nm", "pm", "mas", "pc", "mag", "kpc", "Mpc", "µas", "AU", "UA", "HR", "HD", "NGC", "IC", "NORAD", "TLE",
+    "km", "nm", "pm", "mas", "mm", "pc", "mag", "kpc", "Mpc", "µas", "AU", "UA", "HR", "HD", "NGC", "IC", "NORAD", "TLE",
     "UTC", "LST", "JPL", "DE421", "SGP4", "PINN", "PINNeAPPle", "EHT", "IAU", "BSC5", "ISS", "Kp",
     "F10", "Ap", "CD", "Teff", "M_V", "M87", "Sgr", "GM", "RA", "Dec", "rgb", "px", "deg", "lst", "RK4", "MK",
     "Hα", "ISCO", "NEO", "NRLMSIS", "SBDB", "DSS2", "CDS", "hips2fits", "Open", "Meteo", "NASA", "SIMBAD", "Yoshida",
@@ -153,7 +153,7 @@ SKIP_CONTEXT = re.compile(r"(?:\bt|tOr|has|querySelector(?:All)?|\$|getElementBy
                           r"removeEventListener|classList\.\w+|getAttribute|setAttribute|dataset|import|from|"
                           r"fetch|api|load|loader\.load|new THREE\.Color|Color|set|setStyle|matchMedia|"
                           r"setItem|getItem|createElement|Error|startsWith|includes|split|replace|test|"
-                          r"getContext|toggle|Event|CustomEvent)\s*\(\s*$|\bfrom\s*$|\bimport\s*$|\bcase\s*$|===?\s*$|!==?\s*$")
+                          r"getContext|toggle|Event|CustomEvent)\s*\(\s*$|\bfrom\s*$|\bimport\s*$|\bcase\s*$|===?\s*$|!==?\s*$|\.(?:font|filter|textAlign|fillStyle|strokeStyle)\s*=\s*$")
 
 
 def _is_shader(text: str) -> bool:

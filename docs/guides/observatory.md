@@ -34,6 +34,26 @@ interface text is hard-coded in `static/*.js` or `index.html` (a lint over the s
 `apps/observatory/tests/e2e/i18n.spec.js` switches to Portuguese, checks that the main panels have no English left and
 switches back (`cd apps/observatory && npm ci && npx playwright test`).
 
+## Observing session
+
+The **Observe** tab reproduces an observing night. *Plan*: pick the Moon, a planet, a bright star or a Messier object
+and get its altitude curve for the next 24 h with the dark hours shaded, rise / transit / set, astronomical night,
+the Moon and the best window (air mass, Moon separation, sky brightness); a target that never rises from your place is
+flagged. *Telescope*: an 80 mm refractor, a 200 mm Newtonian, an 8" SCT, binoculars or your own aperture and focal
+length, with an eyepiece or a camera: magnification, true field, exit pupil, Dawes / Rayleigh resolution, limiting
+magnitude and image scale. *Slew*: an alt-azimuth or German equatorial GoTo mount moves at a realistic rate
+(trapezoidal profile per axis, horizon limit, meridian flip). *Track*: the eyepiece view stays on the target while time
+runs at 1x to 3600x; the field turns on an alt-az mount (field rotation, shown), stars dim and redden with air mass,
+the sky brightens with twilight and moonlight, seeing blurs the view. *Weather*: "Real sky" uses the Open-Meteo cloud
+forecast and clouds hide the view; "Perfect sky" removes the weather, so any target can be observed on any night. The
+session log keeps notes, snapshots and the conditions. Deep-sky fields use DSS2 colour cut-outs from CDS hips2fits
+(cached on the server and credited in the view); without network the field is drawn from the star catalogue. The
+physics is in `pinneapple_physics.astro.observing`, checked in `tests/test_astro_observing.py`: rise / transit / set
+of the Sun, Moon and three bright stars within a minute of Skyfield at São Paulo and Tromsø, air mass from Kasten &
+Young (1989), the optics formulas, and the field rotation against the parallactic angle.
+
+![Tracking the Pleiades with a 200 mm Newtonian](../assets/apps/14-observatory-observe.jpg)
+
 ## Learn mode
 
 The **Learn** tab (and the end of the Object tab) shows an info card for the Sun, planets, Moon, dwarf planets,

@@ -132,4 +132,15 @@ button.chip:hover { border-color: var(--acc); }
   border: 1px solid rgba(255,207,110,.4); border-radius: 12px; padding: 10px 34px 10px 14px; font-size: 13.5px; }
 .tipbox .x { position: absolute; top: 4px; right: 8px; background: none; border: 0; color: var(--mut); font-size: 18px; cursor: pointer; width: auto; }
 .learn-teaser p { margin: 4px 0; }
-.ptabs button { font-size: 13px; }
+.ptabs button { font-size: 12.5px; padding: 6px 4px; }
+/* observe mode: the eyepiece / camera view */
+#eyepiece { position: fixed; left: 50%; top: 50%; transform: translate(-60%, -52%); width: min(62vmin, 560px); height: min(62vmin, 560px);
+  z-index: 7; border-radius: 50%; overflow: visible; }
+#eyepiece canvas { width: 100%; height: 100%; border-radius: 50%; box-shadow: 0 0 0 3px #1d2635, 0 0 40px #000; background: #000; display: block; }
+#eyepiece .ep-hud { position: absolute; left: 50%; top: calc(100% + 8px); transform: translateX(-50%); width: 140%; text-align: center; font-size: 12.5px;
+  background: var(--glass); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
+#eyepiece .ep-credit { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); font-size: 10.5px; color: #c8d2e2; text-shadow: 0 0 3px #000; width: 70%; text-align: center; }
+#eyepiece .ep-ctl { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); display: flex; gap: 4px; align-items: center; white-space: nowrap; }
+#eyepiece .ep-ctl button { padding: 3px 8px; font-size: 12px; }
+img.logsnap { width: 48px; height: 48px; border-radius: 50%; vertical-align: middle; }
+[hidden] { display: none !important; }

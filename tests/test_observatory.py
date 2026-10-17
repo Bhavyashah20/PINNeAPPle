@@ -167,3 +167,27 @@ def test_facts_endpoints(client):
     assert len(client.get("/api/facts/list?kind=messier").json()["cards"]) == 110
     assert client.get("/api/facts/tip?lang=en&seed=2").json()["text"]
     assert client.get("/api/facts/tip?lang=fr").status_code == 400
+
+
+def test_observe_endpoints(client):
+    from pinneapple_physics.astro import Observer, Time
+    from pinneapple_physics.astro import observing as ob
+    p = client.get(f"/api/observe/plan?target=saturn&{SP}&t={T}&step_min=10").json()
+    ref = ob.visibility("saturn", Observer(-23.5505, -46.6333, 760), Time.from_iso(T), step_min=10)
+    assert p["best_window"]["alt"] == pytest.approx(ref["best_window"]["alt"]) and p["target"]["id"] == "saturn"
+    assert len(p["alt"]) == len(p["extinction"]["V"]) == len(p["sky_mag"]) == len(p["parallactic_deg"])
+    m = client.get(f"/api/observe/plan?target=M31&{SP}&t={T}&step_min=15").json()
+    assert m["target"]["ra_deg"] == pytest.approx(10.68, abs=0.05) and not m["never_rises"]
+    assert client.get(f"/api/observe/plan?target=star:424&{SP}&t={T}&step_min=30").json()["never_rises"]
+    assert client.get(f"/api/observe/plan?target=nowhere&{SP}&t={T}").status_code == 404
+    o = client.get("/api/observe/optics?telescope=newton200&eyepiece=plossl25").json()
+    assert o["magnification"] == pytest.approx(48.0)
+    c = client.get("/api/observe/optics?aperture_mm=150&focal_mm=750&eyepiece=plossl10").json()
+    assert c["magnification"] == pytest.approx(75.0)
+    s = client.get("/api/observe/slew?from_alt=40&from_az=90&to_alt=40&to_az=270&mount=equatorial").json()
+    assert s["ok"] and s["meridian_flip"]
+    w = client.get(f"/api/observe/weather?{SP}&t={T}&force=cloudy").json()
+    assert w["hidden"] and w["mode"] == "real"
+    assert client.get(f"/api/observe/weather?{SP}&t={T}&mode=perfect").json()["hidden"] is False
+    presets = client.get("/api/observe/presets").json()
+    assert "sct8" in presets["telescopes"] and "hips2fits" in presets["survey_credit"]
