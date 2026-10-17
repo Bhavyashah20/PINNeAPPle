@@ -44,6 +44,8 @@ At your DNS provider, create two **A** records (and AAAA records if you use IPv6
 | `lab` | A | `<server IPv4>` |
 | `sky` | A | `<server IPv4>` |
 | `playground` | A | `<server IPv4>` |
+| `runner` | A | `<server IPv4>` |
+| `campaign` | A | `<server IPv4>` |
 
 If the zone is on Cloudflare, set both records to **DNS only** (grey cloud) for the first start, so
 Let's Encrypt can reach Caddy. Check propagation with `dig +short heatsink.example.org`.
@@ -104,7 +106,7 @@ Caddy. Start only the apps, attached to that proxy's Docker network, and add two
 ```bash
 docker inspect <proxy container> --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
 PROXY_NETWORK=<that network> docker compose -f docker-compose.yml -f docker-compose.existing-proxy.yml \
-  up -d --build heatsink pcb datahealth standardizer simmeta udr inverse preflight mesh compare lineage interop aero lab observatory playground
+  up -d --build heatsink pcb datahealth standardizer simmeta udr inverse preflight mesh compare lineage interop aero lab observatory playground runner campaign
 ```
 
 Caddyfile blocks for the existing proxy (then `caddy validate` and `caddy reload` inside its container):
@@ -258,6 +260,28 @@ playground.example.org {
 	encode zstd gzip
 	reverse_proxy pinneapple-playground:8095
 }
+runner.example.org {
+	encode zstd gzip
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy pinneapple-runner:8110 {
+		transport http {
+			read_timeout 120s
+		}
+	}
+}
+campaign.example.org {
+	encode zstd gzip
+	request_body {
+		max_size 110MB
+	}
+	reverse_proxy pinneapple-campaign:8096 {
+		transport http {
+			read_timeout 300s
+		}
+	}
+}
 ```
 
 ## PINNeAPPle Observatory (`observatory`)
@@ -274,6 +298,30 @@ A static site: the zoo models run in the visitor's browser (ONNX), so the contai
 `docker build -f apps/playground/Dockerfile -t pinneapple-playground . && docker run -p 8095:8095 pinneapple-playground`.
 The same build can go to GitHub Pages instead: set the repository variable `PLAYGROUND_PAGES=true` and the docs
 workflow publishes it under `<docs site>/playground/` (see `apps/playground/README.md`).
+
+## Simulation Workflow Runner (`runner`, day 27)
+
+Runs simulation campaigns as DAGs of steps (`pinneapple_core.workflows`) through the shared job queue. The public
+image runs **only the built-in templates** (Python slab heating; the CalculiX beam and OpenFOAM cavity show as
+"needs solver" because the image has neither solver), as an unprivileged user, with case values checked against each
+template's parameter ranges. The Slurm executor only writes sbatch scripts there. Runs, step files, the queue, API
+keys and usage live in the `runner_data` volume (keep it; delete old runs under `/data/runner/workflows/runs/` to
+free space).
+
+Self-hosted (your own machine or cluster head node, behind your own login): set `RUNNER_SELF_HOSTED=1` to accept
+custom workflows (commands, scripts, Docker steps, Slurm submission with `dry_run: false`). That runs whatever the
+caller sends, so never set it on a public server. Install OpenFOAM / CalculiX in the image (or use the Docker
+executor) for the solver templates. Limits: `RUNNER_MAX_JOBS` runs at once, `RUNNER_MAX_CASES` cases per run,
+`RUNNER_FREE_JOBS_RUN` / `RUNNER_FREE_COMPUTE_SECONDS` / `RUNNER_FREE_STORAGE_MB` per principal and month
+(`/api/usage`); API keys via `/api/keys` with `RUNNER_ADMIN_TOKEN` (see `apps/_shared/README.md`).
+## Simulation Campaign Planner (`campaign`)
+
+Day 13, port 8096. It plans campaigns as jobs in the shared runtime queue (`apps/_shared`). Jobs, the files of
+each campaign, API keys, usage and uploads live in the `campaign_data` volume; keep it. The airfoil preset reads
+the 436 OpenFOAM runs shipped inside the library, so the app needs no network. It writes the solver cases but does
+not run them, so neither OpenFOAM nor CalculiX is installed in the image. `CAMPAIGN_FREE_CAMPAIGNS` /
+`CAMPAIGN_FREE_CASES_PLANNED` set the monthly free use per API key, login or IP (`/api/usage`). Keys are created by
+the login user, or with `X-Admin-Token: $CAMPAIGN_ADMIN_TOKEN` (`POST /api/keys`).
 
 ## PINNeAPPle Lab catalogue (`lab`)
 
