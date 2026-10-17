@@ -98,6 +98,7 @@ def test_given_data_first_order_on_a_random_ishigami_sample():
     X = np.random.default_rng(0).uniform(-np.pi, np.pi, (20000, 3))
     out = first_order_given_data(X, ishigami(X), n_boot=20)
     np.testing.assert_allclose(out["S1"], ishigami_indices()["S1"], atol=0.02)
+    assert abs(out["max_input_correlation"]["r"]) < 0.05                # independent sample
 
 
 def test_local_derivatives_autodiff_and_finite_differences_agree_with_the_analytic_gradient():

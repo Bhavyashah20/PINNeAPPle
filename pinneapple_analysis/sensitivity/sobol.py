@@ -220,8 +220,15 @@ def first_order_given_data(X, y, names: Sequence[str] | None = None, n_bins: int
     boots = np.array([est(X[b], y[b]) for b in rng.integers(0, n, size=(n_boot, n))]) if n_boot else S1[None]
     a = (1 - level) / 2
     lo, hi = np.quantile(boots, [a, 1 - a], axis=0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        C = np.corrcoef(X, rowvar=False) if d > 1 else np.ones((1, 1))
+    C = np.nan_to_num(np.atleast_2d(C))
+    off = np.abs(C - np.eye(d))
+    i, j = np.unravel_index(int(np.argmax(off)), off.shape)
     return {"method": "given data: correlation ratio on equal-count bins, bias-corrected", "names": names,
-            "n": n, "n_bins": nb, "S1": S1.tolist(), "S1_ci": [lo.tolist(), hi.tolist()], "level": level}
+            "n": n, "n_bins": nb, "S1": S1.tolist(), "S1_ci": [lo.tolist(), hi.tolist()], "level": level,
+            "input_correlation": C.tolist(),
+            "max_input_correlation": {"pair": [names[i], names[j]], "r": float(C[i, j])} if d > 1 else None}
 
 
 def sobol_from_runs(space, n: int, run_ids, Y, second_order: bool = False, seed: int = 0, n_boot: int = 200,
