@@ -1,4 +1,6 @@
 """pinneapple_arena.regimes (regime arena) and pinneapple_registry.gateway (model gateway)."""
+import copy
+
 import numpy as np
 import pytest
 
@@ -86,7 +88,7 @@ def test_gateway_publish_predict_policies_and_metrics(tmp_path, model):
 
 
 def test_gateway_reject_needs_override(tmp_path, model):
-    sm, _ = model
+    sm = copy.deepcopy(model[0])
     sm.card["trust"] = {"decision": "REJECT", "checks": [{"name": "held-out error", "status": "contradicts"}]}
     g = ModelGateway(str(tmp_path / "gw"))
     with pytest.raises(PermissionError):
@@ -103,3 +105,28 @@ def test_gateway_zoo_model(tmp_path):
     r = g.predict("airfoil", {**naca2412, "alpha_deg": [4.0, 20.0]})
     assert abs(r["outputs"]["Cl"][0] - 0.6625) < 0.05            # OpenFOAM: Cl 0.6625 (zoo card)
     assert r["ood"][1]["outside"] == ["alpha_deg"]
+
+
+def test_gateway_rest_routes(tmp_path, model):
+    pytest.importorskip("fastapi")
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from pinneapple_registry.gateway_api import count_rows, gateway_router
+    sm, _ = model
+    g = ModelGateway(str(tmp_path / "gw"))
+    v = g.publish("demo", sm)
+    seen = []
+    app = FastAPI()
+    app.include_router(gateway_router(g, on_rows=lambda req, n: seen.append(n), caller=lambda req: "tester"))
+    c = TestClient(app)
+    assert c.get("/v1/models").json()["models"][0]["name"] == "demo"
+    assert c.get(f"/v1/models/demo/versions/{v}").json()["model_ref"]["inputs"] == ["a", "b"]
+    r = c.post("/v1/models/demo/predict", json={"inputs": {"a": [0.1, 0.2, 9.0], "b": 0.0}})
+    assert r.status_code == 200 and r.json()["ood"][2]["ood"] and seen == [3]
+    assert c.post("/v1/models/nope/predict", json={"inputs": {"a": 0}}).status_code == 404
+    assert c.post("/v1/models/demo/predict", json={"inputs": {"a": 0}}).status_code == 422
+    assert c.get("/v1/models/demo/runs").json()["runs"][0]["caller"] == "tester"
+    assert c.get("/v1/metrics").json()["calls"] == 2
+    assert c.get(f"/v1/models/demo/versions/{v}/export/onnx").status_code == 409     # ridge: no export
+    assert count_rows([{"a": 1}, {"a": 2}]) == 2 and count_rows([1.0, 2.0]) == 1

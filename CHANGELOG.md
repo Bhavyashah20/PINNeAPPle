@@ -32,6 +32,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - Model gateway (`pinneapple_registry.ModelGateway`, on `ModelStore`): versioned endpoints for surrogates, zoo
   models and ONNX graphs, one `predict` that enforces each version's OOD policy (warn or refuse; callers may only
   tighten it), a run log, operational metrics (calls, rows, errors, OOD rows, latency p50 / p95) and exports.
+  `pinneapple_registry.gateway_api.gateway_router` is its REST shape (`/v1/models/...`), shared by the apps that
+  serve models.
 - `pinneapple_data.audit.constraint_mask`: the evaluator of declared constraints, public for checking predictions.
 - Zoo dataset `airfoil_rans_cst_re4e6_fields` (Hub-only, 186 MB in 5 files): the cell fields p, Ux, Uy, nut and
   cell centres of the 436 OpenFOAM runs of `airfoil_rans_cst_re4e6`, with the same splits. The campaign was
