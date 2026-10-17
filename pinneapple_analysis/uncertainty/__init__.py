@@ -112,6 +112,7 @@ from pinneapple_analysis.uncertainty.resampling import (
     jackknife,
     skill_score,
 )
+from pinneapple_analysis.uncertainty.study import uncertainty_study
 from pinneapple_analysis.uncertainty.tolerance import (
     ToleranceResult,
     propagate,
