@@ -3,7 +3,7 @@
 HeatSink Sizer, PCB Hotspot, Engineering Data Health, Engineering Data Standardizer, Simulation Metadata, the Form
 Compiler, Inverse Heat Lab, Simulation Preflight, Mesh Quality, Simulation Comparator, Engineering Model Lineage and the
 Simulation Interoperability Hub, the
-Aircraft Design Optimizer, the PINNeAPPle Observatory and the PINNeAPPle Lab catalogue on a single Linux VM (e.g. Hetzner Cloud), each on its own
+Aircraft Design Optimizer, the PINNeAPPle Observatory, the Physics Validation Lab and the PINNeAPPle Lab catalogue on a single Linux VM (e.g. Hetzner Cloud), each on its own
 subdomain, behind one Caddy that obtains and renews Let's Encrypt certificates automatically.
 
 ```
@@ -48,6 +48,7 @@ At your DNS provider, create two **A** records (and AAAA records if you use IPv6
 | `campaign` | A | `<server IPv4>` |
 | `uncertainty` | A | `<server IPv4>` |
 | `sensitivity` | A | `<server IPv4>` |
+| `validate` | A | `<server IPv4>` |
 
 If the zone is on Cloudflare, set both records to **DNS only** (grey cloud) for the first start, so
 Let's Encrypt can reach Caddy. Check propagation with `dig +short heatsink.example.org`.
@@ -70,10 +71,10 @@ nano .env        # domains, ACME e-mail, logins (use long passwords)
 
 | Variable | Meaning |
 |---|---|
-| `HSS_DOMAIN`, `PCB_DOMAIN`, `EDH_DOMAIN`, `EDS_DOMAIN`, `SMD_DOMAIN`, `UDR_DOMAIN`, `IHL_DOMAIN`, `PFL_DOMAIN`, `MQA_DOMAIN`, `CMP_DOMAIN`, `LIN_DOMAIN`, `IOP_DOMAIN`, `ADO_DOMAIN`, `OBS_DOMAIN`, `PLG_DOMAIN`, `SEN_DOMAIN`, `UQL_DOMAIN` | Public hostnames (must match the DNS records) |
+| `HSS_DOMAIN`, `PCB_DOMAIN`, `EDH_DOMAIN`, `EDS_DOMAIN`, `SMD_DOMAIN`, `UDR_DOMAIN`, `IHL_DOMAIN`, `PFL_DOMAIN`, `MQA_DOMAIN`, `CMP_DOMAIN`, `LIN_DOMAIN`, `IOP_DOMAIN`, `ADO_DOMAIN`, `OBS_DOMAIN`, `PLG_DOMAIN`, `VAL_DOMAIN`, `SEN_DOMAIN`, `UQL_DOMAIN` | Public hostnames (must match the DNS records) |
 | `ACME_EMAIL` | Let's Encrypt account / expiry notices |
-| `<APP>_USER` / `<APP>_PASSWORD` (HSS, PCB, EDH, EDS, SMD, UDR, IHL, PFL, MQA, CMP, LIN, IOP, ADO, OBS, UQL, SEN) | HTTP Basic login per app. If either is empty, that app is public. `/health` is always public. |
-| `HSS_MAX_SIZING`, `PCB_MAX_HEAVY`, `EDH/EDS/SMD/UDR/PFL/MQA/CMP/LIN/IOP/ADO/UQL/SEN_MAX_HEAVY` | Concurrent heavy runs per app. Any excess gets HTTP 429. |
+| `<APP>_USER` / `<APP>_PASSWORD` (HSS, PCB, EDH, EDS, SMD, UDR, IHL, PFL, MQA, CMP, LIN, IOP, ADO, OBS, UQL, SEN, VAL) | HTTP Basic login per app. If either is empty, that app is public. `/health` is always public. |
+| `HSS_MAX_SIZING`, `PCB_MAX_HEAVY`, `EDH/EDS/SMD/UDR/PFL/MQA/CMP/LIN/IOP/ADO/UQL/SEN/VAL_MAX_HEAVY` | Concurrent heavy runs per app. Any excess gets HTTP 429. |
 | `HSS_MEM_LIMIT`, `PCB_MEM_LIMIT` | Container memory caps |
 | `IHL_MAX_JOBS` | Inverse Heat Lab: trainings running at the same time (default 2, each uses one CPU core). Any excess gets HTTP 429. The app runs one worker because jobs live in its memory. |
 | `UDR_FORM_PDF` | Path inside the `udr` container to your copy of the fillable Form U-DR-1 (put the file in `apps/deploy/forms/`). Optional: users can upload it instead. |
@@ -108,7 +109,7 @@ Caddy. Start only the apps, attached to that proxy's Docker network, and add two
 ```bash
 docker inspect <proxy container> --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
 PROXY_NETWORK=<that network> docker compose -f docker-compose.yml -f docker-compose.existing-proxy.yml \
-  up -d --build heatsink pcb datahealth standardizer simmeta udr inverse preflight mesh compare lineage interop aero lab observatory playground sensitivity uncertainty runner campaign
+  up -d --build heatsink pcb datahealth standardizer simmeta udr inverse preflight mesh compare lineage interop aero lab observatory playground validate sensitivity uncertainty runner campaign
 ```
 
 Caddyfile blocks for the existing proxy (then `caddy validate` and `caddy reload` inside its container):
@@ -300,6 +301,17 @@ sensitivity.example.org {
 		}
 	}
 }
+validate.example.org {
+	encode zstd gzip
+	request_body {
+		max_size 220MB
+	}
+	reverse_proxy pinneapple-validate:8107 {
+		transport http {
+			read_timeout 180s
+		}
+	}
+}
 ```
 
 ## PINNeAPPle Observatory (`observatory`)
@@ -357,6 +369,15 @@ Day 16. One worker (`--workers 1`, 1 GB): a study runs in the request, in a thre
 count before running), `SEN_MAX_PARAMS` (varied parameters) and `SEN_MAX_MB` (uploads). The zoo models and datasets ship
 in the image; no outbound network is needed. Build and run it alone with
 `docker build -f apps/sensitivity_lab/Dockerfile -t sensitivity-lab . && docker run -p 8099:8099 sensitivity-lab`.
+
+## Physics Validation Lab (`validate`)
+
+Runs `pinneapple check` on uploaded predictions, results or a zoo model and reports numerical verification,
+validation against data and physical consistency separately, with an evidence record per check. Uploaded Python
+models and checkpoints are refused (they would run uploaded code); zoo models ship in the image. Each validation
+runs in a temporary folder that is deleted afterwards: nothing is stored. `VAL_MAX_HEAVY` validations run at once per
+worker (the excess gets HTTP 429), `VAL_MAX_MB` caps an upload. 1 GB of memory is enough: the examples take under a
+second.
 
 ## PINNeAPPle Lab catalogue (`lab`)
 

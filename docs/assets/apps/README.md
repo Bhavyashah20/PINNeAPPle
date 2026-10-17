@@ -28,5 +28,6 @@ Days 13–31 of the second series (apps that run studies), images named `dNN-<sl
 | 13 | Simulation Campaign Planner | `d13-campaign-plan.jpg`, `d13-campaign-result.jpg` (airfoil, 436 existing runs), `d13-campaign-cantilever.jpg` | https://campaign.pinneapple.org |
 | 27 | Simulation Workflow Runner | `d27-runner-new-run.jpg`, `-run.jpg`, `-calculix.jpg`, `-dataset.jpg` | https://runner.pinneapple.org |
 | 16 | Engineering Sensitivity Lab | `d16-sensitivity-heatsink.jpg`, `-ishigami.jpg`, `-dataset.jpg`, `-study.jpg` | https://sensitivity.pinneapple.org |
+| 24 | Physics Validation Lab | `d24-validate-report.jpg`, `-input.jpg`, `-form.jpg`, `-zoo-ood.jpg` | https://validate.pinneapple.org |
 
 The Form Compiler image uses the fictitious example documents only (no ASME form).
