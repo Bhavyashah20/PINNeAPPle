@@ -3,13 +3,13 @@
 #
 #   PROXY_NETWORK=<network of the existing proxy> \
 #   docker compose -f docker-compose.yml -f docker-compose.existing-proxy.yml up -d --build heatsink pcb datahealth standardizer simmeta udr inverse \
-#       preflight mesh compare lineage interop aero lab observatory playground
+#       preflight mesh compare lineage interop aero lab observatory playground sensitivity uncertainty campaign
 #
 # Then point the proxy at pinneapple-heatsink:8080, pinneapple-pcb:8081, pinneapple-datahealth:8082,
 # pinneapple-standardizer:8083, pinneapple-simmeta:8084 pinneapple-udr:8085, pinneapple-inverse:8086,
 # pinneapple-preflight:8087, pinneapple-mesh:8088, pinneapple-compare:8089, pinneapple-lineage:8090 and
 # pinneapple-interop:8091 and pinneapple-aero:8092 and pinneapple-lab:8093 and pinneapple-observatory:8094
-# and pinneapple-playground:8095 (see README.md).
+# and pinneapple-playground:8095 and pinneapple-campaign:8096 and pinneapple-uncertainty:8098 and pinneapple-sensitivity:8099 (see README.md).
 services:
   caddy:                       # the server already has a proxy on 80/443: never start this project's own
     profiles: [own-proxy]
@@ -94,6 +94,26 @@ services:
       default: {}
       proxy:
         aliases: [pinneapple-playground]
+  runner:
+    networks:
+      default: {}
+      proxy:
+        aliases: [pinneapple-runner]
+  campaign:
+    networks:
+      default: {}
+      proxy:
+        aliases: [pinneapple-campaign]
+  uncertainty:
+    networks:
+      default: {}
+      proxy:
+        aliases: [pinneapple-uncertainty]
+  sensitivity:
+    networks:
+      default: {}
+      proxy:
+        aliases: [pinneapple-sensitivity]
 
 networks:
   proxy:
