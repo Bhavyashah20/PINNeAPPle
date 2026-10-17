@@ -110,3 +110,4 @@ button.primary { width: auto; margin-top: 0; }
   #hud.showlayers .layers { display: flex; }
   #hud .time .big { font-size: 16px; }
 }
+.seg.lang button { padding: 5px 8px; font-size: 12px; letter-spacing: .04em; }

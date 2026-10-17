@@ -18,6 +18,7 @@ Environment (all optional):
 from __future__ import annotations
 
 import io
+import json
 import math
 import os
 import sys
@@ -68,22 +69,28 @@ _HEAVY = BusyLimiter("OBS_MAX_HEAVY")
 EPH = default_ephemeris()
 
 
+def _error(status: int, code: str, message: str, **args) -> HTTPException:
+    """An HTTP error whose message the page shows in the visitor's language: ``code`` names the message in the
+    interface catalogues (static/i18n), ``args`` fill its placeholders; ``detail`` stays English for API users."""
+    return HTTPException(status, message, headers={"X-Error-Code": code, "X-Error-Args": json.dumps(args)})
+
+
 def _time(t: str | None) -> Time:
     if not t or t == "now":
         return Time.now()
     try:
         tt = Time.from_iso(t)
     except ValueError as exc:
-        raise HTTPException(400, f"bad time {t!r}: use ISO 8601, e.g. 2026-10-13T21:00:00Z") from exc
+        raise _error(400, "bad_time", f"bad time {t!r}: use ISO 8601, e.g. 2026-10-13T21:00:00Z", value=t) from exc
     lo, hi = EPH.jd_range
     if not lo + 2 < float(tt.tdb) < hi - 2:
-        raise HTTPException(400, "time outside the DE421 span (1900-2050)")
+        raise _error(400, "time_span", "time outside the DE421 span (1900-2050)")
     return tt
 
 
 def _obs(lat: float, lon: float, elev: float) -> Observer:
     if not (-90 <= lat <= 90 and -180 <= lon <= 360):
-        raise HTTPException(400, "latitude must be in [-90, 90] and longitude in [-180, 360]")
+        raise _error(400, "bad_location", "latitude must be in [-90, 90] and longitude in [-180, 360]")
     return Observer(lat, ((lon + 180) % 360) - 180, elev)
 
 
@@ -346,7 +353,7 @@ def _target_vec(name: str, t: Time, obs: Observer | None):
                           pm_dec_mas=c.pmdec[i:i + 1], parallax_mas=np.nan_to_num(c.plx[i:i + 1]))
         return (float(r[0][0]), float(r[1][0]), None if obs is None else float(r[4][0]),
                 None if obs is None else float(r[3][0]))
-    raise HTTPException(404, f"unknown target {name!r} (use a body name or 'HR <number>')")
+    raise _error(404, "unknown_target", f"unknown target {name!r} (use a body name or 'HR <number>')", value=name)
 
 
 @app.get("/api/analysis/separation")
@@ -413,7 +420,7 @@ def orbit(body: str = "mars", t: str | None = None, lat: float = -23.5505, lon: 
     from pinneapple_physics.astro.orbits import light_time_and_doppler, planet_elements
     b = body.lower()
     if b not in BODIES or b == "sun":
-        raise HTTPException(404, "body must be the Moon or a planet")
+        raise _error(404, "not_moon_or_planet", "body must be the Moon or a planet")
     tt = _time(t)
     el = planet_elements(b, float(tt.tdb), EPH)
     p = apparent(b, tt, _obs(lat, lon, 0))
@@ -435,7 +442,7 @@ def star(hr: int, t: str | None = None, lat: float = -23.5505, lon: float = -46.
     try:
         i = c.index_of(hr)
     except KeyError as exc:
-        raise HTTPException(404, str(exc)) from exc
+        raise _error(404, "unknown_star", str(exc), hr=hr) from exc
     tt = _time(t)
     ra, dec, alt, az = _target_vec(f"HR {hr}", tt, _obs(lat, lon, 0))
     props = star_properties(c, i)
@@ -476,7 +483,7 @@ def _events(day_jd: float, days: int, lat: float, lon: float):
         ev.append({**e, "kind": "season"})
     for b in PLANETS:
         for e in planet_events(b, day_jd, jd1, EPH):
-            ev.append({**e, "kind": "planet", "body": b, "event": f"{b.capitalize()} {e['event']}"})
+            ev.append({**e, "kind": "planet", "body": b, "type": e["event"], "event": f"{b.capitalize()} {e['event']}"})
     for e in lunar_eclipses(day_jd, jd1, EPH):
         ev.append({**e, "kind": "eclipse"})
     for e in solar_eclipses(day_jd, jd1, obs, EPH):
@@ -557,7 +564,7 @@ def _surrogate(body: str, day_jd: float, days: int):
 def engine_surrogate(body: str = "mars", t: str | None = None, days: int = Query(365, ge=30, le=730)):
     """Train (or fetch from cache) the physics-informed orbit surrogate and its trust report."""
     if body not in ("mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune"):
-        raise HTTPException(404, "body must be a planet")
+        raise _error(404, "not_planet", "body must be a planet")
     tt = _time(t)
     day = math.floor(float(tt.tdb) - 0.5) + 0.5
     with _HEAVY:

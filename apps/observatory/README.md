@@ -25,6 +25,12 @@ JPL DE421 (public domain) ──► SPK reader ──► light time, solar defle
              black-body spectra, black-hole lensing of your sky         transits, satellite passes (SGP4)
 ```
 
+The interface is in **English and Portuguese** (EN / PT in the top bar; `#lang=pt` in the URL). All text lives in the
+message catalogues `observatory/static/i18n/{en,pt}.json`; constellations use their Portuguese names, stars their IAU
+names.
+
+![O céu de São Paulo ao anoitecer, em português](../../docs/assets/apps/14-observatory-sky-pt.jpg)
+
 ## Panels
 
 - **Tonight**: sky state (day / twilight / night), Moon phase, twilight times, what is up now, rise · transit · set of
@@ -100,6 +106,13 @@ Deployment with the other apps: `apps/deploy` (service `observatory`, `OBS_DOMAI
 | `OBS_PRECOMPUTE` | `0` skips the start-up validation run and the default Mars surrogate |
 
 Geolocation and the phone's motion sensors need HTTPS (or `localhost`).
+
+Browser tests (Playwright, Chromium; the server runs offline with a local TLE file):
+
+```bash
+cd apps/observatory && npm ci && npx playwright test
+node tools/capture.mjs http://localhost:8797        # regenerate docs/assets/apps/14-observatory-*.jpg (EN and PT)
+```
 
 ## Data and licences
 
