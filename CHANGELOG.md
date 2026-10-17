@@ -47,6 +47,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `pp.validate.<name>` still resolves the names of `pinneapple_analysis.validation`.
 - `pinneapple_neural.architectures.neural_operators.fno_export`: ONNX export of FNOs (spectral convolutions in real
   arithmetic, checked against PyTorch with onnxruntime).
+- Zoo dataset `airfoil_rans_cst_re4e6_fields` (Hub-only, 186 MB in 5 files): the cell fields p, Ux, Uy, nut and
+  cell centres of the 436 OpenFOAM runs of `airfoil_rans_cst_re4e6`, with the same splits. The campaign was
+  regenerated, and its coefficients reproduce the published table. `write_field_dataset`
+  (`pinneapple_design.aero.field_dataset`) writes it, sharding splits larger than 120 runs.
 - Zoo dataset `thermal_channel_cfd` (Hub-only, 360 MB in 8 files): the actuated heated channel of Benchmark
   experiment 05. It holds 82 trajectories of u, v, p, T on 128 × 32 with 101 snapshots, the actuators and the
   quantities of interest. The splits are train 48 / val 8 / test 12 of random steps and ramps, plus two actuation
@@ -438,6 +442,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   and `pinneapple_design.design_optimizer.representatives` (best per objective + balanced pick of a Pareto front).
 
 ### Changed
+- `pp.benchmark`: adding entries to `budget_study` or `ablations` reuses an existing `out_dir` (they only add jobs); changing
+  or removing an entry is still refused. Before, any change to them was refused.
 - **Behavior:** `pinneapple_analysis.cost.measure` now counts FLOPs of code that calls `torch.autograd.grad` with
   the hook-free counter (`flops_source == "dispatch_counter"`) instead of the profiler's matmul-only lower bound.
 - `compressible_fv.sod_exact` delegates to `astrophysics.sod_exact_solution` (same output to round-off; covers every wave pattern);
