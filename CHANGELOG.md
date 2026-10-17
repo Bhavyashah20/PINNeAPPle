@@ -33,6 +33,21 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
   It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
   `pp.datasets.load(name, split="test")` downloads only the two test shards.
+- Black-hole weather, zoo version (#399). The library gains the tools, and the example scripts only call them:
+  - `pinneapple_physics.blackhole.runs`: generate, resume and read simulations;
+  - `convergence`: a resolution study with conservative remap between non-nested grids, Richardson order and GCI,
+    and statistical convergence with batch-mean and seed intervals;
+  - `dataset`: zoo packing, one file per split, by trajectory;
+  - `skill`: persistence, climatology and DMD baselines, moving-block bootstrap skill against lead time, physics
+    checks;
+  - `figures`.
+- `forecast` gains training on whole trajectories with a multi-step rollout loss, input noise, window-mass and
+  mass-change penalties, replicate padding, and per-epoch checkpoints that resume.
+- `RIAFConfig(perturbation_kind="modes")`: the same seeded initial perturbation on every grid.
+- `pinneapple_analysis.verification.forecast_skill`: `skill_vs_lead`, block bootstrap and batch-means intervals.
+- Hub-only dataset `blackhole_riaf_density_256`: four-grid resolution study in its card, split by trajectory.
+- The retrained forecaster is not shipped: it fails the mass-conservation check
+  (`docs/dev/model_dataset_inventory.md`).
 - `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
   benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
   levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves
@@ -463,6 +478,7 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   spacing allowed); the residual of the same field is 0.017 and converges at order 2 on uniform and stretched grids.
 - Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
   repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
+- Black-hole simulations: resuming a run from its checkpoint failed on the outer-boundary state (`AccretionFlow._outer`).
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
