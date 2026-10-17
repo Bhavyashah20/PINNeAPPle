@@ -50,3 +50,6 @@ services:
   runner:
     command: ["uvicorn", "simulation_runner.api:app", "--host", "0.0.0.0", "--port", "8110", "--workers", "1"]
     mem_limit: 800m     # the slab template imports torch inside its jobs (~400 MB); one worker
+  campaign:
+    command: ["uvicorn", "simulation_campaign.api:app", "--host", "0.0.0.0", "--port", "8096", "--workers", "1"]
+    mem_limit: 1g       # the job queue limits planning to CAMPAIGN_MAX_JOBS at once

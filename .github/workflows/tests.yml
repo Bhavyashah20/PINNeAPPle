@@ -29,6 +29,7 @@ jobs:
         run: |
           pip install fastapi httpx python-multipart pyarrow h5py
           pytest tests/pinneapple_data/test_contracts.py tests/pinneapple_core/test_service.py tests/test_appkit_runtime.py tests/pinneapple_core/test_workflows.py tests/test_simulation_runner_app.py -q
+          pytest tests/pinneapple_data/test_doe.py tests/pinneapple_simulation/test_campaign_cases.py tests/test_app_campaign.py -q
 
       - name: Tier C — public API, cost validation, PyVista and CalculiX bridges (must pass)
         run: xvfb-run -a pytest tests/test_public_api.py tests/test_cost_validation.py tests/test_pyvista_bridge.py tests/test_calculix_bridge.py tests/test_example_imports.py tests/test_app_helpers.py tests/test_release_version.py tests/test_model_zoo.py tests/test_geometry_library.py tests/test_multiscale.py tests/test_aero_panel.py tests/test_benchmark_api.py tests/test_equal_budget.py tests/test_inverse_heat_budget.py tests/test_operator_benchmarks.py -q
@@ -45,7 +46,7 @@ jobs:
       - name: Astronomy accuracy (USNO NOVAS, JPL Horizons, USNO almanac, NASA eclipses) and the Observatory app (must pass)
         run: |
           pip install ".[sky]" fastapi httpx "uvicorn[standard]"
-          pytest tests/test_astro_accuracy.py tests/test_astro_ai.py tests/test_observatory.py -q -p no:warnings
+          pytest tests/test_astro_accuracy.py tests/test_astro_ai.py tests/test_astro_facts.py tests/test_astro_observing.py tests/test_astro_journey.py tests/test_observatory.py tests/test_observatory_i18n.py -q -p no:warnings
 
       - name: Tier B — manufactured-solution physics-correctness tests (must pass)
         run: pytest tests/test_manufactured_solutions.py -q

@@ -151,8 +151,10 @@ class Parameter(_Model):
             n = int(self.high - self.low) + 1
             return self.low + np.minimum((u * n).astype(int), n - 1).astype(float)
         if self.log:
-            return np.exp(np.log(self.low) + u * (np.log(self.high) - np.log(self.low)))
-        return self.low + u * (self.high - self.low)
+            x = np.exp(np.log(self.low) + u * (np.log(self.high) - np.log(self.low)))
+        else:
+            x = self.low + u * (self.high - self.low)
+        return np.clip(x, self.low, self.high)                  # no round-off outside the bounds
 
     def to_unit(self, x) -> np.ndarray:
         """Inverse of :meth:`from_unit` (cell centres for integers and categories)."""

@@ -45,6 +45,7 @@ At your DNS provider, create two **A** records (and AAAA records if you use IPv6
 | `sky` | A | `<server IPv4>` |
 | `playground` | A | `<server IPv4>` |
 | `runner` | A | `<server IPv4>` |
+| `campaign` | A | `<server IPv4>` |
 
 If the zone is on Cloudflare, set both records to **DNS only** (grey cloud) for the first start, so
 Let's Encrypt can reach Caddy. Check propagation with `dig +short heatsink.example.org`.
@@ -106,6 +107,7 @@ Caddy. Start only the apps, attached to that proxy's Docker network, and add two
 docker inspect <proxy container> --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
 PROXY_NETWORK=<that network> docker compose -f docker-compose.yml -f docker-compose.existing-proxy.yml \
   up -d --build heatsink pcb datahealth standardizer simmeta udr inverse preflight mesh compare lineage interop aero lab observatory playground runner
+  up -d --build heatsink pcb datahealth standardizer simmeta udr inverse preflight mesh compare lineage interop aero lab observatory playground campaign
 ```
 
 Caddyfile blocks for the existing proxy (then `caddy validate` and `caddy reload` inside its container):
@@ -267,6 +269,14 @@ runner.example.org {
 	reverse_proxy pinneapple-runner:8110 {
 		transport http {
 			read_timeout 120s
+campaign.example.org {
+	encode zstd gzip
+	request_body {
+		max_size 110MB
+	}
+	reverse_proxy pinneapple-campaign:8096 {
+		transport http {
+			read_timeout 300s
 		}
 	}
 }
@@ -302,6 +312,14 @@ caller sends, so never set it on a public server. Install OpenFOAM / CalculiX in
 executor) for the solver templates. Limits: `RUNNER_MAX_JOBS` runs at once, `RUNNER_MAX_CASES` cases per run,
 `RUNNER_FREE_JOBS_RUN` / `RUNNER_FREE_COMPUTE_SECONDS` / `RUNNER_FREE_STORAGE_MB` per principal and month
 (`/api/usage`); API keys via `/api/keys` with `RUNNER_ADMIN_TOKEN` (see `apps/_shared/README.md`).
+## Simulation Campaign Planner (`campaign`)
+
+Day 13, port 8096. It plans campaigns as jobs in the shared runtime queue (`apps/_shared`). Jobs, the files of
+each campaign, API keys, usage and uploads live in the `campaign_data` volume; keep it. The airfoil preset reads
+the 436 OpenFOAM runs shipped inside the library, so the app needs no network. It writes the solver cases but does
+not run them, so neither OpenFOAM nor CalculiX is installed in the image. `CAMPAIGN_FREE_CAMPAIGNS` /
+`CAMPAIGN_FREE_CASES_PLANNED` set the monthly free use per API key, login or IP (`/api/usage`). Keys are created by
+the login user, or with `X-Admin-Token: $CAMPAIGN_ADMIN_TOKEN` (`POST /api/keys`).
 
 ## PINNeAPPle Lab catalogue (`lab`)
 

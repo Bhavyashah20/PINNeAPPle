@@ -268,6 +268,24 @@ services:
       - runner_data:/data         # runs, step files, job queue, keys and usage: keep this volume
     expose: ["8110"]
     mem_limit: ${RUNNER_MEM_LIMIT:-1g}
+  campaign:
+    build:
+      context: ../..
+      dockerfile: apps/simulation_campaign/Dockerfile
+    image: pinneapple/simulation-campaign:latest
+    restart: unless-stopped
+    environment:
+      CAMPAIGN_USER: ${CAMPAIGN_USER:-}
+      CAMPAIGN_PASSWORD: ${CAMPAIGN_PASSWORD:-}
+      CAMPAIGN_MAX_JOBS: ${CAMPAIGN_MAX_JOBS:-2}
+      CAMPAIGN_FREE_CAMPAIGNS: ${CAMPAIGN_FREE_CAMPAIGNS:-}
+      CAMPAIGN_FREE_CASES_PLANNED: ${CAMPAIGN_FREE_CASES_PLANNED:-}
+      CAMPAIGN_ADMIN_TOKEN: ${CAMPAIGN_ADMIN_TOKEN:-}
+      CAMPAIGN_MAX_CASE_DIRS: ${CAMPAIGN_MAX_CASE_DIRS:-50}
+    volumes:
+      - campaign_data:/data       # jobs, campaign files, API keys, usage: keep this volume
+    expose: ["8096"]
+    mem_limit: ${CAMPAIGN_MEM_LIMIT:-1g}
 
   caddy:
     image: caddy:2
@@ -291,6 +309,7 @@ services:
       OBS_DOMAIN: ${OBS_DOMAIN:-observatory.localhost}
       PLG_DOMAIN: ${PLG_DOMAIN:-playground.localhost}
       RUNNER_DOMAIN: ${RUNNER_DOMAIN:-runner.localhost}
+      CAMPAIGN_DOMAIN: ${CAMPAIGN_DOMAIN:-campaign.localhost}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
@@ -301,6 +320,11 @@ services:
 volumes:
   lab_data:
   runner_data:
+    depends_on: [heatsink, pcb, datahealth, standardizer, simmeta, udr, inverse, preflight, mesh, compare, lineage, interop, aero, lab, observatory, playground, campaign]
+
+volumes:
+  lab_data:
+  campaign_data:
   obs_cache:
   caddy_data:
   caddy_config:
