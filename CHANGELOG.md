@@ -424,6 +424,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- CalculiX Docker image (`pinneapple_simulation.external_solvers.calculix.runner.ensure_image`): every build attempt
+  pulled the Debian base from public.ecr.aws, which answers 429 ("Data limit exceeded") on busy shared CI runners,
+  so the retries failed the same way and the real-CalculiX test turned unrelated pull requests red. Each retry now
+  takes the next registry serving the same official image (`BASE_IMAGES`: public.ecr.aws, mirror.gcr.io, Docker
+  Hub; identical digest); `PINNEAPPLE_CALCULIX_BASE` puts another base first.
 - `pinneapple_physics.conservation.project_integral(mode="positive")` returned a negative field when the target
   integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
   for a field that is <= 0 everywhere. A zero field with a zero target is returned unchanged in the multiplicative
