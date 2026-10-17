@@ -110,6 +110,19 @@ Training uses whole trajectories (`train_forecaster.py --dataset ...`). The eval
 
 ![skill against lead time](../../docs/assets/blackhole/skill_vs_lead_256.png)
 
+Out of distribution (α = 0.3, never seen in training; `--split ood_alpha0.3`):
+
+| model | MAE +100 M | MAE +2000 M | skill at +2000 M (95 %) | mass envelope violated | inflow sign / corr. |
+|---|---|---|---|---|---|
+| persistence | 0.0025 | 0.0381 | – | – | – |
+| DMD (rank 20) | 0.0047 | 0.0702 | – | – | – |
+| A | 0.0020 | 0.0787 | −1.07 [−1.46, −0.85] | 49 % | 0 % / −0.88 |
+| B | 0.0009 | 0.0146 | 0.62 [0.43, 0.76] | 21 % | 100 % / 1.00 |
+| B2 | 0.0009 | 0.0122 | 0.68 [0.63, 0.79] | 34 % | 100 % / 1.00 |
+
+The α = 0.3 flow changes slowly after t = 2000, and B and B2 beat persistence by 60-70 % over the whole window, but the
+mass check fails here too. The envelope is the training one (α = 0.1), so part of these violations may be physical.
+
 - **Skill.** B is 27 % better than persistence at +2000 M (skill 0.27, 95 % interval 0.22-0.31) and 23 % better than DMD. Its predicted inflow agrees with the truth in sign at every start (correlation 0.99).
 - **Weak spots.**
   - All three models lose to persistence on the first 20 GM/c³ frame and tie at 40 M.
