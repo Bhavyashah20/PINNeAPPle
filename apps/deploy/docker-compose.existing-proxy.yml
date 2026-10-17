@@ -94,6 +94,11 @@ services:
       default: {}
       proxy:
         aliases: [pinneapple-playground]
+  runner:
+    networks:
+      default: {}
+      proxy:
+        aliases: [pinneapple-runner]
   campaign:
     networks:
       default: {}
