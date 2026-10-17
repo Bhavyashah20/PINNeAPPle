@@ -56,7 +56,7 @@ export function cardHtml(c, ctx) {
     <p class="lc-summary">${esc(c.summary)}</p>`;
   if (c.tonight !== undefined || c.passes) h += `<h4>${t("learn.tonightTitle", { place: esc(ctx.place()) })}</h4>${tonightHtml(c, ctx)}`;
   const canObserve = c.observe || c.ra_deg !== undefined || c.hr;
-  h += `<div class="row">${ctx.canLook(c) ? `<button class="primary" data-act="look">${t("object.look")}</button>` : ""}${canObserve && ctx.observe ? `<button class="ghost" data-act="observe">${t("learn.observeIt")}</button>` : ""}</div>`;
+  h += `<div class="row">${ctx.canLook(c) ? `<button class="primary" data-act="look">${t("object.look")}</button>` : ""}${canObserve && ctx.observe ? `<button class="ghost" data-act="observe">${t("learn.observeIt")}</button>` : ""}${((c.kind === "planet" && c.id !== "earth") || c.hr || c.id === "sun" || c.id === "moon") && ctx.journey ? `<button class="ghost" data-act="journey">${t("learn.flyThere")}</button>` : ""}</div>`;
   h += `<h4>${t("learn.numbers")}</h4><table class="lc-numbers">${c.numbers.map((r) => `<tr data-key="${r.key}"><td>${esc(r.label)}</td><td class="r"><b data-raw="${esc(r.value)}">${fmtValue(r, ctx)}</b>${ref(r.source)}${r.comparison ? `<br><span class="small muted">${esc(r.comparison)}</span>` : ""}</td></tr>`).join("")}</table>`;
   h += `<h4>${t("learn.curiosities")}</h4><ul class="lc-curios">${c.curiosities.map((x) => `<li>${esc(x.text)}${ref(x.source)}</li>`).join("")}</ul>`;
   h += `<h4>${t("learn.history")}</h4><p>${esc(c.history)}</p>`;
@@ -73,6 +73,8 @@ function wireCard(el, c, ctx) {
   if (look) look.onclick = () => ctx.look(c);
   const obs = el.querySelector("[data-act=observe]");
   if (obs) obs.onclick = () => ctx.observe(c);
+  const fly = el.querySelector("[data-act=journey]");
+  if (fly) fly.onclick = () => ctx.journey(c);
   for (const q of el.querySelectorAll(".lc-quiz .q")) {
     for (const b of q.querySelectorAll("button[data-opt]")) b.onclick = () => {
       const ok = +b.dataset.opt === +q.dataset.answer;

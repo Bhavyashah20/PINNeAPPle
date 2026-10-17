@@ -54,6 +54,21 @@ Young (1989), the optics formulas, and the field rotation against the parallacti
 
 ![Tracking the Pleiades with a 200 mm Newtonian](../assets/apps/14-observatory-observe.jpg)
 
+## Space journey
+
+**Journey** (top bar, or "Fly there" on a Learn card) flies from your place on Earth to the selected planet, moon, the
+Sun or a star. You lift off from your latitude and longitude, leave the atmosphere and cross the Solar System with the
+planets where they are on the chosen date; stars are reached through interstellar space at their parallax distance,
+with the real neighbouring stars drawn in 3-D around the path. The speed control is logarithmic, and the scale markers
+(Moon distance, 1 au, heliopause, 1 light-year, nearest star) are announced as you pass them. The counters show the
+distance travelled and left, the light time, how long the trip would take walking, by airliner, at New Horizons' or
+Voyager 1's speed and at light speed, and the target's apparent size and magnitude as it grows. On arrival you can
+look around (drag) and the info card opens; at a star, "Look back home" turns you around and the Sun is a faint star
+of the right magnitude (about +0.5 from Alpha Centauri, +1.9 from Sirius). The geometry is in
+`pinneapple_physics.astro.journey` (`plan`, `scene`), checked in `tests/test_astro_journey.py`.
+
+![Arriving at Saturn](../assets/apps/14-observatory-journey.jpg)
+
 ## Learn mode
 
 The **Learn** tab (and the end of the Object tab) shows an info card for the Sun, planets, Moon, dwarf planets,

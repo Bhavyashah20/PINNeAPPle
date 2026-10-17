@@ -48,6 +48,9 @@ names.
 - **Observe**: an observing session: plan the night for a target, set up a telescope (presets or your own), slew a
   GoTo mount, then track the target in an eyepiece / camera view at 1x-3600x with field rotation, extinction, sky
   brightness, seeing and the cloud forecast ("real sky") or none ("perfect sky"); a session log.
+- **Journey**: fly from your place to a planet, moon, the Sun or a star in 3-D (real positions for the date, stars at
+  their parallax distance), with scale markers, counters (distance, light time, trip times at real speeds, the
+  target's size and magnitude) and, at a star, the Sun behind you at the right magnitude.
 - **Learn**: an info card for every object (planets, moons, bright stars, constellations, Messier objects,
   satellites): key numbers with a source each and everyday comparisons, curiosities, history, how to see it tonight,
   a quiz; search in English or Portuguese. Data: `pinneapple_physics/astro/data/facts/`.

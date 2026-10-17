@@ -144,3 +144,15 @@ button.chip:hover { border-color: var(--acc); }
 #eyepiece .ep-ctl button { padding: 3px 8px; font-size: 12px; }
 img.logsnap { width: 48px; height: 48px; border-radius: 50%; vertical-align: middle; }
 [hidden] { display: none !important; }
+/* journey mode */
+#journey { position: fixed; left: 50%; top: 60px; transform: translateX(-50%); z-index: 6; width: min(760px, calc(100vw - 440px)); min-width: 320px;
+  background: var(--glass); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; backdrop-filter: blur(8px); }
+#journey .jrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#journey select { max-width: 220px; }
+#journey .jbar { height: 4px; background: rgba(140,170,220,.15); border-radius: 2px; margin: 5px 0; overflow: hidden; }
+#journey .jbar i { display: block; height: 100%; background: var(--acc); }
+#journey .jmarker { color: var(--gold); font-weight: 600; font-size: 13px; min-height: 0; }
+#journey .jmarker.flash { animation: jflash 4s ease-out forwards; }
+@keyframes jflash { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0.25; } }
+body[data-view=journey] #hud .layers, body[data-view=journey] #tSlider { display: none; }
+@media (max-width: 760px) { #journey { top: auto; bottom: 150px; width: calc(100vw - 12px); } }

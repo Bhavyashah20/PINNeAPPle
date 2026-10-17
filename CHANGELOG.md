@@ -14,6 +14,19 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Observatory: space journey from your place to the target (#723). `pinneapple_physics.astro.journey`: heliocentric
+  ICRS positions of the observer (Earth from the JPL ephemeris plus the site), the Solar System bodies at the date and
+  the stars from their parallax (Hipparcos 2007 for the brightest); galactic coordinates (IAU 1958 on J2000 axes);
+  distance, one-way light time and travel times at walking, airliner, New Horizons, Voyager 1 and light speed; the
+  target's apparent magnitude (m = M + 5 log10(d / 10 pc) for stars, inverse square for bodies) and angular diameter
+  versus the distance left; scale markers (Moon distance, 1 au, heliopause, 1 light-year, nearest star) and the Sun's
+  magnitude seen from a star. The app's Journey view lifts off from your latitude and longitude, leaves the atmosphere
+  and flies across the Solar System or through the neighbouring stars in 3-D with a logarithmic speed control,
+  counters (travelled, left, light time, size and brightness of the target, trip times) and, on arrival, a look-around
+  view with the info card (#724); at a star, "Look back home" shows the Sun as a star of the right magnitude.
+  `/api/journey/{plan,scene}`; "Fly there" from the Learn card. Tests: `tests/test_astro_journey.py` (arrival distance
+  against the ephemeris and the parallax to 0.1 %, the Sun at about +0.5 from Alpha Centauri, light time 1.28 s to the
+  Moon and 8.3 min to the Sun) and `apps/observatory/tests/e2e/journey.spec.js` (Mars in English, Sirius in Portuguese).
 - Observatory: observing session mode (#722). `pinneapple_physics.astro.observing`: visibility of any target (body,
   star, Messier object) with altitude, air mass, extinction per band, sky brightness (Krisciunas & Schaefer 1991
   moonlight + twilight), parallactic angle and field rotation, rise / transit / set for fixed objects (within a

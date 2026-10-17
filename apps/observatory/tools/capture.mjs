@@ -17,6 +17,7 @@ const SHOTS = [
   { name: "engine", url: `/?${SP}&t=2026-10-13T23:30:00Z&tab=engine&az=90&alt=30`, wait: "#eVal table", timeout: 600000 },
   { name: "learn", url: `/?${SP}&t=2026-10-13T23:30:00Z&learn=saturn&az=60&alt=35&fov=70`, wait: ".learn-card .lc-quiz" },
   { name: "observe", url: `/?${SP}&t=2026-10-14T02:30:00Z&observe=M45&eye=plossl32&az=40&alt=40&fov=60`, wait: "#obChart svg", click: "#obTrack", after: "#epCanvas", settle: 4000 },
+  { name: "journey", url: `/?${SP}&t=2026-10-14T01:30:00Z&journey=saturn&jrate=1.6`, wait: "#jSkip", click: "#jSkip", after: "#tab-learn .lc-title", settle: 5000 },
   { name: "lensing", url: `/?${SP}&t=2026-10-13T23:30:00Z&tab=analyses&az=225&alt=45&fov=60`, click: "#aLens", wait: "#aLensOut img", scroll: "#aLensOut", timeout: 600000 },
 ];
 const LANGS = { en: "", pt: "-pt" };
