@@ -248,6 +248,106 @@ services:
     expose: ["8094"]
     mem_limit: ${OBS_MEM_LIMIT:-1500m}
 
+  runner:
+    build:
+      context: ../..
+      dockerfile: apps/simulation_runner/Dockerfile
+    image: pinneapple/simulation-runner:latest
+    restart: unless-stopped
+    environment:
+      RUNNER_USER: ${RUNNER_USER:-}
+      RUNNER_PASSWORD: ${RUNNER_PASSWORD:-}
+      RUNNER_ADMIN_TOKEN: ${RUNNER_ADMIN_TOKEN:-}
+      RUNNER_MAX_JOBS: ${RUNNER_MAX_JOBS:-2}
+      RUNNER_MAX_CASES: ${RUNNER_MAX_CASES:-60}
+      RUNNER_FREE_JOBS_RUN: ${RUNNER_FREE_JOBS_RUN:-}
+      RUNNER_FREE_COMPUTE_SECONDS: ${RUNNER_FREE_COMPUTE_SECONDS:-}
+      RUNNER_FREE_STORAGE_MB: ${RUNNER_FREE_STORAGE_MB:-}
+      # RUNNER_SELF_HOSTED=1 runs any workflow the caller sends: never on a public server
+    volumes:
+      - runner_data:/data         # runs, step files, job queue, keys and usage: keep this volume
+    expose: ["8110"]
+    mem_limit: ${RUNNER_MEM_LIMIT:-1g}
+  campaign:
+    build:
+      context: ../..
+      dockerfile: apps/simulation_campaign/Dockerfile
+    image: pinneapple/simulation-campaign:latest
+    restart: unless-stopped
+    environment:
+      CAMPAIGN_USER: ${CAMPAIGN_USER:-}
+      CAMPAIGN_PASSWORD: ${CAMPAIGN_PASSWORD:-}
+      CAMPAIGN_MAX_JOBS: ${CAMPAIGN_MAX_JOBS:-2}
+      CAMPAIGN_FREE_CAMPAIGNS: ${CAMPAIGN_FREE_CAMPAIGNS:-}
+      CAMPAIGN_FREE_CASES_PLANNED: ${CAMPAIGN_FREE_CASES_PLANNED:-}
+      CAMPAIGN_ADMIN_TOKEN: ${CAMPAIGN_ADMIN_TOKEN:-}
+      CAMPAIGN_MAX_CASE_DIRS: ${CAMPAIGN_MAX_CASE_DIRS:-50}
+    volumes:
+      - campaign_data:/data       # jobs, campaign files, API keys, usage: keep this volume
+    expose: ["8096"]
+    mem_limit: ${CAMPAIGN_MEM_LIMIT:-1g}
+
+  uncertainty:
+    build:
+      context: ../..
+      dockerfile: apps/uncertainty_lab/Dockerfile
+    image: pinneapple/uncertainty-lab:latest
+    restart: unless-stopped
+    environment:
+      UQL_USER: ${UQL_USER:-}
+      UQL_PASSWORD: ${UQL_PASSWORD:-}
+      UQL_MAX_HEAVY: ${UQL_MAX_HEAVY:-2}
+      UQL_MAX_CASES: ${UQL_MAX_CASES:-2000}
+      UQL_MAX_PROPAGATION: ${UQL_MAX_PROPAGATION:-20000}
+      UQL_MAX_HF: ${UQL_MAX_HF:-40}
+      UQL_MAX_MB: ${UQL_MAX_MB:-50}
+    expose: ["8098"]
+    mem_limit: ${UQL_MEM_LIMIT:-1g}
+
+  sensitivity:
+    build:
+      context: ../..
+      dockerfile: apps/sensitivity_lab/Dockerfile
+    image: pinneapple/sensitivity-lab:latest
+    restart: unless-stopped
+    environment:
+      SEN_USER: ${SEN_USER:-}
+      SEN_PASSWORD: ${SEN_PASSWORD:-}
+      SEN_MAX_HEAVY: ${SEN_MAX_HEAVY:-2}
+      SEN_MAX_EVALS: ${SEN_MAX_EVALS:-400000}
+      SEN_MAX_PARAMS: ${SEN_MAX_PARAMS:-30}
+      SEN_MAX_MB: ${SEN_MAX_MB:-50}
+    expose: ["8099"]
+    mem_limit: ${SEN_MEM_LIMIT:-1g}
+
+  validate:
+    build:
+      context: ../..
+      dockerfile: apps/validation_lab/Dockerfile
+    image: pinneapple/validation-lab:latest
+    restart: unless-stopped
+    environment:
+      VAL_USER: ${VAL_USER:-}
+      VAL_PASSWORD: ${VAL_PASSWORD:-}
+      VAL_MAX_HEAVY: ${VAL_MAX_HEAVY:-2}
+      VAL_MAX_MB: ${VAL_MAX_MB:-200}
+    expose: ["8107"]
+    mem_limit: ${VAL_MEM_LIMIT:-1g}
+
+  evidence:
+    build:
+      context: ../..
+      dockerfile: apps/evidence_report/Dockerfile
+    image: pinneapple/evidence-report:latest
+    restart: unless-stopped
+    environment:
+      EVR_USER: ${EVR_USER:-}
+      EVR_PASSWORD: ${EVR_PASSWORD:-}
+      EVR_MAX_HEAVY: ${EVR_MAX_HEAVY:-2}
+      EVR_MAX_MB: ${EVR_MAX_MB:-200}
+    expose: ["8113"]
+    mem_limit: ${EVR_MEM_LIMIT:-1g}
+
   caddy:
     image: caddy:2
     restart: unless-stopped
@@ -269,15 +369,23 @@ services:
       LAB_DOMAIN: ${LAB_DOMAIN:-lab.localhost}
       OBS_DOMAIN: ${OBS_DOMAIN:-observatory.localhost}
       PLG_DOMAIN: ${PLG_DOMAIN:-playground.localhost}
+      RUNNER_DOMAIN: ${RUNNER_DOMAIN:-runner.localhost}
+      CAMPAIGN_DOMAIN: ${CAMPAIGN_DOMAIN:-campaign.localhost}
+      UQL_DOMAIN: ${UQL_DOMAIN:-uncertainty.localhost}
+      SEN_DOMAIN: ${SEN_DOMAIN:-sensitivity.localhost}
+      VAL_DOMAIN: ${VAL_DOMAIN:-validate.localhost}
+      EVR_DOMAIN: ${EVR_DOMAIN:-evidence.localhost}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data          # certificates: keep this volume
       - caddy_config:/config
-    depends_on: [heatsink, pcb, datahealth, standardizer, simmeta, udr, inverse, preflight, mesh, compare, lineage, interop, aero, lab, observatory, playground]
+    depends_on: [heatsink, pcb, datahealth, standardizer, simmeta, udr, inverse, preflight, mesh, compare, lineage, interop, aero, lab, observatory, playground, uncertainty, campaign, runner, sensitivity, validate, evidence]
 
 volumes:
   lab_data:
+  runner_data:
+  campaign_data:
   obs_cache:
   caddy_data:
   caddy_config:

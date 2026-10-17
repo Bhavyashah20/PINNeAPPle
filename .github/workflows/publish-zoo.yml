@@ -48,7 +48,10 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install numpy "huggingface_hub>=0.24"
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e . "huggingface_hub>=0.24"
+      - name: Validation must not regress (a check the stored report passed must still pass)
+        run: python scripts/zoo/validation_reports.py check
       - name: Check the manifest (SHA-256 of every file) and list the uploads
         run: python scripts/zoo/publish_to_hub.py --dry-run ${STAGING_REF:+--staging _zoo_staging}
       - name: Upload (skipped with a warning when HF_TOKEN is not set)

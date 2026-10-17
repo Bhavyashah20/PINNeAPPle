@@ -62,6 +62,7 @@ class RIAFConfig:
     torus_a: float = 0.0
     rho_atm: float = 1e-4             # atmosphere density at r_in (falls as r**-1.5), relative to torus max
     perturbation: float = 0.01        # relative random density noise in the torus (breaks symmetry)
+    perturbation_kind: str = "cell"   # "cell": white noise per cell | "modes": seeded smooth modes, same on every grid
     seed: int = 0
     dtype: torch.dtype = torch.float64
     device: str = "cpu"
@@ -125,6 +126,7 @@ class AccretionFlow:
         self.mdot_in = 0.0                                                             # latest accretion rate
         self.capped = 0
         self.ii = (slice(None), slice(g, -g), slice(g, -g))
+        self._outer = None                     # fixed outer ghosts (outer_bc="fixed"), set by set_primitives
 
     # ------------------------------------------------------------------ state
     def interior(self, A: torch.Tensor) -> torch.Tensor:
@@ -400,6 +402,25 @@ class AccretionFlow:
 
 
 # ---------------------------------------------------------------------- initial conditions
+def _mode_noise(rng, x, y, kmax: int = 24) -> np.ndarray:
+    """Sum of sin/cos modes in the unit square (x = normalised log r, y = theta / pi) with seeded random phases.
+
+    A continuous field, so every grid samples the same perturbation (needed for a resolution study); the
+    shortest wavelength (1/kmax of the domain) is resolved by the coarsest 64 x 32 grid. Scaled to [-1, 1].
+    """
+    modes = [(kx, ky, rng.normal() / math.hypot(kx, ky), rng.uniform(0, 2 * math.pi), rng.uniform(0, 2 * math.pi))
+             for kx in range(1, kmax + 1) for ky in range(1, kmax // 2 + 1)]
+
+    def field(xx, yy):
+        out = np.zeros(np.broadcast_shapes(np.shape(xx), np.shape(yy)))
+        for kx, ky, a, px, py in modes:
+            out += a * np.sin(2 * math.pi * kx * xx + px) * np.sin(2 * math.pi * ky * yy + py)
+        return out
+
+    s = np.linspace(0, 1, 513)                          # fixed normalisation grid: the same scale on every grid
+    return field(x, y) / np.abs(field(s[:, None], s[None, :])).max()
+
+
 def torus_state(flow: AccretionFlow) -> np.ndarray:
     """Equilibrium torus with l(R) = l_c (R/R_c)^a (pressure maximum at R_c, inner edge at R_edge) in an atmosphere.
 
@@ -429,7 +450,11 @@ def torus_state(flow: AccretionFlow) -> np.ndarray:
     p_atm = 1e-2 * rho_atm / r                          # cold: c_s^2 ~ 1e-2 v_ff^2
     torus = inside & (rho_t > rho_atm)
     rng = np.random.default_rng(c.seed)
-    rho = np.where(torus, rho_t * (1 + c.perturbation * rng.uniform(-1, 1, rho_t.shape)), rho_atm)
+    if c.perturbation_kind == "modes":
+        noise = _mode_noise(rng, np.log(r / c.r_in) / np.log(c.r_out / c.r_in) * np.ones_like(th), th / math.pi * np.ones_like(r))
+    else:
+        noise = rng.uniform(-1, 1, rho_t.shape)
+    rho = np.where(torus, rho_t * (1 + c.perturbation * noise), rho_atm)
     p = np.where(torus, p_t, p_atm)
     ell = lc * (np.maximum(R, 1e-6) / Rc) ** a
     vph = np.where(torus, ell / np.maximum(R, 1e-6), 0.0)

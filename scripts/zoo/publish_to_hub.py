@@ -71,6 +71,9 @@ def plan(staging: Path | None = None, *, need_files: bool = True) -> list[dict]:
                 files = dict.fromkeys(e["files"])
             if kind == "models":
                 readme = ModelCard.load(str(files["model_card.json"])).to_markdown() if need_files else ""
+                if readme:                                    # the stored pp.validate report (#706)
+                    from pinneapple_hub.zoo.validation_reports import card_section
+                    readme += ("\n\n" + card_section(name)) if card_section(name) else ""
                 meta = f"---\nlicense: {e.get('license', 'apache-2.0')}\nlibrary_name: pinneapple\ntags:\n" + \
                        "".join(f"- {t}\n" for t in ["pinneapple", *e.get("tags", [])]) + "---\n\n"
             else:

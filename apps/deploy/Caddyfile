@@ -181,3 +181,75 @@
 	import common
 	reverse_proxy playground:8095
 }
+
+{$RUNNER_DOMAIN} {
+	import common
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy runner:8110 {
+		transport http {
+			read_timeout 120s
+		}
+	}
+}
+
+{$CAMPAIGN_DOMAIN} {
+	import common
+	request_body {
+		max_size 110MB
+	}
+	reverse_proxy campaign:8096 {
+		transport http {
+			read_timeout 300s
+		}
+	}
+}
+
+{$UQL_DOMAIN} {
+	import common
+	request_body {
+		max_size 60MB
+	}
+	reverse_proxy uncertainty:8098 {
+		transport http {
+			read_timeout 180s
+		}
+	}
+}
+
+{$SEN_DOMAIN} {
+	import common
+	request_body {
+		max_size 60MB
+	}
+	reverse_proxy sensitivity:8099 {
+		transport http {
+			read_timeout 300s
+		}
+	}
+}
+
+{$VAL_DOMAIN} {
+	import common
+	request_body {
+		max_size 220MB
+	}
+	reverse_proxy validate:8107 {
+		transport http {
+			read_timeout 180s
+		}
+	}
+}
+
+{$EVR_DOMAIN} {
+	import common
+	request_body {
+		max_size 220MB
+	}
+	reverse_proxy evidence:8113 {
+		transport http {
+			read_timeout 180s
+		}
+	}
+}
