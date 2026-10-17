@@ -14,6 +14,22 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Evidence ledger, Validation Lab and evidence package in `pinneapple_veriphysics`:
+  - `ledger`: `EvidenceEntry` / `EvidenceLedger`. Each entry records the check, the SHA-256 of its inputs, its
+    outputs, start and finish times and the verdict, sealed with the SHA-256 of its content. `status()` is
+    "passed" or "failed" only for a complete, intact entry; anything else reads "not run" (an edited entry, a
+    crash, a missing hash or time).
+  - `validation_lab`: runs `pinneapple check` on the inputs of a folder and groups the outcomes into numerical
+    verification, validation against data and physical consistency. Per target, it lists the groups in which
+    nothing ran. Every outcome gets a ledger entry; the report holds the input manifest with hashes and the
+    configuration that reproduces it. `config_from_spec` writes the configuration from a plain description;
+    `assert_no_code` refuses models that would run uploaded code (zoo models only). `render_html` writes the report.
+  - `evidence_package`: reads other tools' outputs (Validation Lab reports, ledgers, `pinneapple check` JSON,
+    Simulation Comparator results, StudyResult / ModelRef / DatasetSpec JSON, metrics tables, any file by hash).
+    It builds a report with methodology, conditions, baseline comparison, tests, limitations and artifact
+    references, renders it as HTML and as PDF (`pinneapple_tools.reporting.paperkit`) and packs a zip with a
+    SHA-256 manifest (`verify_package`). A test is printed as passed only when the source's own ledger records
+    its run; a bare claim reads "not run".
 - Zoo dataset `airfoil_rans_cst_re4e6_fields` (Hub-only, 186 MB in 5 files): the cell fields p, Ux, Uy, nut and
   cell centres of the 436 OpenFOAM runs of `airfoil_rans_cst_re4e6`, with the same splits. The campaign was
   regenerated, and its coefficients reproduce the published table. `write_field_dataset`
