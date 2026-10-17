@@ -69,10 +69,16 @@ def field_metrics():
     return leaf("pinneapple_analysis.validation.field_metrics")
 
 
-def dataset_audit():
-    return leaf("pinneapple_data.audit")
 def spectral():
     return leaf("pinneapple_analysis.validation.spectral")
+
+
+def metamorphic():
+    return leaf("pinneapple_analysis.validation.metamorphic")
+
+
+def dataset_audit():
+    return leaf("pinneapple_data.audit")
 
 
 def method_catalog():

@@ -552,7 +552,6 @@ _SUBMODULES = {
     "uq":        "pinneapple_analysis.uncertainty",
     "transfer":  "pinneapple_adaptation.transfer_learning",
     "meta":      "pinneapple_adaptation.meta_learning",
-    "validate":  "pinneapple_analysis.validation",
     "export":    "pinneapple_tools.model_export",
     # quantum
     "quantum":   "pinneapple_quantum",
@@ -631,6 +630,9 @@ _LAZY_ATTRS = {
     "ComputeBudget": ("pinneapple_analysis.cost.equal_budget", "ComputeBudget"),
     # physics checks of a field on a grid -> trust card with a deploy decision
     "trust_card": ("pinneapple_analysis.trust.field_card", "trust_card"),
+    # one call, one validation report with credibility levels (#696)
+    # (also the old pp.validate namespace: pp.validate.PhysicsValidator still resolves)
+    "validate": ("pinneapple_analysis.validation.validate", "pp_validate"),
     "PhysicsOptimizer": ("pinneapple_core.optim", "PhysicsOptimizer"),
     "compile": ("pinneapple_physics.compile_api", "compile"),
     "PhysicsModule": ("pinneapple_core.module", "PhysicsModule"),
