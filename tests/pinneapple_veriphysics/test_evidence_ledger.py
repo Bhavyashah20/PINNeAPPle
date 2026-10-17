@@ -279,3 +279,21 @@ def test_trust_card_checks_are_recorded_and_na_reads_not_run():
     assert led.status("plate/PDE residual") == "passed" and led.latest("plate/PDE residual").category == "verification"
     assert led.status("plate/boundary condition on x_min") == "passed"
     assert led.status("plate/reference (relative L2)") == NOT_RUN          # N/A: no reference was given
+
+
+def test_shared_contract_shapes_are_read():
+    from pinneapple_veriphysics.validation_lab import model_ref_target
+
+    ref = {"kind": "ModelRef", "name": "hs", "uri": "zoo:heatsink_forced_mlp",
+           "inputs": [{"name": "air_velocity_m_s"}], "outputs": [{"name": "r_base_k_w"}]}
+    t = model_ref_target(ref)
+    assert t["zoo"] == "heatsink_forced_mlp" and t["inputs"] == ["air_velocity_m_s"] and t["outputs"] == ["r_base_k_w"]
+    with pytest.raises(ValueError):
+        model_ref_target({"kind": "ModelRef", "name": "m", "uri": "file:model.pt"})
+    study = {"kind": "StudyResult", "id": "s1", "title": "sweep", "study_type": "campaign",
+             "checks": [{"name": "mass balance", "status": "PASS", "evidence": "run 3"}],
+             "limits": ["one seed only"]}
+    rep = build_report({}, [_src("study.json", study)])
+    (t,) = rep["tests"]
+    assert t["status"] == NOT_RUN and t["source_claim"] == "passed" and t["why"] == "no evidence record"
+    assert "study.json: one seed only" in rep["limitations"] and rep["contracts"][0]["name"] == "sweep"
