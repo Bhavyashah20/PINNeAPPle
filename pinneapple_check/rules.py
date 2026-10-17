@@ -126,6 +126,16 @@ RULES: dict[str, Rule] = {r.id: r for r in [
        """Train longer, add collocation points where the residual is largest, or check that the declared
        parameters match the ones the model was trained with."""),
     # ------------------------------------------------------------------ PC4 bounds
+    _r("PC303", "metamorphic-relation", "A model breaks a relation its physics implies", ERROR, "physics", "",
+       """A declared metamorphic relation does not hold for the model's predictions: more of an input moves an output
+       the wrong way (`monotonic`), a change that must not matter moves the output (`invariant`, e.g. a similarity
+       group kept fixed), a mirrored input does not give the mirrored output (`symmetric`), or a linear model is not
+       linear (`superposition`). These hold whatever the true answer is, so they test a surrogate where no reference
+       solution exists. The worst sample found is reported as the counterexample
+       (`pinneapple_analysis.validation.metamorphic`).""",
+       """Look at the counterexample: a sign error, an input swapped or in the wrong unit, or a fit that is not
+       constrained in that region. If the relation does not hold for the real physics there, narrow its box or
+       remove it rather than loosening the tolerance."""),
     _r("PC401", "out-of-bounds", "A field leaves its declared bounds", ERROR, "data_geometry", "bounds",
        """A value is outside the range declared under `bounds` in the configuration.""",
        """Check the solver limiters (e.g. MULES for a phase fraction), the time step, or the model's output

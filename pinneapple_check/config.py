@@ -149,6 +149,7 @@ class ModelTarget(_Target):
     method: str | None = None
     n_points: int = 1024
     seed: int = 0
+    relations: list[dict[str, Any]] = field(default_factory=list)   # metamorphic relations (PC303)
 
 
 @dataclass
@@ -429,10 +430,27 @@ def _result(r: dict[str, Any], base: Path, where: str) -> ResultTarget:
                         envelope=env)
 
 
+_RELATION_KINDS = {"monotonic": {"input", "output"}, "invariant": {"inputs", "output"},
+                   "symmetric": {"inputs"}, "superposition": set()}
+
+
+def _relations(v: Any, where: str) -> list[dict[str, Any]]:
+    """``relations = [{kind = "monotonic", input = "q", output = "T", direction = "increasing"}, ...]`` (PC303)."""
+    out = []
+    for i, r in enumerate(v or []):
+        if not isinstance(r, dict) or r.get("kind") not in _RELATION_KINDS:
+            raise ConfigError(f"{where}: relations[{i}] needs kind = {' | '.join(_RELATION_KINDS)}")
+        missing = _RELATION_KINDS[r["kind"]] - set(r)
+        if missing:
+            raise ConfigError(f"{where}: relations[{i}] ({r['kind']}) needs {', '.join(sorted(missing))}")
+        out.append(dict(r))
+    return out
+
+
 def _model(r: dict[str, Any], base: Path, where: str) -> ModelTarget:
     known = {"name", "path", "hub", "zoo", "physics", "parameters", "units", "bounds", "bc", "ic", "reference",
              "tolerances", "sha256", "architecture", "config", "inputs", "outputs", "train-range", "train-samples",
-             "queries", "domain", "method", "n-points", "seed"}
+             "queries", "domain", "method", "n-points", "seed", "relations"}
     if set(r) - known:
         raise ConfigError(f"{where}: unknown key(s) {', '.join(sorted(set(r) - known))}")
     c = _common(r, base, where)
@@ -449,7 +467,8 @@ def _model(r: dict[str, Any], base: Path, where: str) -> ModelTarget:
         train_samples=base / r["train-samples"] if r.get("train-samples") else None,
         queries=base / r["queries"] if r.get("queries") else None,
         domain={k: [float(a) for a in v] for k, v in (r.get("domain") or {}).items()},
-        method=r.get("method"), n_points=int(r.get("n-points", 1024)), seed=int(r.get("seed", 0)))
+        method=r.get("method"), n_points=int(r.get("n-points", 1024)), seed=int(r.get("seed", 0)),
+        relations=_relations(r.get("relations"), where))
 
 
 # ---------------------------------------------------------------------------------------------- discovery
