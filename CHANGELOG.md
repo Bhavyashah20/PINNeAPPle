@@ -418,6 +418,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- Encounter feasibility (`pinneapple_analysis.uncertainty.reachability`): contact was looked for only at the
+  `n` time samples, so a fast flyby whose regions overlapped between two samples was reported as impossible (a
+  closest approach of 0.05 against a radius of 0.1 at 2000 units per second came out `possible=False`). The closest
+  approach of the two centres is now sampled, and every interval whose lower bound reaches zero is searched. A
+  negative uncertainty, acceleration or latency, or a non-positive horizon, now raises a `ValueError`.
 - Veriphysics robustness studies (`pinneapple_veriphysics.robustness`): an extrapolation margin of 0 (or a negative
   one) left no point outside the training box and `_sample_shell` looped forever, hanging `ensemble_study` and
   `extrapolation_study`; it now raises a clear `ValueError`. The evaluation points came from the global NumPy
