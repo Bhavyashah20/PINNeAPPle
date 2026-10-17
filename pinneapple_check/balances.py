@@ -9,6 +9,11 @@ __all__ = ["grid_mass", "grid_heat", "grid_force"]
 _trapz = getattr(np, "trapezoid", None) or np.trapz
 
 
+def _grad(v: np.ndarray, x: np.ndarray, axis: int) -> np.ndarray:
+    """``numpy.gradient`` with second-order ends, first order on an axis of 2 points (exact for a linear profile)."""
+    return np.gradient(v, x, axis=axis, edge_order=2 if len(x) >= 3 else 1)
+
+
 def _faces(coords: list[np.ndarray], names: list[str]):
     """(face name, axis, index along it, outward sign)."""
     for i, a in enumerate(names):
@@ -47,7 +52,7 @@ def grid_heat(coords: list[np.ndarray], names: list[str], T: np.ndarray, k: floa
     """Heat flow INTO the domain: k dT/dn (outward normal) over the boundary, plus the source."""
     per, tot = {}, 0.0
     for face, i, idx, s in _faces(coords, names):
-        g = np.gradient(T, coords[i], axis=i, edge_order=2)
+        g = _grad(T, coords[i], i)
         qn = s * k * np.take(g, idx, axis=i)
         per[face] = _integrate(qn, coords, i)
         tot += _integrate(np.abs(qn), coords, i)
@@ -60,7 +65,7 @@ def grid_force(coords: list[np.ndarray], names: list[str], disp: list[np.ndarray
     """Resultant of the boundary tractions sigma.n plus the body force (plane strain in 2-D)."""
     nd = len(coords)
     lam, mu = E * nu / ((1 + nu) * (1 - 2 * nu)), E / (2 * (1 + nu))
-    G = [[np.gradient(disp[i], coords[j], axis=j, edge_order=2) for j in range(nd)] for i in range(nd)]
+    G = [[_grad(disp[i], coords[j], j) for j in range(nd)] for i in range(nd)]
     div = sum(G[i][i] for i in range(nd))
     sig = [[lam * div * (i == j) + mu * (G[i][j] + G[j][i]) for j in range(nd)] for i in range(nd)]
     R = np.zeros(nd)
