@@ -598,6 +598,12 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- MC dropout (`pinneapple_analysis.uncertainty.mc_dropout`): `MCDropoutWrapper` applied dropout after every
+  `nn.Linear`, including the output layer, so about `p` of the samples were exactly zero and the reported std was
+  `|mean| sqrt(p / (1 - p))` whatever the model. Dropout now acts on the input of every `nn.Linear` but the first
+  (the hidden activations, Gal & Ghahramani 2016), and the sampled mean and std match the closed-form moments of a
+  two-layer network. Sampling no longer leaves the model in eval mode or resets the caller's global torch RNG when a
+  seed is given, and `n_samples = 1` (a NaN std) now raises a `ValueError`.
 - Quantile regression (`pinneapple_analysis.uncertainty.quantile`): `QuantileLoss` scored the first `Q` outputs
   when the model produced more outputs than levels and raised a bare `IndexError` when it produced fewer; the pinball
   loss broadcast a `(B, 1)` target against `(B, H)` predictions; a level outside (0, 1) such as 1.5 was accepted and
