@@ -63,6 +63,7 @@
     * [Spectral fidelity: what relative L2 does not see](guides/spectral_fidelity.md)
     * [Validation methods reference](guides/validation_methods_reference.md)
     * [A latent surrogate that says when not to trust it](guides/trusted_latent_surrogate.md)
+    * [Reduced-order models and meshless methods, measured](guides/rom_and_meshless_studies.md)
     * [Detect false data injection with physics residuals](guides/physics_residual_attack_detection.md)
     * [The PINNeAPPle Observatory](guides/observatory.md)
     * [Playground: physics surrogates in the browser](guides/playground.md)
