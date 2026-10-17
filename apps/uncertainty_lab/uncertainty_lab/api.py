@@ -343,12 +343,12 @@ def model_info(name: str):
 
 
 _CONFIG = Form(..., description="study configuration (JSON, see /api/example/heatsink/config)")
-_OPTIONAL_FILE = File(None)
+_MODEL_FILE, _REFERENCE_FILE, _CASES_FILE = File(None), File(None), File(None)   # one object per parameter
 
 
 @app.post("/api/study")
-async def api_study(config: str = _CONFIG, model: UploadFile | None = _OPTIONAL_FILE,
-                    reference: UploadFile | None = _OPTIONAL_FILE, cases: UploadFile | None = _OPTIONAL_FILE):
+async def api_study(config: str = _CONFIG, model: UploadFile | None = _MODEL_FILE,
+                    reference: UploadFile | None = _REFERENCE_FILE, cases: UploadFile | None = _CASES_FILE):
     """Run a study. ``config``: {model: {source: zoo|onnx, name, input_names, output_names}, output, alpha, scale
     (absolute|relative|ensemble), limits [lo, hi], tolerance or tolerance_pct, high_fidelity (none|routed|all),
     cases [{name, input: value}], nominal {input: value}, uncertain [{name, dist, ...}], n_propagation,
