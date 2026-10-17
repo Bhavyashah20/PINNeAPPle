@@ -106,7 +106,7 @@ def main(argv=None):
 def main_dataset(a):
     from pinneapple_physics.blackhole.dataset import load_trajectories, window_volumes
     from pinneapple_physics.blackhole.forecast import train_on_trajectories
-    path = a.dataset if a.dataset.endswith(".npz") else None
+    path = a.dataset if os.path.exists(a.dataset) else None   # a data.npz, a folder of <split>.npz, or the zoo name
     tr, va = load_trajectories("train", path), load_trajectories("val", path)
     cfg = TrainConfig(filters=a.filters, epochs=a.epochs, batch_size=a.batch_size, alpha=a.alpha, lr=a.lr,
                       residual=a.residual, loss=a.loss, clip=a.clip, max_minutes=a.max_minutes, seed=a.seed,

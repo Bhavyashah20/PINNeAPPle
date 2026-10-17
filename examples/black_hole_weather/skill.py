@@ -23,7 +23,7 @@ from pinneapple_physics.blackhole.skill import evaluate_skill
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--dataset", default="blackhole_riaf_density_256", help="zoo name or path to data.npz")
+    ap.add_argument("--dataset", default="blackhole_riaf_density_256", help="zoo name, a data.npz or a folder of <split>.npz files")
     ap.add_argument("--models", nargs="+", required=True, help="training output folders (forecaster.pt)")
     ap.add_argument("--split", default="test")
     ap.add_argument("--blocks", type=int, default=20)
@@ -34,7 +34,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     torch.set_num_threads(a.threads)
     os.makedirs(a.out, exist_ok=True)
-    path = a.dataset if a.dataset.endswith(".npz") else None
+    path = a.dataset if os.path.exists(a.dataset) else None   # a data.npz, a folder of <split>.npz, or the zoo name
     models = {}
     for m in a.models:
         net, codec, _ = load_forecaster(os.path.join(m, "forecaster.pt"))

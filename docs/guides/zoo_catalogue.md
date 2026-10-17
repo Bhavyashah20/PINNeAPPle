@@ -24,8 +24,9 @@ Metric names are `<split>/<metric>`; the full set, the validity range and the ph
 | `single_wheel_tests` | 1.0.0 | Published single-wheel testbed points (drawbar pull, sinkage, torque vs slip) | all 27 | mit | 3 kB (bundled) | [PINNeAPPle-Labs/single-wheel-tests](https://huggingface.co/datasets/PINNeAPPle-Labs/single-wheel-tests/tree/v1.0.0) |
 | `burgers_1d_li2021` | 1.0.0 | 1-D viscous Burgers, Li et al. (2021) operator-learning benchmark (1200 trajectories, 1024 points) | train 1000, test 200 | cc-by-4.0 | 55 MB (Hub-only) | [PINNeAPPle-Labs/burgers-1d-li2021](https://huggingface.co/datasets/PINNeAPPle-Labs/burgers-1d-li2021/tree/v1.0.0) |
 | `darcy_2d_li2021` | 1.0.0 | 2-D Darcy flow, Li et al. (2021) operator-learning benchmark (1200 coefficient / pressure pairs, 128 x 128) | train 1000, test 200 | cc-by-4.0 | 71 MB (Hub-only) | [PINNeAPPle-Labs/darcy-2d-li2021](https://huggingface.co/datasets/PINNeAPPle-Labs/darcy-2d-li2021/tree/v1.0.0) |
+| `blackhole_riaf_density_256` | 1.0.0 | Accretion onto a Schwarzschild black hole: 2.5-D viscous hydro density frames (256 x 128) | convergence 12, grid_r 192, grid_theta 96, ood_alpha0.3 401, test 401, train 1604, val 401 | cc-by-4.0 | 91 MB (Hub-only) | [PINNeAPPle-Labs/blackhole-riaf-density-256](https://huggingface.co/datasets/PINNeAPPle-Labs/blackhole-riaf-density-256/tree/v1.0.0) |
 
-4 models and 7 datasets, 128.4 MB in total (2.7 MB bundled with the package; the rest is downloaded on first use and checked against its SHA-256).
+4 models and 8 datasets, 219.9 MB in total (2.7 MB bundled with the package; the rest is downloaded on first use and checked against its SHA-256).
 
 ## Cite
 
