@@ -120,13 +120,20 @@ def to_toml(doc: dict[str, Any]) -> str:
 
 
 def model_ref_target(ref: dict[str, Any]) -> dict[str, Any]:
-    """A ``[[model]]`` table from a model reference: ``{"zoo": name}``, or a ModelRef-like dict with
-    ``source == "zoo"`` and ``name`` (plus optional ``inputs``/``outputs``/``train_range``/``queries``)."""
-    name = ref.get("zoo") or (ref.get("name") if str(ref.get("source", "")).lower() in ("zoo", "pp.zoo") else None)
+    """A ``[[model]]`` table from a model reference: ``{"zoo": name}``, a ModelRef with ``uri = "zoo:<name>"``, or
+    one with ``source == "zoo"`` and ``name``. ``inputs``/``outputs`` may be names or ``{"name": ...}`` variables;
+    ``train_range``, ``queries``, ``bounds``, ``units``, ``tolerances`` and ``sha256`` are passed on."""
+    uri = str(ref.get("uri") or "")
+    name = ref.get("zoo") or (uri[4:] if uri.startswith("zoo:") else None) or \
+        (ref.get("name") if str(ref.get("source", "")).lower() in ("zoo", "pp.zoo") else None)
     if not name:
-        raise ValueError("only zoo models can be referenced (give {'zoo': name}); uploaded code is not run")
+        raise ValueError("only zoo models can be referenced (give {'zoo': name} or uri 'zoo:<name>'); uploaded code "
+                         "is not run")
     t: dict[str, Any] = {"name": ref.get("label") or str(name), "zoo": str(name)}
-    for k in ("inputs", "outputs", "queries", "physics", "units", "bounds", "tolerances"):
+    for k in ("inputs", "outputs"):
+        if ref.get(k):
+            t[k] = [v.get("name") if isinstance(v, dict) else str(v) for v in ref[k]]
+    for k in ("queries", "physics", "units", "bounds", "tolerances"):
         if ref.get(k):
             t[k] = ref[k]
     if ref.get("train_range") or ref.get("train-range"):
