@@ -217,9 +217,16 @@ def test_budget_study_and_ablations(tmp_path):
     st = res._build()["studies"]["smooth"]
     assert [p["budget_s"] for p in st["study"]["fno"]["all"]] == [1.0, 2.0]       # the full run, then the study run
     assert st["ablation"]["fno"]["baseline"] and st["ablation"]["fno"]["variants"]["low_lr"]["metrics"]
-    # an empty study leaves the configuration hash (the cache guard) as it was before these fields existed
-    assert B.BenchmarkConfig().result_hash() == B.BenchmarkConfig(budget_study={}, ablations={}).result_hash()
-    assert B.BenchmarkConfig().result_hash() != B.BenchmarkConfig(**kw).result_hash()
+    # studies only add jobs: adding to them reuses the out_dir, changing an existing entry is refused
+    more = dict(budget_study={"smooth": {"fno": [2.0, 3.0]}},
+                ablations={"smooth": {"fno": {"low_lr": {"lr": 1e-5}, "high_lr": {"lr": 1e-2}}}})
+    B.run(problems=[_problem()], methods=["fno"], out_dir=out, stages=(), **FAST, **more)
+    with pytest.raises(B.ConfigMismatch):
+        B.run(problems=[_problem()], methods=["fno"], out_dir=out, stages=(), **FAST,
+              budget_study={"smooth": {"fno": [3.0]}}, ablations=more["ablations"])
+    with pytest.raises(B.ConfigMismatch):
+        B.run(problems=[_problem()], methods=["fno"], out_dir=out, stages=(), **FAST, budget_study=more["budget_study"],
+              ablations={"smooth": {"fno": {"low_lr": {"lr": 1e-4}}}})
 
 
 def test_yplus_check_uses_the_reynolds_number_of_the_reference_length():
@@ -234,3 +241,11 @@ def test_airfoil_convergence_is_judged_on_what_each_method_predicts():
     assert prob.main_metric_for("mlp") == ("test4", "cd")              # integrals only
     for m in ("pinn", "pinn_rans", "mgn", "mlp_fields"):                # potential flow: Cd = 0 by construction
         assert prob.main_metric_for(m) == ("test4", "u")
+
+
+def test_equal_flops_arm_with_a_per_instance_pinn(tmp_path):
+    """The equal-FLOPs table finds the PINN's run by its instance (the arm trains the first "final" instance)."""
+    res = B.run(problems=["burgers"], methods=["pinn", "fno"], out_dir=tmp_path / "b", smoke=True, equal_flops=True,
+                budget={"wall_s": 2.0}, seeds=1, n_trials=1, n_workers=1, log=lambda *a: None)
+    ef = res._build()["tables"]["burgers"]["equal_flops"]
+    assert ef and ef["rows"]["pinn"]["common"] and ef["rows"]["fno"]["common"]
