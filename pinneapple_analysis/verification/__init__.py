@@ -242,6 +242,13 @@ from pinneapple_analysis.verification.evidence_graph import (
     evidence_summary,
     explain_trust,
 )
+from pinneapple_analysis.verification.forecast_skill import (
+    SkillResult,
+    batch_means_ci,
+    block_bootstrap_mean,
+    block_bootstrap_ratio,
+    skill_vs_lead,
+)
 from pinneapple_analysis.verification.geometry_ood_guardrail import (
     FEATURE_NAMES as GEOMETRY_OOD_FEATURE_NAMES,
     extract_geometry_features,
@@ -278,6 +285,12 @@ __all__ = [
     "ConvergenceResult",
     "MeshIndependenceStudyResult",
     "richardson_extrapolate",
+    # forecast_skill
+    "SkillResult",
+    "skill_vs_lead",
+    "block_bootstrap_mean",
+    "block_bootstrap_ratio",
+    "batch_means_ci",
     "mesh_independence_study",
     # physics_confidence_score
     "ConfidenceComponent",
