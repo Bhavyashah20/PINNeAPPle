@@ -14,6 +14,25 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Zoo dataset `airfoil_rans_cst_re4e6_fields` (Hub-only, 186 MB in 5 files): the cell fields p, Ux, Uy, nut and
+  cell centres of the 436 OpenFOAM runs of `airfoil_rans_cst_re4e6`, with the same splits. The campaign was
+  regenerated, and its coefficients reproduce the published table. `write_field_dataset`
+  (`pinneapple_design.aero.field_dataset`) writes it, sharding splits larger than 120 runs.
+- Zoo dataset `thermal_channel_cfd` (Hub-only, 360 MB in 8 files): the actuated heated channel of Benchmark
+  experiment 05. It holds 82 trajectories of u, v, p, T on 128 × 32 with 101 snapshots, the actuators and the
+  quantities of interest. The splits are train 48 / val 8 / test 12 of random steps and ramps, plus two actuation
+  families unseen in training. The card carries the solver checks (Poiseuille, Nusselt number) and a three-grid GCI.
+  The recipe is `pinneapple_simulation.numerical_solvers.thermal_channel_datasets` and the command line is
+  `scripts/zoo/thermal_channel_data.py`.
+- Spectral fidelity metrics (`pinneapple_analysis.validation.spectral`, #702): radially binned energy spectra
+  (periodic, or mean-removed and Hann-windowed), energy ratio, phase error and coherence per wavenumber band, a
+  high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
+  wall flux. Reported by `pinneapple check` (new rule PC704 `spectral-bias`, tolerance `hf-bias`) and by the
+  `pp.benchmark` field problems ("HF energy bias" column). Docs: "Spectral fidelity".
+- Zoo dataset `navier_stokes_2d_li2021_nu1e-3` (Hub-only, 919 MB in 12 shards of 100 runs): 2-D incompressible
+  Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
+  It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
+  `pp.datasets.load(name, split="test")` downloads only the two test shards.
 - Black-hole weather, zoo version (#399). The library gains the tools, and the example scripts only call them:
   - `pinneapple_physics.blackhole.runs`: generate, resume and read simulations;
   - `convergence`: a resolution study with conservative remap between non-nested grids, Richardson order and GCI,
@@ -387,6 +406,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   and `pinneapple_design.design_optimizer.representatives` (best per objective + balanced pick of a Pareto front).
 
 ### Changed
+- `pp.benchmark`: adding entries to `budget_study` or `ablations` reuses an existing `out_dir` (they only add jobs); changing
+  or removing an entry is still refused. Before, any change to them was refused.
 - **Behavior:** `pinneapple_analysis.cost.measure` now counts FLOPs of code that calls `torch.autograd.grad` with
   the hook-free counter (`flops_source == "dispatch_counter"`) instead of the profiler's matmul-only lower bound.
 - `compressible_fv.sod_exact` delegates to `astrophysics.sod_exact_solution` (same output to round-off; covers every wave pattern);
@@ -412,6 +433,32 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- `pinneapple_physics.conservation.project_integral(mode="positive")` returned a negative field when the target
+  integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
+  for a field that is <= 0 everywhere. A zero field with a zero target is returned unchanged in the multiplicative
+  modes instead of dividing 0 by 0.
+- `TrustGate` OOD score (`pinneapple_analysis.trust`): a batch of query points was scored by the chi-squared p-value
+  of its mean point, so two points 50 standard deviations on either side of the training mean averaged to the mean
+  and scored 0.9998, "in distribution". **Behavior:** each point is now tested on its own and `ood_score` is the
+  fraction of query points whose Mahalanobis p-value is at least `ood_level` (new argument, default 0.01: inside the
+  99 % region of the fitted Gaussian). `TrustGate.ood_p_values(x)` returns the per-point p-values; NaN coordinates
+  count as outside and a wrong number of coordinates raises a clear `ValueError`. `TrustScore.details` reports
+  `ood_fraction_inside`, `ood_p_value_min` and `ood_level` (replacing `ood_p_value`).
+- `pp.trust_card` / `field_checks`: an exactly harmonic field that is linear along an axis (`u = x + 2y`,
+  `T = 300 + x + y`) failed the critical PDE-residual check and was rejected, because its finite-difference terms are
+  pure round-off and the residual was judged against that round-off. The residual scale now has a floor at the
+  round-off of the stencil, computed from the dtype of the data as written (float32 fields get float32 epsilon).
+  Grids with 2 points on an axis now report the conservation check as not run instead of raising NumPy's
+  "Shape of array too small" error, and torch tensors (including ones that require grad) are accepted as values.
+  New tests check the residual against exact Laplace, Poisson and heat solutions (second-order convergence on
+  uniform and stretched grids) and the conservation check against the divergence theorem.
+- `pinneapple check` on tensor-product grids (`pinneapple_check.numerics.GridD`): second derivatives were the
+  derivative of the derivative, which next to the boundary divides the one-sided edge value by h (an O(h) error),
+  so the PDE residual (PC301) converged at order 1.5 instead of 2 and an exact harmonic field on a 17 x 17 grid
+  scored 0.095, above the 0.05 default. Pure second derivatives now use the three-point stencil (non-uniform
+  spacing allowed); the residual of the same field is 0.017 and converges at order 2 on uniform and stretched grids.
+- Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
+  repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
 - Black-hole simulations: resuming a run from its checkpoint failed on the outer-boundary state (`AccretionFlow._outer`).
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
@@ -428,6 +475,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   (range 1–24, `?size=` in the URL), the glow halo is brighter, and the Earth follows the slider (its hand-set
   orientation matrix used to drop the scale). The Moon's exaggerated distance and the observer pin scale with it,
   so the Moon stays outside the enlarged Earth. Screenshot `docs/assets/apps/14-observatory-system.jpg` regenerated.
+- Observatory, solar-system view: the overview now frames every planet inside the free part of the canvas (left of
+  the side panel, above the time controls; Jupiter used to sit under the panel). It looks from 50° above the
+  ecliptic, from the side opposite the Earth, and fits the projected planets by iteration. The Earth shader lacked
+  the linear-to-sRGB output conversion, so the Earth rendered several times too dark; it now has it, plus the blue of
+  the sunlit atmosphere on the day side. The Sun's light and an ambient floor were raised so that Mercury and Venus
+  show their sunlit side and their surface at large phase angles. Screenshot
+  `docs/assets/apps/14-observatory-system.jpg` regenerated.
 - `pinneapple_data.preflight`: `freestreamPressure` / `freestream` fix the pressure level; external-aerodynamics cases
   were reported as having no pressure reference.
 - Geometry library: `build()` snaps vertices to a 0.1 um grid, so the files rebuilt on another machine (the Hub
@@ -435,6 +489,15 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   versions the manifest was generated with. All files and the manifest were regenerated. The self-intersection
   check measures distances about each triangle pair's centre with a size-relative tolerance (no false hits on flat
   caps far from the origin or on nearly parallel neighbours).
+
+### Documentation
+- New guide "Validation methods reference" (`docs/guides/validation_methods_reference.md`, under Guides): every
+  check of `pinneapple check`, `pp.trust_card`, `TrustGate`, `pinneapple_analysis.validation`, `.uncertainty`,
+  `.verification`, veriphysics, the physics audit monitor and the zoo query gate, with what it detects, its
+  assumptions, default thresholds, references and known limitations; a table that maps the status vocabularies of
+  these modules onto pass / warn / fail / not-applicable; and how check power is measured (ASME V&V 40 and
+  NASA-STD-7009A credibility, mutation testing, metamorphic relations, adversarial robustness of neural operators,
+  the arena proposed in #707).
 
 ## [0.7.0] - 2026-10-13
 

@@ -1,0 +1,115 @@
+{
+ "schema": "dataset-audit/v1",
+ "dataset": "airfoil_rans_cst_re4e6",
+ "splits": {
+  "grid_study": 3,
+  "naca_reference": 36,
+  "test": 60,
+  "train": 340,
+  "xfoil_naca2412": 9
+ },
+ "physics": null,
+ "decision": "warn",
+ "tolerances": {
+  "physics": 0.02,
+  "bc": 0.02,
+  "flux": 0.02,
+  "duplicates": 0.0,
+  "leakage": 0.0,
+  "near": 0.001,
+  "diversity": 0.5,
+  "spectrum": 2.0,
+  "min_effective": 2.0
+ },
+ "checks": [
+  {
+   "id": "finite",
+   "status": "warn",
+   "summary": "missing values (NaN) in train/Cm (340, documented)",
+   "value": null,
+   "threshold": null,
+   "evidence": {
+    "nan": {
+     "train/Cm": 340
+    },
+    "documented": [
+     "train/Cm"
+    ]
+   }
+  },
+  {
+   "id": "physics",
+   "status": "not-applicable",
+   "summary": "no PDE stated for this dataset",
+   "value": null,
+   "threshold": null,
+   "evidence": {}
+  },
+  {
+   "id": "constraint: Cd > 0",
+   "status": "pass",
+   "summary": "0 of 448 rows violate it",
+   "value": 0,
+   "threshold": 0,
+   "evidence": {}
+  },
+  {
+   "id": "diversity.duplicates",
+   "status": "pass",
+   "summary": "train: 0 exact, 0 near copies of 340; test: 0 exact, 0 near copies of 60",
+   "value": 0.0,
+   "threshold": 0.0,
+   "evidence": {
+    "train": {
+     "exact": 0,
+     "near": 0,
+     "pairs": [],
+     "median_nn": 0.7312095045333725
+    },
+    "test": {
+     "exact": 0,
+     "near": 0,
+     "pairs": [],
+     "median_nn": 0.6930045765372181
+    }
+   }
+  },
+  {
+   "id": "diversity.effective",
+   "status": "pass",
+   "summary": "effective sample count 6.47 of 340 (no generator stated: only a collapse to one pattern is flagged)",
+   "value": 6.472532340987487,
+   "threshold": 2.0,
+   "evidence": {
+    "effective": 6.472532340987487,
+    "n": 340
+   }
+  },
+  {
+   "id": "leakage",
+   "status": "pass",
+   "summary": "0 of 60 test samples are (near) copies of train samples (closest: 1.03 x the median train spacing)",
+   "value": 0.0,
+   "threshold": 0.0,
+   "evidence": {
+    "n_test": 60,
+    "n_flagged": 0,
+    "fraction": 0.0,
+    "pairs": [],
+    "median_train_nn": 0.7312095045333725,
+    "min_ratio": 1.0275952662701318
+   }
+  },
+  {
+   "id": "units",
+   "status": "pass",
+   "summary": "15 column units parse",
+   "value": null,
+   "threshold": null,
+   "evidence": {
+    "unparseable": [],
+    "mismatch": []
+   }
+  }
+ ]
+}

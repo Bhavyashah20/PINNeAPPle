@@ -298,7 +298,7 @@ async function switchView(v, opts = {}) {
     fade.style.opacity = 0;
     const mid = sys.planets.earth.grp.position.clone();
     sys.flyTo(mid.clone().add(a.pos.clone().sub(mid).normalize().multiplyScalar(2.2)).add(new THREE.Vector3(0, 1.2, 0)), mid, opts.ms1 || 2600, () => {
-      const o = sys.overviewShot(); sys.flyTo(o.pos, o.target, opts.ms2 || 3200);
+      const o = sys.overviewShot(panelCover(), hudCover()); sys.flyTo(o.pos, o.target, opts.ms2 || 3200);
     });
   } else {
     sys.focus = null;
@@ -308,6 +308,17 @@ async function switchView(v, opts = {}) {
     S.view = "sky"; setViewButtons(); sys.controls.enabled = false; loadSky(true);
     fade.style.opacity = 0;
   }
+}
+// fraction of the canvas width hidden by the side panel (0 when it is closed or docked at the bottom on phones)
+function panelCover() {
+  const p = $("#panel");
+  if (!p.classList.contains("open") || window.innerWidth < 760) return 0;
+  return Math.min(0.6, Math.max(0, (window.innerWidth - p.getBoundingClientRect().left) / window.innerWidth));
+}
+// fraction of the canvas height taken by the time / layer controls at the bottom left
+function hudCover() {
+  const r = $("#hud").getBoundingClientRect();
+  return Math.min(0.5, Math.max(0, (window.innerHeight - r.top) / window.innerHeight));
 }
 function focusSystem(id) {
   sys.focus = id;

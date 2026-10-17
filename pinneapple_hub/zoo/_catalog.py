@@ -20,6 +20,10 @@ CST_RANGE = {"T0": [0.10, 0.24], "T1": [0.08, 0.22], "T2": [0.08, 0.22], "M0": [
 AIRFOIL_CITATION = ("PINNeAPPle contributors (2026). Airfoil RANS campaign (OpenFOAM v1912 simpleFoam, k-omega SST, "
                     "Re 4e6, 436 runs) and MLP-ensemble surrogate. PINNeAPPle model zoo, "
                     "https://github.com/PINNeAPPle-Labs/PINNeAPPle")
+AIRFOIL_FIELDS_CITATION = ("PINNeAPPle contributors (2026). Airfoil RANS campaign (OpenFOAM v1912 simpleFoam, k-omega "
+                           "SST, Re 4e6, 436 runs): flow fields and MeshGraphNet surrogate (Pfaff T., Fortunato M., "
+                           "Sanchez-Gonzalez A., Battaglia P., Learning Mesh-Based Simulation with Graph Networks, "
+                           "ICLR 2021). PINNeAPPle, Zenodo DOI 10.5281/zenodo.23343062.")
 
 MODELS = {
     "airfoil_cst_rans_mlp": {
@@ -445,9 +449,148 @@ OPERATOR_DATASETS = {
         "tags": ["operator learning", "neural operator", "Darcy", "benchmark", "FNO"],
         "citation": LI2021,
     },
+    "navier_stokes_2d_li2021_nu1e-3": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "2-D incompressible Navier-Stokes (vorticity), nu = 1e-3, Li et al. (2021) benchmark (1200 runs, 64 x 64, t 0-50)",
+        "description": (
+            "w_t + u . grad w = nu Laplacian(w) + f on the periodic unit square, u = (psi_y, -psi_x), -Laplacian(psi) "
+            "= w, nu = 1e-3, f(x, y) = 0.1 (sin 2 pi (x + y) + cos 2 pi (x + y)), w0 ~ N(0, 7^(3/2) (-Laplacian + "
+            "49 I)^-2.5) (Li et al. 2021, section 5.3). Solved on 128 x 128 and stored on the 64 x 64 grid "
+            "x_i = i / 64 at t = 0, 1, ..., 50 (51 snapshots; w[:, 0] is w0). The usual task maps the first 10 "
+            "snapshots to the next 40, or w0 to w(., 50)."),
+        "license": "cc-by-4.0",
+        "source": _OB_SOURCE + "; seed 20213",
+        "verification": (
+            "Solver (Fourier pseudo-spectral, 2/3 dealiasing, ETDRK4) checked in tests/test_operator_benchmarks.py: "
+            "exact decay of a Taylor-Green vortex (1e-10) and a mean-free, finite forced flow. Resolution and "
+            "time-step study on 4 held-aside inputs against a 256^2, dt 5e-3 reference at the stored 64^2 nodes and "
+            "all 50 saved times: the dataset setting (128^2, dt 5e-2) has max rel. L2 error 4.0e-8 (6.6e-8 at "
+            "t = 50); dt 2.5e-2 gives 2.5e-9 and dt 1e-2 6.0e-11 (fourth-order time convergence, the error is the "
+            "time step's; the 128^2 grid is spectrally converged); solving directly on 64^2 would give 1.7e-4. "
+            "Inputs are band-limited (Nyquist modes removed), so the 128^2 and 256^2 runs start from the same field. "
+            "Every stored field is finite with spatial mean below 5e-8. Stored in float32 (~6e-8 relative), far "
+            "below the 8e-3 or more operator-learning methods reach on this task."),
+        "splits": {"train": "1000 runs (10 shards of 100)", "test": "200 runs (2 shards of 100, held out)"},
+        "split_rule": _OB_SPLIT,
+        "columns": {"index": ("-", "sample index (row of the generated set)"),
+                    "w": ("-", "vorticity (non-dimensional) at t = 0, 1, ..., 50 on the 64 x 64 grid (51 x 64 x 64)")},
+        "tags": ["operator learning", "neural operator", "Navier-Stokes", "benchmark", "FNO"],
+        "citation": LI2021,
+    },
 }
 DATASETS.update(OPERATOR_DATASETS)
 
+AIRFOIL_FIELDS = {
+    "airfoil_rans_cst_re4e6_fields": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "Airfoil RANS flow fields, CST shapes, Re 4e6 (436 OpenFOAM runs, 20064-cell O-grid)",
+        "description": (
+            "The cell fields of the 436-run airfoil campaign (dataset airfoil_rans_cst_re4e6): steady 2-D RANS, "
+            "OpenFOAM v1912 simpleFoam, k-omega SST, y+ < 1, the shared 228 x 88 O-grid (20064 cells, far field 200 "
+            "chords), 100 Latin-hypercube CST airfoils x 4 angles and NACA 0012/2412/4412/4415 x 9 angles. Per run: "
+            "the 6 CST weights, the angle of attack, the final-iteration Cl, Cd, Cm, the run status (converged / "
+            "steady-ish / unsteady), the cell centres x, y (the grid moves with the shape) and the kinematic pressure "
+            "p, velocity Ux, Uy and eddy viscosity nut at every cell (free stream U = 1, chord 1). Cell order: "
+            "wall-normal level j outer, around-the-airfoil index i inner (j * 228 + i)."),
+        "license": "cc-by-4.0",
+        "source": ("pinneapple_design.aero.dataset.plan(100, 4) (seed 7) run with dataset.run_job "
+                   "(apps/aero_optimizer/tools/generate_dataset.py), written by "
+                   "pinneapple_design.aero.field_dataset.write_field_dataset; same case set-up as the 436-run "
+                   "campaign of airfoil_rans_cst_re4e6"),
+        "verification": (
+            "Regenerated with the campaign's case set-up; the 436 runs reproduce the coefficients of "
+            "airfoil_rans_cst_re4e6 (median |dCl| 1.8e-7, median |dCd|/Cd 1.6e-6, same run status in all 436). The "
+            "only differences above 1e-4 in Cl are 6 runs flagged unsteady, whose final-iteration values move "
+            "within their recorded oscillation (largest |dCl| 0.037, NACA 0012 at 14 deg); filter on status for "
+            "steady data. Solver verification of the campaign: grid study on NACA 2412 at alpha 4 deg "
+            "(6840/20064/45144 cells: Cl 0.6614/0.6625/0.6624, Cd GCI 1.9 %, observed order 2.4), XFOIL 6.99 "
+            "tripped (Cl -2.3 %, Cd +4.5 %), lift slope 0.110/deg as thin-airfoil theory, NASA TMR NACA 0012 SST "
+            "(Cd 0.00812 vs 0.0081). Field checks: all values finite; far-field pressure 0 and total pressure 0.5 "
+            "(U = 1); stagnation pressure within 2 % of 0.5 in 433 runs (max 0.527 in one converged run, 0.587 in "
+            "an unsteady snapshot). Status: 330 converged, 74 steady-ish, 32 unsteady."),
+        "splits": {
+            "train": "LHS runs of the 85 training shapes (every run, final-iteration values; filter on status)",
+            "test": "60 runs of the 15 held-out shapes of the airfoil surrogates (s003 s007 s008 s015 s016 s021 s026 "
+                    "s031 s042 s047 s054 s060 s069 s072 s079)",
+            "naca_reference": "36 NACA 0012/2412/4412/4415 runs (alpha -2..14), never used in training"},
+        "split_rule": "pinneapple_design.aero.train.split (15 % of the LHS shapes held out, seed 3)",
+        "columns": {
+            "run_id": ("-", "run identifier"), "shape_id": ("-", "shape identifier"),
+            **{n: (u, d) for n, u, d in CST}, "alpha_deg": ("deg", "angle of attack"),
+            "Cl": ("-", "lift coefficient (final iteration)"), "Cd": ("-", "drag coefficient (final iteration)"),
+            "Cm": ("-", "moment coefficient about c/4 (final iteration)"),
+            "status": ("-", "converged | steady-ish | unsteady"),
+            "x": ("chord", "cell-centre x (20064 cells)"), "y": ("chord", "cell-centre y (20064 cells)"),
+            "p": ("U^2", "kinematic pressure p / rho (free stream U = 1)"),
+            "Ux": ("U", "velocity x"), "Uy": ("U", "velocity y"),
+            "nut": ("U c", "turbulent eddy viscosity (molecular nu = 2.5e-7)")},
+        "tags": ["aerodynamics", "RANS", "OpenFOAM", "airfoil", "flow fields", "graph networks"],
+        "citation": AIRFOIL_FIELDS_CITATION,
+    },
+}
+DATASETS.update(AIRFOIL_FIELDS)
+
+THERMAL_CHANNEL_DATASETS = {
+    "thermal_channel_cfd": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "Actuated heated-channel CFD, 2-D incompressible flow + heat (82 trajectories, 128 x 32, 101 snapshots)",
+        "description": (
+            "Non-dimensional channel [0, 10] x [0, 1], Re 100, Pr 0.71: parabolic inlet with time-varying mean "
+            "velocity U(t) in [0.6, 1.4] and inlet temperature 0, no-slip walls, adiabatic except a heater on the "
+            "bottom wall at x in [2, 4] with flux -dT/dy = Q(t) in [0, 2], zero-gradient outlet. After a 15-unit "
+            "warm-up each trajectory records u, v, p, T on the 128 x 32 cell centres every 0.4 time units over 40 "
+            "units (101 snapshots), with the actuators and the quantities of interest (bulk outlet temperature, "
+            "maximum temperature, pressure drop, heat in / out, stored energy). Training actuation is random holds, "
+            "steps and ramps; two test splits use families never seen in training (chirped sinusoids, steps "
+            "between the range edges), for digital-twin and forecasting models. Cell centres and all solver "
+            "settings are in meta.json; fields[:, k] is the state at t = 0.4 k."),
+        "license": "cc-by-4.0",
+        "source": (
+            "python scripts/zoo/thermal_channel_data.py generate --out DIR; recipe of PINNeAPPle-Benchmark "
+            "experiment 05 (Apache-2.0) on pinneapple_simulation.numerical_solvers.thermal_channel_2d (staggered "
+            "MAC grid, Chorin projection, dt 0.01), seeds per trajectory in "
+            "pinneapple_simulation.numerical_solvers.thermal_channel_datasets.PLAN"),
+        "verification": (
+            "Solver checks (python scripts/zoo/thermal_channel_data.py verify, "
+            "pinneapple_simulation.numerical_solvers.thermal_channel_datasets.verify): plane Poiseuille flow, max "
+            "error of the velocity profile 4.8e-3 / 1.3e-3 / 3.5e-4 on 64 x 16 / 128 x 32 (the dataset grid) / "
+            "256 x 64 (second order), dp/dx within 1.2 % of -12/Re, max divergence 1e-7; fully developed Nusselt "
+            "number for one wall at uniform flux and one adiabatic, 5.392 / 5.388 vs 5.385 exact (Shah & London "
+            "1978), global energy imbalance 2.7e-8. Three-grid study of an actuated run (64 x 16, 128 x 32, "
+            "256 x 64, dt halved with h): GCI of the dataset grid 3.7 % for the bulk outlet temperature "
+            "(oscillatory convergence, observed order 1.3), 1.1 % for the maximum temperature (order 2.3), 1.3 % "
+            "for the pressure drop (order 1.3). In every trajectory the change of stored energy matches the "
+            "trapezoidal integral of the recorded heat in - out to 0.3 % (median, smooth actuation) and at most "
+            "4 % (steps, limited by the 0.4 sampling of the actuators). All fields finite; float32 storage."),
+        "splits": {"train": "48 trajectories (random steps and ramps)", "val": "8 trajectories (same family)",
+                   "test_same_family": "12 trajectories (same family, held-out seeds)",
+                   "test_unseen_sinusoid": "8 trajectories (chirped sinusoids, unseen family)",
+                   "test_unseen_edge_steps": "6 trajectories (steps between range edges, unseen family)"},
+        "split_rule": ("fixed seeds per split (train 0-47, val 1000-1007, test_same_family 2000-2011, "
+                       "test_unseen_sinusoid 3000-3007, test_unseen_edge_steps 4000-4005)"),
+        "columns": {"family": ("-", "actuation family"), "seed": ("-", "actuation seed"),
+                    "fields": ("-", "u, v, p, T on the 128 x 32 cell centres at the 101 record times "
+                                    "(trajectory x time x 4 x 128 x 32)"),
+                    "U": ("-", "inlet mean velocity at the record times"),
+                    "Q": ("-", "heater flux at the record times"),
+                    "U_fine": ("-", "inlet mean velocity every 0.1 time units (401 values)"),
+                    "Q_fine": ("-", "heater flux every 0.1 time units (401 values)"),
+                    "qoi_T_out": ("-", "bulk (flow-weighted) outlet temperature"),
+                    "qoi_T_max": ("-", "maximum temperature, heater wall included"),
+                    "qoi_dp": ("-", "inlet-to-outlet pressure drop"),
+                    "qoi_heat_in": ("-", "heat input rate of the heater"),
+                    "qoi_heat_out": ("-", "advected heat outflow rate at the outlet"),
+                    "qoi_energy": ("-", "thermal energy stored in the channel")},
+        "tags": ["CFD", "heat transfer", "digital twin", "Navier-Stokes", "forecasting", "benchmark"],
+        "citation": ("PINNeAPPle-Benchmark experiment 05 (actuated heated channel). Data generated with PINNeAPPle "
+                     "(pinneapple_simulation.numerical_solvers.thermal_channel_2d); PINNeAPPle, Zenodo DOI "
+                     "10.5281/zenodo.23343062."),
+    },
+}
+DATASETS.update(THERMAL_CHANNEL_DATASETS)
 # Black-hole weather (issue #399): density frames of whole simulated trajectories, Hub-only (scripts/zoo/build_blackhole.py)
 BLACKHOLE_DATASETS = {
     "blackhole_riaf_density_256": {

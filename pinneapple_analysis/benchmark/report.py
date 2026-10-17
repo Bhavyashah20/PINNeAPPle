@@ -73,8 +73,8 @@ def collect(plan) -> dict:
             if not rec or not rec.get("ok"):
                 continue
             r, sp = rec["result"], rec["spec"]
-            key = f"{sp.get('split', r.get('split', ''))}{sp.get('instance', r.get('instance', ''))}" \
-                if meth.per_instance else ""
+            # the instance flops_jobs trained: the problem's first "final" instance (its job-id suffix)
+            key = (prob.instances().get("final") or [("", None)])[0][0] if meth.per_instance else ""
             flops[(pid, mid)][s] = {"extracted": prob.extract(mid, {key: r}), "flops": r["train"].get("flops"),
                                     "wall_s": r["train"].get("wall_s"), "stopped_by": r["train"].get("stopped_by"),
                                     "target": sp["budget"].get("flops")}
@@ -308,7 +308,7 @@ def markdown(plan, tables, checks, validation, trust, diagnoses, banners, studie
 
 
 def _metric_label(m: str) -> str:
-    return {"rel_l2": "Rel. L2", "qoi_rel_err": "Integral rel. err"}.get(m, m)
+    return {"rel_l2": "Rel. L2", "qoi_rel_err": "Integral rel. err", "hf_bias": "HF energy bias"}.get(m, m)
 
 
 def _n_in_label(label: str):

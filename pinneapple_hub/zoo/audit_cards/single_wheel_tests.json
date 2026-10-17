@@ -1,0 +1,72 @@
+{
+ "schema": "dataset-audit/v1",
+ "dataset": "single_wheel_tests",
+ "splits": {
+  "all": 27
+ },
+ "physics": null,
+ "decision": "warn",
+ "tolerances": {
+  "physics": 0.02,
+  "bc": 0.02,
+  "flux": 0.02,
+  "duplicates": 0.0,
+  "leakage": 0.0,
+  "near": 0.001,
+  "diversity": 0.5,
+  "spectrum": 2.0,
+  "min_effective": 2.0
+ },
+ "checks": [
+  {
+   "id": "finite",
+   "status": "warn",
+   "summary": "missing values (NaN) in all/torque_Nm (5, documented)",
+   "value": null,
+   "threshold": null,
+   "evidence": {
+    "nan": {
+     "all/torque_Nm": 5
+    },
+    "documented": [
+     "all/torque_Nm"
+    ]
+   }
+  },
+  {
+   "id": "physics",
+   "status": "not-applicable",
+   "summary": "no PDE stated for this dataset",
+   "value": null,
+   "threshold": null,
+   "evidence": {}
+  },
+  {
+   "id": "diversity.duplicates",
+   "status": "not-applicable",
+   "summary": "no 'train' split",
+   "value": null,
+   "threshold": null,
+   "evidence": {}
+  },
+  {
+   "id": "leakage",
+   "status": "not-applicable",
+   "summary": "needs both 'train' and 'test' splits",
+   "value": null,
+   "threshold": null,
+   "evidence": {}
+  },
+  {
+   "id": "units",
+   "status": "pass",
+   "summary": "12 column units parse",
+   "value": null,
+   "threshold": null,
+   "evidence": {
+    "unparseable": [],
+    "mismatch": []
+   }
+  }
+ ]
+}

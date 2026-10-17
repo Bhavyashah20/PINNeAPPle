@@ -19,7 +19,8 @@ from pinneapple_hub.zoo import _artifacts as art  # noqa: E402
 MODELS = ["airfoil_cst_rans_mlp", "heatsink_forced_mlp", "heatsink_natural_mlp", "rover_contact_grc1_viper"]
 BUNDLED_DATASETS = ["airfoil_rans_cst_re4e6", "heatsink_forced_convection", "heatsink_natural_convection",
                     "rover_contact_grc1_viper", "single_wheel_tests"]
-HUB_ONLY_DATASETS = ["burgers_1d_li2021", "darcy_2d_li2021"]       # downloaded on first use, never bundled
+HUB_ONLY_DATASETS = ["burgers_1d_li2021", "darcy_2d_li2021", "navier_stokes_2d_li2021_nu1e-3",
+                     "thermal_channel_cfd", "airfoil_rans_cst_re4e6_fields"]       # downloaded on first use, never bundled
 BLACKHOLE_DATASETS = ["blackhole_riaf_density_256"]                 # Hub-only too, one file per split
 DATASETS = BUNDLED_DATASETS + HUB_ONLY_DATASETS + BLACKHOLE_DATASETS
 
@@ -250,9 +251,17 @@ def test_not_yet_published_gives_a_clear_message(monkeypatch, isolated_cache):
 @pytest.mark.parametrize("name", HUB_ONLY_DATASETS)
 def test_hub_only_dataset_is_documented(name):
     info = pp.datasets.info(name)
-    assert set(info.splits) == {"train", "test"} and info.splits["train"]["n"] == 1000
-    assert info.splits["test"]["n"] == 200 and info.license == "cc-by-4.0"
-    assert "Li" in info.citation and "rel. L2" in info.verification
+    assert info.license == "cc-by-4.0" and "10.5281/zenodo.23343062" in info.citation
+    if name.endswith(("li2021", "li2021_nu1e-3")):
+        assert set(info.splits) == {"train", "test"} and info.splits["train"]["n"] == 1000
+        assert info.splits["test"]["n"] == 200
+        assert "Li" in info.citation and "rel. L2" in info.verification
+    elif name == "thermal_channel_cfd":                            # heated channel: solver verification and GCI
+        assert sum(v["n"] for v in info.splits.values()) == 82 and info.splits["train"]["n"] == 48
+        assert "Nusselt" in info.verification and "GCI" in info.verification
+    else:                                                          # airfoil fields: the 436-run campaign
+        assert {s: v["n"] for s, v in info.splits.items()} == {"train": 340, "test": 60, "naca_reference": 36}
+        assert "reproduce" in info.verification and "GCI" in info.verification
     assert {f for s in info.splits for f in pp.datasets.split_files(name, s)} == set(info.files)
     assert all(d["dtype"] and d["description"] for d in info.columns.values())
     assert all(not f.get("bundled") for f in info.files.values())
