@@ -128,6 +128,18 @@ def reference_solve(params: dict, mode: str = "forced") -> dict | None:
     return _one((mode, p))
 
 
+def reference_solve_batch(X, names, output: str = "r_base_k_w", mode: str = "forced") -> np.ndarray:
+    """:func:`reference_solve` on every row of ``X`` (columns named by ``names``); NaN where the engine rejects
+    the design."""
+    X = np.atleast_2d(np.asarray(X, dtype=float))
+    out = np.full(X.shape[0], np.nan)
+    for i, row in enumerate(X):
+        r = reference_solve(dict(zip(names, row.tolist(), strict=True)), mode)
+        if r is not None:
+            out[i] = r[output]
+    return out
+
+
 def generate_dataset(mode: str, n: int, seed: int = 0, workers: int = 4) -> List[Dict[str, float]]:
     from pinneapple_data.parameter_sampling import sample_parameters
     ranges = {**COMMON_RANGES, **MODE_RANGES[mode]}

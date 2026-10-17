@@ -58,6 +58,9 @@ Studies on any model's predictions (NumPy)
     per-group coverage, reliability across levels); absolute or normalised scores.
 ``ApplicabilityDomain`` / ``route_cases``
     Range and k-NN data-density gates on the inputs, and the rule that sends a case to the high-fidelity solver.
+``uncertainty_study``
+    All of the above for one model output: held-out coverage, gate, screened cases (with optional high-fidelity
+    checks), propagation around an operating point.
 
 Unified interface
 -----------------
@@ -165,4 +168,5 @@ __all__ = [
     "ApplicabilityDomain",
     "route_cases",
     "routing_summary",
+    "uncertainty_study",
 ]

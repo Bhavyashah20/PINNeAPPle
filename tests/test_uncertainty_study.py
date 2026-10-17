@@ -119,3 +119,41 @@ def test_routing_rule_reasons():
     assert set(routes[1]["codes"]) == {"too_uncertain", "straddles_limit"}
     s = routing_summary(routes)
     assert s["high_fidelity"] == 3 and s["reasons"]["sparse_data"] == 1 and s["reasons"]["outside_range"] == 1
+
+
+def test_uncertainty_study_end_to_end_with_a_known_truth():
+    from pinneapple_analysis.study_models import StudyModel
+    from pinneapple_analysis.uncertainty.study import uncertainty_study
+
+    def truth(X):
+        return np.sin(3 * X[:, 0]) + X[:, 1] ** 2
+
+    def surrogate(X):                                       # exact inside [0, 1], drifts outside
+        return truth(X) + 0.3 * np.clip(X[:, 0] - 1, 0, None)
+
+    rng = np.random.default_rng(0)
+    X = rng.uniform(0, 1, (1200, 2))
+    y = truth(X) + rng.normal(0, 0.05, 1200)
+    model = StudyModel.from_function(surrogate, ["a", "b"], ["y"], bounds={"a": (0, 1), "b": (0, 1)})
+    cases = np.array([[0.1, 0.1], [1.6, 0.1], [0.5, 0.52]])
+    out = uncertainty_study(model, "y", X[:600], y[:600], X[600:], y[600:], alpha=0.1, X_ref=X[:600],
+                            bounds=model.bounds, cases=cases, case_names=["mid", "beyond", "near limit"],
+                            tolerance=0.5, limits=(None, float(surrogate(cases[2:])[0]) + 0.01),
+                            high_fidelity=truth, hf_scope="all", nominal={"b": 0.5},
+                            uncertain=[{"name": "a", "dist": "uniform", "low": 0.2, "high": 0.8}], n_propagation=2048)
+    c = out["conformal"]
+    assert c["n_cal"] == 600 and c["n_test"] == 600
+    assert abs(c["coverage"] - 0.9) < 0.05                           # one calibration draw: marginal guarantee only
+    assert c["q"] == pytest.approx(1.645 * 0.05, rel=0.15)          # noise quantile
+    rows = {r["name"]: r for r in out["cases"]["rows"]}
+    assert rows["mid"]["route"] == "surrogate" and rows["mid"]["status"] == "inside"
+    assert rows["beyond"]["route"] == "high_fidelity" and "outside_range" in rows["beyond"]["codes"]
+    assert rows["beyond"]["hf_error"] == pytest.approx(0.3 * 0.6, rel=1e-9)
+    assert "straddles_limit" in rows["near limit"]["codes"]
+    prop = out["propagation"]
+    assert prop["n"] == 2048 and prop["share_outside"] == 0.0
+    assert prop["pce"]["loo_q2"] > 0.99
+    assert prop["p_within_with_model_error"] <= prop["p_within"]
+    with pytest.raises(ValueError, match="nominal"):
+        uncertainty_study(model, "y", X[:600], y[:600], X[600:], y[600:],
+                          uncertain=[{"name": "a", "dist": "uniform", "low": 0.2, "high": 0.8}])
