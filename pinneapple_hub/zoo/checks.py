@@ -39,7 +39,9 @@ NOISE = 2e-3                                    # 0.2 % of the output range: the
 
 
 def _rng(name, col, lo, hi, *, rule="PC601", group=None, label=None):
-    tol = 1e-9 * max(abs(lo), abs(hi), 1.0)                          # as ZooModel.in_range
+    # The checks run in float32 (the torch module and its ONNX graph), so a bound itself, e.g. 0.08, arrives as
+    # 0.0799999982; the slack covers that rounding (2 float32 epsilons) as well as ZooModel.in_range's 1e-9.
+    tol = max(1e-9 * max(abs(lo), abs(hi), 1.0), 2 * float(np.finfo(np.float32).eps) * max(abs(lo), abs(hi)))
     return {"id": f"range:{name}", "rule": rule, "name": label or f"{name} inside {lo:g} … {hi:g}", "op": "in",
             "limit": [lo - tol, hi + tol], "bounds": [lo, hi], "severity": "fail", "kind": "trust",
             "group": group, "detail": f"{name} = {{value:.4g}} (range {lo:g} … {hi:g})"}

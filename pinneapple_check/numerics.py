@@ -106,14 +106,17 @@ class GridD(_Base):
         key = ("d", name, a)
         if key not in self._cache:
             i = self._ax(a)
-            self._cache[key] = np.gradient(self.comps[name], self.coords[i], axis=i, edge_order=2)
+            # second-order one-sided ends need 3 points; a 2-point axis gets first order (its points are all on
+            # the boundary, outside ``interior``, so no residual is judged on them anyway)
+            order = 2 if len(self.coords[i]) >= 3 else 1
+            self._cache[key] = np.gradient(self.comps[name], self.coords[i], axis=i, edge_order=order)
         return self._cache[key]
 
     def dd(self, name: str, a: str, b: str) -> np.ndarray:
         key = ("dd", name, *sorted((a, b)))
         if key not in self._cache:
             j = self._ax(b)
-            out = np.gradient(self.d(name, a), self.coords[j], axis=j, edge_order=2)
+            out = np.gradient(self.d(name, a), self.coords[j], axis=j, edge_order=2 if len(self.coords[j]) >= 3 else 1)
             if a == b and len(self.coords[j]) >= 3:
                 # three-point second derivative on the inner points: the derivative of the derivative uses the
                 # one-sided edge value divided by h next to the boundary, an O(h) error that made the residual
