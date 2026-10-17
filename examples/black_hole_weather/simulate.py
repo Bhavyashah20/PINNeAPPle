@@ -9,34 +9,19 @@ Runs checkpoint their state, so an interrupted run resumes where it stopped:
 
 Output per run (folder ``<out>/<name>``): ``frames_XXXX.npy`` chunks of (n, 5, nr, ntheta) float32 primitives
 (rho, v_r, v_theta, v_phi, p), ``times.npy``, ``mdot.npy``, ``grid.npz``, ``config.json`` and ``state.pt``.
-``load_run`` reads a run back as one array.
+``load_run`` reads a run back as one array. The logic lives in ``pinneapple_physics.blackhole.runs``.
 """
 from __future__ import annotations
 
 import argparse
-import glob
-import json
 import os
-import time
-from dataclasses import asdict
 
-import numpy as np
 import torch
 
-from pinneapple_physics.blackhole import AccretionFlow, RIAFConfig, torus_state
+from pinneapple_physics.blackhole import RIAFConfig
+from pinneapple_physics.blackhole.runs import load_run, simulate_run
 
-
-def load_run(folder: str):
-    """-> dict(t, frames (T, 5, nr, ntheta), mdot, grid, config)."""
-    chunks = sorted(glob.glob(os.path.join(folder, "frames_*.npy")))
-    frames = np.concatenate([np.load(c) for c in chunks]) if chunks else np.zeros((0,))
-    t = np.load(os.path.join(folder, "times.npy"))
-    mdot = np.load(os.path.join(folder, "mdot.npy"))
-    n = min(len(frames), len(t))
-    with open(os.path.join(folder, "config.json")) as f:
-        cfg = json.load(f)
-    return {"t": t[:n], "frames": frames[:n], "mdot": mdot[:n], "grid": dict(np.load(os.path.join(folder, "grid.npz"))),
-            "config": cfg}
+__all__ = ["load_run", "main"]
 
 
 def main(argv=None):
@@ -52,56 +37,17 @@ def main(argv=None):
     ap.add_argument("--every", type=float, default=10.0)
     ap.add_argument("--chunk", type=int, default=50, help="frames per saved chunk / checkpoint")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--perturbation-kind", default="cell", choices=["cell", "modes"],
+                    help="'modes' gives the same initial perturbation on every grid (resolution study)")
     ap.add_argument("--backend", default="numba", choices=["numba", "torch"])
     ap.add_argument("--cfl", type=float, default=0.3)
     a = ap.parse_args(argv)
     torch.set_num_threads(1)
 
-    folder = os.path.join(a.out, a.name)
-    os.makedirs(folder, exist_ok=True)
     cfg = RIAFConfig(nr=a.nr, ntheta=a.ntheta, alpha=a.alpha, viscosity=a.viscosity, torus_a=a.torus_a, seed=a.seed,
-                     backend=a.backend, cfl=a.cfl)
-    flow = AccretionFlow(cfg)
-    state_path = os.path.join(folder, "state.pt")
-    if os.path.exists(state_path):
-        st = torch.load(state_path, weights_only=False)
-        flow.W.copy_(st["W"])
-        flow.t, flow.boundary, flow.mdot_in = st["t"], st["boundary"], st["mdot"]
-        times, mdot, k_chunk = list(st["times"]), list(st["mdots"]), st["k_chunk"]
-        print(f"resuming {a.name} at t = {flow.t:.1f} M ({len(times)} frames)", flush=True)
-    else:
-        flow.set_primitives(torus_state(flow))
-        times, mdot, k_chunk = [0.0], [0.0], 0
-        np.save(os.path.join(folder, f"frames_{k_chunk:04d}.npy"), flow.primitives()[None].astype(np.float32))
-        k_chunk += 1
-        np.savez(os.path.join(folder, "grid.npz"), **flow.grid())
-        with open(os.path.join(folder, "config.json"), "w") as f:
-            json.dump({**{k: v for k, v in asdict(cfg).items() if k not in ("dtype",)}, "every": a.every,
-                       "t_end": a.t_end, "name": a.name}, f, indent=1)
-
-    buf, t0 = [], time.time()
-    t_next = times[-1] + a.every
-    while flow.t < a.t_end - 1e-9:
-        flow.step(min(flow.dt(), t_next - flow.t))
-        if not np.isfinite(flow.mdot_in):
-            raise FloatingPointError(f"{a.name}: non-finite state at t = {flow.t:.2f}")
-        if flow.t >= t_next - 1e-9:
-            buf.append(flow.primitives().astype(np.float32))
-            times.append(flow.t)
-            mdot.append(flow.mdot_in)
-            t_next += a.every
-            if len(buf) == a.chunk or flow.t >= a.t_end - 1e-9:
-                np.save(os.path.join(folder, f"frames_{k_chunk:04d}.npy"), np.stack(buf))
-                k_chunk += 1
-                buf = []
-                np.save(os.path.join(folder, "times.npy"), np.asarray(times))
-                np.save(os.path.join(folder, "mdot.npy"), np.asarray(mdot))
-                torch.save({"W": flow.W.clone(), "t": flow.t, "boundary": dict(flow.boundary), "mdot": flow.mdot_in,
-                            "times": times, "mdots": mdot, "k_chunk": k_chunk}, state_path)
-                el = time.time() - t0
-                print(f"{a.name}: t = {flow.t:8.1f} M  frames {len(times)}  mdot {flow.mdot_in:.4g}  "
-                      f"capped {flow.capped}  wall {el/60:.1f} min", flush=True)
-    print(f"{a.name}: done", flush=True)
+                     perturbation_kind=a.perturbation_kind, backend=a.backend, cfl=a.cfl)
+    simulate_run(cfg, os.path.join(a.out, a.name), t_end=a.t_end, every=a.every, chunk=a.chunk, name=a.name,
+                 log=lambda m: print(m, flush=True))
 
 
 if __name__ == "__main__":

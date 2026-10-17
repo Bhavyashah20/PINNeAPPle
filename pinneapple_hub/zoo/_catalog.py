@@ -591,6 +591,76 @@ THERMAL_CHANNEL_DATASETS = {
     },
 }
 DATASETS.update(THERMAL_CHANNEL_DATASETS)
+# Black-hole weather (issue #399): density frames of whole simulated trajectories, Hub-only (scripts/zoo/build_blackhole.py)
+BLACKHOLE_DATASETS = {
+    "blackhole_riaf_density_256": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "Accretion onto a Schwarzschild black hole: 2.5-D viscous hydro density frames (256 x 128)",
+        "description": (
+            "Radiatively inefficient accretion flow grown from an equilibrium torus (Paczynski-Wiita potential, "
+            "Shakura-Sunyaev alpha viscosity, gamma 5/3, r = 4-400 GM/c^2, log-spaced 256 x 128 grid): the set-up of "
+            "Duarte, Nemmen & Navarro (2022), regenerated with pinneapple_physics.blackhole. Density in the "
+            "forecaster's window (r < 126.5 GM/c^2, theta in [pi/8, 7 pi/8]) every 20 GM/c^3 for t = 2000-10000 "
+            "GM/c^3, whole trajectories per split. The training data of the black-hole weather forecaster (#399)."),
+        "license": "cc-by-4.0",
+        "source": ("examples/black_hole_weather/simulate.py --nr 256 --ntheta 128 --viscosity SS --perturbation-kind "
+                   "modes --t-end 10000 --every 10 (runs and seeds in pinneapple_physics.blackhole.dataset.SPLITS); "
+                   "scripts/zoo/build_blackhole.py"),
+        "verification": (
+            "Solver: mass and angular momentum conserved to 1e-16 with the boundary fluxes counted, exact Bondi "
+            "accretion steady within 0.5 %, inviscid torus in equilibrium (tests/test_blackhole_weather.py). "
+            "Resolution study (examples/black_hole_weather/convergence.py; results/convergence.json): grids 90x45, "
+            "128x64, 181x90, 256x128 (ratio sqrt 2), seeds 0-2 on every grid with the same seeded perturbation, time "
+            "averages over t = 2000-10000 GM/c^3 with 95 % intervals (batch means and seeds). Converged within the "
+            "statistical band (the two finest grids agree within their intervals): mean accretion rate 2.18 +- 0.58 "
+            "(181) vs 1.97 +- 0.63 (256), window mass 2.65e4 vs 2.58e4, inner density slope -0.41 vs -0.38, "
+            "persistence error at 100 GM/c^3 0.0034 +- 0.0011 vs 0.0047 +- 0.0011. Not converged: from 181 to 256 "
+            "the time-mean profiles change more than between the coarser grids (density 6.3 % vs 0.8-1.6 %, "
+            "specific angular momentum 4.2 % vs 0.5 %, angular-momentum flux 11 % vs 1.5-2.5 %; l / l_Kepler at "
+            "r = 10 rises 3.8 % beyond its interval), so the observed order is negative and no GCI applies; the "
+            "number of cells where the speed / temperature ceilings act grows with resolution and is the likely "
+            "cause. The 256 x 128 grid is the finest the study could afford (a 362 x 181 run did not finish); the "
+            "181 -> 256 changes are the uncertainty band of these data. The published PLUTO runs and the paper's "
+            "values could not be retrieved for a direct comparison."),
+        "splits": {"train": "seeds 0-3, alpha 0.1: 4 whole trajectories, 401 frames each",
+                   "val": "seed 4, alpha 0.1 (whole trajectory)",
+                   "test": "seed 5, alpha 0.1 (whole trajectory, held out)",
+                   "ood_alpha0.3": "alpha 0.3, seed 0: other physics, never used in training",
+                   "grid_r": "radial cells of the window", "grid_theta": "theta cells of the window",
+                   "convergence": "resolution study: one row per grid and seed (90x45 to 256x128, seeds 0-2)"},
+        "split_rule": "by trajectory (seed), never by time inside a trajectory: train seeds 0-3, val 4, test 5",
+        "columns": {
+            "run": ("-", "trajectory: the seed of the initial torus perturbation"),
+            "alpha": ("-", "Shakura-Sunyaev viscosity parameter"),
+            "t": ("GM/c^3", "time"),
+            "mdot": ("code units", "accretion rate through r_in = 4 GM/c^2 (density maximum of the initial torus = 1)"),
+            "log10_rho_q": ("-", "uint16 (frames, 192 r, 96 theta): log10 rho = -8 + q * 9 / 65535 in the window "
+                                 "(pinneapple_physics.blackhole.dataset.decode)"),
+            "r": ("GM/c^2", "radius of the cell centres (volume weighted)"),
+            "r_face_lo": ("GM/c^2", "inner radial face"), "r_face_hi": ("GM/c^2", "outer radial face"),
+            "theta": ("rad", "polar angle of the cell centres"),
+            "theta_face_lo": ("rad", "lower theta face"), "theta_face_hi": ("rad", "upper theta face"),
+            "nr": ("-", "radial cells of the grid"), "ntheta": ("-", "theta cells of the grid"),
+            "seed": ("-", "seed of the initial perturbation"),
+            "mdot_mean": ("code units", "time-mean accretion rate"),
+            "mdot_rms_over_mean": ("-", "rms / mean of the accretion rate (includes the secular drain of the torus)"),
+            "mdot_detrended_rms": ("-", "rms of mdot / (500 GM/c^3 running mean) - 1"),
+            "mdot_psd_slope": ("-", "log-log slope of the accretion-rate power spectrum, 1/2000 to 1/50 per GM/c^3"),
+            "window_mass_mean": ("code units", "time-mean mass in the window"),
+            "persistence_mae_20M": ("-", "MAE of persistence at 20 GM/c^3 (normalised log density, log10 rho in [-6, 0])"),
+            "persistence_mae_100M": ("-", "same, 100 GM/c^3"),
+            "persistence_mae_1000M": ("-", "same, 1000 GM/c^3"),
+            "rho_slope_r10_60": ("-", "d ln rho / d ln r of the time-mean shell density, r = 10-60 GM/c^2"),
+            "ell_over_kepler_r10": ("-", "time-mean specific angular momentum / Keplerian (Paczynski-Wiita), r = 10"),
+            "ell_over_kepler_r30": ("-", "same at r = 30 GM/c^2")},
+        "tags": ["astrophysics", "black hole", "accretion", "hydrodynamics", "forecasting"],
+        "citation": ("Duarte R., Nemmen R., Navarro J. P. (2022) MNRAS 512, 5848 (set-up and forecaster); Almeida I., "
+                     "Nemmen R. (2020) MNRAS 492, 2553 (simulations); data generated with PINNeAPPle, Zenodo DOI "
+                     "10.5281/zenodo.23343062."),
+    },
+}
+DATASETS.update(BLACKHOLE_DATASETS)
 
 
 def hf_repo(kind: str, name: str) -> str:

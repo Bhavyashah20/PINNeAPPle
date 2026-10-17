@@ -27,9 +27,11 @@ Metric names are `<split>/<metric>`; the full set, the validity range and the ph
 | `navier_stokes_2d_li2021_nu1e-3` | 1.0.0 | 2-D incompressible Navier-Stokes (vorticity), nu = 1e-3, Li et al. (2021) benchmark (1200 runs, 64 x 64, t 0-50) | train 1000, test 200 | cc-by-4.0 | 919 MB (Hub-only) | [PINNeAPPle-Labs/navier-stokes-2d-li2021-nu1e-3](https://huggingface.co/datasets/PINNeAPPle-Labs/navier-stokes-2d-li2021-nu1e-3/tree/v1.0.0) |
 | `airfoil_rans_cst_re4e6_fields` | 1.0.0 | Airfoil RANS flow fields, CST shapes, Re 4e6 (436 OpenFOAM runs, 20064-cell O-grid) | train 340, test 60, naca_reference 36 | cc-by-4.0 | 186 MB (Hub-only) | [PINNeAPPle-Labs/airfoil-rans-cst-re4e6-fields](https://huggingface.co/datasets/PINNeAPPle-Labs/airfoil-rans-cst-re4e6-fields/tree/v1.0.0) |
 | `thermal_channel_cfd` | 1.0.0 | Actuated heated-channel CFD, 2-D incompressible flow + heat (82 trajectories, 128 x 32, 101 snapshots) | train 48, val 8, test_same_family 12, test_unseen_sinusoid 8, test_unseen_edge_steps 6 | cc-by-4.0 | 360 MB (Hub-only) | [PINNeAPPle-Labs/thermal-channel-cfd](https://huggingface.co/datasets/PINNeAPPle-Labs/thermal-channel-cfd/tree/v1.0.0) |
+| `blackhole_riaf_density_256` | 1.0.0 | Accretion onto a Schwarzschild black hole: 2.5-D viscous hydro density frames (256 x 128) | convergence 12, grid_r 192, grid_theta 96, ood_alpha0.3 401, test 401, train 1604, val 401 | cc-by-4.0 | 91 MB (Hub-only) | [PINNeAPPle-Labs/blackhole-riaf-density-256](https://huggingface.co/datasets/PINNeAPPle-Labs/blackhole-riaf-density-256/tree/v1.0.0) |
 
-4 models and 10 datasets, 1593.4 MB in total (2.7 MB bundled with the package; the rest is downloaded on first use and checked against its SHA-256).
+4 models and 11 datasets, 1684.9 MB in total (2.7 MB bundled with the package; the rest is downloaded on first use and checked against its SHA-256).
 
 ## Cite
 
 Each Hub card carries its own citation. For the software, cite PINNeAPPle (Zenodo DOI [10.5281/zenodo.23343062](https://doi.org/10.5281/zenodo.23343062), [CITATION.cff](https://github.com/PINNeAPPle-Labs/PINNeAPPle/blob/main/CITATION.cff)).
+

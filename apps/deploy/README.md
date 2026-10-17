@@ -44,6 +44,10 @@ At your DNS provider, create two **A** records (and AAAA records if you use IPv6
 | `lab` | A | `<server IPv4>` |
 | `sky` | A | `<server IPv4>` |
 | `playground` | A | `<server IPv4>` |
+| `runner` | A | `<server IPv4>` |
+| `campaign` | A | `<server IPv4>` |
+| `uncertainty` | A | `<server IPv4>` |
+| `sensitivity` | A | `<server IPv4>` |
 
 If the zone is on Cloudflare, set both records to **DNS only** (grey cloud) for the first start, so
 Let's Encrypt can reach Caddy. Check propagation with `dig +short heatsink.example.org`.
@@ -66,10 +70,10 @@ nano .env        # domains, ACME e-mail, logins (use long passwords)
 
 | Variable | Meaning |
 |---|---|
-| `HSS_DOMAIN`, `PCB_DOMAIN`, `EDH_DOMAIN`, `EDS_DOMAIN`, `SMD_DOMAIN`, `UDR_DOMAIN`, `IHL_DOMAIN`, `PFL_DOMAIN`, `MQA_DOMAIN`, `CMP_DOMAIN`, `LIN_DOMAIN`, `IOP_DOMAIN`, `ADO_DOMAIN`, `OBS_DOMAIN`, `PLG_DOMAIN` | Public hostnames (must match the DNS records) |
+| `HSS_DOMAIN`, `PCB_DOMAIN`, `EDH_DOMAIN`, `EDS_DOMAIN`, `SMD_DOMAIN`, `UDR_DOMAIN`, `IHL_DOMAIN`, `PFL_DOMAIN`, `MQA_DOMAIN`, `CMP_DOMAIN`, `LIN_DOMAIN`, `IOP_DOMAIN`, `ADO_DOMAIN`, `OBS_DOMAIN`, `PLG_DOMAIN`, `SEN_DOMAIN`, `UQL_DOMAIN` | Public hostnames (must match the DNS records) |
 | `ACME_EMAIL` | Let's Encrypt account / expiry notices |
-| `<APP>_USER` / `<APP>_PASSWORD` (HSS, PCB, EDH, EDS, SMD, UDR, IHL, PFL, MQA, CMP, LIN, IOP, ADO, OBS) | HTTP Basic login per app. If either is empty, that app is public. `/health` is always public. |
-| `HSS_MAX_SIZING`, `PCB_MAX_HEAVY`, `EDH/EDS/SMD/UDR/PFL/MQA/CMP/LIN/IOP/ADO_MAX_HEAVY` | Concurrent heavy runs per app. Any excess gets HTTP 429. |
+| `<APP>_USER` / `<APP>_PASSWORD` (HSS, PCB, EDH, EDS, SMD, UDR, IHL, PFL, MQA, CMP, LIN, IOP, ADO, OBS, UQL, SEN) | HTTP Basic login per app. If either is empty, that app is public. `/health` is always public. |
+| `HSS_MAX_SIZING`, `PCB_MAX_HEAVY`, `EDH/EDS/SMD/UDR/PFL/MQA/CMP/LIN/IOP/ADO/UQL/SEN_MAX_HEAVY` | Concurrent heavy runs per app. Any excess gets HTTP 429. |
 | `HSS_MEM_LIMIT`, `PCB_MEM_LIMIT` | Container memory caps |
 | `IHL_MAX_JOBS` | Inverse Heat Lab: trainings running at the same time (default 2, each uses one CPU core). Any excess gets HTTP 429. The app runs one worker because jobs live in its memory. |
 | `UDR_FORM_PDF` | Path inside the `udr` container to your copy of the fillable Form U-DR-1 (put the file in `apps/deploy/forms/`). Optional: users can upload it instead. |
@@ -104,7 +108,7 @@ Caddy. Start only the apps, attached to that proxy's Docker network, and add two
 ```bash
 docker inspect <proxy container> --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
 PROXY_NETWORK=<that network> docker compose -f docker-compose.yml -f docker-compose.existing-proxy.yml \
-  up -d --build heatsink pcb datahealth standardizer simmeta udr inverse preflight mesh compare lineage interop aero lab observatory playground
+  up -d --build heatsink pcb datahealth standardizer simmeta udr inverse preflight mesh compare lineage interop aero lab observatory playground sensitivity uncertainty runner campaign
 ```
 
 Caddyfile blocks for the existing proxy (then `caddy validate` and `caddy reload` inside its container):
@@ -258,6 +262,44 @@ playground.example.org {
 	encode zstd gzip
 	reverse_proxy pinneapple-playground:8095
 }
+runner.example.org {
+	encode zstd gzip
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy pinneapple-runner:8110 {
+		transport http {
+			read_timeout 120s
+		}
+	}
+}
+campaign.example.org {
+	encode zstd gzip
+	request_body {
+		max_size 110MB
+	}
+	reverse_proxy pinneapple-campaign:8096 {
+		transport http {
+			read_timeout 300s
+		}
+	}
+}
+uncertainty.example.org {
+	encode zstd gzip
+	reverse_proxy pinneapple-uncertainty:8098 {
+		transport http {
+			read_timeout 180s
+		}
+	}
+}
+sensitivity.example.org {
+	encode zstd gzip
+	reverse_proxy pinneapple-sensitivity:8099 {
+		transport http {
+			read_timeout 300s
+		}
+	}
+}
 ```
 
 ## PINNeAPPle Observatory (`observatory`)
@@ -274,6 +316,47 @@ A static site: the zoo models run in the visitor's browser (ONNX), so the contai
 `docker build -f apps/playground/Dockerfile -t pinneapple-playground . && docker run -p 8095:8095 pinneapple-playground`.
 The same build can go to GitHub Pages instead: set the repository variable `PLAYGROUND_PAGES=true` and the docs
 workflow publishes it under `<docs site>/playground/` (see `apps/playground/README.md`).
+
+## Simulation Workflow Runner (`runner`, day 27)
+
+Runs simulation campaigns as DAGs of steps (`pinneapple_core.workflows`) through the shared job queue. The public
+image runs **only the built-in templates** (Python slab heating; the CalculiX beam and OpenFOAM cavity show as
+"needs solver" because the image has neither solver), as an unprivileged user, with case values checked against each
+template's parameter ranges. The Slurm executor only writes sbatch scripts there. Runs, step files, the queue, API
+keys and usage live in the `runner_data` volume (keep it; delete old runs under `/data/runner/workflows/runs/` to
+free space).
+
+Self-hosted (your own machine or cluster head node, behind your own login): set `RUNNER_SELF_HOSTED=1` to accept
+custom workflows (commands, scripts, Docker steps, Slurm submission with `dry_run: false`). That runs whatever the
+caller sends, so never set it on a public server. Install OpenFOAM / CalculiX in the image (or use the Docker
+executor) for the solver templates. Limits: `RUNNER_MAX_JOBS` runs at once, `RUNNER_MAX_CASES` cases per run,
+`RUNNER_FREE_JOBS_RUN` / `RUNNER_FREE_COMPUTE_SECONDS` / `RUNNER_FREE_STORAGE_MB` per principal and month
+(`/api/usage`); API keys via `/api/keys` with `RUNNER_ADMIN_TOKEN` (see `apps/_shared/README.md`).
+## Simulation Campaign Planner (`campaign`)
+
+Day 13, port 8096. It plans campaigns as jobs in the shared runtime queue (`apps/_shared`). Jobs, the files of
+each campaign, API keys, usage and uploads live in the `campaign_data` volume; keep it. The airfoil preset reads
+the 436 OpenFOAM runs shipped inside the library, so the app needs no network. It writes the solver cases but does
+not run them, so neither OpenFOAM nor CalculiX is installed in the image. `CAMPAIGN_FREE_CAMPAIGNS` /
+`CAMPAIGN_FREE_CASES_PLANNED` set the monthly free use per API key, login or IP (`/api/usage`). Keys are created by
+the login user, or with `X-Admin-Token: $CAMPAIGN_ADMIN_TOKEN` (`POST /api/keys`).
+
+## Engineering Uncertainty Lab (`uncertainty`)
+
+Day 15. One worker (`--workers 1`, 1 GB): a study runs in the request, in a thread, at most `UQL_MAX_HEAVY` at a time
+(default 2; any excess gets HTTP 429). Study size is capped by `UQL_MAX_CASES` (cases screened), `UQL_MAX_PROPAGATION`
+(Monte-Carlo samples), `UQL_MAX_HF` (heat-sink engine runs, about 0.4 s each) and `UQL_MAX_MB` (uploads). The zoo models
+and their reference datasets ship in the image; no outbound network is needed. ONNX uploads run in onnxruntime (CPU).
+Build and run it alone with
+`docker build -f apps/uncertainty_lab/Dockerfile -t uncertainty-lab . && docker run -p 8098:8098 uncertainty-lab`.
+
+## Engineering Sensitivity Lab (`sensitivity`)
+
+Day 16. One worker (`--workers 1`, 1 GB): a study runs in the request, in a thread, at most `SEN_MAX_HEAVY` at a time
+(default 2; any excess gets HTTP 429). Study size is capped by `SEN_MAX_EVALS` (model evaluations; the UI shows the
+count before running), `SEN_MAX_PARAMS` (varied parameters) and `SEN_MAX_MB` (uploads). The zoo models and datasets ship
+in the image; no outbound network is needed. Build and run it alone with
+`docker build -f apps/sensitivity_lab/Dockerfile -t sensitivity-lab . && docker run -p 8099:8099 sensitivity-lab`.
 
 ## PINNeAPPle Lab catalogue (`lab`)
 
