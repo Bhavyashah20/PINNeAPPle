@@ -14,6 +14,23 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Surrogates from simulation results (`pinneapple_analysis.surrogate`): `run_study` trains every applicable method
+  (polynomial ridge, Gaussian process, gradient-boosted trees, MLP, FNO, DeepONet, and a PINN when a PDE is
+  declared) on the same splits and `ComputeBudget`, measures them on a held-out split and a distribution-shift split
+  (held-out groups, the edge of the input space, or one end of an input), selects by validation error and packages
+  the result as a `SurrogateModel` (predict with an OOD gate, save / load with a sha256 check, TorchScript and ONNX
+  export, ModelRef fields). The limitations report gives validity bounds, the OOD gate, where the errors concentrate
+  and the PDE residual of predicted fields; a `TrustReport` decides. Readers for CSV, Parquet, JSON, HDF5 and NPZ;
+  examples that need no download (the OpenFOAM airfoil campaign, exact Burgers fields and an FDM baseline). Guide:
+  `docs/guides/surrogates_arena_gateway.md`.
+- Regime arena (`pinneapple_arena.regimes.run_regime_arena`): ranks methods per regime (interpolation, few data,
+  extrapolation, geometry change, steep fronts) over several seeds with equal data, budget and stopping rule, with
+  training and inference cost, model size, physics violations of declared constraints, numerical-solver baselines
+  and an audit of the splits by `pinneapple_data.audit`.
+- Model gateway (`pinneapple_registry.ModelGateway`, on `ModelStore`): versioned endpoints for surrogates, zoo
+  models and ONNX graphs, one `predict` that enforces each version's OOD policy (warn or refuse; callers may only
+  tighten it), a run log, operational metrics (calls, rows, errors, OOD rows, latency p50 / p95) and exports.
+- `pinneapple_data.audit.constraint_mask`: the evaluator of declared constraints, public for checking predictions.
 - Zoo dataset `airfoil_rans_cst_re4e6_fields` (Hub-only, 186 MB in 5 files): the cell fields p, Ux, Uy, nut and
   cell centres of the 436 OpenFOAM runs of `airfoil_rans_cst_re4e6`, with the same splits. The campaign was
   regenerated, and its coefficients reproduce the published table. `write_field_dataset`
