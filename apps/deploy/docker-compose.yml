@@ -248,6 +248,20 @@ services:
     expose: ["8094"]
     mem_limit: ${OBS_MEM_LIMIT:-1500m}
 
+  evidence:
+    build:
+      context: ../..
+      dockerfile: apps/evidence_report/Dockerfile
+    image: pinneapple/evidence-report:latest
+    restart: unless-stopped
+    environment:
+      EVR_USER: ${EVR_USER:-}
+      EVR_PASSWORD: ${EVR_PASSWORD:-}
+      EVR_MAX_HEAVY: ${EVR_MAX_HEAVY:-2}
+      EVR_MAX_MB: ${EVR_MAX_MB:-200}
+    expose: ["8113"]
+    mem_limit: ${EVR_MEM_LIMIT:-1g}
+
   caddy:
     image: caddy:2
     restart: unless-stopped
@@ -269,12 +283,13 @@ services:
       LAB_DOMAIN: ${LAB_DOMAIN:-lab.localhost}
       OBS_DOMAIN: ${OBS_DOMAIN:-observatory.localhost}
       PLG_DOMAIN: ${PLG_DOMAIN:-playground.localhost}
+      EVR_DOMAIN: ${EVR_DOMAIN:-evidence.localhost}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data          # certificates: keep this volume
       - caddy_config:/config
-    depends_on: [heatsink, pcb, datahealth, standardizer, simmeta, udr, inverse, preflight, mesh, compare, lineage, interop, aero, lab, observatory, playground]
+    depends_on: [heatsink, pcb, datahealth, standardizer, simmeta, udr, inverse, preflight, mesh, compare, lineage, interop, aero, lab, observatory, playground, evidence]
 
 volumes:
   lab_data:

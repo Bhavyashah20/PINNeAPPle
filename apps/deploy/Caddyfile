@@ -181,3 +181,15 @@
 	import common
 	reverse_proxy playground:8095
 }
+
+{$EVR_DOMAIN} {
+	import common
+	request_body {
+		max_size 220MB
+	}
+	reverse_proxy evidence:8113 {
+		transport http {
+			read_timeout 180s
+		}
+	}
+}

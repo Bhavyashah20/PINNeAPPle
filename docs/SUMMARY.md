@@ -68,6 +68,8 @@
     * [The PINNeAPPle Observatory](guides/observatory.md)
     * [Playground: physics surrogates in the browser](guides/playground.md)
     * [Choose a model by the scale of the question](guides/scale_aware_ensembles.md)
+* Apps
+    * [Engineering Evidence Report (day 30)](apps/evidence_report.md)
 * [API Reference](api/index.md)
   * [pinneapple](api/pinneapple/index.md)
   * [pinneapple_physics](api/pinneapple_physics/index.md)

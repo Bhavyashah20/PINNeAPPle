@@ -47,3 +47,6 @@ services:
     mem_limit: 1800m    # torch + the graph network + the stored search: ~700 MB idle, more while searching
   observatory:
     mem_limit: 1200m    # torch for the PINN surrogate (~500 MB idle); one worker by default
+  evidence:
+    command: ["uvicorn", "evidence_report.api:app", "--host", "0.0.0.0", "--port", "8113", "--workers", "1"]
+    mem_limit: 900m     # torch for the example study (~450 MB while it trains)
