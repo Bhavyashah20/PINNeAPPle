@@ -158,3 +158,13 @@ def test_state_vector_rollout_with_a_custom_invariant_named_like_a_builtin():
     assert bad["rollout.invariant.energy"]["status"] == "fail"
     growth = 1.01 ** 100                                                # |z|^2 grows by (1 + dt^2) per step
     assert bad["rollout.invariant.energy"]["value"] == pytest.approx((growth - 1) / growth, rel=1e-6)   # / its max
+
+
+def test_pp_validate_passes_burn_in_to_the_long_run_statistics():
+    from pinneapple_analysis.validation.validate import validate
+    rng = np.random.default_rng(0)
+    ref = np.cumsum(rng.standard_normal((400, 32)), 0) * 0.01           # a drifting signal: the window matters
+    data = {"u0": ref[0], "long_u0": ref[0], "long_reference": ref}
+    w1 = [validate(lambda u: u + 0.01, {"rollout": {"ndim": 1, "dt": 1.0, "burn_in": b}}, data=data)
+          ["rollout.statistics"].value for b in (0, 200)]
+    assert w1[0] != pytest.approx(w1[1])

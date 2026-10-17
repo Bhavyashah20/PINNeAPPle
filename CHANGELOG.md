@@ -56,21 +56,6 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `pp.validate.<name>` still resolves the names of `pinneapple_analysis.validation`.
 - `pinneapple_neural.architectures.neural_operators.fno_export`: ONNX export of FNOs (spectral convolutions in real
   arithmetic, checked against PyTorch with onnxruntime).
-- Zoo dataset `airfoil_rans_cst_re4e6_fields` (Hub-only, 186 MB in 5 files): the cell fields p, Ux, Uy, nut and
-  cell centres of the 436 OpenFOAM runs of `airfoil_rans_cst_re4e6`, with the same splits. The campaign was
-  regenerated, and its coefficients reproduce the published table. `write_field_dataset`
-  (`pinneapple_design.aero.field_dataset`) writes it, sharding splits larger than 120 runs.
-- Zoo dataset `thermal_channel_cfd` (Hub-only, 360 MB in 8 files): the actuated heated channel of Benchmark
-  experiment 05. It holds 82 trajectories of u, v, p, T on 128 × 32 with 101 snapshots, the actuators and the
-  quantities of interest. The splits are train 48 / val 8 / test 12 of random steps and ramps, plus two actuation
-  families unseen in training. The card carries the solver checks (Poiseuille, Nusselt number) and a three-grid GCI.
-  The recipe is `pinneapple_simulation.numerical_solvers.thermal_channel_datasets` and the command line is
-  `scripts/zoo/thermal_channel_data.py`.
-- Spectral fidelity metrics (`pinneapple_analysis.validation.spectral`, #702): radially binned energy spectra
-  (periodic, or mean-removed and Hann-windowed), energy ratio, phase error and coherence per wavenumber band, a
-  high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
-  wall flux. Reported by `pinneapple check` (new rule PC704 `spectral-bias`, tolerance `hf-bias`) and by the
-  `pp.benchmark` field problems ("HF energy bias" column). Docs: "Spectral fidelity".
 - Metamorphic tests for surrogates (`pinneapple_analysis.validation.metamorphic`, #698): symmetry, similarity
   scaling, invariance, monotonicity, superposition and resolution consistency as declarative relations with a
   tolerance and a sampler; random and (with `hypothesis`) property-based search; the worst violation is returned as a
@@ -89,10 +74,85 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   whose coverage is measured and reported as broken under an input shift; `to_check` for trust reports.
   `operator_benchmarks.darcy_matrix` exposes the finite-volume matrix of `darcy_2d`. Docs: "From residual to error
   bound".
+- Observatory: space journey from your place to the target (#723). `pinneapple_physics.astro.journey`: heliocentric
+  ICRS positions of the observer (Earth from the JPL ephemeris plus the site), the Solar System bodies at the date and
+  the stars from their parallax (Hipparcos 2007 for the brightest); galactic coordinates (IAU 1958 on J2000 axes);
+  distance, one-way light time and travel times at walking, airliner, New Horizons, Voyager 1 and light speed; the
+  target's apparent magnitude (m = M + 5 log10(d / 10 pc) for stars, inverse square for bodies) and angular diameter
+  versus the distance left; scale markers (Moon distance, 1 au, heliopause, 1 light-year, nearest star) and the Sun's
+  magnitude seen from a star. The app's Journey view lifts off from your latitude and longitude, leaves the atmosphere
+  and flies across the Solar System or through the neighbouring stars in 3-D with a logarithmic speed control,
+  counters (travelled, left, light time, size and brightness of the target, trip times) and, on arrival, a look-around
+  view with the info card (#724); at a star, "Look back home" shows the Sun as a star of the right magnitude.
+  `/api/journey/{plan,scene}`; "Fly there" from the Learn card. Tests: `tests/test_astro_journey.py` (arrival distance
+  against the ephemeris and the parallax to 0.1 %, the Sun at about +0.5 from Alpha Centauri, light time 1.28 s to the
+  Moon and 8.3 min to the Sun) and `apps/observatory/tests/e2e/journey.spec.js` (Mars in English, Sirius in Portuguese).
+- Observatory: observing session mode (#722). `pinneapple_physics.astro.observing`: visibility of any target (body,
+  star, Messier object) with altitude, air mass, extinction per band, sky brightness (Krisciunas & Schaefer 1991
+  moonlight + twilight), parallactic angle and field rotation, rise / transit / set for fixed objects (within a
+  minute of Skyfield), the best window; telescope optics (magnification, true field, exit pupil, Dawes and Rayleigh
+  limits, limiting magnitude, image scale, camera field) with presets; GoTo slews with a trapezoidal profile, horizon
+  limit and meridian flip; survey cut-outs from CDS hips2fits (DSS2 colour), cached on the server and credited on
+  screen. `conditions.fetch_cloud_forecast` / `sky_view`: "real sky" from the Open-Meteo cloud forecast, "perfect
+  sky" without weather, and a fallback to perfect sky without a forecast. The app's Observe tab plans the night,
+  sets up the telescope, slews and tracks the target in an eyepiece or camera view at 1x to 3600x (field rotation,
+  extinction, sky brightness, seeing, clouds), with a session log (notes, snapshots, conditions); offline the field
+  is drawn from the star catalogue. `/api/observe/{plan,optics,slew,weather,presets,field.jpg}`. Tests:
+  `tests/test_astro_observing.py` (Skyfield, Kasten & Young, optics formulas, analytic field rotation) and
+  `apps/observatory/tests/e2e/observe.spec.js` (a 2-hour session at 600x stays centred; a forced overcast forecast
+  hides the view and is logged).
+- Observatory: Learn mode with facts and curiosities about each object (#724). `pinneapple_physics.astro.facts` and a
+  versioned dataset in `pinneapple_physics/astro/data/facts/` (the Sun, planets, Moon, dwarf planets and major moons,
+  the brightest stars, the 88 constellations, the 110 Messier objects, the ISS, Hubble and Tiangong): every number
+  carries its source (NASA fact sheets, Hipparcos 2007, IAU, d3-celestial, published distances), text written in
+  English and Portuguese. Cards give key numbers with everyday comparisons, three to five curiosities, history,
+  missions, how to see the object tonight from your place (`facts.tonight`) and a quiz; search by name in both
+  languages and a "Did you know?" tip on start-up. The app has a Learn tab, the start of the card in the Object tab,
+  and `/api/facts/{card,search,list,tip}`. Constellation areas are computed from the IAU boundaries
+  (`scripts/astro/build_facts.py`). Tests: `tests/test_astro_facts.py` (NASA fact sheet values, DE421 cross-checks,
+  IAU areas, sources and both languages) and `apps/observatory/tests/e2e/learn.spec.js`.
+- Observatory: Portuguese and English interface (#721). A language switcher (EN / PT) in the top bar; the default
+  follows the browser, the choice is kept in the URL (`#lang=pt`) and in local storage. Every string the page shows is
+  in the message catalogues `static/i18n/en.json` / `pt.json`, including check names, verdicts, units and API errors
+  (the server sends a message code in `X-Error-Code`); numbers and dates follow the locale. Constellations use their
+  Portuguese names (`pinneapple_physics.astro.stars.constellation_names`; the two halves of Serpens now get their own
+  names and label points), stars keep their IAU names. Library checks and validation rows carry a stable `id` for
+  translation. Tests: catalogue parity and a lint for hard-coded text (`tests/test_observatory_i18n.py`), and a
+  Playwright test that switches to Portuguese and back (`apps/observatory/tests/e2e`). Screenshots in both languages.
+- Zoo dataset `airfoil_rans_cst_re4e6_fields` (Hub-only, 186 MB in 5 files): the cell fields p, Ux, Uy, nut and
+  cell centres of the 436 OpenFOAM runs of `airfoil_rans_cst_re4e6`, with the same splits. The campaign was
+  regenerated, and its coefficients reproduce the published table. `write_field_dataset`
+  (`pinneapple_design.aero.field_dataset`) writes it, sharding splits larger than 120 runs.
+- Zoo dataset `thermal_channel_cfd` (Hub-only, 360 MB in 8 files): the actuated heated channel of Benchmark
+  experiment 05. It holds 82 trajectories of u, v, p, T on 128 × 32 with 101 snapshots, the actuators and the
+  quantities of interest. The splits are train 48 / val 8 / test 12 of random steps and ramps, plus two actuation
+  families unseen in training. The card carries the solver checks (Poiseuille, Nusselt number) and a three-grid GCI.
+  The recipe is `pinneapple_simulation.numerical_solvers.thermal_channel_datasets` and the command line is
+  `scripts/zoo/thermal_channel_data.py`.
+- Spectral fidelity metrics (`pinneapple_analysis.validation.spectral`, #702): radially binned energy spectra
+  (periodic, or mean-removed and Hann-windowed), energy ratio, phase error and coherence per wavenumber band, a
+  high-wavenumber bias score, structure functions with flatness, and errors in gradients, vorticity, strain rate and
+  wall flux. Reported by `pinneapple check` (new rule PC704 `spectral-bias`, tolerance `hf-bias`) and by the
+  `pp.benchmark` field problems ("HF energy bias" column). Docs: "Spectral fidelity".
 - Zoo dataset `navier_stokes_2d_li2021_nu1e-3` (Hub-only, 919 MB in 12 shards of 100 runs): 2-D incompressible
   Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
   It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
   `pp.datasets.load(name, split="test")` downloads only the two test shards.
+- Black-hole weather, zoo version (#399). The library gains the tools, and the example scripts only call them:
+  - `pinneapple_physics.blackhole.runs`: generate, resume and read simulations;
+  - `convergence`: a resolution study with conservative remap between non-nested grids, Richardson order and GCI,
+    and statistical convergence with batch-mean and seed intervals;
+  - `dataset`: zoo packing, one file per split, by trajectory;
+  - `skill`: persistence, climatology and DMD baselines, moving-block bootstrap skill against lead time, physics
+    checks;
+  - `figures`.
+- `forecast` gains training on whole trajectories with a multi-step rollout loss, input noise, window-mass and
+  mass-change penalties, replicate padding, and per-epoch checkpoints that resume.
+- `RIAFConfig(perturbation_kind="modes")`: the same seeded initial perturbation on every grid.
+- `pinneapple_analysis.verification.forecast_skill`: `skill_vs_lead`, block bootstrap and batch-means intervals.
+- Hub-only dataset `blackhole_riaf_density_256`: four-grid resolution study in its card, split by trajectory.
+- The retrained forecaster is not shipped: it fails the mass-conservation check
+  (`docs/dev/model_dataset_inventory.md`).
 - `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
   benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
   levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves
@@ -483,6 +543,25 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - Rollout validation: a user invariant named like a built-in (`energy`) is no longer replaced by the built-in or
   scaled like it; the spectral band ignores shells below 1e-6 of the peak energy (round-off, not content).
 - `pp.validate` runs PhysicsNeMo field models given without a channel axis (PhysicsNeMo raises `ValueError`).
+- Encounter feasibility (`pinneapple_analysis.uncertainty.reachability`): contact was looked for only at the
+  `n` time samples, so a fast flyby whose regions overlapped between two samples was reported as impossible (a
+  closest approach of 0.05 against a radius of 0.1 at 2000 units per second came out `possible=False`). The closest
+  approach of the two centres is now sampled, and every interval whose lower bound reaches zero is searched. A
+  negative uncertainty, acceleration or latency, or a non-positive horizon, now raises a `ValueError`.
+- Veriphysics robustness studies (`pinneapple_veriphysics.robustness`): an extrapolation margin of 0 (or a negative
+  one) left no point outside the training box and `_sample_shell` looped forever, hanging `ensemble_study` and
+  `extrapolation_study`; it now raises a clear `ValueError`. The evaluation points came from the global NumPy
+  random state, so the same study gave different evidence on every run; sampling is now seeded and reproducible.
+- Zoo query checks (`pp.zoo.query_checks`, the Playground's trust panel): the range checks run in float32 (the
+  torch module and its ONNX graph), but the bounds had a slack of only 1e-9, so a query exactly at the edge of the
+  training range was rejected as "outside the validity range". `T1 = 0.08` on `airfoil_cst_rans_mlp`, a value in
+  its training data, arrived as 0.0799999982 and failed PC601. The slack now covers two float32 epsilons; the
+  browser bundles in `data/web/zoo/` carry the new limits.
+- `pinneapple check`: a grid with 2 points along an axis made `numpy.gradient` raise "Shape of array too small" in
+  the residual and the balances, and the run ended with a traceback, so no other target was reported. Such an axis
+  now uses first-order ends, and a residual with no interior point is noted as not evaluated instead of passing on
+  an empty set. A check that still raises is reported as a PC001 error on its target, and the run goes on with the
+  remaining targets.
 - CalculiX Docker image (`pinneapple_simulation.external_solvers.calculix.runner.ensure_image`): every build attempt
   pulled the Debian base from public.ecr.aws, which answers 429 ("Data limit exceeded") on busy shared CI runners,
   so the retries failed the same way and the real-CalculiX test turned unrelated pull requests red. Each retry now
@@ -514,6 +593,7 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   spacing allowed); the residual of the same field is 0.017 and converges at order 2 on uniform and stretched grids.
 - Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
   repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
+- Black-hole simulations: resuming a run from its checkpoint failed on the outer-boundary state (`AccretionFlow._outer`).
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
@@ -545,6 +625,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   caps far from the origin or on nearly parallel neighbours).
 
 ### Documentation
+- Validation methods reference: measured behaviour of `crps_gaussian` / `crps_ensemble` (fair score unbiased for
+  small ensembles) and of `block_bootstrap` (percentile intervals undercover: 0.93 at a nominal 0.95 for iid n = 100,
+  0.90 for a strongly correlated AR(1) series), and first-order residuals of `pinneapple check` on point clouds.
 - New guide "Validation methods reference" (`docs/guides/validation_methods_reference.md`, under Guides): every
   check of `pinneapple check`, `pp.trust_card`, `TrustGate`, `pinneapple_analysis.validation`, `.uncertainty`,
   `.verification`, veriphysics, the physics audit monitor and the zoo query gate, with what it detects, its

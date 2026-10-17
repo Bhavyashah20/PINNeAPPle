@@ -24,7 +24,8 @@ is why the ensemble spread is reported next to it and the map says so.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from collections.abc import Callable, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -47,19 +48,28 @@ def _predict(model, x) -> np.ndarray:
     return y.detach().cpu().numpy()
 
 
-def _sample_box(bounds: Dict[str, Any], coords: Sequence[str], n: int) -> np.ndarray:
-    return np.stack([np.random.uniform(*bounds[c], size=n) for c in coords], axis=1).astype(np.float32)
+def _sample_box(bounds: dict[str, Any], coords: Sequence[str], n: int,
+                rng: np.random.Generator | None = None) -> np.ndarray:
+    """*n* uniform points in the box. Seeded (``rng`` or seed 0), so the evidence of a study is reproducible; the
+    global NumPy state was used before, and two runs of the same study saw different points."""
+    rng = np.random.default_rng(0) if rng is None else rng
+    return np.stack([rng.uniform(*bounds[c], size=n) for c in coords], axis=1).astype(np.float32)
 
 
-def _sample_shell(bounds: Dict[str, Any], coords: Sequence[str], margin: float, n: int) -> np.ndarray:
+def _sample_shell(bounds: dict[str, Any], coords: Sequence[str], margin: float, n: int,
+                  rng: np.random.Generator | None = None) -> np.ndarray:
     """*n* uniform points in the box grown by *margin* (fraction of each
     side's width) that lie OUTSIDE the original box."""
+    if not margin > 0:
+        # with margin <= 0 no point can lie outside the box and the loop below never ends
+        raise ValueError(f"extrapolation margin must be > 0 (a fraction of each side's width); got {margin}")
+    rng = np.random.default_rng(1) if rng is None else rng
     grown = {c: (bounds[c][0] - margin * (bounds[c][1] - bounds[c][0]),
                  bounds[c][1] + margin * (bounds[c][1] - bounds[c][0])) for c in coords}
-    kept: List[np.ndarray] = []
+    kept: list[np.ndarray] = []
     total = 0
     while total < n:
-        cand = _sample_box(grown, coords, n * 4)
+        cand = _sample_box(grown, coords, n * 4, rng)
         outside = np.zeros(len(cand), dtype=bool)
         for i, c in enumerate(coords):
             outside |= (cand[:, i] < bounds[c][0]) | (cand[:, i] > bounds[c][1])
@@ -73,6 +83,7 @@ def _pde_residual(spec, model, x_np: np.ndarray) -> float:
     """Mean-squared PDE residual at *x_np* -- same computation as
     ``PhysicsGuardrail._check_residual`` but at caller-chosen points."""
     import torch
+
     from pinneapple_physics.pinn_solver.compiler.compile import compile_problem
 
     loss_fn = compile_problem(spec)
@@ -110,7 +121,7 @@ def _train(spec, build_model: Callable[[], Any], *, epochs: int, n_collocation: 
 def ensemble_study(
     spec, build_model: Callable[[], Any], best_model, *, n_members: int, epochs: int, n_collocation: int,
     n_eval: int = 2048, margins: Sequence[float] = DEFAULT_MARGINS,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Train *n_members* extra seeds and measure member disagreement in the
     interior and on each outside shell. Returns the models too (key
     ``"members"``) so callers can reuse them; strip before serializing."""
@@ -122,7 +133,7 @@ def ensemble_study(
     x_in = _sample_box(bounds, coords, n_eval)
     preds_in = np.stack([_predict(m, x_in) for m in members])
     scale = _field_scale(preds_in)
-    out: Dict[str, Any] = {
+    out: dict[str, Any] = {
         "n_members": len(members),
         "interior_rel_spread": _rel_spread(preds_in, scale),
         "shell_rel_spread": {},
@@ -135,9 +146,9 @@ def ensemble_study(
 
 
 def extrapolation_study(
-    spec, model, *, residual_threshold: float, ensemble: Optional[Dict[str, Any]] = None,
+    spec, model, *, residual_threshold: float, ensemble: dict[str, Any] | None = None,
     margins: Sequence[float] = DEFAULT_MARGINS, n_eval: int = 2048, spread_tol: float = SPREAD_REL_TOL,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Residual (and ensemble spread, if given) on shells outside the
     training box. ``supported_margin`` is the largest margin such that it
     and every smaller margin keep residual <= threshold and spread <=
@@ -160,7 +171,7 @@ def extrapolation_study(
 def weight_sensitivity_study(
     spec, build_model: Callable[[], Any], best_model, *, epochs: int, n_collocation: int,
     factors: Sequence[float] = DEFAULT_WEIGHT_FACTORS, n_eval: int = 2048, spread_tol: float = SPREAD_REL_TOL,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Retrain with ``w_pde`` scaled by each factor (other weights at their
     defaults) and measure the RMS change of the prediction vs *best_model*
     relative to the field's RMS magnitude. Note: the seed differs from the
@@ -184,11 +195,12 @@ def weight_sensitivity_study(
             "tolerance": spread_tol}
 
 
-def calibration_against_reference(members: Sequence[Any], reference_x, reference_y) -> Dict[str, Any]:
+def calibration_against_reference(members: Sequence[Any], reference_x, reference_y) -> dict[str, Any]:
     """Real calibration of the ensemble against supplied reference data via
     ``CalibrationMetrics`` -- the only way to turn the spread into a
     *calibrated* uncertainty. Returns ece/coverage/sharpness."""
     import torch
+
     from pinneapple_analysis.uncertainty.calibration import CalibrationMetrics
 
     x = np.asarray(reference_x, dtype="float32")
@@ -204,7 +216,7 @@ def calibration_against_reference(members: Sequence[Any], reference_x, reference
     }
 
 
-def condition_coverage(spec, n: int = 50_000) -> Dict[str, Any]:
+def condition_coverage(spec, n: int = 50_000) -> dict[str, Any]:
     """How many points each auto-sampled (``callable``/``all``) boundary,
     initial or data condition selects under the SAME sampler the installed
     ``pinneapple_physics.solve_pde`` uses, so this reports what training
@@ -226,7 +238,7 @@ def condition_coverage(spec, n: int = 50_000) -> Dict[str, Any]:
         sample_condition_points = None
         sampler = "uniform interior sampler (older solve_pde silently drops empty conditions)"
     x = _sample_box(bounds, coords, n)
-    conds: Dict[str, Any] = {}
+    conds: dict[str, Any] = {}
     for c in spec.conditions:
         if c.selector_type not in ("all", "callable"):
             conds[c.name] = None
@@ -243,11 +255,11 @@ DEFAULT_PARAM_SHIFTS = (0.10, 0.30)
 
 
 def parameter_shift_study(
-    make_spec: Callable[..., Any], base_kwargs: Dict[str, Any], build_model: Callable[[], Any], base_model, *,
+    make_spec: Callable[..., Any], base_kwargs: dict[str, Any], build_model: Callable[[], Any], base_model, *,
     residual_threshold: float, epochs: int, n_collocation: int,
     shifts: Sequence[float] = DEFAULT_PARAM_SHIFTS, max_params: int = 2, n_eval: int = 2048,
     spread_tol: float = SPREAD_REL_TOL,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Parameter generalization: how far can a physical parameter move
     before the surrogate trained at the base value stops being usable?
 
@@ -264,7 +276,7 @@ def parameter_shift_study(
     and every smaller shift are ok. Costs ``len(shifts) * n_params``
     trainings. Geometry changes are NOT covered (they need real geometry).
     """
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     numeric = [(k, v) for k, v in base_kwargs.items()
                if isinstance(v, (int, float)) and not isinstance(v, bool) and v != 0][:max_params]
     for name, value in numeric:
