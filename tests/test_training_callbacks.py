@@ -187,3 +187,30 @@ def test_hugging_face_trainer_callback(darcy, tmp_path):
     # the metrics are those of pp.validate on the same weights
     net = copy.deepcopy(results[0.01][0].model_fn(tr.model))
     assert mon.evaluate(tr.model) == PhysicsMonitor("darcy_2d", reference=(a[64:], u[64:])).evaluate(net)
+
+
+class _Scripted:
+    """A monitor whose metrics follow a script (no model): to test the early-warning rule by itself."""
+
+    def __init__(self, values, **kw):
+        self.mon = PhysicsMonitor("darcy_2d", every=1, patience=2, **kw)
+        it = iter(values)
+        self.mon.evaluate = lambda module: next(it)
+
+
+def test_early_warning_follows_each_checks_direction_and_checks_a_step_once():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PhysicsWarning)
+        # pinn.trivial rises as a PINN learns (higher is better): no alarm while the loss falls
+        good = _Scripted([{"physics/pinn.trivial": v} for v in (0.0, 0.3, 0.6, 0.9)]).mon
+        for k, loss in enumerate((4.0, 3.0, 2.0, 1.0), 1):
+            good.step(None, k, loss)
+        assert not good.alerts
+        # the same rise of an error metric does alarm
+        bad = _Scripted([{"physics/residual.energy_bound": v} for v in (0.0, 0.3, 0.6, 0.9)]).mon
+        with pytest.raises(PhysicsWarning):
+            for k, loss in enumerate((4.0, 3.0, 2.0, 1.0), 1):
+                bad.step(None, k, loss)
+    # gradient accumulation: the same global step reported k times is checked once
+    acc = _Scripted([{"physics/residual.energy_bound": 1.0}] * 2).mon
+    assert acc.step(None, 5, 1.0) is not None and acc.step(None, 5, 0.9) is None and len(acc.history) == 1

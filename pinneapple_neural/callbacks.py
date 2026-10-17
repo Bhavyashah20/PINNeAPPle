@@ -50,12 +50,23 @@ def _float(x) -> float | None:
     return v if math.isfinite(v) else None
 
 
+def _better(cid: str) -> str:
+    """``"lower"`` or ``"higher"``: the direction of the check's value (``validation.schema``)."""
+    from pinneapple_analysis.validation.schema import spec_of
+    try:
+        return spec_of(cid).better
+    except KeyError:
+        return "lower"
+
+
 class PhysicsMonitor:
     """The checks of ``pp.validate(model, problem, data, reference, query, level)`` as training metrics.
 
     ``every``: run the checks every this many steps. ``watch``: check ids whose value is tracked for the early warning
-    (default: every check with a numeric value; lower |value| is better). ``patience``: number of consecutive checks
-    in which a watched metric worsened while the loss improved before the warning fires. ``action``: ``"warn"`` (a
+    (default: every check with a numeric value; the direction that counts as better is the check's ``better`` in
+    ``validation.schema``: lower |value| for errors, higher for coverages, spread ratios and crossing times).
+    ``patience``: number of consecutive checks in which a watched metric worsened while the loss improved before the
+    warning fires (a step is checked once, also with gradient accumulation). ``action``: ``"warn"`` (a
     :class:`PhysicsWarning`) or ``"stop"`` (also sets ``should_stop``). ``model_fn``: maps the framework's module to
     the model to validate (e.g. ``lambda m: m.net`` for a LightningModule that wraps the network). ``report_path``:
     where :meth:`finish` writes the report (JSON) and the trust card (``*.trust.json``).
@@ -105,8 +116,8 @@ class PhysicsMonitor:
 
     def step(self, module, step: int, loss=None) -> dict[str, float] | None:
         """Run the checks if ``step`` is due; returns the metrics (else None) and applies the early-warning rule."""
-        if not self.due(step):
-            return None
+        if not self.due(step) or (self.history and self.history[-1]["step"] == step):
+            return None                                 # not due, or already checked (gradient accumulation)
         metrics = self.evaluate(module)
         loss = _float(loss)
         prev = self.history[-1] if self.history else None
@@ -118,7 +129,10 @@ class PhysicsMonitor:
                 if cid in ("n_fail", "n_warn") or (self.watch is not None and cid not in self.watch):
                     continue
                 old = prev["metrics"].get(key)
-                worse = old is not None and abs(v) > abs(old) * (1 + 1e-9) + 1e-12
+                if _better(cid) == "higher":            # a coverage, a spread ratio, a crossing time
+                    worse = old is not None and v < old * (1 - 1e-9) - 1e-12
+                else:                                   # an error: |value| grows
+                    worse = old is not None and abs(v) > abs(old) * (1 + 1e-9) + 1e-12
                 self._streak[cid] = self._streak.get(cid, 0) + 1 if (worse and improving) else 0
                 if self._streak[cid] == self.patience:
                     self._alert(step, cid, metrics[key], loss)
