@@ -14,6 +14,22 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Sensitivity analysis package `pinneapple_analysis.sensitivity` (`pp.sensitivity`, `pp.sobol_indices`): first-order,
+  total and second-order Sobol indices with bootstrap intervals (Saltelli 2010 / Jansen 1999 / Saltelli 2002
+  estimators, checked against the exact Ishigami and Sobol' G indices), indices from runs done elsewhere
+  (`saltelli_design` + `sobol_from_runs`), given-data first-order indices, Morris elementary effects, partial
+  dependence and ICE curves, local derivatives by autodiff or central differences, and a freeze recommendation that
+  uses the upper confidence bound plus a direct re-run check (`verify_freeze`).
+- Uncertainty-study helpers in `pp.uncertainty`: input distributions (uniform, normal, truncated normal, lognormal,
+  triangular) sampled by MC, LHS or Sobol (`distributions`); `propagate_space` (`pp.propagate_uncertainty`);
+  least-squares polynomial chaos with leave-one-out Q2 and Sobol indices (`polynomial_chaos`); split-conformal
+  intervals on any model's predictions with the coverage measured on held-out data, reliability across levels and
+  per-group coverage (`conformal_study`, `pp.conformal_study`); a range + k-NN density applicability gate
+  (`ApplicabilityDomain`) and the rule that routes cases to the high-fidelity solver (`route_cases`).
+- `pinneapple_analysis.study_models.StudyModel` (`pp.StudyModel`): one interface for zoo models (with their torch
+  module for autodiff, ensemble spread and reference splits), ONNX graphs and Python callables.
+- `pinneapple_design.thermal.heatsink.surrogate.reference_solve`: the heat-sink physics engine on one design given in
+  the dataset's columns (the high-fidelity answer the zoo surrogates approximate).
 - Zoo dataset `airfoil_rans_cst_re4e6_fields` (Hub-only, 186 MB in 5 files): the cell fields p, Ux, Uy, nut and
   cell centres of the 436 OpenFOAM runs of `airfoil_rans_cst_re4e6`, with the same splits. The campaign was
   regenerated, and its coefficients reproduce the published table. `write_field_dataset`

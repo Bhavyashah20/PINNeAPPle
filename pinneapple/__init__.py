@@ -618,6 +618,8 @@ _SUBMODULES = {
     "datasets":   "pinneapple_hub.zoo.datasets",
     # helpers consolidated from apps, examples and satellite repos (docs/dev/LIBRARY_CONSOLIDATION.md)
     "uncertainty": "pinneapple_analysis.uncertainty",
+    # global and local sensitivity: Sobol with intervals, Morris, effect curves, autodiff derivatives, freeze rule
+    "sensitivity": "pinneapple_analysis.sensitivity",
     "closed_form": "pinneapple_physics.closed_form",
     "excitation": "pinneapple_systems.excitation",
     "reporting":  "pinneapple_tools.reporting",
@@ -656,6 +658,10 @@ _LAZY_ATTRS = {
     "dominant_frequency": ("pinneapple_physics.physics_audit.regime", "dominant_frequency"),
     "assess_drift":    ("pinneapple_analysis.uncertainty.drift", "assess_drift"),
     "propagate_tolerances": ("pinneapple_analysis.uncertainty.tolerance", "propagate"),
+    "propagate_uncertainty": ("pinneapple_analysis.uncertainty.tolerance", "propagate_space"),
+    "conformal_study": ("pinneapple_analysis.uncertainty.conformal_study", "conformal_study"),
+    "sobol_indices":   ("pinneapple_analysis.sensitivity.sobol", "sobol_indices"),
+    "StudyModel":      ("pinneapple_analysis.study_models", "StudyModel"),
     "score_against_reference": ("pinneapple_analysis.verification.physics_confidence_score",
                                 "score_against_reference"),
 }
