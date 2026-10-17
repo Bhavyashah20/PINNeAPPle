@@ -67,3 +67,5 @@ Records are matched per source. A test from a source that only *claims* a pass (
 StudyResult with `tests` but no `evidence`) is printed as "not run", with the claim beside it. The same holds
 when another run used the same check id. The tests in `tests/pinneapple_veriphysics/test_evidence_ledger.py`
 enforce this.
+
+The [Physics Validation Lab](../apps/validation_lab.md) (day 24) is built on these modules.
