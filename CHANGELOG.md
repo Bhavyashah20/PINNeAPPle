@@ -422,6 +422,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   one) left no point outside the training box and `_sample_shell` looped forever, hanging `ensemble_study` and
   `extrapolation_study`; it now raises a clear `ValueError`. The evaluation points came from the global NumPy
   random state, so the same study gave different evidence on every run; sampling is now seeded and reproducible.
+- Zoo query checks (`pp.zoo.query_checks`, the Playground's trust panel): the range checks run in float32 (the
+  torch module and its ONNX graph), but the bounds had a slack of only 1e-9, so a query exactly at the edge of the
+  training range was rejected as "outside the validity range". `T1 = 0.08` on `airfoil_cst_rans_mlp`, a value in
+  its training data, arrived as 0.0799999982 and failed PC601. The slack now covers two float32 epsilons; the
+  browser bundles in `data/web/zoo/` carry the new limits.
 - `pinneapple check`: a grid with 2 points along an axis made `numpy.gradient` raise "Shape of array too small" in
   the residual and the balances, and the run ended with a traceback, so no other target was reported. Such an axis
   now uses first-order ends, and a residual with no interior point is noted as not evaluated instead of passing on
