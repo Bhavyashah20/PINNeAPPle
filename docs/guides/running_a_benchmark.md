@@ -134,7 +134,8 @@ pp.benchmark.run(...,
 `budget_study` trains the best configuration again at each listed budget (seed 0, on the problem's study instances)
 and adds those points to the seed-0 runs of `budget_levels`: a table per instance and `figures/budget_study.png`.
 `ablations` trains the best configuration with each change at the full budget on the problem's audit instance and
-puts it next to the unchanged run (the **Setup audit** table). Leaving both empty keeps an existing `out_dir` valid.
+puts it next to the unchanged run (the **Setup audit** table). Both only add jobs: adding budgets, problems, methods or variants to them reuses an existing `out_dir`;
+changing or removing an entry is refused like any other configuration change (it would reinterpret cached runs).
 
 ### Example: what the gates and the advisor said on PINNeAPPle-Benchmark experiment 09
 

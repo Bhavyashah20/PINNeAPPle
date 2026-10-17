@@ -18,9 +18,6 @@ _RESULT_FIELDS = ("problems", "methods", "budget", "problem_budgets", "budget_le
                   "search_fraction", "equal_flops", "threads_per_run", "smoke", "problem_options", "method_options")
 
 
-_OPTIONAL_RESULT_FIELDS = ("budget_study", "ablations")
-
-
 def _budget_dict(b) -> dict[str, Any]:
     if b is None:
         return {}
@@ -115,9 +112,23 @@ class BenchmarkConfig:
 
     def result_hash(self) -> str:
         d = self.to_dict()
-        key = {k: d[k] for k in _RESULT_FIELDS}
-        key.update({k: d[k] for k in _OPTIONAL_RESULT_FIELDS if d.get(k)})   # empty: same hash as before they existed
+        key = {k: d[k] for k in _RESULT_FIELDS}       # budget_study / ablations only add jobs: see extends_studies
         return hashlib.sha256(json.dumps(key, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+    def extends_studies(self, old: BenchmarkConfig) -> bool:
+        """True when this configuration's ``budget_study`` and ``ablations`` keep every entry of ``old`` unchanged
+        (they may add problems, methods, budgets or variants: new jobs, no cached result reinterpreted)."""
+        for pid, per in (old.budget_study or {}).items():
+            for mid, bs in per.items():
+                new = (self.budget_study.get(pid) or {}).get(mid, [])
+                if not {float(x) for x in bs} <= {float(x) for x in new}:
+                    return False
+        for pid, per in (old.ablations or {}).items():
+            for mid, variants in per.items():
+                new = (self.ablations.get(pid) or {}).get(mid, {})
+                if any(new.get(name) != change for name, change in variants.items()):
+                    return False
+        return True
 
     def to_yaml(self, path: str | Path) -> None:
         Path(path).write_text(yaml.safe_dump(self.to_dict(), sort_keys=False))
