@@ -44,7 +44,7 @@ import numpy as np
 
 __all__ = ["DatasetPhysics", "DARCY", "AuditCheck", "AuditCard", "DEFAULT_TOLERANCES", "audit_dataset",
            "effective_sample_count", "near_duplicates", "leakage", "darcy_consistency", "audit_zoo_dataset",
-           "ZOO_AUDIT"]
+           "ZOO_AUDIT", "constraint_mask"]
 
 PASS, WARN, FAIL, NA = "pass", "warn", "fail", "not-applicable"
 
@@ -281,6 +281,12 @@ def _constraint(expr: str, cols: Mapping[str, np.ndarray]) -> np.ndarray:
         a, b = np.broadcast_arrays(np.asarray(a, float), np.asarray(b, float))
         return np.abs(a - b) <= 1e-6 * np.maximum(np.abs(b), 1e-12) + 1e-12
     return np.asarray(eval(compile(expr.strip(), "<constraint>", "eval"), {"__builtins__": {}}, env), bool)  # noqa: S307
+
+
+def constraint_mask(expr: str, cols: Mapping[str, np.ndarray]) -> np.ndarray:
+    """Where the declared relation ``expr`` (``"Cd > 0"``, ``"abs(u) <= 1"``, ``"a == b * c"`` to 1e-6 relative)
+    holds, element-wise over ``cols``: the evaluator the ``constraints`` check uses, for checking predictions too."""
+    return _constraint(expr, cols)
 
 
 def _tol(t: dict, v: str | float) -> float:
