@@ -56,3 +56,8 @@ with percentile-bootstrap intervals. `tests/test_sensitivity.py` checks them aga
 Ishigami and Sobol' G functions (`pinneapple_analysis.sensitivity.testfunctions`). An input is recommended for
 freezing only when the **upper** bound of its total index is below the threshold for every output; an estimate
 below the threshold with a wider interval is reported as *inconclusive* (more samples needed), never as freezable.
+
+## Apps
+
+- [Engineering Uncertainty Lab](uncertainty_lab.md) (uncertainty.pinneapple.org): intervals, applicability alerts,
+  the routing rule and propagation for a model and its data.

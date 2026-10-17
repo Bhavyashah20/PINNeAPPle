@@ -248,6 +248,23 @@ services:
     expose: ["8094"]
     mem_limit: ${OBS_MEM_LIMIT:-1500m}
 
+  uncertainty:
+    build:
+      context: ../..
+      dockerfile: apps/uncertainty_lab/Dockerfile
+    image: pinneapple/uncertainty-lab:latest
+    restart: unless-stopped
+    environment:
+      UQL_USER: ${UQL_USER:-}
+      UQL_PASSWORD: ${UQL_PASSWORD:-}
+      UQL_MAX_HEAVY: ${UQL_MAX_HEAVY:-2}
+      UQL_MAX_CASES: ${UQL_MAX_CASES:-2000}
+      UQL_MAX_PROPAGATION: ${UQL_MAX_PROPAGATION:-20000}
+      UQL_MAX_HF: ${UQL_MAX_HF:-40}
+      UQL_MAX_MB: ${UQL_MAX_MB:-50}
+    expose: ["8098"]
+    mem_limit: ${UQL_MEM_LIMIT:-1g}
+
   caddy:
     image: caddy:2
     restart: unless-stopped
@@ -269,12 +286,13 @@ services:
       LAB_DOMAIN: ${LAB_DOMAIN:-lab.localhost}
       OBS_DOMAIN: ${OBS_DOMAIN:-observatory.localhost}
       PLG_DOMAIN: ${PLG_DOMAIN:-playground.localhost}
+      UQL_DOMAIN: ${UQL_DOMAIN:-uncertainty.localhost}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data          # certificates: keep this volume
       - caddy_config:/config
-    depends_on: [heatsink, pcb, datahealth, standardizer, simmeta, udr, inverse, preflight, mesh, compare, lineage, interop, aero, lab, observatory, playground]
+    depends_on: [heatsink, pcb, datahealth, standardizer, simmeta, udr, inverse, preflight, mesh, compare, lineage, interop, aero, lab, observatory, playground, uncertainty]
 
 volumes:
   lab_data:

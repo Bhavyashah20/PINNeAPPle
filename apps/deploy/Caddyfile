@@ -181,3 +181,15 @@
 	import common
 	reverse_proxy playground:8095
 }
+
+{$UQL_DOMAIN} {
+	import common
+	request_body {
+		max_size 60MB
+	}
+	reverse_proxy uncertainty:8098 {
+		transport http {
+			read_timeout 180s
+		}
+	}
+}

@@ -68,6 +68,7 @@
     * [Playground: physics surrogates in the browser](guides/playground.md)
     * [Choose a model by the scale of the question](guides/scale_aware_ensembles.md)
     * [Uncertainty and sensitivity studies on any model](guides/uncertainty_and_sensitivity.md)
+    * [Engineering Uncertainty Lab](guides/uncertainty_lab.md)
 * [API Reference](api/index.md)
   * [pinneapple](api/pinneapple/index.md)
   * [pinneapple_physics](api/pinneapple_physics/index.md)
