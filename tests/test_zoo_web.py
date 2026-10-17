@@ -161,3 +161,19 @@ def test_committed_gallery_index_is_current():
     assert json.loads(json.dumps(index(), ensure_ascii=False)) == old
     for n in gl.list():
         assert (ROOT / "data" / "web" / "geometries" / "thumbs" / f"{n}.jpg").exists()
+
+
+def test_range_check_accepts_the_bounds_themselves(model):
+    # regression: the checks run in float32, so a bound such as 0.08 arrives as 0.0799999982 and a slack of 1e-9
+    # rejected a query exactly at the edge of the training range as "outside the validity range"
+    ranges = [c for c in checks.check_spec(model)["checks"]
+              if c["id"].startswith("range:") and c["id"][6:] in model.input_names]
+    X = export.parity_inputs(model, n_random=0)
+    X = X[model.in_range(X)][:1].repeat(2 * len(ranges), axis=0)
+    for k, c in enumerate(ranges):
+        j = model.input_names.index(c["id"][6:])
+        X[2 * k, j], X[2 * k + 1, j] = c["bounds"]
+    res = checks.query_checks(model, X)
+    for k, c in enumerate(ranges):
+        for r in res[2 * k: 2 * k + 2]:
+            assert next(x["status"] for x in r["checks"] if x["id"] == c["id"]) == "pass", (c["id"], c["bounds"])

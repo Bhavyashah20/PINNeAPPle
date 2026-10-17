@@ -150,5 +150,9 @@ def test_card_section_badge_and_signature(reports):
     env["payload"] = env["payload"][:-4] + "AAAA"
     with pytest.raises((VerificationError, ValueError)):
         verify_report(env, key)
+    from pinneapple_security.signing import sign_json
+    other = sign_json({"verdict": "pass"}, key)                         # same key, another document type
+    with pytest.raises(ValueError, match="not a validation report"):
+        verify_report(other, key)
     import pinneapple as pp
     assert pp.validate.diff is diff                                     # pp.validate.diff(old, new)
