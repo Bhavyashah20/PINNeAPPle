@@ -181,3 +181,15 @@
 	import common
 	reverse_proxy playground:8095
 }
+
+{$CAMPAIGN_DOMAIN} {
+	import common
+	request_body {
+		max_size 110MB
+	}
+	reverse_proxy campaign:8096 {
+		transport http {
+			read_timeout 300s
+		}
+	}
+}
