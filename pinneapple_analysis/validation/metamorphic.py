@@ -38,6 +38,7 @@ returns a dict.
 """
 from __future__ import annotations
 
+import ast
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -412,14 +413,44 @@ _SAFE = {k: getattr(np, k) for k in ("sin", "cos", "tan", "exp", "log", "sqrt", 
                                      "where")}
 _SAFE.update(pi=np.pi)
 
+_BINOPS = {ast.Add: np.add, ast.Sub: np.subtract, ast.Mult: np.multiply, ast.Div: np.divide, ast.Pow: np.power,
+           ast.Mod: np.mod}
+_UNARY = {ast.USub: np.negative, ast.UAdd: np.positive}
+
+
+def _compile_expr(expr: str) -> Callable[[dict], Any]:
+    """A NumPy expression of the columns (``"4 * q"``, ``"-sin(alpha)"``), parsed into a whitelist of nodes:
+    numbers, column names, the functions and constants of ``_SAFE``, arithmetic. No attribute access, subscripts,
+    keywords or other calls, so a configuration file cannot run code (``eval`` without builtins is no sandbox)."""
+    tree = ast.parse(str(expr), mode="eval").body
+
+    def ev(node, env):
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.Name):
+            if node.id not in env:
+                raise ValueError(f"relation expression {expr!r}: unknown name {node.id!r}")
+            return env[node.id]
+        if isinstance(node, ast.BinOp) and type(node.op) in _BINOPS:
+            return _BINOPS[type(node.op)](ev(node.left, env), ev(node.right, env))
+        if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY:
+            return _UNARY[type(node.op)](ev(node.operand, env))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _SAFE \
+                and callable(_SAFE[node.func.id]) and not node.keywords:
+            return _SAFE[node.func.id](*(ev(a, env) for a in node.args))
+        raise ValueError(f"relation expression {expr!r}: {type(node).__name__} is not allowed")
+    return lambda env: ev(tree, env)
+
+
 def _expr_map(mapping: Mapping[str, str]) -> Callable[[dict], dict]:
     """``{"M0": "-M0", "alpha_deg": "-alpha_deg"}``: new columns as NumPy expressions of the old ones."""
+    compiled = {k: _compile_expr(e) for k, e in mapping.items()}
+
     def f(x):
         env = {**_SAFE, **{k: np.asarray(v) for k, v in x.items()}}
         out = dict(x)
-        for k, e in mapping.items():
-            out[k] = np.broadcast_to(np.asarray(eval(compile(str(e), "<relation>", "eval"),  # noqa: S307
-                                                     {"__builtins__": {}}, env), float), np.shape(x[k])).copy()
+        for k, c in compiled.items():
+            out[k] = np.broadcast_to(np.asarray(c(env), float), np.shape(x[k])).copy()
         return out
     return f
 
