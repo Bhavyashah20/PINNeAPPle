@@ -14,6 +14,25 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- ROM study (`pinneapple_neural.architectures.rom.study`): `rom_study(snapshots)` holds out later times,
+  interleaved times or unseen parameter points, fits POD + RBF, POD + GPR, the nearest snapshot, DMD, Operator
+  Inference and a neural surrogate trained within the same wall-clock budget (`train_within_budget`) at several
+  ranks, and reports the held-out error, the POD projection floor, fit and inference time, speed-up over the
+  full-order model, the singular values and the rank / error / speed Pareto front. Every fitted model is a
+  `ReducedModel` with `predict(times=...)` / `predict(params=...)` and a portable `.npz` form (arrays + JSON
+  manifest, no pickle). `ParametricPOD.to_arrays` / `from_arrays` rebuild an identical predictor.
+- Snapshot matrices (`pinneapple_data.snapshots`): `load_snapshots` stacks OpenFOAM time directories, series of
+  VTU/VTK/FRD/meshio results, `.npz`/`.npy`/HDF5 arrays and CSV/Parquet tables (a row per snapshot) into a
+  `SnapshotSet` that keeps the field layout, times or parameters, and locations.
+- Meshless study (`pinneapple_simulation.meshless`): Kansa (global multiquadric collocation), RBF-FD (PHS r³ +
+  polynomials), finite differences on an embedded grid (Shortley-Weller), P1 finite elements on the Delaunay mesh of
+  the nodes and a PINN on the same nodes, for Poisson, Helmholtz and heat problems with Dirichlet conditions on 2-D
+  domains (square, disk, L-shape, annulus, plate with a hole, polygons, point clouds). `meshless_study` reports the
+  error against a manufactured solution (sympy) or a fine FEM reference with its own error estimate, setup and solve
+  time, condition number, noise amplification, observed order, a Kansa shape-parameter sweep and the winner of each
+  criterion.
+- `pinneapple_lab.experiments.rom.cylinder_wake` and `cantilever`: the wake and cantilever generators of
+  `rom_study`, now public.
 - Surrogates from simulation results (`pinneapple_analysis.surrogate`): `run_study` trains every applicable method
   (polynomial ridge, Gaussian process, gradient-boosted trees, MLP, FNO, DeepONet, and a PINN when a PDE is
   declared) on the same splits and `ComputeBudget`, measures them on a held-out split and a distribution-shift split
