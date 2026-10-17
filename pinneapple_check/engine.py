@@ -52,20 +52,15 @@ def run(paths: list[str | Path] | None = None, *, config: Config | str | Path | 
     for t in targets:
         ctx = Ctx(cfg, t, enabled, report.outcomes)
         kind = "model" if t in cfg.models else "dataset" if t in cfg.datasets else "result"
-        if kind == "dataset":
-            check_dataset(ctx, t)
-            info = {"name": t.name, "kind": "dataset", "path": f"zoo:{t.zoo}" if t.zoo else cfg.rel(t.path),
-                    "physics": t.physics, "declared": True}
-        elif kind == "result":
-            fd = check_result(ctx, t)
-            info = {"name": t.name, "kind": fd.kind if fd is not None else "unreadable", "path": cfg.rel(t.path),
-                    "physics": t.physics, "declared": t.declared}
-        else:
-            check_model(ctx, t)
-            where = f"zoo:{t.zoo}" if t.zoo else t.hub if t.hub else cfg.rel(Path(str(t.path).rsplit(":", 1)[0]))
-            info = {"name": t.name, "kind": "model", "path": where, "physics": t.physics, "declared": True}
-        if t.sha256:
-            check_pin(ctx, t.path, t.sha256)
+        try:
+            info = _check_target(ctx, cfg, t, kind)
+        except Exception as e:  # noqa: BLE001 - one target's failure must not hide the others
+            # a crash means this target was not checked: an error on it (like an unreadable target), and the run
+            # goes on with the remaining targets instead of ending with a traceback
+            ctx.emit("PC001", "check", False, f"checking {t.name} raised {type(e).__name__}: {e}",
+                     ctx.default_location())
+            info = {"name": t.name, "kind": "error", "path": cfg.rel(t.path) if getattr(t, "path", None) else "",
+                    "physics": getattr(t, "physics", None), "declared": getattr(t, "declared", True)}
         notes += ctx.notes
         report.targets.append(info)
     if cfg.integrity.manifests or cfg.integrity.signed:
@@ -77,3 +72,21 @@ def run(paths: list[str | Path] | None = None, *, config: Config | str | Path | 
     if use_baseline and bpath is not None and bpath.is_file():
         apply_baseline(report, bpath)
     return report
+
+
+def _check_target(ctx, cfg, t, kind: str) -> dict:
+    if kind == "dataset":
+        check_dataset(ctx, t)
+        info = {"name": t.name, "kind": "dataset", "path": f"zoo:{t.zoo}" if t.zoo else cfg.rel(t.path),
+                "physics": t.physics, "declared": True}
+    elif kind == "result":
+        fd = check_result(ctx, t)
+        info = {"name": t.name, "kind": fd.kind if fd is not None else "unreadable", "path": cfg.rel(t.path),
+                "physics": t.physics, "declared": t.declared}
+    else:
+        check_model(ctx, t)
+        where = f"zoo:{t.zoo}" if t.zoo else t.hub if t.hub else cfg.rel(Path(str(t.path).rsplit(":", 1)[0]))
+        info = {"name": t.name, "kind": "model", "path": where, "physics": t.physics, "declared": True}
+    if t.sha256:
+        check_pin(ctx, t.path, t.sha256)
+    return info
