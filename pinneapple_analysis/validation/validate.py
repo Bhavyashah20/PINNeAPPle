@@ -263,7 +263,7 @@ def as_field_model(model) -> Callable[[np.ndarray], np.ndarray]:
             with torch.no_grad():
                 try:
                     y = model(x)
-                except RuntimeError:                              # expects a channel axis
+                except (RuntimeError, ValueError):                # expects a channel axis (PhysicsNeMo: ValueError)
                     y = model(x[:, None])
             y = getattr(y, "y", y)
             return y.detach().cpu().numpy().astype(float).reshape(np.shape(a))

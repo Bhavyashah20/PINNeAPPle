@@ -32,10 +32,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
 __all__ = ["LinearSPDProblem", "darcy_problem", "heat_conduction_problem", "energy_error_bound",
-           "ResidualErrorCalibrator", "CoverageReport", "coverage_study"]
+           "ResidualErrorCalibrator", "CoverageReport", "coverage_study", "ResidualLoss"]
 
 
 @dataclass
@@ -131,6 +132,32 @@ class CoverageReport:
         return (f"{self.label}: {100 * self.coverage:.1f} % of {self.n} queries within the bound (target "
                 f"{100 * self.target:.0f} %, +- {100 * self.tolerance:.1f} %) -> {'holds' if self.holds else 'BROKEN'}"
                 + (f"; {self.note}" if self.note else ""))
+
+
+class ResidualLoss:
+    """A differentiable physics loss for training: ``mean_i ||f_i - A_i u_i||^2 / ||f_i||^2`` over a fixed set of
+    problems (e.g. :func:`darcy_problem` of each training input), in PyTorch with sparse matrices. Call
+    ``loss(u, idx)`` with predictions ``u`` (``(B, ...)``, any shape with ``n`` values per sample) for the problems
+    ``idx`` (a list or tensor of indices into the set)."""
+
+    def __init__(self, problems: list[LinearSPDProblem]):
+        import torch
+        self.A, self.f = [], []
+        for P in problems:
+            C = sp.coo_matrix(P.A)
+            idx = torch.tensor(np.vstack([C.row, C.col]), dtype=torch.long)
+            self.A.append(torch.sparse_coo_tensor(idx, torch.tensor(C.data, dtype=torch.float32), C.shape,
+                                                   check_invariants=False).coalesce())
+            self.f.append(torch.tensor(P.f, dtype=torch.float32))
+
+    def __call__(self, u, idx):
+        import torch
+        u = u.reshape(len(u), -1)
+        terms = []
+        for k, i in enumerate(idx.tolist() if hasattr(idx, "tolist") else idx):
+            r = self.f[i] - torch.sparse.mm(self.A[i], u[k:k + 1].T.to(torch.float32)).squeeze(1)
+            terms.append((r ** 2).sum() / (self.f[i] ** 2).sum())
+        return torch.stack(terms).mean()
 
 
 class ResidualErrorCalibrator:

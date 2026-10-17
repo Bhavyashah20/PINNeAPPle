@@ -57,6 +57,8 @@ class CheckSpec:
     rule: str = ""              # the `pinneapple check` rule its outcome is reported under ("" when none)
     strength: int = 3           # credibility level the check supports when it passes
     critical: bool = True       # a failure rejects the model (else it asks for review)
+    better: str = "lower"       # direction of the check's value: "lower" (an error) or "higher" (a coverage, a
+    #                             spread ratio, a crossing time); training monitors compare in this direction
 
 
 _SPECS = [
@@ -78,7 +80,7 @@ _SPECS = [
     CheckSpec("data.leakage", "input_pedigree", "no test sample is a copy of a training sample", "PC453", 3),
     CheckSpec("data.finite", "input_pedigree", "data finite (missing values documented)", "PC403", 3, False),
     CheckSpec("uncertainty.residual_bound", "uncertainty",
-              "calibrated error bound from the residual covers its target", "", 3, False),
+              "calibrated error bound from the residual covers its target", "", 3, False, better="higher"),
     CheckSpec("uncertainty.spread", "uncertainty", "ensemble or predictive spread reported", "", 2, False),
     CheckSpec("robustness.input_noise", "robustness", "predictions stable under small input perturbations", "", 3,
               False),
@@ -88,12 +90,12 @@ _SPECS = [
     CheckSpec("rollout.finite", "solution_verification", "the rollout stays finite", "", 3),
     CheckSpec("rollout.invariant", "solution_verification", "conserved quantities stay constant along the rollout",
               "PC105", 3),
-    CheckSpec("rollout.invariants", "validation", "invariants follow the reference trajectory", "", 3, False),
-    CheckSpec("rollout.spectrum", "validation", "small-scale energy kept along the rollout", "PC704", 3, False),
-    CheckSpec("rollout.horizon", "uncertainty", "trust horizon (first divergence from the reference)", "", 2, False),
+    CheckSpec("rollout.invariants", "validation", "invariants follow the reference trajectory", "", 3, False, better="higher"),
+    CheckSpec("rollout.spectrum", "validation", "small-scale energy kept along the rollout", "PC704", 3, False, better="higher"),
+    CheckSpec("rollout.horizon", "uncertainty", "trust horizon (first divergence from the reference)", "", 2, False, better="higher"),
     CheckSpec("rollout.statistics", "validation", "long-run statistics match the reference attractor", "", 3),
     CheckSpec("pinn.residual", "solution_verification", "PDE residual at points not used in training", "PC302", 3),
-    CheckSpec("pinn.trivial", "validation", "the solution is not near-trivial (spread, gradient energy)", "", 3),
+    CheckSpec("pinn.trivial", "validation", "the solution is not near-trivial (spread, gradient energy)", "", 3, better="higher"),
     CheckSpec("pinn.causality", "validation", "the solution propagates in time from the initial condition", "", 3),
     CheckSpec("pinn.boundary", "solution_verification", "boundary conditions at fresh points", "PC201", 3),
     CheckSpec("pinn.initial", "solution_verification", "initial condition at fresh points", "PC201", 3),
