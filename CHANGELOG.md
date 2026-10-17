@@ -14,6 +14,13 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Simulation Campaign Planner (day 13, `apps/simulation_campaign`, campaign.pinneapple.org, port 8096): plan which
+  simulations to run over a `ParameterSpace` and a budget. It returns a design of experiments, coverage before and
+  after, repeats of existing runs dropped, a run order, OpenFOAM / CalculiX / Python case files, and a `StudyResult`
+  plus a `DatasetSpec` skeleton. The library behind it:
+  - `pinneapple_data.doe`: LHS, maximin, Sobol, Halton, full and fractional factorial with minimum-aberration
+    generators, and sequential and adaptive infill; coverage metrics, redundancy, priorities, and `plan_campaign`.
+  - `pinneapple_simulation.external_solvers.campaign_cases`: the case writers.
 - Evidence ledger, Validation Lab and evidence package in `pinneapple_veriphysics`:
   - `ledger`: `EvidenceEntry` / `EvidenceLedger`. Each entry records the check, the SHA-256 of its inputs, its
     outputs, start and finish times and the verdict, sealed with the SHA-256 of its content. `status()` is
