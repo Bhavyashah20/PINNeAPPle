@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 
-__all__ = ["SurrogateData", "read_table", "from_table", "from_arrays", "field_columns"]
+__all__ = ["SurrogateData", "read_table", "from_table", "from_arrays", "field_columns", "inspect_table", "grid_coords"]
 
 _FMT = {".csv": "csv", ".txt": "csv", ".parquet": "parquet", ".pq": "parquet", ".json": "json", ".h5": "hdf5",
         ".hdf5": "hdf5", ".npz": "npz"}
@@ -105,6 +105,57 @@ class SurrogateData:
                                 for i, k in enumerate(self.input_names)},
                "n_groups": None if self.groups is None else int(len(np.unique(self.groups))), "meta": self.meta}
         return out
+
+
+def grid_coords(shape: Sequence[int], ranges: Sequence[Sequence[float]] | None = None) -> np.ndarray:
+    """Coordinates ``(prod(shape), len(shape))`` of a tensor-product grid in ``ij`` order (the order fields are
+    flattened in), each axis spanning ``ranges[i]`` (default [0, 1])."""
+    ranges = ranges or [(0.0, 1.0)] * len(shape)
+    if len(ranges) != len(shape):
+        raise ValueError(f"{len(ranges)} coordinate ranges for a {len(shape)}-D grid")
+    axes = [np.linspace(float(a), float(b), int(n)) for n, (a, b) in zip(shape, ranges, strict=True)]
+    return np.stack([g.ravel() for g in np.meshgrid(*axes, indexing="ij")], 1)
+
+
+def inspect_table(df, roles: Mapping[str, str] | None = None) -> dict[str, Any]:
+    """What a table offers a surrogate: numeric columns with ranges, fields (indexed column groups ``u_0 ..
+    u_k``, at least 4), text columns (candidate group labels) and suggested inputs / outputs (from ``roles``,
+    e.g. a DatasetSpec's column roles, else: fields and the last numeric column are outputs)."""
+    cols = [str(c) for c in df.columns]
+    fields: dict[str, list[str]] = {}
+    for c in cols:
+        m = _IDX.match(c)
+        if m:
+            fields.setdefault(m.group(1), [])
+    fields = {k: field_columns(cols, k) for k in fields}
+    fields = {k: v for k, v in fields.items() if len(v) >= 4}
+    in_field = {c for v in fields.values() for c in v}
+    numeric, text = [], []
+    for c in cols:
+        if c in in_field:
+            continue
+        v = df[c]
+        if v.dtype.kind in "biuf":
+            a = v.to_numpy(float)
+            numeric.append({"name": c, "min": float(np.nanmin(a)) if np.isfinite(a).any() else None,
+                            "max": float(np.nanmax(a)) if np.isfinite(a).any() else None,
+                            "n_unique": int(v.nunique()), "n_missing": int(v.isna().sum())})
+        else:
+            text.append({"name": c, "n_unique": int(v.nunique())})
+    roles = dict(roles or {})
+    if roles:
+        inputs = [c for c, r in roles.items() if r == "input" and c not in in_field]
+        outputs = [c for c, r in roles.items() if r == "output" and c not in in_field]
+        outputs += [k for k, v in fields.items() if any(roles.get(c) == "output" for c in v)]
+        group = next((c for c, r in roles.items() if r == "id" and c in [t["name"] for t in text]), None)
+    else:
+        nums = [n["name"] for n in numeric if n["n_unique"] > 1]
+        outputs = list(fields) or nums[-1:]
+        inputs = [n for n in nums if n not in outputs]
+        group = next((t["name"] for t in text if 1 < t["n_unique"] < len(df)), None)
+    return {"n_rows": int(len(df)), "numeric": numeric, "text": text,
+            "fields": {k: {"columns": len(v), "first": v[0], "last": v[-1]} for k, v in fields.items()},
+            "suggested": {"inputs": inputs, "outputs": outputs, "group": group}}
 
 
 def _unit_grid(shape: Sequence[int]) -> np.ndarray:

@@ -106,6 +106,54 @@ class StudyResult:
         return [{"method": r["id"], "title": r["title"], "error": r["summary"][key],
                  "spread": r["summary"].get(f"{split}_error_std")} for r in sorted(rows, key=lambda r: r["summary"][key])]
 
+    def to_markdown(self) -> str:
+        """The study as a report: data, protocol, comparison, chosen model, trust checks, limitations."""
+        f = lambda v: "—" if v is None else f"{v:.4g}"  # noqa: E731
+        d, sp, lim = self.data.describe(), self.splits.to_dict(), self.limitations
+        out = [f"# Surrogate study: {', '.join(d['outputs'])} from {', '.join(d['inputs'])}", "",
+               f"Created {self.created}. Dataset sha256 `{d['sha256'][:16]}`, {d['n_samples']} samples ({d['kind']}"
+               + (f", grid {d['grid_shape']}" if d["grid_shape"] else "") + f"). Source: {d['meta'].get('source', '—')}.",
+               "", "## Protocol", "",
+               f"- Splits: {sp['n_train']} train, {sp['n_val']} validation, {sp['n_test']} held-out test, "
+               f"{sp['n_shift']} distribution shift ({sp['shift_description'] or 'none'}); split seed {sp['seed']}.",
+               f"- Budget per training run: {self.budget.to_dict()}; seeds {self.seeds}.",
+               f"- Metric: {self.metric} (lower is better), in physical units on data no method trained on.",
+               *[f"- {n}" for n in self.notes],
+               f"- Hardware: {self.hardware.get('cpu', '?')}, {self.hardware.get('logical_cpus', '?')} logical CPUs, "
+               f"torch {self.hardware.get('torch', '?')}.", "", "## Comparison", "",
+               "| method | family | validation | test (± seeds) | shift | train s | inference s/query | parameters |",
+               "|---|---|---|---|---|---|---|---|"]
+        for m in self.methods:
+            s = m.get("summary") or {}
+            if not m["applicable"]:
+                out.append(f"| {m['title']} | {m['family']} | not run: {m['reason']} | | | | | |")
+                continue
+            out.append(f"| {m['title']}{' (chosen)' if m['id'] == self.best else ''} | {m['family']} | "
+                       f"{f(s.get('val_error_mean'))} | {f(s.get('test_error_mean'))} ± {f(s.get('test_error_std'))} | "
+                       f"{f(s.get('shift_error_mean'))} | {f(s.get('train_s'))} | {f(s.get('infer_s_per_query'))} | "
+                       f"{f(s.get('n_params'))} |")
+        out += ["", f"## Trust: {self.trust.get('decision', '—')}", ""]
+        for c in self.trust.get("checks", []):
+            out.append(f"- {c['status']}: {c['name']} (value {f(c['value'])}"
+                       + (f", limit {f(c['limit'])}" if c.get("limit") is not None else "") + ")"
+                       + (f" — {c['reason']}" if c.get("reason") else ""))
+        out += ["", "## Limitations", ""]
+        for k, (a, b) in (lim.get("validity_bounds") or {}).items():
+            out.append(f"- valid for {k} in [{a:.4g}, {b:.4g}]")
+        if lim.get("ood_gate"):
+            out.append(f"- OOD gate: {lim['ood_gate']['rule']}")
+        ge = lim.get("gate_effect") or {}
+        if ge:
+            out.append(f"- held-out samples flagged by the gate: {ge.get('n_flagged')} (mean error "
+                       f"{f(ge.get('mean_error_flagged'))} vs {f(ge.get('mean_error_inside'))} inside)")
+        if lim.get("concentration"):
+            out.append(f"- {lim['concentration']}")
+        if lim.get("extrapolation_ratio") is not None:
+            out.append(f"- shift error / held-out error = {lim['extrapolation_ratio']:.2f}")
+        if lim.get("pde_residual"):
+            out.append(f"- PDE residual of predictions / of the reference data = {lim['pde_residual']['ratio']:.3g}")
+        return "\n".join(out) + "\n"
+
     def to_dict(self) -> dict[str, Any]:
         return {"dataset": self.data.describe(), "splits": self.splits.to_dict(), "budget": self.budget.to_dict(),
                 "seeds": self.seeds, "metric": self.metric, "methods": self.methods, "best": self.best,

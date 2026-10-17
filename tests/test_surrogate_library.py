@@ -48,6 +48,18 @@ def test_read_table_formats_and_fields(tmp_path):
         S.from_table(df, ["p"], ["missing"])
 
 
+def test_inspect_table_and_grid_coords():
+    df = pd.DataFrame({"case": ["a", "a", "b"], "p": [1.0, 2.0, 3.0], "y": [0.1, 0.2, 0.4],
+                       **{f"u_{i}": [i, i, i] for i in range(6)}})
+    info = S.inspect_table(df)
+    assert info["fields"]["u"]["columns"] == 6 and info["suggested"]["outputs"] == ["u"]
+    assert info["suggested"]["inputs"] == ["p", "y"] and info["suggested"]["group"] == "case"
+    r = S.inspect_table(df, roles={"p": "input", "y": "output", "case": "id"})
+    assert r["suggested"] == {"inputs": ["p"], "outputs": ["y"], "group": "case"}
+    c = S.grid_coords((3, 2), [(-1, 1), (0, 0.5)])
+    assert c.shape == (6, 2) and c[0].tolist() == [-1, 0] and c[1].tolist() == [-1, 0.5] and c[-1].tolist() == [1, 0.5]
+
+
 def test_splits_are_disjoint_and_shift_is_unseen():
     d = _scalar()
     for shift in ("edge", "group", {"column": "a", "side": "low"}):
@@ -96,6 +108,8 @@ def test_scalar_study_end_to_end(tmp_path):
     lim = st.limitations
     assert set(lim["validity_bounds"]) == {"a", "b"} and "concentration" in lim and lim["worst_samples"]
     json.dumps(st.to_dict(), default=str)
+    md = st.to_markdown()
+    assert "## Comparison" in md and "not run:" in md and st.trust["decision"] in md
     m = st.model
     out = m.predict({"a": [0.0, 5.0], "b": 0.0})
     assert out["ood"][1]["ood"] and not out["ood"][0]["ood"] and out["outputs"]["f"][1] is not None
