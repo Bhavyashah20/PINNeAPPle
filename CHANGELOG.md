@@ -494,6 +494,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   caps far from the origin or on nearly parallel neighbours).
 
 ### Documentation
+- Validation methods reference: measured behaviour of `crps_gaussian` / `crps_ensemble` (fair score unbiased for
+  small ensembles) and of `block_bootstrap` (percentile intervals undercover: 0.93 at a nominal 0.95 for iid n = 100,
+  0.90 for a strongly correlated AR(1) series), and first-order residuals of `pinneapple check` on point clouds.
 - New guide "Validation methods reference" (`docs/guides/validation_methods_reference.md`, under Guides): every
   check of `pinneapple check`, `pp.trust_card`, `TrustGate`, `pinneapple_analysis.validation`, `.uncertainty`,
   `.verification`, veriphysics, the physics audit monitor and the zoo query gate, with what it detects, its
