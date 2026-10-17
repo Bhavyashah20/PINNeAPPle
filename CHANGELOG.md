@@ -14,6 +14,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Engineering Sensitivity Lab (`apps/sensitivity_lab`, day 16, sensitivity.pinneapple.org, port 8099): Sobol indices
+  with bootstrap intervals, Morris screening, interactions, PDP/ICE curves, autodiff derivatives and the freeze
+  recommendation with its re-run check, for a model, runs done in a solver (design CSV round trip) or a dataset.
+  Deployed as service `sensitivity` (`SEN_*` variables).
 - Sensitivity analysis package `pinneapple_analysis.sensitivity` (`pp.sensitivity`, `pp.sobol_indices`): first-order,
   total and second-order Sobol indices with bootstrap intervals (Saltelli 2010 / Jansen 1999 / Saltelli 2002
   estimators, checked against the exact Ishigami and Sobol' G indices), indices from runs done elsewhere

@@ -56,3 +56,8 @@ with percentile-bootstrap intervals. `tests/test_sensitivity.py` checks them aga
 Ishigami and Sobol' G functions (`pinneapple_analysis.sensitivity.testfunctions`). An input is recommended for
 freezing only when the **upper** bound of its total index is below the threshold for every output; an estimate
 below the threshold with a wider interval is reported as *inconclusive* (more samples needed), never as freezable.
+
+## Apps
+
+- [Engineering Sensitivity Lab](sensitivity_lab.md) (sensitivity.pinneapple.org): Sobol, Morris, effect curves,
+  derivatives and the freeze recommendation for a model, solver runs or a dataset.

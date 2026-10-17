@@ -248,6 +248,22 @@ services:
     expose: ["8094"]
     mem_limit: ${OBS_MEM_LIMIT:-1500m}
 
+  sensitivity:
+    build:
+      context: ../..
+      dockerfile: apps/sensitivity_lab/Dockerfile
+    image: pinneapple/sensitivity-lab:latest
+    restart: unless-stopped
+    environment:
+      SEN_USER: ${SEN_USER:-}
+      SEN_PASSWORD: ${SEN_PASSWORD:-}
+      SEN_MAX_HEAVY: ${SEN_MAX_HEAVY:-2}
+      SEN_MAX_EVALS: ${SEN_MAX_EVALS:-400000}
+      SEN_MAX_PARAMS: ${SEN_MAX_PARAMS:-30}
+      SEN_MAX_MB: ${SEN_MAX_MB:-50}
+    expose: ["8099"]
+    mem_limit: ${SEN_MEM_LIMIT:-1g}
+
   caddy:
     image: caddy:2
     restart: unless-stopped
@@ -269,12 +285,13 @@ services:
       LAB_DOMAIN: ${LAB_DOMAIN:-lab.localhost}
       OBS_DOMAIN: ${OBS_DOMAIN:-observatory.localhost}
       PLG_DOMAIN: ${PLG_DOMAIN:-playground.localhost}
+      SEN_DOMAIN: ${SEN_DOMAIN:-sensitivity.localhost}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data          # certificates: keep this volume
       - caddy_config:/config
-    depends_on: [heatsink, pcb, datahealth, standardizer, simmeta, udr, inverse, preflight, mesh, compare, lineage, interop, aero, lab, observatory, playground]
+    depends_on: [heatsink, pcb, datahealth, standardizer, simmeta, udr, inverse, preflight, mesh, compare, lineage, interop, aero, lab, observatory, playground, sensitivity]
 
 volumes:
   lab_data:

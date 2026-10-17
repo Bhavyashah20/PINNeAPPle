@@ -181,3 +181,15 @@
 	import common
 	reverse_proxy playground:8095
 }
+
+{$SEN_DOMAIN} {
+	import common
+	request_body {
+		max_size 60MB
+	}
+	reverse_proxy sensitivity:8099 {
+		transport http {
+			read_timeout 300s
+		}
+	}
+}
