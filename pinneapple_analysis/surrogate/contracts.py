@@ -19,7 +19,7 @@ import numpy as np
 from .data import SurrogateData, field_columns, from_table
 from .model import SurrogateModel
 
-__all__ = ["data_from_spec", "dataset_spec", "model_ref", "study_result", "arena_study_result", "MODEL_TYPES"]
+__all__ = ["read_table_with_roles", "data_from_spec", "dataset_spec", "model_ref", "study_result", "arena_study_result", "MODEL_TYPES"]
 
 MODEL_TYPES = {"gp": "gp", "fno": "neural_operator", "deeponet": "neural_operator", "pinn": "pinn",
                "mlp": "surrogate", "ridge": "surrogate", "gbt": "surrogate"}
@@ -31,6 +31,30 @@ _STATUS = {"supports": "PASS", "contradicts": "FAIL", "not_run": "NOT_RUN"}
 def _c():
     from pinneapple_data import contracts
     return contracts
+
+
+def read_table_with_roles(path, *, max_rows: int | None = None):
+    """``(DataFrame, {column: role} or None)`` from CSV / Parquet / JSON / HDF5 / NPZ; the roles come from a
+    ``DatasetSpec`` embedded in the file or in its ``.contract.json`` sidecar. HDF5 files not written by the
+    contracts and NPZ files are read by ``surrogate.read_table`` (no roles)."""
+    from pathlib import Path
+
+    from .data import read_table
+    path = Path(path)
+    df, roles = None, None
+    if path.suffix.lower() != ".npz":
+        try:
+            C = _c()
+            df, contract = C.read_table(path)
+            if isinstance(contract, C.DatasetSpec):
+                roles = {c.name: c.role for c in contract.columns}
+        except (ValueError, KeyError, OSError, ImportError):
+            df = None
+    if df is None:
+        df = read_table(path)
+    if max_rows is not None and len(df) > max_rows:
+        raise ValueError(f"{len(df)} rows; the limit is {max_rows}")
+    return df, roles
 
 
 def data_from_spec(df, spec, *, group: str | None = None, grid_shape: Sequence[int] | None = None,
