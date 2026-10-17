@@ -484,7 +484,7 @@ def _darcy_checks(f, data, reference, query, level, tol, rhs, seed) -> list[Vali
 
 
 def _rollout_checks(step, cfg: Mapping[str, Any], data: Mapping[str, Any], level: str) -> list[ValidationCheck]:
-    """``problem={"rollout": {"ndim", "dt", "conserved", "chaotic", "steps"}}``, ``data={"u0", "reference",
+    """``problem={"rollout": {"ndim", "dt", "conserved", "chaotic", "steps", "burn_in"}}``, ``data={"u0", "reference",
     "long_u0", "long_reference"}``: the model is a stepper ``u -> u_next`` (``validation.rollout``)."""
     from .rollout import rollout, validate_rollout
     ref = data.get("reference")
@@ -497,7 +497,7 @@ def _rollout_checks(step, cfg: Mapping[str, Any], data: Mapping[str, Any], level
     rep = validate_rollout(pred, int(cfg["ndim"]), ref, **kw)
     checks = rep.checks
     if long_pred is not None:
-        st = validate_rollout(long_pred, int(cfg["ndim"]), long_ref=long_ref, **kw)
+        st = validate_rollout(long_pred, int(cfg["ndim"]), long_ref=long_ref, burn_in=int(cfg.get("burn_in", 0)), **kw)
         checks += [c for c in st.checks if c["id"] == "rollout.statistics"]
     else:
         checks.append({"id": "rollout.statistics", "status": NA,

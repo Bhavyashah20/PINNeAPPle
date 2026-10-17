@@ -140,3 +140,13 @@ def test_pp_validate_runs_rollout_checks(ks_reference):
     assert bad["rollout.spectrum"].status == "fail"
     from pinneapple_analysis.validation.report_artifact import check_report
     assert check_report(rep) == [] and check_report(bad) == []
+
+
+def test_pp_validate_passes_burn_in_to_the_long_run_statistics():
+    from pinneapple_analysis.validation.validate import validate
+    rng = np.random.default_rng(0)
+    ref = np.cumsum(rng.standard_normal((400, 32)), 0) * 0.01           # a drifting signal: the window matters
+    data = {"u0": ref[0], "long_u0": ref[0], "long_reference": ref}
+    w1 = [validate(lambda u: u + 0.01, {"rollout": {"ndim": 1, "dt": 1.0, "burn_in": b}}, data=data)
+          ["rollout.statistics"].value for b in (0, 200)]
+    assert w1[0] != pytest.approx(w1[1])
