@@ -74,6 +74,41 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   whose coverage is measured and reported as broken under an input shift; `to_check` for trust reports.
   `operator_benchmarks.darcy_matrix` exposes the finite-volume matrix of `darcy_2d`. Docs: "From residual to error
   bound".
+- Simulation Campaign Planner (day 13, `apps/simulation_campaign`, campaign.pinneapple.org, port 8096): plan which
+  simulations to run over a `ParameterSpace` and a budget. It returns a design of experiments, coverage before and
+  after, repeats of existing runs dropped, a run order, OpenFOAM / CalculiX / Python case files, and a `StudyResult`
+  plus a `DatasetSpec` skeleton. The library behind it:
+  - `pinneapple_data.doe`: LHS, maximin, Sobol, Halton, full and fractional factorial with minimum-aberration
+    generators, and sequential and adaptive infill; coverage metrics, redundancy, priorities, and `plan_campaign`.
+  - `pinneapple_simulation.external_solvers.campaign_cases`: the case writers.
+- Evidence ledger, Validation Lab and evidence package in `pinneapple_veriphysics`:
+  - `ledger`: `EvidenceEntry` / `EvidenceLedger`. Each entry records the check, the SHA-256 of its inputs, its
+    outputs, start and finish times and the verdict, sealed with the SHA-256 of its content. `status()` is
+    "passed" or "failed" only for a complete, intact entry; anything else reads "not run" (an edited entry, a
+    crash, a missing hash or time). `record_checks` records the checks of a trust card (N/A checks get no entry).
+  - `validation_lab`: runs `pinneapple check` on the inputs of a folder and groups the outcomes into numerical
+    verification, validation against data and physical consistency. Per target, it lists the groups in which
+    nothing ran. Every outcome gets a ledger entry; the report holds the input manifest with hashes and the
+    configuration that reproduces it. `config_from_spec` writes the configuration from a plain description;
+    `assert_no_code` refuses models that would run uploaded code (zoo models only). `render_html` writes the report.
+  - `evidence_package`: reads other tools' outputs (Validation Lab reports, ledgers, `pinneapple check` JSON,
+    Simulation Comparator results, StudyResult / ModelRef / DatasetSpec JSON, metrics tables, any file by hash).
+    It builds a report with methodology, conditions, baseline comparison, tests, limitations and artifact
+    references, renders it as HTML and as PDF (`pinneapple_tools.reporting.paperkit`) and packs a zip with a
+    SHA-256 manifest (`verify_package`). A test is printed as passed only when the source's own ledger records
+    its run; a bare claim reads "not run".
+- Data contracts shared by the apps (`pinneapple_data.contracts`): `ParameterSpace` (bounds, units, log scale,
+  integer and categorical parameters, constants, safe constraint expressions, unit-hypercube mapping, feasibility),
+  `DatasetSpec` (columns with roles and units, files with SHA-256, splits, provenance), `ModelRef` (held-out metrics
+  only, validity range) and `StudyResult` (table, metrics, checks that need a record, artifacts, stated limits).
+  JSON/YAML load and save, validation with readable errors, JSON Schema export (`schemas/`), and CSV / Parquet /
+  HDF5 tables with a `.contract.json` sidecar (embedded in Parquet and HDF5 too).
+- App server runtime (`pinneapple_core.service`, standard library only): a persistent job queue (SQLite; thread or
+  process workers; progress, logs, cancel, retry, automatic retries, time limit, max concurrent jobs across server
+  workers, resume after a worker dies), hashed API keys, usage metering with monthly free limits from
+  `<PREFIX>_FREE_<UNIT>`, and an upload store with size and type limits. `apps/_shared/appkit.py`
+  `install_runtime` exposes them under `/api` (`/api/jobs`, `/api/keys`, `/api/usage`, `/api/uploads`) and accepts
+  `X-API-Key` alongside the per-app login; documented in `apps/_shared/README.md`.
 - Observatory: space journey from your place to the target (#723). `pinneapple_physics.astro.journey`: heliocentric
   ICRS positions of the observer (Earth from the JPL ephemeris plus the site), the Solar System bodies at the date and
   the stars from their parallax (Hipparcos 2007 for the brightest); galactic coordinates (IAU 1958 on J2000 axes);
@@ -543,6 +578,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 - Rollout validation: a user invariant named like a built-in (`energy`) is no longer replaced by the built-in or
   scaled like it; the spectral band ignores shells below 1e-6 of the peak energy (round-off, not content).
 - `pp.validate` runs PhysicsNeMo field models given without a channel axis (PhysicsNeMo raises `ValueError`).
+- Quantile regression (`pinneapple_analysis.uncertainty.quantile`): `QuantileLoss` scored the first `Q` outputs
+  when the model produced more outputs than levels and raised a bare `IndexError` when it produced fewer; the pinball
+  loss broadcast a `(B, 1)` target against `(B, H)` predictions; a level outside (0, 1) such as 1.5 was accepted and
+  gave a loss that rewards over-prediction without bound. All of these now raise a clear `ValueError`, as do empty
+  or repeated levels in `QuantileConfig` and `QuantileLoss`.
 - Encounter feasibility (`pinneapple_analysis.uncertainty.reachability`): contact was looked for only at the
   `n` time samples, so a fast flyby whose regions overlapped between two samples was reported as impossible (a
   closest approach of 0.05 against a radius of 0.1 at 2000 units per second came out `possible=False`). The closest
