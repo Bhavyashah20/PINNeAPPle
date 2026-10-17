@@ -36,7 +36,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-__all__ = ["DuarteUNet", "DensityCodec", "make_blocks", "train_forecaster", "rollout", "lead_time_scores",
+__all__ = ["DuarteUNet", "DensityCodec", "make_blocks", "train_forecaster", "train_on_trajectories", "rollout", "lead_time_scores",
            "trust_horizon", "MassEnvelope", "MassProjection", "load_forecaster", "window_mass"]
 
 
@@ -67,11 +67,12 @@ class DensityCodec:
         return 10.0 ** (np.asarray(x, np.float64) * (self.log_max - self.log_min) + self.log_min)
 
 
-def make_blocks(x: np.ndarray, k: int = 5, stride: int = 1) -> tuple[np.ndarray, np.ndarray]:
-    """Frames (T, H, W) -> inputs (N, k, H, W) = frames i..i+k-1 and targets = frames i+k..i+2k-1."""
-    idx = np.arange(0, len(x) - 2 * k + 1, stride)
+def make_blocks(x: np.ndarray, k: int = 5, stride: int = 1, out_blocks: int = 1) -> tuple[np.ndarray, np.ndarray]:
+    """Frames (T, H, W) -> inputs (N, k, H, W) = frames i..i+k-1 and targets = frames i+k..i+(1+out_blocks)k-1
+    (``out_blocks`` > 1 gives the targets of a multi-step rollout loss)."""
+    idx = np.arange(0, len(x) - (1 + out_blocks) * k + 1, stride)
     X = np.stack([x[i:i + k] for i in idx])
-    Y = np.stack([x[i + k:i + 2 * k] for i in idx])
+    Y = np.stack([x[i + k:i + (1 + out_blocks) * k] for i in idx])
     return X, Y
 
 
@@ -81,12 +82,12 @@ def _up(a):
 
 
 class _Conv(nn.Sequential):
-    def __init__(self, cin, cout):
-        super().__init__(nn.Conv2d(cin, cout, 5, padding=2), nn.LeakyReLU(0.3))
+    def __init__(self, cin, cout, padding_mode="zeros"):
+        super().__init__(nn.Conv2d(cin, cout, 5, padding=2, padding_mode=padding_mode), nn.LeakyReLU(0.3))
 
 
-def _block(cin, cout):
-    return nn.Sequential(_Conv(cin, cout), _Conv(cout, cout))
+def _block(cin, cout, padding_mode="zeros"):
+    return nn.Sequential(_Conv(cin, cout, padding_mode), _Conv(cout, cout, padding_mode))
 
 
 class DuarteUNet(nn.Module):
@@ -94,19 +95,24 @@ class DuarteUNet(nn.Module):
 
     ``residual=True`` (not in the paper) predicts the change from the last input frame instead of the frames
     themselves: the output is ``x[:, -1:] + net(x)``. When the flow changes little between frames, the absolute
-    prediction spends its accuracy on reproducing the state; the residual one starts from persistence."""
+    prediction spends its accuracy on reproducing the state; the residual one starts from persistence.
 
-    def __init__(self, filters: int = 32, frames: int = 5, residual: bool = False):
+    ``padding="replicate"`` (not in the paper, which pads with zeros) extends the edge values of the window instead
+    of zeros: the window edges are not walls of empty space, and zero padding seeds errors there that grow in long
+    rollouts. The weights are the same, so a zero-padded model can be fine-tuned with replicate padding."""
+
+    def __init__(self, filters: int = 32, frames: int = 5, residual: bool = False, padding: str = "zeros"):
         super().__init__()
         self.residual = residual
-        m = filters
+        m, pm = filters, padding
         c = [2 * m, 4 * m, 8 * m, 16 * m]
-        self.e1, self.e2, self.e3, self.e4 = _block(frames, c[0]), _block(c[0], c[1]), _block(c[1], c[2]), _block(c[2], c[3])
-        self.mid = _block(c[3], c[3])
-        self.d4 = _block(2 * c[3], c[3])
-        self.d3 = _block(c[3] + c[2], c[2])
-        self.d2 = _block(c[2] + c[1], c[1])
-        self.d1 = _block(c[1] + c[0], c[0])
+        self.e1, self.e2 = _block(frames, c[0], pm), _block(c[0], c[1], pm)
+        self.e3, self.e4 = _block(c[1], c[2], pm), _block(c[2], c[3], pm)
+        self.mid = _block(c[3], c[3], pm)
+        self.d4 = _block(2 * c[3], c[3], pm)
+        self.d3 = _block(c[3] + c[2], c[2], pm)
+        self.d2 = _block(c[2] + c[1], c[1], pm)
+        self.d1 = _block(c[1] + c[0], c[0], pm)
         self.out = nn.Conv2d(c[0], frames, 1)
         for mod in self.modules():
             if isinstance(mod, nn.Conv2d):
@@ -165,38 +171,95 @@ class TrainConfig:
     filters: int = 32
     frames: int = 5
     residual: bool = False
+    padding: str = "zeros"             # "zeros" (paper) | "replicate" (edge values; stabler long rollouts)
     epochs: int = 40
     batch_size: int = 16
     lr: float = 2e-4                   # the paper uses 5e-4 with batch 64; at batch 16 that diverges here
     alpha: float = 8.0
     clip: float = 1.0                  # gradient-norm clipping (not in the paper; keeps the deep U-Net stable)
     loss: str = "multi"                # "multi": MAE + alpha MAE(y > 0.5) (paper, multi-sim); "regional": paper one-sim
+    rollout_blocks: int = 1            # > 1: unroll the model this many blocks and score every block (rollout loss)
+    noise: float = 0.0                 # std of Gaussian noise added to the inputs in training (normalised units)
+    mass_weight: float = 0.0           # weight of the mass-consistency penalty |ln M_pred - ln M_true| per frame
+    mass_rate_weight: float = 0.0      # weight of |d ln M_pred - d ln M_true| between consecutive frames (the mass
+                                       # budget the trust check bounds), the first step taken from the last input
     bf16: bool = False                 # CPU autocast (helps only on CPUs with AMX)
     seed: int = 0
     max_minutes: float = 1e9
+    samples_per_epoch: int = 0         # > 0: a random subset of this many blocks per epoch (blocks overlap heavily)
+
+
+def _log_mass(x: torch.Tensor, codec: DensityCodec, log_vol: torch.Tensor) -> torch.Tensor:
+    """ln of the window mass of normalised frames (..., H, W), differentiable."""
+    ln10 = math.log(10.0)
+    lg = (x * (codec.log_max - codec.log_min) + codec.log_min) * ln10
+    return torch.logsumexp((lg + log_vol).flatten(-2), -1)
+
+
+def _unrolled(model, xb: torch.Tensor, n_blocks: int, k: int) -> torch.Tensor:
+    outs, x = [], xb
+    for _ in range(n_blocks):
+        x = model(x)
+        outs.append(x)
+    return torch.cat(outs, 1)
 
 
 def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarray, cfg: TrainConfig,
-                     codec: DensityCodec, out_dir: str, *, log=print) -> dict[str, list]:
-    """Adam + the Duarte loss; keeps the weights with the best validation loss in ``out_dir/forecaster.pt``."""
+                     codec: DensityCodec, out_dir: str, *, log=print, cell_volume: np.ndarray | None = None,
+                     init: nn.Module | None = None) -> dict[str, list]:
+    """Adam + the Duarte loss; keeps the weights with the best validation loss in ``out_dir/forecaster.pt``.
+
+    ``Y`` holds ``cfg.rollout_blocks`` blocks of targets (``make_blocks(..., out_blocks=...)``); with more than one
+    the model is unrolled on its own output and every block is scored. ``Yv`` may hold several blocks too: the
+    validation loss is then the loss of the unrolled forecast over all of them (selects for rollout skill). ``cell_volume`` (window cell volumes) is needed
+    for ``cfg.mass_weight`` > 0."""
     torch.manual_seed(cfg.seed)
+    log_vol = torch.from_numpy(np.log(cell_volume)).float() if cell_volume is not None else None
+    if (cfg.mass_weight > 0 or cfg.mass_rate_weight > 0) and log_vol is None:
+        raise ValueError("mass_weight / mass_rate_weight > 0 needs cell_volume")
     os.makedirs(out_dir, exist_ok=True)
-    model = DuarteUNet(cfg.filters, cfg.frames, cfg.residual)
+    model = DuarteUNet(cfg.filters, cfg.frames, cfg.residual, cfg.padding)
+    if init is not None:                                # fine-tune from given weights
+        model.load_state_dict(init.state_dict())
     opt = torch.optim.Adam(model.parameters(), lr=cfg.lr)
     Xt, Yt = torch.from_numpy(X), torch.from_numpy(Y)
     Xvt, Yvt = torch.from_numpy(Xv), torch.from_numpy(Yv)
     hist = {"train": [], "val": [], "seconds": []}
-    best, t0 = math.inf, time.time()
+    best, t0, ep0 = math.inf, time.time(), 0
     rng = np.random.default_rng(cfg.seed)
-    for ep in range(cfg.epochs):
+    last = os.path.join(out_dir, "last.pt")
+    if os.path.exists(last):                            # resume an interrupted run where it stopped
+        st = torch.load(last, map_location="cpu", weights_only=False)
+        model.load_state_dict(st["model"])
+        opt.load_state_dict(st["opt"])
+        hist, best, ep0 = st["hist"], st["best"], st["epoch"] + 1
+        rng.bit_generator.state = st["rng"]
+        torch.set_rng_state(st["torch_rng"])
+        t0 -= hist["seconds"][-1] if hist["seconds"] else 0.0
+        log(f"resuming at epoch {ep0} (best val {best:.4f})")
+    for ep in range(ep0, cfg.epochs):
         model.train()
         perm = rng.permutation(len(Xt))
+        if cfg.samples_per_epoch:
+            perm = perm[:cfg.samples_per_epoch]
         tot = 0.0
         for i in range(0, len(perm), cfg.batch_size):
             b = perm[i:i + cfg.batch_size]
+            xb = Xt[b]
+            if cfg.noise > 0:
+                xb = xb + cfg.noise * torch.randn_like(xb)
             with torch.autocast("cpu", dtype=torch.bfloat16, enabled=cfg.bf16):
-                pred = model(Xt[b])
-            loss = _loss(pred.float(), Yt[b], cfg)
+                pred = _unrolled(model, xb, cfg.rollout_blocks, cfg.frames).float()
+            yb = Yt[b]
+            loss = sum(_loss(pred[:, j * cfg.frames:(j + 1) * cfg.frames], yb[:, j * cfg.frames:(j + 1) * cfg.frames], cfg)
+                       for j in range(cfg.rollout_blocks)) / cfg.rollout_blocks
+            if cfg.mass_weight > 0:
+                loss = loss + cfg.mass_weight * (_log_mass(pred, codec, log_vol) - _log_mass(yb, codec, log_vol)).abs().mean()
+            if cfg.mass_rate_weight > 0:
+                x_last = Xt[b][:, -1:]
+                lm_p = _log_mass(torch.cat([x_last, pred], 1), codec, log_vol)
+                lm_t = _log_mass(torch.cat([x_last, yb], 1), codec, log_vol)
+                loss = loss + cfg.mass_rate_weight * (lm_p.diff(dim=1) - lm_t.diff(dim=1)).abs().mean()
             opt.zero_grad()
             loss.backward()
             if cfg.clip:
@@ -204,13 +267,15 @@ def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarra
             opt.step()
             tot += loss.item() * len(b)
         val = evaluate_loss(model, Xvt, Yvt, cfg)
-        hist["train"].append(tot / len(Xt))
+        hist["train"].append(tot / len(perm))
         hist["val"].append(val)
         hist["seconds"].append(time.time() - t0)
         if val < best:
             best = val
             save_forecaster(os.path.join(out_dir, "forecaster.pt"), model, cfg, codec, {"epoch": ep, "val": val})
         log(f"epoch {ep:3d}  train {hist['train'][-1]:.4f}  val {val:.4f}  ({hist['seconds'][-1]/60:.1f} min)")
+        torch.save({"model": model.state_dict(), "opt": opt.state_dict(), "hist": hist, "best": best, "epoch": ep,
+                    "rng": rng.bit_generator.state, "torch_rng": torch.get_rng_state()}, last)
         if (time.time() - t0) / 60 > cfg.max_minutes:
             log("time budget reached")
             break
@@ -219,18 +284,47 @@ def train_forecaster(X: np.ndarray, Y: np.ndarray, Xv: np.ndarray, Yv: np.ndarra
     return hist
 
 
+def train_on_trajectories(train: Sequence[np.ndarray], val: Sequence[np.ndarray], cfg: TrainConfig, out_dir: str, *,
+                          cell_volume: np.ndarray | None = None, val_blocks: int = 1, val_stride: int = 1,
+                          init: str | None = None,
+                          log=print) -> tuple[DensityCodec, dict[str, list]]:
+    """Train on whole trajectories of log10 density frames (T, H, W), already cropped to the forecast window and
+    ``frame_dt`` apart: blocks never cross trajectories, and validation trajectories are separate ones.
+
+    ``init``: a forecaster.pt to fine-tune (its normalisation is kept). Returns the codec and the history."""
+    if init:
+        model0, codec, _ = load_forecaster(init)
+    else:
+        lg = np.concatenate([np.asarray(t, np.float32) for t in train])
+        codec, model0 = DensityCodec(float(lg.min()), float(lg.max()), lg.shape[1], 0), None
+
+    def enc(lg):
+        return ((np.asarray(lg, np.float32) - codec.log_min) / (codec.log_max - codec.log_min)).astype(np.float32)
+
+    X, Y = zip(*[make_blocks(enc(t), cfg.frames, out_blocks=cfg.rollout_blocks) for t in train], strict=True)
+    Xv, Yv = zip(*[make_blocks(enc(t), cfg.frames, stride=val_stride, out_blocks=val_blocks) for t in val], strict=True)
+    X, Y, Xv, Yv = (np.concatenate(z) for z in (X, Y, Xv, Yv))
+    log(f"train {X.shape} -> {Y.shape}  val {Xv.shape} -> {Yv.shape}  codec {codec}")
+    hist = train_forecaster(X, Y, Xv, Yv, cfg, codec, out_dir, log=log, cell_volume=cell_volume, init=model0)
+    return codec, hist
+
+
 def _loss(pred, target, cfg):
     return duarte_regional_loss(pred, target) if cfg.loss == "regional" else duarte_loss(pred, target, cfg.alpha)
 
 
 @torch.no_grad()
 def evaluate_loss(model, X, Y, cfg, batch=32) -> float:
+    """Loss of the forecast unrolled over all the target blocks in ``Y`` (one block: the plain loss)."""
     model.eval()
+    k = cfg.frames
+    nb = Y.shape[1] // k
     tot = 0.0
     for i in range(0, len(X), batch):
         with torch.autocast("cpu", dtype=torch.bfloat16, enabled=cfg.bf16):
-            pred = model(X[i:i + batch])
-        tot += float(_loss(pred.float(), Y[i:i + batch], cfg)) * len(X[i:i + batch])
+            pred = _unrolled(model, X[i:i + batch], nb, k).float()
+        y = Y[i:i + batch]
+        tot += float(sum(_loss(pred[:, j * k:(j + 1) * k], y[:, j * k:(j + 1) * k], cfg) for j in range(nb)) / nb) * len(y)
     return tot / len(X)
 
 
@@ -241,7 +335,7 @@ def save_forecaster(path, model, cfg: TrainConfig, codec: DensityCodec, meta: di
 def load_forecaster(path) -> tuple[DuarteUNet, DensityCodec, dict]:
     ck = torch.load(path, map_location="cpu", weights_only=False)
     tc = ck["train"]
-    model = DuarteUNet(tc["filters"], tc["frames"], tc.get("residual", False))
+    model = DuarteUNet(tc["filters"], tc["frames"], tc.get("residual", False), tc.get("padding", "zeros"))
     model.load_state_dict({k: v.float() for k, v in ck["state_dict"].items()})
     model.eval()
     return model, DensityCodec(**ck["codec"]), ck
