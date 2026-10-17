@@ -5,6 +5,7 @@ import pytest
 
 pytest.importorskip("sklearn")
 C = pytest.importorskip("pinneapple_data.contracts")
+pytest.importorskip("pinneapple_data.contracts.models")       # the package, not a leftover directory
 
 from pinneapple_analysis import surrogate as S  # noqa: E402
 from pinneapple_analysis.surrogate import contracts as SC  # noqa: E402
