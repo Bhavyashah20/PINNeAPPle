@@ -14,6 +14,251 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Validation gallery (`examples/validation/`, #705): 12 CPU examples covering PINN, FNO / DeepONet, MeshGraphNet,
+  POD / DMD / OpInf, MLP / Gaussian process / least squares, neural ODE vs Hamiltonian network, a diffusion model and
+  external models (ONNX, PhysicsNeMo), on heat, Darcy, reaction-diffusion, elasticity, a cylinder wake, advection,
+  molecular dynamics, magnetostatics and cantilever modes. Each ends in `pp.validate`, a trust card and
+  `pinneapple check` outputs (`validation.gallery.conclude`), and catches one real failure on a broken variant. CI
+  workflow `validation-gallery.yml` runs them at smoke size. Also new: `pp.validate(sampler, {"generative": ...})`
+  (per-sample physics, diversity and memorisation of a generative model), state-vector rollouts (`ndim = 0`) with
+  user invariants, `numerical_solvers.reaction_diffusion` (Allen-Cahn, Fisher-KPP) and
+  `pinneapple_neural.utils.fit_supervised`.
+- Physics checks during training (`pinneapple_neural.callbacks`, #704): `PhysicsMonitor` runs the checks of
+  `pp.validate` on a validation batch every N steps, warns or stops when a physics metric worsens for K checks while
+  the loss improves, and writes the report and trust card at the end; adapters for PyTorch Lightning
+  (`PhysicsValidationCallback`), PhysicsNeMo training loops (`PhysicsNeMoHook`, `LaunchLogger`) and the Hugging Face
+  Trainer (`PhysicsTrainerCallback`), none of them a dependency. `residual_bound.ResidualLoss`: a differentiable
+  physics loss in the reference discretisation. CI workflow `training-callbacks.yml` runs them against the real
+  frameworks.
+- PINN validation (`pinneapple_analysis.validation.pinn`, #703): residual at fresh grid, random and adaptive points;
+  detectors for a near-trivial solution, propagation failure in time, boundary / initial conditions traded off
+  against the residual and spectral bias; exact-solution gates (Burgers by Cole-Hopf, manufactured Poisson,
+  Kovasznay); `PINNMonitor` runs the checks during training and stops on a failure mode. Checks `pinn.*` in
+  `pp.validate` with `problem={"pinn": ...}`.
+- Rollout validation of autoregressive surrogates (`pinneapple_analysis.validation.rollout`, #701): invariant
+  drift, high-band energy over the horizon, divergence time (trust horizon) and, for chaotic systems, long-run
+  statistics (value histogram, decorrelation time, band energies) against the noise floor of the reference. Checks
+  `rollout.*` in `pp.validate` with `problem={"rollout": {...}}`. Kuramoto–Sivashinsky solver
+  (`pinneapple_simulation.numerical_solvers.kuramoto_sivashinsky`).
+- Validation report as an artifact (`pinneapple_analysis.validation.report_artifact`, #706): JSON schema
+  `validation-report/v1` with provenance hashes, `pp.validate.diff(old, new)` (lost / gained checks, moved metrics,
+  validity-envelope changes), a model-card section, an SVG badge and a shields.io endpoint, signatures with
+  `pinneapple_security.signing`. Stored reports for the zoo models (`pinneapple_hub.zoo.validation_reports`,
+  `scripts/zoo/validation_reports.py build|check`), shown in their Hub cards; the zoo publishing workflow refuses a
+  model version that loses a check the stored report passed.
+- `pp.validate(model, problem, data=None, reference=None, level="standard", query=None)` (#696): one validation
+  report for a zoo model, a PyTorch / PhysicsNeMo module, an ONNX file or a callable. It composes the applicability
+  envelope, the guaranteed residual bound and the calibrated error bound, flux balance, reference error, spectral
+  fidelity, metamorphic relations, the data audit, the zoo gate and robustness; reports pass / warn / fail /
+  not-applicable per check, a credibility level per factor (modelled on NASA-STD-7009A and ASME V&V 40) and a deploy
+  decision; outputs JSON (`validation-report/v1`), HTML, text, the trust report and `pinneapple check` formats
+  (SARIF, JUnit). Statuses, factors and check IDs live in `pinneapple_analysis.validation.schema`.
+  `pp.validate.<name>` still resolves the names of `pinneapple_analysis.validation`.
+- `pinneapple_neural.architectures.neural_operators.fno_export`: ONNX export of FNOs (spectral convolutions in real
+  arithmetic, checked against PyTorch with onnxruntime).
+- Metamorphic tests for surrogates (`pinneapple_analysis.validation.metamorphic`, #698): symmetry, similarity
+  scaling, invariance, monotonicity, superposition and resolution consistency as declarative relations with a
+  tolerance and a sampler; random and (with `hypothesis`) property-based search; the worst violation is returned as a
+  counterexample. `pinneapple_hub.zoo.relations.check_zoo_relations` runs the relations of the airfoil and forced
+  heat-sink zoo models. `pinneapple check`: new rule PC303 `metamorphic-relation` and a `relations` key on
+  `[[model]]`. Docs: "Metamorphic tests".
+- Dataset physics audit (`pinneapple_data.audit`, `pp.datasets.audit`, #700): per-sample consistency with the stated
+  PDE in the dataset's own discretisation (built in for Darcy, reusing `operator_benchmarks.darcy_2d`), declared
+  column constraints, diversity (effective sample count and input spectrum against the stated generator, exact and
+  near duplicates), train/test leakage by nearest neighbour, units and missing values; an audit card (JSON,
+  markdown) stored for the bundled zoo datasets and shown in their Hub card. `pinneapple check`: `[[dataset]]` targets
+  and rules PC451 (physics), PC452 (diversity), PC453 (leakage). Docs: "Dataset physics audit".
+- Residual-to-error calibration (`pinneapple_analysis.uncertainty.residual_bound`, #699): a guaranteed a-posteriori
+  bound `||u_h - u||_A <= ||r||_{L^-1} / sqrt(min k)` for Darcy and steady heat conduction in the discretisation of
+  the reference solver, and a split-conformal map residual -> error (`ResidualErrorCalibrator`, `coverage_study`)
+  whose coverage is measured and reported as broken under an input shift; `to_check` for trust reports.
+  `operator_benchmarks.darcy_matrix` exposes the finite-volume matrix of `darcy_2d`. Docs: "From residual to error
+  bound".
+- FMI import compatibility: `check_fmus` / `check_fmu` (`pinneapple_simulation.external_solvers.modelica.fmi_compat`)
+  run FMUs through `simulate_fmu` in every interface they offer and tabulate what passed; `FMUSimConfig.fmi_type`
+  selects Co-Simulation or Model Exchange. The new "FMI import compatibility" page, regenerated by
+  `examples/modelica/fmi_compatibility.py`, lists the Modelica Reference-FMUs 0.0.39 (FMI 1.0, 2.0 and 3.0, CS and
+  ME) and a pythonfmu FMU: 38 of 38 runs pass on x86_64-linux.
+- Engineering Evidence Report app (day 30, `apps/evidence_report`, evidence.pinneapple.org, port 8113). It
+  turns the outputs of a study into a report (HTML, PDF) with methodology, conditions, baseline comparison,
+  tests, limitations and artifact references by SHA-256 and URL, and into an evidence package (zip with a SHA-256
+  manifest). A test is printed as passed only when its own evidence record shows it ran; otherwise it reads "not
+  run". The example runs a real FEM-vs-PINN study. Deployed with `apps/deploy` (service `evidence`).
+- Physics Validation Lab app (day 24, `apps/validation_lab`, validate.pinneapple.org, port 8107). Give it
+  predictions or results with a form, a `pinneapple check` configuration or a zoo ModelRef. It reports numerical
+  verification, validation against data and physical consistency separately, lists the groups that did not run,
+  keeps an evidence record per check and produces a reproducible report (JSON, HTML, configuration, ledger). It
+  has a REST API and a GitHub Action recipe; uploaded code is refused. Deployed with `apps/deploy` (service
+  `validate`).
+- ROM study (`pinneapple_neural.architectures.rom.study`): `rom_study(snapshots)` holds out later times,
+  interleaved times or unseen parameter points, fits POD + RBF, POD + GPR, the nearest snapshot, DMD, Operator
+  Inference and a neural surrogate trained within the same wall-clock budget (`train_within_budget`) at several
+  ranks, and reports the held-out error, the POD projection floor, fit and inference time, speed-up over the
+  full-order model, the singular values and the rank / error / speed Pareto front. Every fitted model is a
+  `ReducedModel` with `predict(times=...)` / `predict(params=...)` and a portable `.npz` form (arrays + JSON
+  manifest, no pickle). `ParametricPOD.to_arrays` / `from_arrays` rebuild an identical predictor.
+- Snapshot matrices (`pinneapple_data.snapshots`): `load_snapshots` stacks OpenFOAM time directories, series of
+  VTU/VTK/FRD/meshio results, `.npz`/`.npy`/HDF5 arrays and CSV/Parquet tables (a row per snapshot) into a
+  `SnapshotSet` that keeps the field layout, times or parameters, and locations.
+- Meshless study (`pinneapple_simulation.meshless`): Kansa (global multiquadric collocation), RBF-FD (PHS r³ +
+  polynomials), finite differences on an embedded grid (Shortley-Weller), P1 finite elements on the Delaunay mesh of
+  the nodes and a PINN on the same nodes, for Poisson, Helmholtz and heat problems with Dirichlet conditions on 2-D
+  domains (square, disk, L-shape, annulus, plate with a hole, polygons, point clouds). `meshless_study` reports the
+  error against a manufactured solution (sympy) or a fine FEM reference with its own error estimate, setup and solve
+  time, condition number, noise amplification, observed order, a Kansa shape-parameter sweep and the winner of each
+  criterion.
+- `pinneapple_lab.experiments.rom.cylinder_wake` and `cantilever`: the wake and cantilever generators of
+  `rom_study`, now public.
+- Surrogates from simulation results (`pinneapple_analysis.surrogate`): `run_study` trains every applicable method
+  (polynomial ridge, Gaussian process, gradient-boosted trees, MLP, FNO, DeepONet, and a PINN when a PDE is
+  declared) on the same splits and `ComputeBudget`, measures them on a held-out split and a distribution-shift split
+  (held-out groups, the edge of the input space, or one end of an input), selects by validation error and packages
+  the result as a `SurrogateModel` (predict with an OOD gate, save / load with a sha256 check, TorchScript and ONNX
+  export, ModelRef fields). The limitations report gives validity bounds, the OOD gate, where the errors concentrate
+  and the PDE residual of predicted fields; a `TrustReport` decides. Readers for CSV, Parquet, JSON, HDF5 and NPZ;
+  examples that need no download (the OpenFOAM airfoil campaign, exact Burgers fields and an FDM baseline);
+  `surrogate.contracts` converts data, models, studies and arena results to and from the shared contracts
+  (`DatasetSpec`, `ModelRef`, `StudyResult` of `pinneapple_data.contracts`). Guide:
+  `docs/guides/surrogates_arena_gateway.md`.
+- Regime arena (`pinneapple_arena.regimes.run_regime_arena`): ranks methods per regime (interpolation, few data,
+  extrapolation, geometry change, steep fronts) over several seeds with equal data, budget and stopping rule, with
+  training and inference cost, model size, physics violations of declared constraints, numerical-solver baselines
+  and an audit of the splits by `pinneapple_data.audit`.
+- Model gateway (`pinneapple_registry.ModelGateway`, on `ModelStore`): versioned endpoints for surrogates, zoo
+  models and ONNX graphs, one `predict` that enforces each version's OOD policy (warn or refuse; callers may only
+  tighten it), a run log, operational metrics (calls, rows, errors, OOD rows, latency p50 / p95) and exports.
+  `pinneapple_registry.gateway_api.gateway_router` is its REST shape (`/v1/models/...`), shared by the apps that
+  serve models. `GatewayClient` calls it from Python with the standard library only. A `remote` kind serves another
+  app's model through this gateway, with local validity bounds, policy, logging and metering. `publish_ref` publishes
+  from a `ModelRef` (`zoo:<name>` or an http(s) gateway URI).
+- `pinneapple_data.audit.constraint_mask`: the evaluator of declared constraints, public for checking predictions.
+- Engineering Sensitivity Lab (`apps/sensitivity_lab`, day 16, sensitivity.pinneapple.org, port 8099): Sobol indices
+  with bootstrap intervals, Morris screening, interactions, PDP/ICE curves, autodiff derivatives and the freeze
+  recommendation with its re-run check, for a model, runs done in a solver (design CSV round trip) or a dataset.
+  Deployed as service `sensitivity` (`SEN_*` variables).
+- Engineering Uncertainty Lab (`apps/uncertainty_lab`, day 15, uncertainty.pinneapple.org, port 8098): split-conformal
+  intervals with coverage measured on held-out data, applicability alerts, a routing rule checked against the heat-sink
+  physics engine, and propagation of uncertain inputs, for zoo models or uploaded ONNX graphs. Deployed as service
+  `uncertainty` (`UQL_*` variables).
+- Sensitivity analysis package `pinneapple_analysis.sensitivity` (`pp.sensitivity`, `pp.sobol_indices`): first-order,
+  total and second-order Sobol indices with bootstrap intervals (Saltelli 2010 / Jansen 1999 / Saltelli 2002
+  estimators, checked against the exact Ishigami and Sobol' G indices), indices from runs done elsewhere
+  (`saltelli_design` + `sobol_from_runs`), given-data first-order indices, Morris elementary effects, partial
+  dependence and ICE curves, local derivatives by autodiff or central differences, and a freeze recommendation that
+  uses the upper confidence bound plus a direct re-run check (`verify_freeze`); `sensitivity_study` runs them
+  together on one model and `study_cost` gives its number of evaluations beforehand.
+- Uncertainty-study helpers in `pp.uncertainty`: input distributions (uniform, normal, truncated normal, lognormal,
+  triangular) sampled by MC, LHS or Sobol (`distributions`); `propagate_space` (`pp.propagate_uncertainty`);
+  least-squares polynomial chaos with leave-one-out Q2 and Sobol indices (`polynomial_chaos`); split-conformal
+  intervals on any model's predictions with the coverage measured on held-out data, reliability across levels and
+  per-group coverage (`conformal_study`, `pp.conformal_study`); a range + k-NN density applicability gate
+  (`ApplicabilityDomain`) and the rule that routes cases to the high-fidelity solver (`route_cases`);
+  `uncertainty_study` runs them together for one model output.
+- `pinneapple_analysis.study_models.StudyModel` (`pp.StudyModel`): one interface for zoo models (with their torch
+  module for autodiff, ensemble spread and reference splits), ONNX graphs and Python callables.
+- `pinneapple_design.thermal.heatsink.surrogate.reference_solve`: the heat-sink physics engine on one design given in
+  the dataset's columns (the high-fidelity answer the zoo surrogates approximate), and `reference_solve_batch`.
+- Simulation workflows (`pinneapple_core.workflows`). A workflow is a DAG of steps (dependencies, cycle check,
+  per-case expansion with `workflow_from_cases`) run by `WorkflowRunner`, which provides:
+  - per-step states, logs, attempts and outputs in SQLite;
+  - retries; failures that cancel only dependent steps (or `fail_fast`);
+  - resume of interrupted runs; cancel;
+  - skip-done by content hash (kind, parameters, declared input files, upstream hashes).
+
+  Executors are a plugin registry: `local`, `docker` (`docker run --network none`), and `slurm` (sbatch scripts; dry
+  run by default). Step adapters are a registry too: `command`, `python`, `openfoam` (reuses
+  `openfoam.campaign.edit_file` / `parse_solver_log`), and `calculix` (`ccx` + `read_frd`). `dataset_from_run` turns
+  finished runs into a `DatasetSpec` and its table. Whitelisted templates: slab heating (exact solution), CalculiX
+  cantilever vs Euler-Bernoulli, and the OpenFOAM cavity.
+- Day 27 app: Simulation Workflow Runner (`apps/simulation_runner`, runner.pinneapple.org, port 8110). It runs case
+  tables (e.g. Campaign Planner exports) through the templates, with traceable runs, resume, rerun with skip-done,
+  Slurm script generation, and dataset downloads (CSV / Parquet / HDF5 / JSON + DatasetSpec). Usage is metered as
+  jobs run, compute seconds and storage. Public servers run only the templates; `RUNNER_SELF_HOSTED=1` enables
+  custom workflows.
+- Simulation Campaign Planner (day 13, `apps/simulation_campaign`, campaign.pinneapple.org, port 8096): plan which
+  simulations to run over a `ParameterSpace` and a budget. It returns a design of experiments, coverage before and
+  after, repeats of existing runs dropped, a run order, OpenFOAM / CalculiX / Python case files, and a `StudyResult`
+  plus a `DatasetSpec` skeleton. The library behind it:
+  - `pinneapple_data.doe`: LHS, maximin, Sobol, Halton, full and fractional factorial with minimum-aberration
+    generators, and sequential and adaptive infill; coverage metrics, redundancy, priorities, and `plan_campaign`.
+  - `pinneapple_simulation.external_solvers.campaign_cases`: the case writers.
+- Evidence ledger, Validation Lab and evidence package in `pinneapple_veriphysics`:
+  - `ledger`: `EvidenceEntry` / `EvidenceLedger`. Each entry records the check, the SHA-256 of its inputs, its
+    outputs, start and finish times and the verdict, sealed with the SHA-256 of its content. `status()` is
+    "passed" or "failed" only for a complete, intact entry; anything else reads "not run" (an edited entry, a
+    crash, a missing hash or time). `record_checks` records the checks of a trust card (N/A checks get no entry).
+  - `validation_lab`: runs `pinneapple check` on the inputs of a folder and groups the outcomes into numerical
+    verification, validation against data and physical consistency. Per target, it lists the groups in which
+    nothing ran. Every outcome gets a ledger entry; the report holds the input manifest with hashes and the
+    configuration that reproduces it. `config_from_spec` writes the configuration from a plain description;
+    `assert_no_code` refuses models that would run uploaded code (zoo models only). `render_html` writes the report.
+  - `evidence_package`: reads other tools' outputs (Validation Lab reports, ledgers, `pinneapple check` JSON,
+    Simulation Comparator results, StudyResult / ModelRef / DatasetSpec JSON, metrics tables, any file by hash).
+    It builds a report with methodology, conditions, baseline comparison, tests, limitations and artifact
+    references, renders it as HTML and as PDF (`pinneapple_tools.reporting.paperkit`) and packs a zip with a
+    SHA-256 manifest (`verify_package`). A test is printed as passed only when the source's own ledger records
+    its run; a bare claim reads "not run".
+- Data contracts shared by the apps (`pinneapple_data.contracts`): `ParameterSpace` (bounds, units, log scale,
+  integer and categorical parameters, constants, safe constraint expressions, unit-hypercube mapping, feasibility),
+  `DatasetSpec` (columns with roles and units, files with SHA-256, splits, provenance), `ModelRef` (held-out metrics
+  only, validity range) and `StudyResult` (table, metrics, checks that need a record, artifacts, stated limits).
+  JSON/YAML load and save, validation with readable errors, JSON Schema export (`schemas/`), and CSV / Parquet /
+  HDF5 tables with a `.contract.json` sidecar (embedded in Parquet and HDF5 too).
+- App server runtime (`pinneapple_core.service`, standard library only): a persistent job queue (SQLite; thread or
+  process workers; progress, logs, cancel, retry, automatic retries, time limit, max concurrent jobs across server
+  workers, resume after a worker dies), hashed API keys, usage metering with monthly free limits from
+  `<PREFIX>_FREE_<UNIT>`, and an upload store with size and type limits. `apps/_shared/appkit.py`
+  `install_runtime` exposes them under `/api` (`/api/jobs`, `/api/keys`, `/api/usage`, `/api/uploads`) and accepts
+  `X-API-Key` alongside the per-app login; documented in `apps/_shared/README.md`.
+- Observatory: space journey from your place to the target (#723). `pinneapple_physics.astro.journey`: heliocentric
+  ICRS positions of the observer (Earth from the JPL ephemeris plus the site), the Solar System bodies at the date and
+  the stars from their parallax (Hipparcos 2007 for the brightest); galactic coordinates (IAU 1958 on J2000 axes);
+  distance, one-way light time and travel times at walking, airliner, New Horizons, Voyager 1 and light speed; the
+  target's apparent magnitude (m = M + 5 log10(d / 10 pc) for stars, inverse square for bodies) and angular diameter
+  versus the distance left; scale markers (Moon distance, 1 au, heliopause, 1 light-year, nearest star) and the Sun's
+  magnitude seen from a star. The app's Journey view lifts off from your latitude and longitude, leaves the atmosphere
+  and flies across the Solar System or through the neighbouring stars in 3-D with a logarithmic speed control,
+  counters (travelled, left, light time, size and brightness of the target, trip times) and, on arrival, a look-around
+  view with the info card (#724); at a star, "Look back home" shows the Sun as a star of the right magnitude.
+  `/api/journey/{plan,scene}`; "Fly there" from the Learn card. Tests: `tests/test_astro_journey.py` (arrival distance
+  against the ephemeris and the parallax to 0.1 %, the Sun at about +0.5 from Alpha Centauri, light time 1.28 s to the
+  Moon and 8.3 min to the Sun) and `apps/observatory/tests/e2e/journey.spec.js` (Mars in English, Sirius in Portuguese).
+- Observatory: observing session mode (#722). `pinneapple_physics.astro.observing`: visibility of any target (body,
+  star, Messier object) with altitude, air mass, extinction per band, sky brightness (Krisciunas & Schaefer 1991
+  moonlight + twilight), parallactic angle and field rotation, rise / transit / set for fixed objects (within a
+  minute of Skyfield), the best window; telescope optics (magnification, true field, exit pupil, Dawes and Rayleigh
+  limits, limiting magnitude, image scale, camera field) with presets; GoTo slews with a trapezoidal profile, horizon
+  limit and meridian flip; survey cut-outs from CDS hips2fits (DSS2 colour), cached on the server and credited on
+  screen. `conditions.fetch_cloud_forecast` / `sky_view`: "real sky" from the Open-Meteo cloud forecast, "perfect
+  sky" without weather, and a fallback to perfect sky without a forecast. The app's Observe tab plans the night,
+  sets up the telescope, slews and tracks the target in an eyepiece or camera view at 1x to 3600x (field rotation,
+  extinction, sky brightness, seeing, clouds), with a session log (notes, snapshots, conditions); offline the field
+  is drawn from the star catalogue. `/api/observe/{plan,optics,slew,weather,presets,field.jpg}`. Tests:
+  `tests/test_astro_observing.py` (Skyfield, Kasten & Young, optics formulas, analytic field rotation) and
+  `apps/observatory/tests/e2e/observe.spec.js` (a 2-hour session at 600x stays centred; a forced overcast forecast
+  hides the view and is logged).
+- Observatory: Learn mode with facts and curiosities about each object (#724). `pinneapple_physics.astro.facts` and a
+  versioned dataset in `pinneapple_physics/astro/data/facts/` (the Sun, planets, Moon, dwarf planets and major moons,
+  the brightest stars, the 88 constellations, the 110 Messier objects, the ISS, Hubble and Tiangong): every number
+  carries its source (NASA fact sheets, Hipparcos 2007, IAU, d3-celestial, published distances), text written in
+  English and Portuguese. Cards give key numbers with everyday comparisons, three to five curiosities, history,
+  missions, how to see the object tonight from your place (`facts.tonight`) and a quiz; search by name in both
+  languages and a "Did you know?" tip on start-up. The app has a Learn tab, the start of the card in the Object tab,
+  and `/api/facts/{card,search,list,tip}`. Constellation areas are computed from the IAU boundaries
+  (`scripts/astro/build_facts.py`). Tests: `tests/test_astro_facts.py` (NASA fact sheet values, DE421 cross-checks,
+  IAU areas, sources and both languages) and `apps/observatory/tests/e2e/learn.spec.js`.
+- Observatory: Portuguese and English interface (#721). A language switcher (EN / PT) in the top bar; the default
+  follows the browser, the choice is kept in the URL (`#lang=pt`) and in local storage. Every string the page shows is
+  in the message catalogues `static/i18n/en.json` / `pt.json`, including check names, verdicts, units and API errors
+  (the server sends a message code in `X-Error-Code`); numbers and dates follow the locale. Constellations use their
+  Portuguese names (`pinneapple_physics.astro.stars.constellation_names`; the two halves of Serpens now get their own
+  names and label points), stars keep their IAU names. Library checks and validation rows carry a stable `id` for
+  translation. Tests: catalogue parity and a lint for hard-coded text (`tests/test_observatory_i18n.py`), and a
+  Playwright test that switches to Portuguese and back (`apps/observatory/tests/e2e`). Screenshots in both languages.
+- Zoo dataset `airfoil_rans_cst_re4e6_fields` (Hub-only, 186 MB in 5 files): the cell fields p, Ux, Uy, nut and
+  cell centres of the 436 OpenFOAM runs of `airfoil_rans_cst_re4e6`, with the same splits. The campaign was
+  regenerated, and its coefficients reproduce the published table. `write_field_dataset`
+  (`pinneapple_design.aero.field_dataset`) writes it, sharding splits larger than 120 runs.
 - Zoo dataset `thermal_channel_cfd` (Hub-only, 360 MB in 8 files): the actuated heated channel of Benchmark
   experiment 05. It holds 82 trajectories of u, v, p, T on 128 × 32 with 101 snapshots, the actuators and the
   quantities of interest. The splits are train 48 / val 8 / test 12 of random steps and ramps, plus two actuation
@@ -29,6 +274,21 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
   It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
   `pp.datasets.load(name, split="test")` downloads only the two test shards.
+- Black-hole weather, zoo version (#399). The library gains the tools, and the example scripts only call them:
+  - `pinneapple_physics.blackhole.runs`: generate, resume and read simulations;
+  - `convergence`: a resolution study with conservative remap between non-nested grids, Richardson order and GCI,
+    and statistical convergence with batch-mean and seed intervals;
+  - `dataset`: zoo packing, one file per split, by trajectory;
+  - `skill`: persistence, climatology and DMD baselines, moving-block bootstrap skill against lead time, physics
+    checks;
+  - `figures`.
+- `forecast` gains training on whole trajectories with a multi-step rollout loss, input noise, window-mass and
+  mass-change penalties, replicate padding, and per-epoch checkpoints that resume.
+- `RIAFConfig(perturbation_kind="modes")`: the same seeded initial perturbation on every grid.
+- `pinneapple_analysis.verification.forecast_skill`: `skill_vs_lead`, block bootstrap and batch-means intervals.
+- Hub-only dataset `blackhole_riaf_density_256`: four-grid resolution study in its card, split by trajectory.
+- The retrained forecaster is not shipped: it fails the mass-conservation check
+  (`docs/dev/model_dataset_inventory.md`).
 - `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
   benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
   levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves
@@ -387,6 +647,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   and `pinneapple_design.design_optimizer.representatives` (best per objective + balanced pick of a Pareto front).
 
 ### Changed
+- `pp.benchmark`: adding entries to `budget_study` or `ablations` reuses an existing `out_dir` (they only add jobs); changing
+  or removing an entry is still refused. Before, any change to them was refused.
 - **Behavior:** `pinneapple_analysis.cost.measure` now counts FLOPs of code that calls `torch.autograd.grad` with
   the hook-free counter (`flops_source == "dispatch_counter"`) instead of the profiler's matmul-only lower bound.
 - `compressible_fv.sod_exact` delegates to `astrophysics.sod_exact_solution` (same output to round-off; covers every wave pattern);
@@ -420,6 +682,46 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   required" and "Wind loads shall be as per UBC97" are read; a bare yes/no is no longer a text answer. New U-DR-1
   labels: TL-TL length, temperature (int/ext), corrosion allowance (internal), operating "internal pressure" and
   "temperature max/min", location, supports; `Field.reject` lists values that are not an answer to an item.
+- `pp.validate` on Darcy audits the training data with the problem's own source `f` (it assumed `f = 1`), and
+  records callables in the provenance by name (a rollout spec with an invariant function could not be saved).
+- Rollout validation: a user invariant named like a built-in (`energy`) is no longer replaced by the built-in or
+  scaled like it; the spectral band ignores shells below 1e-6 of the peak energy (round-off, not content).
+- `pp.validate` runs PhysicsNeMo field models given without a channel axis (PhysicsNeMo raises `ValueError`).
+- MC dropout (`pinneapple_analysis.uncertainty.mc_dropout`): `MCDropoutWrapper` applied dropout after every
+  `nn.Linear`, including the output layer, so about `p` of the samples were exactly zero and the reported std was
+  `|mean| sqrt(p / (1 - p))` whatever the model. Dropout now acts on the input of every `nn.Linear` but the first
+  (the hidden activations, Gal & Ghahramani 2016), and the sampled mean and std match the closed-form moments of a
+  two-layer network. Sampling no longer leaves the model in eval mode or resets the caller's global torch RNG when a
+  seed is given, and `n_samples = 1` (a NaN std) now raises a `ValueError`.
+- Quantile regression (`pinneapple_analysis.uncertainty.quantile`): `QuantileLoss` scored the first `Q` outputs
+  when the model produced more outputs than levels and raised a bare `IndexError` when it produced fewer; the pinball
+  loss broadcast a `(B, 1)` target against `(B, H)` predictions; a level outside (0, 1) such as 1.5 was accepted and
+  gave a loss that rewards over-prediction without bound. All of these now raise a clear `ValueError`, as do empty
+  or repeated levels in `QuantileConfig` and `QuantileLoss`.
+- Encounter feasibility (`pinneapple_analysis.uncertainty.reachability`): contact was looked for only at the
+  `n` time samples, so a fast flyby whose regions overlapped between two samples was reported as impossible (a
+  closest approach of 0.05 against a radius of 0.1 at 2000 units per second came out `possible=False`). The closest
+  approach of the two centres is now sampled, and every interval whose lower bound reaches zero is searched. A
+  negative uncertainty, acceleration or latency, or a non-positive horizon, now raises a `ValueError`.
+- Veriphysics robustness studies (`pinneapple_veriphysics.robustness`): an extrapolation margin of 0 (or a negative
+  one) left no point outside the training box and `_sample_shell` looped forever, hanging `ensemble_study` and
+  `extrapolation_study`; it now raises a clear `ValueError`. The evaluation points came from the global NumPy
+  random state, so the same study gave different evidence on every run; sampling is now seeded and reproducible.
+- Zoo query checks (`pp.zoo.query_checks`, the Playground's trust panel): the range checks run in float32 (the
+  torch module and its ONNX graph), but the bounds had a slack of only 1e-9, so a query exactly at the edge of the
+  training range was rejected as "outside the validity range". `T1 = 0.08` on `airfoil_cst_rans_mlp`, a value in
+  its training data, arrived as 0.0799999982 and failed PC601. The slack now covers two float32 epsilons; the
+  browser bundles in `data/web/zoo/` carry the new limits.
+- `pinneapple check`: a grid with 2 points along an axis made `numpy.gradient` raise "Shape of array too small" in
+  the residual and the balances, and the run ended with a traceback, so no other target was reported. Such an axis
+  now uses first-order ends, and a residual with no interior point is noted as not evaluated instead of passing on
+  an empty set. A check that still raises is reported as a PC001 error on its target, and the run goes on with the
+  remaining targets.
+- CalculiX Docker image (`pinneapple_simulation.external_solvers.calculix.runner.ensure_image`): every build attempt
+  pulled the Debian base from public.ecr.aws, which answers 429 ("Data limit exceeded") on busy shared CI runners,
+  so the retries failed the same way and the real-CalculiX test turned unrelated pull requests red. Each retry now
+  takes the next registry serving the same official image (`BASE_IMAGES`: public.ecr.aws, mirror.gcr.io, Docker
+  Hub; identical digest); `PINNEAPPLE_CALCULIX_BASE` puts another base first.
 - `pinneapple_physics.conservation.project_integral(mode="positive")` returned a negative field when the target
   integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
   for a field that is <= 0 everywhere. A zero field with a zero target is returned unchanged in the multiplicative
@@ -446,6 +748,7 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   spacing allowed); the residual of the same field is 0.017 and converges at order 2 on uniform and stretched grids.
 - Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
   repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
+- Black-hole simulations: resuming a run from its checkpoint failed on the outer-boundary state (`AccretionFlow._outer`).
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
@@ -477,6 +780,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   caps far from the origin or on nearly parallel neighbours).
 
 ### Documentation
+- Validation methods reference: measured behaviour of `crps_gaussian` / `crps_ensemble` (fair score unbiased for
+  small ensembles) and of `block_bootstrap` (percentile intervals undercover: 0.93 at a nominal 0.95 for iid n = 100,
+  0.90 for a strongly correlated AR(1) series), and first-order residuals of `pinneapple check` on point clouds.
 - New guide "Validation methods reference" (`docs/guides/validation_methods_reference.md`, under Guides): every
   check of `pinneapple check`, `pp.trust_card`, `TrustGate`, `pinneapple_analysis.validation`, `.uncertainty`,
   `.verification`, veriphysics, the physics audit monitor and the zoo query gate, with what it detects, its

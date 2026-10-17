@@ -2,10 +2,9 @@
 the numbers are finite and consistent -- not that a 5-epoch model is good."""
 import math
 
-import pinneapple_physics as pp
 import pinneapple_neural.architectures  # noqa: F401
+import pinneapple_physics as pp
 from pinneapple_neural.architectures.registry import ModelRegistry
-
 from pinneapple_veriphysics import robustness as rb
 from pinneapple_veriphysics.applicability import FAIL, build_applicability_map
 
@@ -75,3 +74,19 @@ def test_parameter_shift_study_and_map():
     assert gen.tier == "VERIFIED" and any("nu +10%" in e for e in gen.evidence)
     assert any(v.name == "nu" and v.kind == "parameter" for v in m.envelope)
     assert any("Geometry changes" in u for u in m.unsupported)
+
+
+def test_shell_rejects_a_non_positive_margin_and_sampling_is_reproducible():
+    # regression: margin 0 left no point outside the box and _sample_shell looped forever; the box sampler used
+    # the global NumPy state, so the same study saw different points on every run
+    import numpy as np
+    import pytest
+    b, c = SPEC.domain_bounds, list(SPEC.coords)
+    for m in (0.0, -0.1):
+        with pytest.raises(ValueError, match="margin"):
+            rb._sample_shell(b, c, m, 10)
+    np.random.seed(123)
+    a = rb._sample_box(b, c, 50)
+    np.random.seed(456)
+    assert np.array_equal(a, rb._sample_box(b, c, 50))
+    assert np.array_equal(rb._sample_shell(b, c, 0.1, 30), rb._sample_shell(b, c, 0.1, 30))

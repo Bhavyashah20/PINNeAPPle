@@ -31,7 +31,7 @@ import scipy.sparse.linalg as spla
 from .etdrk4 import ETDRK4
 
 __all__ = ["periodic_grf", "threshold_coefficient", "burgers_1d", "navier_stokes_2d_vorticity", "li_forcing",
-           "darcy_2d", "spectral_downsample", "FourierInterpolant"]
+           "darcy_2d", "darcy_matrix", "spectral_downsample", "FourierInterpolant"]
 
 
 # --------------------------------------------------------------------------- random inputs
@@ -159,8 +159,18 @@ def darcy_2d(a: np.ndarray, f: float | np.ndarray = 1.0) -> np.ndarray:
 
     Two-point flux finite volumes with harmonic-mean face coefficients (exact flux continuity across a
     coefficient jump aligned with the faces); the boundary face uses the cell's own ``a`` over a half cell.
-    Second order for smooth coefficients.
+    Second order for smooth coefficients. The matrix is :func:`darcy_matrix`.
     """
+    a = np.asarray(a, dtype=np.float64)
+    n = a.shape[0]
+    rhs = np.broadcast_to(np.asarray(f, dtype=np.float64), (n, n)).ravel()
+    return spla.spsolve(darcy_matrix(a), rhs).reshape(n, n)
+
+
+def darcy_matrix(a: np.ndarray) -> sp.csc_matrix:
+    """The ``n^2 x n^2`` finite-volume matrix of :func:`darcy_2d` (``A u = f`` with ``u`` raveled in C order). It is
+    symmetric positive definite, and ``A - min(a) * darcy_matrix(ones)`` is positive semi-definite (every face
+    coefficient is a harmonic mean, never below ``min a``)."""
     a = np.asarray(a, dtype=np.float64)
     n = a.shape[0]
     if a.shape != (n, n):
@@ -194,9 +204,7 @@ def darcy_2d(a: np.ndarray, f: float | np.ndarray = 1.0) -> np.ndarray:
     rows.append(idx.ravel())
     cols.append(idx.ravel())
     vals.append(diag.ravel())
-    A = sp.csc_matrix((np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))), shape=(n * n, n * n))
-    rhs = np.broadcast_to(np.asarray(f, dtype=np.float64), (n, n)).ravel()
-    return spla.spsolve(A, rhs).reshape(n, n)
+    return sp.csc_matrix((np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))), shape=(n * n, n * n))
 
 
 # --------------------------------------------------------------------------- differentiable interpolation
