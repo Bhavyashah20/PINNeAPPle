@@ -102,7 +102,7 @@ def splits():
     tr, te, ref = split(recs)
     shapes = sorted({r["shape_id"] for r in tr})
     rng = np.random.default_rng(5)
-    val_shapes = set(rng.choice(shapes, 10, replace=False))
+    val_shapes = set(rng.choice(shapes, min(10, max(1, len(shapes) // 5)), replace=False))   # 10 of the 85 shapes
     out = {"train": [r for r in tr if r["shape_id"] not in val_shapes],
            "val": [r for r in tr if r["shape_id"] in val_shapes], "train_all": tr, "test": te, "naca": ref}
     if (_DIRS["ood"] / "runs").exists():                          # the OOD runs: never used for training
