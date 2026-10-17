@@ -59,6 +59,10 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   names and label points), stars keep their IAU names. Library checks and validation rows carry a stable `id` for
   translation. Tests: catalogue parity and a lint for hard-coded text (`tests/test_observatory_i18n.py`), and a
   Playwright test that switches to Portuguese and back (`apps/observatory/tests/e2e`). Screenshots in both languages.
+- Zoo dataset `airfoil_rans_cst_re4e6_fields` (Hub-only, 186 MB in 5 files): the cell fields p, Ux, Uy, nut and
+  cell centres of the 436 OpenFOAM runs of `airfoil_rans_cst_re4e6`, with the same splits. The campaign was
+  regenerated, and its coefficients reproduce the published table. `write_field_dataset`
+  (`pinneapple_design.aero.field_dataset`) writes it, sharding splits larger than 120 runs.
 - Zoo dataset `thermal_channel_cfd` (Hub-only, 360 MB in 8 files): the actuated heated channel of Benchmark
   experiment 05. It holds 82 trajectories of u, v, p, T on 128 × 32 with 101 snapshots, the actuators and the
   quantities of interest. The splits are train 48 / val 8 / test 12 of random steps and ramps, plus two actuation
