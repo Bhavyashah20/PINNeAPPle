@@ -88,7 +88,35 @@ far side lensed above the shadow, as in *Interstellar* (James et al. 2015).
 
 The twin also renders in Blender: `Scene.render_blender` / `render_blender_frames` (Cycles, `pip install bpy`).
 
-## Results
+## Resolution study, zoo dataset and retrained forecaster
+
+The reference was checked on four grids (90 × 45 to 256 × 128, ratio √2, three seeds each, the same seeded
+perturbation on every grid). The tools are in the library:
+
+- `convergence.resolution_study`: conservative remap, Richardson order and GCI through
+  `pinneapple_analysis.verification`, and statistical convergence;
+- `dataset`: the zoo dataset `blackhole_riaf_density_256`, whole trajectories per split;
+- `forecast.train_on_trajectories`: rollout loss, input noise, mass penalties, resumable;
+- `skill.evaluate_skill`: persistence, climatology and DMD baselines, moving-block bootstrap intervals, physics
+  checks;
+- `figures`.
+
+![resolution study](../assets/blackhole/convergence_256.png)
+
+- **The means converge** within their 95 % bands: the accretion rate is 2.18 ± 0.58 on 181 × 90 and 1.97 ± 0.63 on
+  256 × 128, and the mass in the window and the density slope also agree.
+- **The profiles are not in the asymptotic range.** From 181 to 256 they change by 4-11 %, against 0.5-2.5 % between
+  the coarser grids, and l/l_K rises 3.8 % beyond its band. The likely cause is that the speed and temperature
+  ceilings act on more cells as the resolution grows. These changes are the stated uncertainty band of the data.
+- **The forecaster is not shipped.** Retrained on 256 × 128 trajectories with replicate padding, a rollout loss and a
+  mass penalty, it beats persistence with 95 % confidence from 60 to 2000 GM/c³ (skill 0.27 at 2000 M) and beats
+  DMD. But it breaks the mass envelope of the training runs in 14-54 % of the frames.
+
+![skill against lead time](../assets/blackhole/skill_vs_lead_256.png)
+
+Details and every number: `examples/black_hole_weather/README.md`, section "Zoo version".
+
+## Results of the first version
 
 The port of the paper's U-Net does not beat persistence at the 20 GM/c³ frame spacing used here. It loses or gains
 4-6 % of the gas per frame, which the mass check flags at the first frame. The residual variant (predicting the

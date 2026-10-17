@@ -63,6 +63,21 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   Navier–Stokes in vorticity form, ν = 10⁻³, with the forcing and initial-vorticity distribution of Li et al. (2021).
   It holds 1200 runs (1000 train / 200 test) solved pseudo-spectrally on 128² and stored on 64² at t = 0, 1, …, 50.
   `pp.datasets.load(name, split="test")` downloads only the two test shards.
+- Black-hole weather, zoo version (#399). The library gains the tools, and the example scripts only call them:
+  - `pinneapple_physics.blackhole.runs`: generate, resume and read simulations;
+  - `convergence`: a resolution study with conservative remap between non-nested grids, Richardson order and GCI,
+    and statistical convergence with batch-mean and seed intervals;
+  - `dataset`: zoo packing, one file per split, by trajectory;
+  - `skill`: persistence, climatology and DMD baselines, moving-block bootstrap skill against lead time, physics
+    checks;
+  - `figures`.
+- `forecast` gains training on whole trajectories with a multi-step rollout loss, input noise, window-mass and
+  mass-change penalties, replicate padding, and per-epoch checkpoints that resume.
+- `RIAFConfig(perturbation_kind="modes")`: the same seeded initial perturbation on every grid.
+- `pinneapple_analysis.verification.forecast_skill`: `skill_vs_lead`, block bootstrap and batch-means intervals.
+- Hub-only dataset `blackhole_riaf_density_256`: four-grid resolution study in its card, split by trajectory.
+- The retrained forecaster is not shipped: it fails the mass-conservation check
+  (`docs/dev/model_dataset_inventory.md`).
 - `pp.benchmark` (`pinneapple_analysis.benchmark`) and the `pinneapple benchmark prepare|run|report` command: equal-budget
   benchmarks in one call (problems x methods under one `ComputeBudget`, equal hyper-parameter search, seeds, budget
   levels, an equal-FLOPs arm, an `out_dir` cache that resumes and refuses mixed configurations). A prepare stage saves
@@ -448,6 +463,25 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- Veriphysics robustness studies (`pinneapple_veriphysics.robustness`): an extrapolation margin of 0 (or a negative
+  one) left no point outside the training box and `_sample_shell` looped forever, hanging `ensemble_study` and
+  `extrapolation_study`; it now raises a clear `ValueError`. The evaluation points came from the global NumPy
+  random state, so the same study gave different evidence on every run; sampling is now seeded and reproducible.
+- Zoo query checks (`pp.zoo.query_checks`, the Playground's trust panel): the range checks run in float32 (the
+  torch module and its ONNX graph), but the bounds had a slack of only 1e-9, so a query exactly at the edge of the
+  training range was rejected as "outside the validity range". `T1 = 0.08` on `airfoil_cst_rans_mlp`, a value in
+  its training data, arrived as 0.0799999982 and failed PC601. The slack now covers two float32 epsilons; the
+  browser bundles in `data/web/zoo/` carry the new limits.
+- `pinneapple check`: a grid with 2 points along an axis made `numpy.gradient` raise "Shape of array too small" in
+  the residual and the balances, and the run ended with a traceback, so no other target was reported. Such an axis
+  now uses first-order ends, and a residual with no interior point is noted as not evaluated instead of passing on
+  an empty set. A check that still raises is reported as a PC001 error on its target, and the run goes on with the
+  remaining targets.
+- CalculiX Docker image (`pinneapple_simulation.external_solvers.calculix.runner.ensure_image`): every build attempt
+  pulled the Debian base from public.ecr.aws, which answers 429 ("Data limit exceeded") on busy shared CI runners,
+  so the retries failed the same way and the real-CalculiX test turned unrelated pull requests red. Each retry now
+  takes the next registry serving the same official image (`BASE_IMAGES`: public.ecr.aws, mirror.gcr.io, Docker
+  Hub; identical digest); `PINNEAPPLE_CALCULIX_BASE` puts another base first.
 - `pinneapple_physics.conservation.project_integral(mode="positive")` returned a negative field when the target
   integral was negative, breaking the non-negativity the mode exists for; it now raises a clear `ValueError`, also
   for a field that is <= 0 everywhere. A zero field with a zero target is returned unchanged in the multiplicative
@@ -474,6 +508,7 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   spacing allowed); the residual of the same field is 0.017 and converges at order 2 on uniform and stretched grids.
 - Playground: the "Model on the Hugging Face Hub" link opened a 404 page. `pp.zoo.export_web` now takes the Hub
   repository from the zoo manifest (`hf_repo`, e.g. `PINNeAPPle-Labs/airfoil-cst-rans-mlp`) instead of the model name.
+- Black-hole simulations: resuming a run from its checkpoint failed on the outer-boundary state (`AccretionFlow._outer`).
 - Observatory, black-hole lensing panel (Analyses): the render came out almost black, with only the shadow and a
   grey ring. `pinneapple_physics.astro.lensing.catalog_sky` now draws each Yale BSC star with a magnitude-dependent
   footprint (`star_splat`: width grows with brightness from 0.1 deg at V 6.5, so faint stars never fall between
@@ -505,6 +540,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   caps far from the origin or on nearly parallel neighbours).
 
 ### Documentation
+- Validation methods reference: measured behaviour of `crps_gaussian` / `crps_ensemble` (fair score unbiased for
+  small ensembles) and of `block_bootstrap` (percentile intervals undercover: 0.93 at a nominal 0.95 for iid n = 100,
+  0.90 for a strongly correlated AR(1) series), and first-order residuals of `pinneapple check` on point clouds.
 - New guide "Validation methods reference" (`docs/guides/validation_methods_reference.md`, under Guides): every
   check of `pinneapple check`, `pp.trust_card`, `TrustGate`, `pinneapple_analysis.validation`, `.uncertainty`,
   `.verification`, veriphysics, the physics audit monitor and the zoo query gate, with what it detects, its
