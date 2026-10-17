@@ -509,6 +509,17 @@ def _rollout_checks(step, cfg: Mapping[str, Any], data: Mapping[str, Any], level
             for c in checks]
 
 
+def _pinn_checks(model, spec: Mapping[str, Any], data: Mapping[str, Any], level: str, seed: int
+                 ) -> list[ValidationCheck]:
+    """``problem={"pinn": "burgers_1d" | PINNProblem, "tolerances": {...}}``, ``data={"train_points": X}``: a trained
+    PINN on fresh points (``validation.pinn``)."""
+    from .pinn import validate_pinn
+    rep = validate_pinn(model, spec["pinn"], n_points=1024 if level == "quick" else 4096,
+                        train_points=data.get("train_points"), tolerances=spec.get("tolerances"), seed=seed)
+    return [ValidationCheck(c["id"], c["status"], c["summary"], value=c.get("value"), threshold=c.get("threshold"))
+            for c in rep.checks]
+
+
 def _fault_injection() -> ValidationCheck:
     try:
         from . import fault_injection  # noqa: F401  (#697)
@@ -646,7 +657,11 @@ def validate(model, problem=None, data: Mapping[str, Mapping[str, np.ndarray]] |
     else:
         spec = {"pde": "darcy"} if problem in ("darcy", "darcy_2d") else dict(problem or {}) \
             if isinstance(problem, Mapping) else _from_physical_problem(problem)
-        if "rollout" in spec:
+        if "pinn" in spec:
+            checks += _pinn_checks(model, spec, data or {}, level, seed)
+            pname = f"PINN, {getattr(spec['pinn'], 'name', spec['pinn'])}"
+            prov["physics"]["problem"] = {**spec, "pinn": getattr(spec["pinn"], "name", spec["pinn"])}
+        elif "rollout" in spec:
             pname = spec.get("name", "autoregressive rollout")
             checks += _rollout_checks(model, spec["rollout"], data or {}, level)
         elif spec.get("pde") == "darcy":

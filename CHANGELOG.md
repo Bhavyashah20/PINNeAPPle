@@ -14,6 +14,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- PINN validation (`pinneapple_analysis.validation.pinn`, #703): residual at fresh grid, random and adaptive points;
+  detectors for a near-trivial solution, propagation failure in time, boundary / initial conditions traded off
+  against the residual and spectral bias; exact-solution gates (Burgers by Cole-Hopf, manufactured Poisson,
+  Kovasznay); `PINNMonitor` runs the checks during training and stops on a failure mode. Checks `pinn.*` in
+  `pp.validate` with `problem={"pinn": ...}`.
 - Rollout validation of autoregressive surrogates (`pinneapple_analysis.validation.rollout`, #701): invariant
   drift, high-band energy over the horizon, divergence time (trust horizon) and, for chaotic systems, long-run
   statistics (value histogram, decorrelation time, band energies) against the noise floor of the reference. Checks
