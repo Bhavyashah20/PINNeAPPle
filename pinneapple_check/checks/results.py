@@ -122,6 +122,11 @@ def _field_loc(ctx: Ctx, fd: FieldData, name: str, patch: str | None = None):
 def report_equations(ctx: Ctx, eqs, why, where, rule_div: str, rule_res: str, tol_div: float, tol_res: float,
                      loc, subject_prefix: str = "") -> None:
     for eq in eqs:
+        if eq.mask is not None and not np.any(eq.mask):
+            # every point is on the boundary (e.g. 2 points along an axis): there is nothing to judge, and an empty
+            # residual must not be reported as a pass
+            ctx.note(f"{subject_prefix}{eq.name}: no interior point where the stencil fits, residual not evaluated")
+            continue
         rel = rel_rms(eq.residual, eq.terms, eq.mask, floor=1e-6 * eq.scale)
         r = np.asarray(eq.residual)
         mag = np.linalg.norm(r, axis=-1) if eq.mask is not None and r.ndim == eq.mask.ndim + 1 else np.abs(r)

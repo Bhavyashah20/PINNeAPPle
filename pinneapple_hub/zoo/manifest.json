@@ -1276,6 +1276,213 @@
      "size": 23339193
     }
    }
+  },
+  "blackhole_riaf_density_256": {
+   "version": "1.0.0",
+   "revision": "v1.0.0",
+   "hf_repo": "PINNeAPPle-Labs/blackhole-riaf-density-256",
+   "repo_type": "dataset",
+   "title": "Accretion onto a Schwarzschild black hole: 2.5-D viscous hydro density frames (256 x 128)",
+   "description": "Radiatively inefficient accretion flow grown from an equilibrium torus (Paczynski-Wiita potential, Shakura-Sunyaev alpha viscosity, gamma 5/3, r = 4-400 GM/c^2, log-spaced 256 x 128 grid): the set-up of Duarte, Nemmen & Navarro (2022), regenerated with pinneapple_physics.blackhole. Density in the forecaster's window (r < 126.5 GM/c^2, theta in [pi/8, 7 pi/8]) every 20 GM/c^3 for t = 2000-10000 GM/c^3, whole trajectories per split. The training data of the black-hole weather forecaster (#399).",
+   "license": "cc-by-4.0",
+   "source": "examples/black_hole_weather/simulate.py --nr 256 --ntheta 128 --viscosity SS --perturbation-kind modes --t-end 10000 --every 10 (runs and seeds in pinneapple_physics.blackhole.dataset.SPLITS); scripts/zoo/build_blackhole.py",
+   "verification": "Solver: mass and angular momentum conserved to 1e-16 with the boundary fluxes counted, exact Bondi accretion steady within 0.5 %, inviscid torus in equilibrium (tests/test_blackhole_weather.py). Resolution study (examples/black_hole_weather/convergence.py; results/convergence.json): grids 90x45, 128x64, 181x90, 256x128 (ratio sqrt 2), seeds 0-2 on every grid with the same seeded perturbation, time averages over t = 2000-10000 GM/c^3 with 95 % intervals (batch means and seeds). Converged within the statistical band (the two finest grids agree within their intervals): mean accretion rate 2.18 +- 0.58 (181) vs 1.97 +- 0.63 (256), window mass 2.65e4 vs 2.58e4, inner density slope -0.41 vs -0.38, persistence error at 100 GM/c^3 0.0034 +- 0.0011 vs 0.0047 +- 0.0011. Not converged: from 181 to 256 the time-mean profiles change more than between the coarser grids (density 6.3 % vs 0.8-1.6 %, specific angular momentum 4.2 % vs 0.5 %, angular-momentum flux 11 % vs 1.5-2.5 %; l / l_Kepler at r = 10 rises 3.8 % beyond its interval), so the observed order is negative and no GCI applies; the number of cells where the speed / temperature ceilings act grows with resolution and is the likely cause. The 256 x 128 grid is the finest the study could afford (a 362 x 181 run did not finish); the 181 -> 256 changes are the uncertainty band of these data. The published PLUTO runs and the paper's values could not be retrieved for a direct comparison.",
+   "citation": "Duarte R., Nemmen R., Navarro J. P. (2022) MNRAS 512, 5848 (set-up and forecaster); Almeida I., Nemmen R. (2020) MNRAS 492, 2553 (simulations); data generated with PINNeAPPle, Zenodo DOI 10.5281/zenodo.23343062.",
+   "tags": [
+    "astrophysics",
+    "black hole",
+    "accretion",
+    "hydrodynamics",
+    "forecasting"
+   ],
+   "split_rule": "by trajectory (seed), never by time inside a trajectory: train seeds 0-3, val 4, test 5",
+   "splits": {
+    "convergence": {
+     "n": 12,
+     "description": "resolution study: one row per grid and seed (90x45 to 256x128, seeds 0-2)"
+    },
+    "grid_r": {
+     "n": 192,
+     "description": "radial cells of the window"
+    },
+    "grid_theta": {
+     "n": 96,
+     "description": "theta cells of the window"
+    },
+    "ood_alpha0.3": {
+     "n": 401,
+     "description": "alpha 0.3, seed 0: other physics, never used in training"
+    },
+    "test": {
+     "n": 401,
+     "description": "seed 5, alpha 0.1 (whole trajectory, held out)"
+    },
+    "train": {
+     "n": 1604,
+     "description": "seeds 0-3, alpha 0.1: 4 whole trajectories, 401 frames each"
+    },
+    "val": {
+     "n": 401,
+     "description": "seed 4, alpha 0.1 (whole trajectory)"
+    }
+   },
+   "columns": {
+    "ell_over_kepler_r10": {
+     "unit": "-",
+     "description": "time-mean specific angular momentum / Keplerian (Paczynski-Wiita), r = 10",
+     "dtype": "float64"
+    },
+    "ell_over_kepler_r30": {
+     "unit": "-",
+     "description": "same at r = 30 GM/c^2",
+     "dtype": "float64"
+    },
+    "mdot_detrended_rms": {
+     "unit": "-",
+     "description": "rms of mdot / (500 GM/c^3 running mean) - 1",
+     "dtype": "float64"
+    },
+    "mdot_mean": {
+     "unit": "code units",
+     "description": "time-mean accretion rate",
+     "dtype": "float64"
+    },
+    "mdot_psd_slope": {
+     "unit": "-",
+     "description": "log-log slope of the accretion-rate power spectrum, 1/2000 to 1/50 per GM/c^3",
+     "dtype": "float64"
+    },
+    "mdot_rms_over_mean": {
+     "unit": "-",
+     "description": "rms / mean of the accretion rate (includes the secular drain of the torus)",
+     "dtype": "float64"
+    },
+    "nr": {
+     "unit": "-",
+     "description": "radial cells of the grid",
+     "dtype": "int32"
+    },
+    "ntheta": {
+     "unit": "-",
+     "description": "theta cells of the grid",
+     "dtype": "int32"
+    },
+    "persistence_mae_1000M": {
+     "unit": "-",
+     "description": "same, 1000 GM/c^3",
+     "dtype": "float64"
+    },
+    "persistence_mae_100M": {
+     "unit": "-",
+     "description": "same, 100 GM/c^3",
+     "dtype": "float64"
+    },
+    "persistence_mae_20M": {
+     "unit": "-",
+     "description": "MAE of persistence at 20 GM/c^3 (normalised log density, log10 rho in [-6, 0])",
+     "dtype": "float64"
+    },
+    "rho_slope_r10_60": {
+     "unit": "-",
+     "description": "d ln rho / d ln r of the time-mean shell density, r = 10-60 GM/c^2",
+     "dtype": "float64"
+    },
+    "seed": {
+     "unit": "-",
+     "description": "seed of the initial perturbation",
+     "dtype": "int32"
+    },
+    "window_mass_mean": {
+     "unit": "code units",
+     "description": "time-mean mass in the window",
+     "dtype": "float64"
+    },
+    "r": {
+     "unit": "GM/c^2",
+     "description": "radius of the cell centres (volume weighted)",
+     "dtype": "float64"
+    },
+    "r_face_hi": {
+     "unit": "GM/c^2",
+     "description": "outer radial face",
+     "dtype": "float64"
+    },
+    "r_face_lo": {
+     "unit": "GM/c^2",
+     "description": "inner radial face",
+     "dtype": "float64"
+    },
+    "theta": {
+     "unit": "rad",
+     "description": "polar angle of the cell centres",
+     "dtype": "float64"
+    },
+    "theta_face_hi": {
+     "unit": "rad",
+     "description": "upper theta face",
+     "dtype": "float64"
+    },
+    "theta_face_lo": {
+     "unit": "rad",
+     "description": "lower theta face",
+     "dtype": "float64"
+    },
+    "alpha": {
+     "unit": "-",
+     "description": "Shakura-Sunyaev viscosity parameter",
+     "dtype": "float32"
+    },
+    "log10_rho_q": {
+     "unit": "-",
+     "description": "uint16 (frames, 192 r, 96 theta): log10 rho = -8 + q * 9 / 65535 in the window (pinneapple_physics.blackhole.dataset.decode)",
+     "dtype": "uint16[192, 96]"
+    },
+    "mdot": {
+     "unit": "code units",
+     "description": "accretion rate through r_in = 4 GM/c^2 (density maximum of the initial torus = 1)",
+     "dtype": "float32"
+    },
+    "run": {
+     "unit": "-",
+     "description": "trajectory: the seed of the initial torus perturbation",
+     "dtype": "int16"
+    },
+    "t": {
+     "unit": "GM/c^3",
+     "description": "time",
+     "dtype": "float32"
+    }
+   },
+   "files": {
+    "convergence.npz": {
+     "sha256": "8fd34040dd14e7b1801f680370968744bfe6ac5583e8402758490170955fc08d",
+     "size": 4076
+    },
+    "grid_r.npz": {
+     "sha256": "c8fa013056c2699e3228899c7398858512725471e7af592e8030c5cfdfc4de6e",
+     "size": 5075
+    },
+    "grid_theta.npz": {
+     "sha256": "7d391c5b8f0ede9f945696a9ca94d2ded84a655efd96824232fdb73e04d39d0f",
+     "size": 2654
+    },
+    "ood_alpha0.3.npz": {
+     "sha256": "35a4f1522e66d58d05eed6c099a0096696834c97ee60c14b283d40a2c63c8567",
+     "size": 11975604
+    },
+    "test.npz": {
+     "sha256": "2e455010eddec17985f369739a4d4a833735f3a0b8da358e568abd054cf6590a",
+     "size": 13201073
+    },
+    "train.npz": {
+     "sha256": "8afe0c57ac35b1e57e6f0ac7f1188da754a09a71633ebc38ae1becac1be11aaa",
+     "size": 52988755
+    },
+    "val.npz": {
+     "sha256": "5aff6213fd73543076e096540e4052851212246ff753c3fe8a71f4bd0d76f895",
+     "size": 13298238
+    }
+   }
   }
  }
 }

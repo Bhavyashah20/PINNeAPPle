@@ -162,9 +162,14 @@ def _claimed_tests(s: Source) -> list[dict[str, Any]]:
             if isinstance(t, dict):
                 cid = str(t.get("check_id") or t.get("id") or t.get("name"))
                 st = t.get("status") if "status" in t else ("passed" if t.get("passed") else "failed")
+                st = _CLAIM.get(str(st).upper(), st)
                 out.append({"check_id": cid, "name": str(t.get("name", cid)), "category": t.get("category"),
                             "claim": str(st), "detail": str(t.get("detail", ""))})
     return out
+
+
+# StudyResult.checks[].status of the shared contracts -> the words of a claim
+_CLAIM = {"PASS": "passed", "FAIL": "failed", "WARN": "warning", "N/A": "not applicable", "NOT_RUN": "not run"}
 
 
 def _ledger_of(s: Source) -> EvidenceLedger:
@@ -285,10 +290,14 @@ def build_report(meta: dict[str, Any], sources: Sequence[Source]) -> dict[str, A
             for k in ("parameters", "conditions", "config"):
                 if isinstance(s.data.get(k), dict):
                     conditions.update({f"{s.name}: {kk}": vv for kk, vv in s.data[k].items()})
-    contracts = [{"source": s.name, "type": s.contract, "name": s.data.get("name") or s.data.get("id") or "",
+    contracts = [{"source": s.name, "type": s.contract,
+                  "name": s.data.get("name") or s.data.get("title") or s.data.get("id") or "",
                   "summary": {k: v for k, v in s.data.items() if isinstance(v, (str, int, float)) and k not in
                               ("type", "contract", "kind")}} for s in sources if s.kind == "contract"]
     limitations = list(meta.get("limitations") or [])
+    for s in sources:                                  # StudyResult.limits: what the result does not show
+        if s.kind == "contract":
+            limitations += [f"{s.name}: {x}" for x in s.data.get("limits") or [] if isinstance(x, str)]
     n_not = sum(t["status"] == NOT_RUN for t in tests)
     if n_not:
         limitations.append(f"{n_not} test(s) are reported as not run: no intact evidence record shows that they ran "
