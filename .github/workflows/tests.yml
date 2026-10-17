@@ -25,6 +25,11 @@ jobs:
           pip install pytest
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
 
+      - name: App runtime and data contracts (must pass)
+        run: |
+          pip install fastapi httpx python-multipart pyarrow h5py
+          pytest tests/pinneapple_data/test_contracts.py tests/pinneapple_core/test_service.py tests/test_appkit_runtime.py -q
+
       - name: Tier C — public API, cost validation, PyVista and CalculiX bridges (must pass)
         run: xvfb-run -a pytest tests/test_public_api.py tests/test_cost_validation.py tests/test_pyvista_bridge.py tests/test_calculix_bridge.py tests/test_example_imports.py tests/test_app_helpers.py tests/test_release_version.py tests/test_model_zoo.py tests/test_geometry_library.py tests/test_multiscale.py tests/test_aero_panel.py tests/test_benchmark_api.py tests/test_equal_budget.py tests/test_inverse_heat_budget.py tests/test_operator_benchmarks.py -q
 
