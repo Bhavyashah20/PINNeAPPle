@@ -83,8 +83,9 @@ def uncertainty_study(model, output: str, X_cal, y_cal, X_test, y_test, *, alpha
     err = pt - yt
     accuracy = {"n_test": int(yt.size), "mae": float(np.mean(np.abs(err))), "rmse": float(np.sqrt(np.mean(err ** 2))),
                 "max_abs": float(np.max(np.abs(err)))}
-    nz = np.abs(yt) > 0
-    if nz.all():
+    # percent errors only when no true value is near zero (an output that crosses zero, e.g. a lift coefficient,
+    # makes them meaningless)
+    if np.min(np.abs(yt)) >= 0.05 * np.median(np.abs(yt)) > 0:
         rel = np.abs(err) / np.abs(yt)
         accuracy.update(mean_abs_pct=float(100 * rel.mean()), p95_abs_pct=float(100 * np.quantile(rel, 0.95)))
     ensemble = None
