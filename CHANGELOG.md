@@ -30,6 +30,63 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
     references, renders it as HTML and as PDF (`pinneapple_tools.reporting.paperkit`) and packs a zip with a
     SHA-256 manifest (`verify_package`). A test is printed as passed only when the source's own ledger records
     its run; a bare claim reads "not run".
+- Data contracts shared by the apps (`pinneapple_data.contracts`): `ParameterSpace` (bounds, units, log scale,
+  integer and categorical parameters, constants, safe constraint expressions, unit-hypercube mapping, feasibility),
+  `DatasetSpec` (columns with roles and units, files with SHA-256, splits, provenance), `ModelRef` (held-out metrics
+  only, validity range) and `StudyResult` (table, metrics, checks that need a record, artifacts, stated limits).
+  JSON/YAML load and save, validation with readable errors, JSON Schema export (`schemas/`), and CSV / Parquet /
+  HDF5 tables with a `.contract.json` sidecar (embedded in Parquet and HDF5 too).
+- App server runtime (`pinneapple_core.service`, standard library only): a persistent job queue (SQLite; thread or
+  process workers; progress, logs, cancel, retry, automatic retries, time limit, max concurrent jobs across server
+  workers, resume after a worker dies), hashed API keys, usage metering with monthly free limits from
+  `<PREFIX>_FREE_<UNIT>`, and an upload store with size and type limits. `apps/_shared/appkit.py`
+  `install_runtime` exposes them under `/api` (`/api/jobs`, `/api/keys`, `/api/usage`, `/api/uploads`) and accepts
+  `X-API-Key` alongside the per-app login; documented in `apps/_shared/README.md`.
+- Observatory: space journey from your place to the target (#723). `pinneapple_physics.astro.journey`: heliocentric
+  ICRS positions of the observer (Earth from the JPL ephemeris plus the site), the Solar System bodies at the date and
+  the stars from their parallax (Hipparcos 2007 for the brightest); galactic coordinates (IAU 1958 on J2000 axes);
+  distance, one-way light time and travel times at walking, airliner, New Horizons, Voyager 1 and light speed; the
+  target's apparent magnitude (m = M + 5 log10(d / 10 pc) for stars, inverse square for bodies) and angular diameter
+  versus the distance left; scale markers (Moon distance, 1 au, heliopause, 1 light-year, nearest star) and the Sun's
+  magnitude seen from a star. The app's Journey view lifts off from your latitude and longitude, leaves the atmosphere
+  and flies across the Solar System or through the neighbouring stars in 3-D with a logarithmic speed control,
+  counters (travelled, left, light time, size and brightness of the target, trip times) and, on arrival, a look-around
+  view with the info card (#724); at a star, "Look back home" shows the Sun as a star of the right magnitude.
+  `/api/journey/{plan,scene}`; "Fly there" from the Learn card. Tests: `tests/test_astro_journey.py` (arrival distance
+  against the ephemeris and the parallax to 0.1 %, the Sun at about +0.5 from Alpha Centauri, light time 1.28 s to the
+  Moon and 8.3 min to the Sun) and `apps/observatory/tests/e2e/journey.spec.js` (Mars in English, Sirius in Portuguese).
+- Observatory: observing session mode (#722). `pinneapple_physics.astro.observing`: visibility of any target (body,
+  star, Messier object) with altitude, air mass, extinction per band, sky brightness (Krisciunas & Schaefer 1991
+  moonlight + twilight), parallactic angle and field rotation, rise / transit / set for fixed objects (within a
+  minute of Skyfield), the best window; telescope optics (magnification, true field, exit pupil, Dawes and Rayleigh
+  limits, limiting magnitude, image scale, camera field) with presets; GoTo slews with a trapezoidal profile, horizon
+  limit and meridian flip; survey cut-outs from CDS hips2fits (DSS2 colour), cached on the server and credited on
+  screen. `conditions.fetch_cloud_forecast` / `sky_view`: "real sky" from the Open-Meteo cloud forecast, "perfect
+  sky" without weather, and a fallback to perfect sky without a forecast. The app's Observe tab plans the night,
+  sets up the telescope, slews and tracks the target in an eyepiece or camera view at 1x to 3600x (field rotation,
+  extinction, sky brightness, seeing, clouds), with a session log (notes, snapshots, conditions); offline the field
+  is drawn from the star catalogue. `/api/observe/{plan,optics,slew,weather,presets,field.jpg}`. Tests:
+  `tests/test_astro_observing.py` (Skyfield, Kasten & Young, optics formulas, analytic field rotation) and
+  `apps/observatory/tests/e2e/observe.spec.js` (a 2-hour session at 600x stays centred; a forced overcast forecast
+  hides the view and is logged).
+- Observatory: Learn mode with facts and curiosities about each object (#724). `pinneapple_physics.astro.facts` and a
+  versioned dataset in `pinneapple_physics/astro/data/facts/` (the Sun, planets, Moon, dwarf planets and major moons,
+  the brightest stars, the 88 constellations, the 110 Messier objects, the ISS, Hubble and Tiangong): every number
+  carries its source (NASA fact sheets, Hipparcos 2007, IAU, d3-celestial, published distances), text written in
+  English and Portuguese. Cards give key numbers with everyday comparisons, three to five curiosities, history,
+  missions, how to see the object tonight from your place (`facts.tonight`) and a quiz; search by name in both
+  languages and a "Did you know?" tip on start-up. The app has a Learn tab, the start of the card in the Object tab,
+  and `/api/facts/{card,search,list,tip}`. Constellation areas are computed from the IAU boundaries
+  (`scripts/astro/build_facts.py`). Tests: `tests/test_astro_facts.py` (NASA fact sheet values, DE421 cross-checks,
+  IAU areas, sources and both languages) and `apps/observatory/tests/e2e/learn.spec.js`.
+- Observatory: Portuguese and English interface (#721). A language switcher (EN / PT) in the top bar; the default
+  follows the browser, the choice is kept in the URL (`#lang=pt`) and in local storage. Every string the page shows is
+  in the message catalogues `static/i18n/en.json` / `pt.json`, including check names, verdicts, units and API errors
+  (the server sends a message code in `X-Error-Code`); numbers and dates follow the locale. Constellations use their
+  Portuguese names (`pinneapple_physics.astro.stars.constellation_names`; the two halves of Serpens now get their own
+  names and label points), stars keep their IAU names. Library checks and validation rows carry a stable `id` for
+  translation. Tests: catalogue parity and a lint for hard-coded text (`tests/test_observatory_i18n.py`), and a
+  Playwright test that switches to Portuguese and back (`apps/observatory/tests/e2e`). Screenshots in both languages.
 - Zoo dataset `airfoil_rans_cst_re4e6_fields` (Hub-only, 186 MB in 5 files): the cell fields p, Ux, Uy, nut and
   cell centres of the 436 OpenFOAM runs of `airfoil_rans_cst_re4e6`, with the same splits. The campaign was
   regenerated, and its coefficients reproduce the published table. `write_field_dataset`
@@ -449,6 +506,16 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- Quantile regression (`pinneapple_analysis.uncertainty.quantile`): `QuantileLoss` scored the first `Q` outputs
+  when the model produced more outputs than levels and raised a bare `IndexError` when it produced fewer; the pinball
+  loss broadcast a `(B, 1)` target against `(B, H)` predictions; a level outside (0, 1) such as 1.5 was accepted and
+  gave a loss that rewards over-prediction without bound. All of these now raise a clear `ValueError`, as do empty
+  or repeated levels in `QuantileConfig` and `QuantileLoss`.
+- Encounter feasibility (`pinneapple_analysis.uncertainty.reachability`): contact was looked for only at the
+  `n` time samples, so a fast flyby whose regions overlapped between two samples was reported as impossible (a
+  closest approach of 0.05 against a radius of 0.1 at 2000 units per second came out `possible=False`). The closest
+  approach of the two centres is now sampled, and every interval whose lower bound reaches zero is searched. A
+  negative uncertainty, acceleration or latency, or a non-positive horizon, now raises a `ValueError`.
 - Veriphysics robustness studies (`pinneapple_veriphysics.robustness`): an extrapolation margin of 0 (or a negative
   one) left no point outside the training box and `_sample_shell` looped forever, hanging `ensemble_study` and
   `extrapolation_study`; it now raises a clear `ValueError`. The evaluation points came from the global NumPy
