@@ -6,7 +6,46 @@ solution. The two complement each other: nothing below retrains or replaces a Ph
 
 ![Reference, FNO and MeshGraphNet predictions with their PDE residual maps and trust verdicts, for the test set and two shifted regimes](../assets/physicsnemo_trust/physicsnemo_darcy_trust.png)
 
-The animated version alternates the two exported samples of each regime: [physicsnemo_darcy_trust.gif](../assets/physicsnemo_trust/physicsnemo_darcy_trust.gif). Badges marked *(batch)* are verdicts over the 100 samples of the regime. *this sample, pinneapple check* is the verdict `pinneapple check` returns for the displayed prediction; a test (`tests/test_physicsnemo_darcy_example.py`) asserts the two are equal for every exported prediction.
+The animated version alternates the two exported samples of each regime:
+[physicsnemo_darcy_trust.gif](../assets/physicsnemo_trust/physicsnemo_darcy_trust.gif).
+
+## Where each model works, and why
+
+The orange maps show where each prediction errs, estimated from its PDE residual alone, with no reference:
+- `estimated_error`: the error of `u`;
+- `estimated_flux_error`: the error of the flux `a grad u`.
+
+The badges under each prediction say which use it can serve (`use_verdicts`, limits fixed a priori):
+- **interior field**: values of `u` at least 8 cells from the walls, OK if the estimated interior error is ≤ 5 %;
+- **walls & fluxes**: values and gradients next to the walls and boundary flow rates, OK if the estimated error in
+  the 2 cells next to the walls is ≤ 5 % and the flux balance is ≤ 2 %;
+- **inputs**: the coefficient inside the training envelope;
+- **CI**: what `pinneapple check` returns for that prediction.
+
+| Regime | Model | interior error, estimated / true (median) | wall-band error, estimated / true | interior field OK | walls & fluxes OK | inputs as in training |
+|---|---|---|---|---|---|---|
+| test set | FNO | 2.3 % / 1.3 % | 32 % / 19 % | **99 %** of samples | 0 % | 95 % |
+| test set | MeshGraphNet | 22 % / 15 % | 32 % / 23 % | 0 % | 0 % | 95 % |
+| contrast {1, 20} | FNO | 85 % / 41 % | 392 % / 65 % | 0 % | 0 % | 0 % |
+| contrast {1, 20} | MeshGraphNet | 688 % / 77 % | 529 % / 81 % | 0 % | 0 % | 0 % |
+| length scale ÷3 | FNO | 3.1 % / 1.6 % | 34 % / 21 % | **94 %** | 0 % | 61 % |
+| length scale ÷3 | MeshGraphNet | 21 % / 15 % | 37 % / 28 % | 0 % | 0 % | 61 % |
+
+- **FNO: use it for the field away from the walls, not for wall gradients or boundary fluxes.** Its error is about
+  1 % in the interior and about 20 % in the 2 cells next to the walls. Its flux also errs along the jumps of `a`.
+  The net outflow it implies is off by 14 % (median) against the reference. This holds for the shorter length scale
+  too: the interior is still about 2 %, although 39 % of those coefficients are outside the training envelope.
+- **MeshGraphNet: not usable at this budget, for fields or for fluxes.** Its error is spread over the whole domain,
+  and its flux errs along every jump of `a`. In the same CPU hour it did 3.7 epochs (the FNO did 41), and its 15
+  message-passing steps reach 15 cells of a 128-cell grid, which is little for an elliptic problem.
+- **Contrast {1, 20}: neither model.** The inputs are outside training, and the error is large everywhere.
+
+**How much to trust the estimate.** It is not a certificate:
+- It tracks the true error map; correlation 0.79 (FNO) and 0.85 (MeshGraphNet) on the test set.
+- It over-estimates by 1.4 to 2.7× (the certified bounds below are the guarantee).
+- Its use verdicts agree with the same verdicts computed from the true error on 94 to 100 % of the samples in every
+  regime. Every disagreement is conservative: 6 % of the FNO's length-scale samples, and 1 % of its test samples,
+  are called "not OK" in the interior although they are.
 
 ## Set-up
 
@@ -48,7 +87,7 @@ model's own 99th percentiles on the 100 held-out in-distribution calibration inp
 labels. This layer is a drift monitor: it says whether the model is less physical here than where it was validated.
 **inputs** is the envelope check.
 
-## Results
+## Certified checks: use profiles (strict)
 
 | Regime | Model | rel. L2 (median) | fields: verdict, ratio (worst metric value / limit) | fluxes: verdict, ratio (worst metric value / limit) | vs validation | inputs |
 |---|---|---|---|---|---|---|
@@ -61,7 +100,8 @@ labels. This layer is a drift monitor: it says whether the model is less physica
 | test set | reference solver | — | APPROVED, 0.71× | APPROVED, 0.48× | — | — |
 | contrast {1, 20} | reference solver | — | **REJECT, 4.0×** | APPROVED, 0.90× | — | — |
 
-What this shows:
+The profiles judge the whole field with guaranteed bounds, so they are strict. They answer "can this prediction be
+certified for this use as a whole?"; the section above answers "where can it be used?". What this shows:
 
 1. **Neither model meets the engineering limits of either profile at this 60-minute CPU budget.** The physics layer
    does not separate the two models by verdict; it grades them. On `fields` the FNO is 4.6× closer (9.5× against

@@ -23,7 +23,9 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
     predictions on held-out in-distribution inputs (a drift monitor that needs no labels). `residual_l2_bound`
     certifies the L2 error. `PROFILES` / `profile_verdicts` give use profiles (`fields`, `fluxes`) with a-priori
     limits, their reasons, and a graded ratio value / limit. `sample_checks` checks one prediction exactly as
-    `pinneapple check` does, and `check_config_entry` writes its configuration. `darcy_checks`,
+    `pinneapple check` does, and `check_config_entry` writes its configuration. `estimated_error`,
+    `estimated_flux_error`, `regional_errors` and `use_verdicts` say where a prediction errs and which uses it can
+    serve (interior field; walls and boundary fluxes; inputs), from the residual alone. `darcy_checks`,
     `darcy_trust_report` and `trust_report` give the deploy decision for a batch.
   - `check_nodal_darcy_batch` (and `nodal_darcy_residual`, `solve_nodal_darcy`): the same kind of checks for
     training data stored at the nodes of a finite-difference grid, such as PhysicsNeMo's `Darcy2D` datapipe. It
@@ -37,7 +39,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
     `darcy-positivity`.
   - `operator_datasets.darcy_set` (Darcy pairs from shifted input distributions, solved like the zoo dataset) and
     `block_average`. `darcy_inputs` takes `tau`, `high` and `low`.
-  - `pinneapple_tools.visualization.trust_panels`: field panels with a trust verdict per model, as PNG or GIF.
+  - `pinneapple_tools.visualization.trust_panels`: field panels with verdict badges, residual and error maps, as PNG
+    or GIF.
   - Example `examples/vs_physicsnemo/07_physicsnemo_trains_pinneapple_checks` and the guide
     `docs/guides/physicsnemo_trust.md`. The `darcy-trust` job of the physics-check workflow runs the GitHub Action
     on the exported predictions.

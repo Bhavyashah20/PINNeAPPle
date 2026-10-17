@@ -130,12 +130,23 @@ def cmd_evaluate(args) -> None:
                        "drift": dc.trust_report(drift).decisao,
                        "inputs": dc.trust_report(ref, kinds=("applicability",)).decisao}
             err = ref[[c.kind for c in ref].index("reference")].values
-            out[m] = {"verdicts": verdict, "profiles": prof, "rel_l2_median": float(np.median(err)),
+            est = dc.regional_errors(u, data["a"], DARCY["f"])
+            masks = dc.region_masks(u.shape[-1])
+            true = {k: np.linalg.norm(((data["u"] - u) * mk).reshape(len(u), -1), axis=1)
+                    / np.linalg.norm((data["u"] * mk).reshape(len(u), -1), axis=1) for k, mk in masks.items()}
+            uses = [dc.use_verdicts(data["a"][i], u[i], DARCY["f"], envelope=envelope) for i in range(len(u))]
+            regions = {"estimated_median": {k: float(np.median(v)) for k, v in est.items()},
+                       "true_median": {k: float(np.median(v)) for k, v in true.items()},
+                       "use_ok_fraction": {k: float(np.mean([x[k]["ok"] for x in uses])) for k in uses[0]}}
+            out[m] = {"verdicts": verdict, "profiles": prof, "regions": regions,
+                      "rel_l2_median": float(np.median(err)),
                       "rel_l2_p90": float(np.quantile(err, 0.9)),
                       "checks": [c.to_dict() for c in ref + drift]}
             print(f"[{r:15s}] {LABEL[m]:12s} rel L2 median {out[m]['rel_l2_median']:.4f}  "
                   + "  ".join(f"{k} {v['decision']} ({v['ratio']:.2f}x, worst {v['worst']})" for k, v in prof.items())
                   + f"  drift {verdict['drift']}  inputs {verdict['inputs']}")
+            print(f"      regions: estimated {regions['estimated_median']}, true {regions['true_median']}, "
+                  f"uses OK {regions['use_ok_fraction']}")
     exported = _export_for_check(regimes, preds, calibrated, envelope)
     results["exported"] = exported
     (OUT / "results.json").write_text(json.dumps(results, indent=1, default=float))
@@ -208,8 +219,20 @@ def _export_for_check(regimes, preds, calibrated, envelope) -> dict:
 
 
 def _figures(regimes, preds, results, exported) -> None:
-    def badge(name, v):
-        return f"{name} (batch): {v['decision']} {v['ratio']:.1f}x limit"
+    """Where each model works and why: per regime, the predictions, their error map estimated from the residual
+    alone (dashed square: the interior, 8 cells from the walls), and per prediction which uses it can serve."""
+    train = pp.datasets.load("darcy_2d_li2021", split="train")
+    envelope = dc.CoefficientEnvelope.fit(train["a"])
+
+    def short(use, v):
+        if use == "inputs":
+            return "inputs: OK, as in training" if v["ok"] else "inputs: NO, outside training"
+        k = max(v["limits"], key=lambda k: v["values"][k] / v["limits"][k])
+        name = {"interior": "error", "wall": "wall error", "flux": "flux"}[k]
+        sign = "<=" if v["values"][k] <= v["limits"][k] else ">"
+        label = {"interior field": "interior field", "walls and fluxes": "walls & fluxes"}[use]
+        return f"{label}: {'OK' if v['ok'] else 'NO'}, {name} ~{100 * v['values'][k]:.0f}% {sign} " \
+               f"{100 * v['limits'][k]:g}%"
 
     def rows(j):
         out = []
@@ -218,43 +241,45 @@ def _figures(regimes, preds, results, exported) -> None:
                 continue
             ex = {m: exported[f"{r}/{m}_{j}"] for m in MODELS}
             i = ex[next(iter(MODELS))]["sample"]
-            panels = [Panel("reference solver", data["u"][i])]
+            a = data["a"][i]
+            panels = [Panel("reference solver (for reading)", data["u"][i])]
+            errs = []
             for m in MODELS:
-                res = results["regimes"][r][m]
-                err = np.linalg.norm(preds[(r, m)][i] - data["u"][i]) / np.linalg.norm(data["u"][i])
-                panels.append(Panel(f"PhysicsNeMo {LABEL[m]}", preds[(r, m)][i], note=f"error {100 * err:.1f}%",
-                                    verdicts=[badge("fields", res["profiles"]["fields"]),
-                                              badge("fluxes", res["profiles"]["fluxes"]),
-                                              f"vs validation (batch): {res['verdicts']['drift']}",
-                                              f"this sample, pinneapple check: {ex[m]['verdict']}"]))
-            for m in MODELS:
-                panels.append(Panel(f"{LABEL[m]} PDE residual", dc.darcy_residual(preds[(r, m)][i], data["a"][i],
-                                                                                    DARCY["f"]), kind="residual"))
+                u = preds[(r, m)][i]
+                err = np.linalg.norm(u - data["u"][i]) / np.linalg.norm(data["u"][i])
+                uses = dc.use_verdicts(a, u, DARCY["f"], envelope=envelope)
+                panels.append(Panel(f"PhysicsNeMo {LABEL[m]}", u, note=f"true error {100 * err:.1f}%",
+                                    verdicts=[short(k, uses[k]) for k in ("interior field", "walls and fluxes",
+                                                                          "inputs")]
+                                    + [f"CI, pinneapple check: {ex[m]['verdict']}"]))
+                e = np.abs(dc.estimated_error(u, a, DARCY["f"])) / np.max(np.abs(u)) * 100
+                errs.append(Panel(f"{LABEL[m]}: error of u", e, kind="error", inset=8))
+                errs.append(Panel(f"{LABEL[m]}: error of the flux", 100 * dc.estimated_flux_error(u, a, DARCY["f"]),
+                                  kind="error", inset=8))
             label = {"in_distribution": "test set (as trained)"}.get(r, SHIFTS.get(r, {}).get("label", r))
-            out.append(Row(f"{label}, sample {i}", panels))
+            out.append(Row(f"{label}, sample {i}", panels + errs))
         return out
+
     ind = results["regimes"]["in_distribution"]
-    passed = [(m, p) for m in MODELS for p in dc.PROFILES if ind[m]["profiles"][p]["decision"] == "APPROVED"]
-    closer = []
-    for p in dc.PROFILES:
-        rf, rm = ind["fno"]["profiles"][p]["ratio"], ind["meshgraphnet"]["profiles"][p]["ratio"]
-        best, k = ("FNO", rm / rf) if rf <= rm else ("MeshGraphNet", rf / rm)
-        closer.append(f"on {p} the {best} is {k:.1f}x closer")
-    summary = ("Test set: neither model meets the limits of either profile at this 60-min CPU budget; "
-               if not passed else "Test set: ") + "; ".join(closer) + "."
-    title = "PhysicsNeMo trains, PINNeAPPle says when to trust: 2-D Darcy, -div(a grad u) = 1"
-    footer = ("No reference solution used. (batch): over 100 samples of the regime. fields: certified L2 bound <= 5 %, "
-              "u = 0, u >= 0; fluxes: certified energy bound <= 10 %, flux balance <= 2 % (limits fixed a priori); "
-              "Nx limit = worst value / limit.\nvs validation: the same checks against the model's own values on "
-              "held-out test inputs. this sample: the exit of `pinneapple check` on this prediction (validated limits, "
-              "training envelope of a). Error vs the reference solver for reading only.\n" + summary)
-    rng = (1e-2, 3e2)
-    fig = trust_panels(rows(0), title=title, footer=footer, residual_range=rng)
+    rf, rm = ind["fno"]["regions"]["estimated_median"], ind["meshgraphnet"]["regions"]["estimated_median"]
+    title = "PhysicsNeMo trains, PINNeAPPle says where to trust: 2-D Darcy, -div(a grad u) = 1"
+    footer = (f"Orange maps: where each model errs, estimated from the PDE residual alone, no reference: the error of u "
+              f"(% of max u) and of the flux a grad u (% of the largest flux); dashed: interior, 8 cells from the "
+              f"walls.\nUses: interior field OK if the estimated interior error <= 5 %; walls & fluxes OK if the "
+              f"wall-band error <= 5 % and the flux balance <= 2 %.\n"
+              f"Why, on the test set: the FNO gets u right away from the walls (estimated median interior error "
+              f"{100 * rf['interior']:.1f} %) but not in the 2 cells next to them ({100 * rf['wall']:.0f} %), and its "
+              f"flux errs at the walls and along the jumps of a: trust its interior values, not its wall gradients or "
+              f"boundary fluxes.\nThe MeshGraphNet errs everywhere (interior {100 * rm['interior']:.0f} %, "
+              f"walls {100 * rm['wall']:.0f} %; its flux errs along every jump of a): 3.7 epochs in the same CPU "
+              f"hour and a 15-cell receptive field. "
+              f"Contrast {{1, 20}}: inputs outside training, errors everywhere. CI badge: `pinneapple check` on this "
+              f"prediction.")
+    kw = dict(title=title, footer=footer, error_max=15.0, error_label="estimated error, % of max", cell=2.6)
+    fig = trust_panels(rows(0), **kw)
     fig.savefig(OUT / "physicsnemo_darcy_trust.png", facecolor=fig.get_facecolor())
-    trust_panels_gif([rows(j) for j in range(2)], OUT / "physicsnemo_darcy_trust.gif", title=title, footer=footer,
-                     residual_range=rng, dpi=80, duration_ms=2500)
-    print("figure:", OUT / "physicsnemo_darcy_trust.png", "GIF:", OUT / "physicsnemo_darcy_trust.gif",
-          summary)
+    trust_panels_gif([rows(j) for j in range(2)], OUT / "physicsnemo_darcy_trust.gif", dpi=80, duration_ms=2500, **kw)
+    print("figure:", OUT / "physicsnemo_darcy_trust.png", "GIF:", OUT / "physicsnemo_darcy_trust.gif")
 
 
 def cmd_datapipe(args) -> None:

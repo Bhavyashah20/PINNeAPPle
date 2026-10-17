@@ -14,7 +14,9 @@ physics, without the reference solution, and gives a deploy decision per model a
 | Applicability | coefficient values and statistics inside the training envelope (`CoefficientEnvelope`) |
 | Reference (evaluation only) | relative L2 against the reference solver |
 
-The physics verdicts are given per use profile (`darcy_checks.PROFILES`: `fields` for maps of `u`, `fluxes` for flow
+The figure shows where each prediction errs (error maps of `u` and of the flux, estimated from the residual
+alone) and which uses it can serve (`use_verdicts`: interior field, walls and fluxes, inputs). The certified
+verdicts are given per use profile (`darcy_checks.PROFILES`: `fields` for maps of `u`, `fluxes` for flow
 rates and wall gradients). Each profile's limits are set a priori and come with a ratio *value / limit*. A second
 layer compares each model with its own values on held-out in-distribution inputs (`calibrate_tolerances`, no labels).
 

@@ -188,3 +188,41 @@ def test_l2_bound_and_use_profiles(solved):
     env = dc.CoefficientEnvelope.fit(a)
     assert dc.CoefficientEnvelope.from_check_config(env.to_check_config()) == env
     assert "envelope = {" in dc.check_config_entry("x", "x.npz", envelope=env, tolerances={"flux": 0.1})
+
+
+def test_where_it_errs_estimates_follow_the_true_error(solved):
+    a, u = solved
+    n = u.shape[-1]
+    x = (np.arange(n) + 0.5) / n
+    # an error confined to the walls, and one spread over the interior
+    wall = np.zeros((n, n))
+    wall[:2, :] = wall[-2:, :] = wall[:, :2] = wall[:, -2:] = 1.0
+    bump = np.sin(np.pi * x)[:, None] * np.sin(np.pi * x)[None, :]
+    for pert, worse in ((0.2 * wall * u, "wall"), (0.05 * bump * u.max(), "interior")):
+        v = u + pert
+        e = dc.estimated_error(v, a)
+        true = u - v
+        assert all(np.corrcoef(e[i].ravel(), true[i].ravel())[0, 1] > 0.6 for i in range(len(u)))
+        reg = dc.regional_errors(v, a)
+        assert reg[worse].mean() > reg[{"wall": "interior", "interior": "wall"}[worse]].mean()
+    assert np.abs(dc.estimated_error(u, a)).max() < 1e-10 and dc.estimated_flux_error(u, a).max() < 1e-10
+    # flux of a smooth field against the analytic a grad u
+    X, Y = np.meshgrid(x, x, indexing="ij")
+    q = dc.flux_magnitude(X * (1 - X) * Y * (1 - Y), np.full((n, n), 2.0))
+    exact = 2 * np.hypot((1 - 2 * X) * Y * (1 - Y), X * (1 - X) * (1 - 2 * Y))
+    assert np.abs(q - exact).max() < 0.02 * exact.max()
+    m = dc.region_masks(n)
+    assert m["wall"].sum() == n * n - (n - 4) ** 2 and not (m["wall"] & m["interior"]).any()
+
+
+def test_use_verdicts(solved):
+    a, u = solved
+    env = dc.CoefficientEnvelope.fit(a, q=0.0)              # covers every one of the 4 samples
+    ok = dc.use_verdicts(a[0], u[0], envelope=env)
+    assert set(ok) == set(dc.USES) | {"inputs"} and all(v["ok"] for v in ok.values())
+    v = u[0].copy()
+    v[:2, :] *= 1.5                                         # wrong next to one wall only
+    bad = dc.use_verdicts(a[0], v)
+    assert bad["interior field"]["ok"] and not bad["walls and fluxes"]["ok"] and ">" in bad["walls and fluxes"]["reason"]
+    wide = dc.use_verdicts(np.where(a[0] > 5, 20.0, 1.0), u[0], envelope=env)
+    assert not wide["inputs"]["ok"]

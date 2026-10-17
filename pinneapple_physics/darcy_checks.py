@@ -32,6 +32,10 @@ of them to round-off; a surrogate's prediction passes them only as far as it res
 ``sample_checks`` / ``sample_verdict``
     the checks of one prediction exactly as ``pinneapple check`` runs them, so a verdict shown next to a
     prediction is the CI's verdict.
+``estimated_error`` / ``estimated_flux_error`` / ``regional_errors`` / ``use_verdicts``
+    where the error is, from the residual alone: (uncertified) error maps of ``u`` and of the flux ``a grad u``, its size near the walls and in the
+    interior, and which uses a prediction can serve and why (interior field values; walls and boundary fluxes;
+    inputs inside the training envelope).
 ``physics_metrics`` / ``calibrate_tolerances``
     the per-sample values of the physics checks, and limits calibrated on a model's own predictions for held-out
     in-distribution inputs (no labels): a drift monitor that flags inputs where the model is less physical than
@@ -56,7 +60,8 @@ __all__ = [
     "DEFAULT_TOLERANCES", "darcy_operator_apply", "darcy_residual", "residual_error_bound", "boundary_flux_balance",
     "boundary_values", "coefficient_stats", "CoefficientEnvelope", "DarcyCheck", "darcy_checks",
     "darcy_trust_report", "residual_l2_bound", "UseProfile", "PROFILES", "profile_verdicts", "SAMPLE_CHECKS",
-    "sample_checks", "sample_verdict", "CHECK_TOLERANCE_KEYS", "check_config_entry", "save_darcy_npz", "nodal_darcy_residual", "nodal_boundary_values", "nodal_flux_balance",
+    "sample_checks", "sample_verdict", "estimated_error", "flux_magnitude", "estimated_flux_error", "region_masks", "regional_errors", "USES",
+    "use_verdicts", "CHECK_TOLERANCE_KEYS", "check_config_entry", "save_darcy_npz", "nodal_darcy_residual", "nodal_boundary_values", "nodal_flux_balance",
     "solve_nodal_darcy", "check_nodal_darcy_batch", "physics_metrics", "calibrate_tolerances", "trust_report",
 ]
 
@@ -488,6 +493,113 @@ def sample_checks(a: np.ndarray, u: np.ndarray, f: float = 1.0, *, tolerances: M
 def sample_verdict(checks: Sequence[Mapping[str, Any]]) -> str:
     """PASS when every check of :func:`sample_checks` passes, else FAIL (the exit status of ``pinneapple check``)."""
     return "PASS" if all(c["passed"] for c in checks) else "FAIL"
+
+
+# --------------------------------------------------------------------------------------------- where it works
+def estimated_error(u: np.ndarray, a: np.ndarray, f: float | np.ndarray = 1.0) -> np.ndarray:
+    """Map of the error of ``u`` estimated from its residual alone: ``e ~ L^-1 r / a_h``.
+
+    ``A_a e = r`` holds exactly for the error ``e = u_h - u`` to the discrete solution. Replacing ``A_a`` by the
+    constant-coefficient operator ``a_h L`` (``a_h`` the harmonic mean of ``a``, one fast sine transform) gives this
+    estimate. It is not a certified bound (see :func:`residual_error_bound` for that), but it says where the error
+    is. With the harmonic mean it tends to over-estimate: on the PhysicsNeMo Darcy example it is 1.4 to 2.7 times the
+    true error, with a correlation of 0.7 to 0.85 to the true error map.
+    """
+    a, u, single = _pair(a, u)
+    ah = 1.0 / np.mean(1.0 / a, axis=(-2, -1))
+    e = _laplace_inverse(darcy_residual(u, a, f)) / ah[:, None, None]
+    return e[0] if single else e
+
+
+def flux_magnitude(u: np.ndarray, a: np.ndarray) -> np.ndarray:
+    """``|a grad u|`` per cell from the solver's own face fluxes (harmonic-mean faces, half-cell Dirichlet faces):
+    each component is the mean of the cell's two face flux densities."""
+    a, u, single = _pair(a, u)
+    n = u.shape[-1]
+    h = 1.0 / n
+    comps = []
+    for ax in (1, 2):
+        sl_l = [slice(None)] * 3
+        sl_r = [slice(None)] * 3
+        sl_l[ax], sl_r[ax] = slice(None, -1), slice(1, None)
+        al, ar = a[tuple(sl_l)], a[tuple(sl_r)]
+        q_in = 2 * al * ar / (al + ar) * (u[tuple(sl_l)] - u[tuple(sl_r)]) / h        # interior faces, + direction
+        lo = [slice(None)] * 3
+        hi = [slice(None)] * 3
+        lo[ax], hi[ax] = slice(0, 1), slice(-1, None)
+        q_lo = -2 * a[tuple(lo)] * u[tuple(lo)] / h                                  # into the domain at the low wall
+        q_hi = 2 * a[tuple(hi)] * u[tuple(hi)] / h
+        faces = np.concatenate([q_lo, q_in, q_hi], axis=ax)
+        f_l = [slice(None)] * 3
+        f_r = [slice(None)] * 3
+        f_l[ax], f_r[ax] = slice(None, -1), slice(1, None)
+        comps.append(0.5 * (faces[tuple(f_l)] + faces[tuple(f_r)]))
+    q = np.hypot(*comps)
+    return q[0] if single else q
+
+
+def estimated_flux_error(u: np.ndarray, a: np.ndarray, f: float | np.ndarray = 1.0) -> np.ndarray:
+    """Map of the error of the flux ``a grad u`` estimated from the residual alone (:func:`estimated_error`),
+    relative to the largest flux of ``u``: ``|a grad e| / max |a grad u|``."""
+    a, u, single = _pair(a, u)
+    q = flux_magnitude(estimated_error(u, a, f), a) / np.maximum(flux_magnitude(u, a).max(axis=(-2, -1)),
+                                                                   1e-300)[:, None, None]
+    return q[0] if single else q
+
+
+def region_masks(n: int, wall_cells: int = 2, interior_from: int = 8) -> dict[str, np.ndarray]:
+    """Boolean masks of an ``n x n`` cell grid: ``wall`` (cells closer than ``wall_cells`` to the boundary) and
+    ``interior`` (at least ``interior_from`` cells away)."""
+    i = np.arange(n)
+    d = np.minimum.outer(np.minimum(i, n - 1 - i), np.minimum(i, n - 1 - i))
+    return {"wall": d < wall_cells, "interior": d >= interior_from}
+
+
+def regional_errors(u: np.ndarray, a: np.ndarray, f: float | np.ndarray = 1.0, *, wall_cells: int = 2,
+                    interior_from: int = 8) -> dict[str, np.ndarray]:
+    """Relative error estimated without a reference (:func:`estimated_error`) in the ``wall`` and ``interior``
+    regions of :func:`region_masks`, per sample: ``||e||_region / ||u||_region``."""
+    a, u, single = _pair(a, u)
+    e = estimated_error(u, a, f)
+    out = {}
+    for k, m in region_masks(u.shape[-1], wall_cells, interior_from).items():
+        out[k] = np.linalg.norm((e * m).reshape(len(u), -1), axis=1) / \
+            np.maximum(np.linalg.norm((u * m).reshape(len(u), -1), axis=1), 1e-300)
+    return {k: v[0] for k, v in out.items()} if single else out
+
+
+#: Uses of a Darcy prediction and what each needs; limits fixed a priori (the library's tolerances).
+USES: dict[str, dict[str, Any]] = {
+    "interior field": {"needs": {"interior": 0.05}, "why": "values of u away from the walls (maps, maxima): "
+                       "estimated interior error within the 5 % of a reference comparison"},
+    "walls and fluxes": {"needs": {"wall": 0.05, "flux": 0.02}, "why": "values and gradients next to the walls, "
+                         "boundary flow rates: estimated wall-band error within 5 % and flux balance within 2 %"},
+}
+
+
+def use_verdicts(a: np.ndarray, u: np.ndarray, f: float = 1.0, *, envelope: CoefficientEnvelope | None = None,
+                 wall_cells: int = 2, interior_from: int = 8) -> dict[str, dict[str, Any]]:
+    """For one prediction (``(n, n)``): which uses it can serve, and why (:data:`USES`), from the residual alone,
+    plus ``inputs`` (the coefficient inside the training envelope). Each entry: ``ok``, the measured ``values``, the
+    ``limits`` and a one-line ``reason``."""
+    reg = regional_errors(u, a, f, wall_cells=wall_cells, interior_from=interior_from)
+    vals = {"interior": float(reg["interior"]), "wall": float(reg["wall"]),
+            "flux": float(boundary_flux_balance(u, a, f)["imbalance"])}
+    names = {"interior": "interior error", "wall": "wall-band error", "flux": "flux imbalance"}
+    out: dict[str, dict[str, Any]] = {}
+    for use, spec in USES.items():
+        lim = spec["needs"]
+        bad = [k for k in lim if not vals[k] <= lim[k]]
+        worst = max(lim, key=lambda k: vals[k] / lim[k])
+        reason = (f"{names[worst]} ~{100 * vals[worst]:.1f} % > {100 * lim[worst]:g} %" if bad else
+                  f"{names[worst]} ~{100 * vals[worst]:.1f} % <= {100 * lim[worst]:g} %")
+        out[use] = {"ok": not bad, "values": {k: vals[k] for k in lim}, "limits": dict(lim), "reason": reason,
+                    "why": spec["why"]}
+    if envelope is not None:
+        viol = envelope.violations(a)[0]
+        out["inputs"] = {"ok": not viol, "values": {}, "limits": {}, "why": "coefficient inside the training "
+                         "envelope", "reason": "inside the training envelope" if not viol else viol[0]}
+    return out
 
 
 def trust_report(checks: Sequence[DarcyCheck], *, model: str = "",
