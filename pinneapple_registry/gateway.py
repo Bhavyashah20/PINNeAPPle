@@ -88,6 +88,26 @@ def _split_uri(uri: str) -> tuple[str, str, str | None]:
     return base, parts[0], version
 
 
+def _zoo_assess(zm, names: Sequence[str], bounds: Mapping[str, Sequence[float]]):
+    """The zoo model's own applicability check (``in_range``: its card can state the range on derived quantities,
+    e.g. a fin gap computed from several inputs), with the per-input reasons where an input has its own bounds."""
+    named = [n for n in names if n in bounds]
+    box = _box_assess(named, bounds)
+
+    def assess(X):
+        X = np.atleast_2d(X)
+        ok = np.asarray(zm.in_range({n: X[:, j] for j, n in enumerate(names)}), bool).reshape(len(X))
+        rows = box(X[:, [names.index(n) for n in named]]) if named else [{"outside": [], "reasons": []}] * len(X)
+        out = []
+        for good, r in zip(ok, rows, strict=True):
+            reasons = list(r["reasons"])
+            if not good and not reasons:
+                reasons = ["outside the validity range stated in the model card (on derived quantities)"]
+            out.append({"ood": bool(not good or r["outside"]), "outside": list(r["outside"]), "reasons": reasons})
+        return out
+    return assess
+
+
 class ModelGateway(ModelStore):
     def __init__(self, root: str, *, cache_size: int = 8):
         super().__init__(root)
@@ -270,7 +290,7 @@ class ModelGateway(ModelStore):
             def run(X, zm=zm, names=names):
                 out = zm.predict({n: X[:, j] for j, n in enumerate(names)}, warn=False)
                 return {k: np.asarray(v) for k, v in out.items()}
-            p = _Predictor(names, list(zm.output_names), run, _box_assess(names, meta["validity_bounds"]))
+            p = _Predictor(names, list(zm.output_names), run, _zoo_assess(zm, names, meta["validity_bounds"]))
         elif kind == "remote":
             from .gateway_client import GatewayClient
             rm = meta["remote"]

@@ -109,6 +109,21 @@ def test_gateway_zoo_model(tmp_path):
     assert r["ood"][1]["outside"] == ["alpha_deg"]
 
 
+def test_gateway_zoo_model_with_derived_validity(tmp_path):
+    """The heatsink card bounds derived quantities (fin gap), not n_fins: the zoo model's own check decides."""
+    import pinneapple as pp
+    g = ModelGateway(str(tmp_path / "gw"))
+    g.publish("hs", "heatsink_forced_mlp", kind="pinneapple.zoo", ood_policy="refuse")
+    zm = pp.zoo.load("heatsink_forced_mlp")
+    row = {k: float(np.mean(v)) for k, v in zm.bounds().items()}
+    row.update(n_fins=12.0, source_width_mm=0.5 * row["base_width_mm"], source_depth_mm=0.5 * row["base_depth_mm"])
+    ok = g.predict("hs", row)
+    assert ok["ood"][0]["ood"] == (not bool(zm.in_range({k: [v] for k, v in row.items()})[0]))
+    crowded = g.predict("hs", {**row, "n_fins": 400.0})            # fins far too dense for the base width
+    assert crowded["ood"][0]["ood"] and crowded["outputs"][zm.output_names[0]] == [None]
+    assert crowded["ood"][0]["reasons"]
+
+
 def test_gateway_rest_routes(tmp_path, model):
     pytest.importorskip("fastapi")
     from fastapi import FastAPI
