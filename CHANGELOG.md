@@ -19,7 +19,8 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   estimators, checked against the exact Ishigami and Sobol' G indices), indices from runs done elsewhere
   (`saltelli_design` + `sobol_from_runs`), given-data first-order indices, Morris elementary effects, partial
   dependence and ICE curves, local derivatives by autodiff or central differences, and a freeze recommendation that
-  uses the upper confidence bound plus a direct re-run check (`verify_freeze`).
+  uses the upper confidence bound plus a direct re-run check (`verify_freeze`); `sensitivity_study` runs them
+  together on one model and `study_cost` gives its number of evaluations beforehand.
 - Uncertainty-study helpers in `pp.uncertainty`: input distributions (uniform, normal, truncated normal, lognormal,
   triangular) sampled by MC, LHS or Sobol (`distributions`); `propagate_space` (`pp.propagate_uncertainty`);
   least-squares polynomial chaos with leave-one-out Q2 and Sobol indices (`polynomial_chaos`); split-conformal

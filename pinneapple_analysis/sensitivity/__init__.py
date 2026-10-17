@@ -9,6 +9,7 @@
 ``local_derivatives(fn, x0, torch_fn=)``   Jacobian by autodiff (torch) or central differences
 ``freeze_recommendation`` / ``verify_freeze``  which inputs can be fixed, and the direct check of that claim
 ``testfunctions``                          Ishigami and Sobol' G with their exact indices
+``sensitivity_study`` / ``study_cost``     all of the above on one model, and its cost in evaluations
 =========================================  =====================================================================
 
 Inputs are described as in :mod:`pinneapple_analysis.uncertainty.distributions` (uniform, normal, truncated normal,
@@ -32,8 +33,9 @@ from pinneapple_analysis.sensitivity.sobol import (
     sobol_from_runs,
     sobol_indices,
 )
+from pinneapple_analysis.sensitivity.study import sensitivity_study, study_cost
 
 __all__ = ["SobolIndices", "sobol_indices", "saltelli_design", "sobol_from_evaluations", "sobol_from_runs",
            "first_order_given_data",
            "MorrisResult", "morris", "morris_design", "effect_curves", "local_derivatives", "freeze_recommendation",
-           "verify_freeze", "testfunctions"]
+           "verify_freeze", "testfunctions", "sensitivity_study", "study_cost"]

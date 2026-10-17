@@ -155,3 +155,33 @@ def test_study_models_builtin_zoo_and_onnx():
     graph = StudyModel.from_onnx(export_bytes(zoo.load("heatsink_forced_mlp")), input_names=hs.input_names,
                                  output_names=["r_base_k_w", "pressure_drop_pa", "r_upper"])
     np.testing.assert_allclose(graph.predict(X[:50])[:, :2], hs.predict(X[:50]), rtol=1e-4)
+
+
+def test_sensitivity_study_on_ishigami_reports_errors_against_the_exact_indices():
+    from pinneapple_analysis.sensitivity import sensitivity_study, study_cost
+    from pinneapple_analysis.study_models import builtin
+    b = builtin("ishigami")
+    out = sensitivity_study(b, b.metadata["space"], n_sobol=2048, second_order=True, n_grid=9, n_background=32,
+                            exact=b.metadata["exact"])
+    assert out["exact"]["max_abs_error_S1"] < 0.02 and out["exact"]["max_abs_error_ST"] < 0.02
+    assert out["sobol"]["ranking"]["y"] == ["x1", "x2", "x3"]
+    cost = study_cost(3, 2048, True, n_grid=9, n_background=32)
+    assert out["n_evals"]["sobol"] == cost["parts"]["sobol"] and out["n_evals"]["effects"] == cost["parts"]["effects"]
+    assert {r["name"]: r["decision"] for r in out["freeze"]["rows"]} == {"x1": "keep", "x2": "keep", "x3": "keep"}
+
+
+def test_sensitivity_study_freezes_an_inert_input_and_checks_it():
+    from pinneapple_analysis.sensitivity import sensitivity_study
+    from pinneapple_analysis.study_models import StudyModel
+
+    def f(X):
+        return np.column_stack([X[:, 0] ** 2 + 0.5 * X[:, 1], X[:, 0] + X[:, 2] * 0.0])
+
+    m = StudyModel.from_function(f, ["a", "b", "c", "k"], ["y", "z"])
+    space = [{"name": n, "low": 0, "high": 1} for n in ("a", "b", "c")]
+    out = sensitivity_study(m, space, fixed={"k": 3.0}, n_sobol=512, effects_on=False)
+    dec = {r["name"]: r["decision"] for r in out["freeze"]["rows"]}
+    assert dec == {"a": "keep", "b": "keep", "c": "freeze"}
+    assert out["freeze"]["check"]["max_change_sd"] == [0.0, 0.0]
+    with pytest.raises(ValueError, match="fixed value"):
+        sensitivity_study(m, space)
