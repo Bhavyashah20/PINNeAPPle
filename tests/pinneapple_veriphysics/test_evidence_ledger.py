@@ -11,11 +11,31 @@ from pathlib import Path
 
 import pytest
 
-from pinneapple_veriphysics.evidence_package import (build_package, build_report, load_source, make_figures,
-                                                     render_html, render_pdf, verify_package)
-from pinneapple_veriphysics.ledger import NOT_RUN, EvidenceEntry, EvidenceLedger, sha256_bytes, utc_now
-from pinneapple_veriphysics.validation_lab import (CodeNotAllowed, DISCLAIMER, category_of, config_from_spec,
-                                                   render_html as lab_html, run_validation, to_toml)
+from pinneapple_veriphysics.evidence_package import (
+    build_package,
+    build_report,
+    load_source,
+    make_figures,
+    render_html,
+    render_pdf,
+    verify_package,
+)
+from pinneapple_veriphysics.ledger import (
+    NOT_RUN,
+    EvidenceEntry,
+    EvidenceLedger,
+    sha256_bytes,
+    utc_now,
+)
+from pinneapple_veriphysics.validation_lab import (
+    DISCLAIMER,
+    CodeNotAllowed,
+    category_of,
+    config_from_spec,
+    run_validation,
+    to_toml,
+)
+from pinneapple_veriphysics.validation_lab import render_html as lab_html
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -41,7 +61,7 @@ def test_status_comes_only_from_complete_intact_records():
     noout = led.add(EvidenceEntry("noout", inputs_sha256=H, started_at=utc_now(), finished_at=utc_now(),
                                   passed=True).seal())
     assert led.status("noout") == NOT_RUN and "no recorded outputs" in noout.problems()
-    notime = led.add(EvidenceEntry("notime", inputs_sha256=H, outputs={}, passed=True).seal())
+    led.add(EvidenceEntry("notime", inputs_sha256=H, outputs={}, passed=True).seal())
     assert led.status("notime") == NOT_RUN
     unsealed = led.add(EvidenceEntry("unsealed", inputs_sha256=H, outputs={}, started_at="t", finished_at="t",
                                      passed=True))
@@ -69,7 +89,7 @@ def test_run_context_records_time_and_a_crash_is_not_a_pass():
     with pytest.raises(ZeroDivisionError):
         with led.run("crash", inputs_sha256=H) as rec:
             rec.outputs = {}
-            1 / 0
+            raise ZeroDivisionError("division by zero")
     assert led.status("crash") == NOT_RUN and "ZeroDivisionError" in led.entries[-1].error
 
 
@@ -226,3 +246,16 @@ def test_lab_report_feeds_the_evidence_report(lab_pass):
     assert rep["test_counts"]["passed"] == lab_pass["summary"]["checks"] and rep["test_counts"]["not run"] == 0
     assert rep["configs"] and "pinneapple check --config" in rep["configs"][0]["reproduce"]
     assert any("no validation against data check ran" in x for x in rep["limitations"])
+
+
+def test_uploads_are_written_safely_and_tables_become_csv(tmp_path):
+    from pinneapple_veriphysics.validation_lab import tables_to_csv, write_inputs
+
+    pd = pytest.importorskip("pandas")
+    with pytest.raises(ValueError):
+        write_inputs(tmp_path, {"../evil.txt": b"x"})
+    rows = [{"x": 0.0, "y": 0.0, "z": 0.0, "T": 300.0}, {"x": 1.0, "y": 0.0, "z": 0.0, "T": 310.0}]
+    write_inputs(tmp_path, {"probe.json": json.dumps(rows).encode(), "manifest.json": b'{"a": "b"}'})
+    cfg, done = tables_to_csv(tmp_path, '[[result]]\npath = "probe.json"\n')
+    assert done == {"probe.json": "probe.csv"} and '"probe.csv"' in cfg
+    assert pd.read_csv(tmp_path / "probe.csv")["T"].tolist() == [300.0, 310.0]

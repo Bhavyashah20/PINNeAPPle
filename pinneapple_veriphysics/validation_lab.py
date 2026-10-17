@@ -38,7 +38,7 @@ from typing import Any
 
 from .ledger import EvidenceLedger, sha256_bytes, sha256_file, sha256_json, utc_now
 
-__all__ = ["CATEGORIES", "DISCLAIMER", "LAB_SCHEMA", "category_of", "to_toml", "config_from_spec",
+__all__ = ["write_inputs", "tables_to_csv", "CATEGORIES", "DISCLAIMER", "LAB_SCHEMA", "category_of", "to_toml", "config_from_spec",
            "model_ref_target", "assert_no_code", "CodeNotAllowed", "run_validation", "LabReport", "render_html",
            "summarize"]
 
@@ -179,6 +179,55 @@ def assert_no_code(cfg) -> None:
 
 
 # ---------------------------------------------------------------------------------------------- running
+def write_inputs(root: str | Path, files: dict[str, bytes]) -> list[str]:
+    """Write uploaded files (``{relative path: bytes}``, e.g. from ``pinneapple_data.cae.upload.expand``) under
+    ``root``; a name that would land outside ``root`` is refused."""
+    base = Path(root).resolve()
+    out = []
+    for name, data in files.items():
+        p = (base / name).resolve()
+        if base not in p.parents:
+            raise ValueError(f"{name}: path outside the upload")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(data)
+        out.append(p.relative_to(base).as_posix())
+    return out
+
+
+def tables_to_csv(root: str | Path, config_text: str | None = None) -> tuple[str | None, dict[str, str]]:
+    """Parquet files and JSON tables (a list of row objects, or an object of equal-length columns) under ``root``
+    become CSV next to them, which ``pinneapple check`` reads as point clouds or quantities of interest. Returns the
+    configuration with the references renamed and ``{old: new}``. Other JSON (manifests, reports) is left alone."""
+    import pandas as pd
+
+    base = Path(root).resolve()
+    done: dict[str, str] = {}
+    for f in sorted([*base.rglob("*.parquet"), *base.rglob("*.json")]):
+        try:
+            if f.suffix == ".parquet":
+                df = pd.read_parquet(f)
+            else:
+                obj = json.loads(f.read_text(encoding="utf-8"))
+                if isinstance(obj, list) and obj and all(isinstance(r, dict) for r in obj):
+                    df = pd.DataFrame(obj)
+                elif isinstance(obj, dict) and obj and all(isinstance(v, list) for v in obj.values()) \
+                        and len({len(v) for v in obj.values()}) == 1:
+                    df = pd.DataFrame(obj)
+                else:
+                    continue
+        except (ValueError, OSError, ImportError):
+            continue
+        new = f.with_suffix(".csv")
+        if new.exists():
+            continue
+        df.to_csv(new, index=False)
+        done[f.relative_to(base).as_posix()] = new.relative_to(base).as_posix()
+    if config_text is not None:
+        for old, new in done.items():
+            config_text = config_text.replace(f'"{old}"', f'"{new}"').replace(f"'{old}'", f"'{new}'")
+    return config_text, done
+
+
 def _hash_path(p: Path) -> str:
     if p.is_file():
         return sha256_file(p)
