@@ -73,8 +73,8 @@ nano .env        # domains, ACME e-mail, logins (use long passwords)
 |---|---|
 | `HSS_DOMAIN`, `PCB_DOMAIN`, `EDH_DOMAIN`, `EDS_DOMAIN`, `SMD_DOMAIN`, `UDR_DOMAIN`, `IHL_DOMAIN`, `PFL_DOMAIN`, `MQA_DOMAIN`, `CMP_DOMAIN`, `LIN_DOMAIN`, `IOP_DOMAIN`, `ADO_DOMAIN`, `OBS_DOMAIN`, `PLG_DOMAIN`, `VAL_DOMAIN`, `SEN_DOMAIN`, `UQL_DOMAIN` | Public hostnames (must match the DNS records) |
 | `ACME_EMAIL` | Let's Encrypt account / expiry notices |
-| `<APP>_USER` / `<APP>_PASSWORD` (HSS, PCB, EDH, EDS, SMD, UDR, IHL, PFL, MQA, CMP, LIN, IOP, ADO, OBS, UQL, SEN) | HTTP Basic login per app. If either is empty, that app is public. `/health` is always public. OBS, VAL)|
-| `HSS_MAX_SIZING`, `PCB_MAX_HEAVY`, `EDH/EDS/SMD/UDR/PFL/MQA/CMP/LIN/IOP/ADO/UQL/SEN_MAX_HEAVY` | Concurrent heavy runs per app. Any excess gets HTTP 429. `EDH/EDS/SMD/UDR/PFL/MQA/CMP/LIN/IOP/ADO/VAL_MAX_HEAVY`|
+| `<APP>_USER` / `<APP>_PASSWORD` (HSS, PCB, EDH, EDS, SMD, UDR, IHL, PFL, MQA, CMP, LIN, IOP, ADO, OBS, UQL, SEN, VAL) | HTTP Basic login per app. If either is empty, that app is public. `/health` is always public. |
+| `HSS_MAX_SIZING`, `PCB_MAX_HEAVY`, `EDH/EDS/SMD/UDR/PFL/MQA/CMP/LIN/IOP/ADO/UQL/SEN/VAL_MAX_HEAVY` | Concurrent heavy runs per app. Any excess gets HTTP 429. |
 | `HSS_MEM_LIMIT`, `PCB_MEM_LIMIT` | Container memory caps |
 | `IHL_MAX_JOBS` | Inverse Heat Lab: trainings running at the same time (default 2, each uses one CPU core). Any excess gets HTTP 429. The app runs one worker because jobs live in its memory. |
 | `UDR_FORM_PDF` | Path inside the `udr` container to your copy of the fillable Form U-DR-1 (put the file in `apps/deploy/forms/`). Optional: users can upload it instead. |
