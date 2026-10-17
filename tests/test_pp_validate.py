@@ -173,3 +173,16 @@ def test_pp_validate_is_callable_and_keeps_the_old_namespace():
     rep = pp.validate(lambda x: {"y": 2 * np.asarray(x["x"])}, {"valid_range": {"x": (0, 1)}},
                       query={"x": [0.5, 2.0]}, level="quick")
     assert rep.verdict.startswith("fail: out of validity range")
+
+
+def test_exact_solver_passes_with_a_source_symmetric_in_one_direction_only():
+    # f varies along the second axis: symmetric under x-reflection (first axis) but not under transposition, so only
+    # the reflection may be tested; the exact solver must not be rejected for a symmetry the problem does not have
+    from pinneapple_simulation.numerical_solvers import operator_benchmarks as ob
+    f = np.tile(np.linspace(0.5, 2.0, 16), (16, 1))
+    a = ob.threshold_coefficient(ob.periodic_grf(8, (16, 16), alpha=2.0, tau=3.0, seed=3))
+    solver = lambda x: np.stack([ob.darcy_2d(y, f) for y in x])        # noqa: E731
+    rep = validate(solver, {"pde": "darcy", "f": f}, query=a, level="standard")
+    ids = [c.id for c in rep.checks]
+    assert "metamorphic.symmetry.reflect-x" in ids and "metamorphic.symmetry.transpose" not in ids
+    assert rep["metamorphic.symmetry.reflect-x"].status == "pass" and rep.decision != "fail", str(rep)
