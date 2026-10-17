@@ -422,6 +422,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   one) left no point outside the training box and `_sample_shell` looped forever, hanging `ensemble_study` and
   `extrapolation_study`; it now raises a clear `ValueError`. The evaluation points came from the global NumPy
   random state, so the same study gave different evidence on every run; sampling is now seeded and reproducible.
+- `pinneapple check`: a grid with 2 points along an axis made `numpy.gradient` raise "Shape of array too small" in
+  the residual and the balances, and the run ended with a traceback, so no other target was reported. Such an axis
+  now uses first-order ends, and a residual with no interior point is noted as not evaluated instead of passing on
+  an empty set. A check that still raises is reported as a PC001 error on its target, and the run goes on with the
+  remaining targets.
 - CalculiX Docker image (`pinneapple_simulation.external_solvers.calculix.runner.ensure_image`): every build attempt
   pulled the Debian base from public.ecr.aws, which answers 429 ("Data limit exceeded") on busy shared CI runners,
   so the retries failed the same way and the real-CalculiX test turned unrelated pull requests red. Each retry now
