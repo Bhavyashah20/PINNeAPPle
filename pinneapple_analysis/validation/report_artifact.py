@@ -332,6 +332,9 @@ def sign_report(report, key) -> dict[str, Any]:
 
 
 def verify_report(envelope: dict[str, Any], key) -> dict[str, Any]:
-    """The report inside a signed envelope; raises when the signature does not verify."""
+    """The report inside a signed envelope; raises when the signature does not verify or the envelope holds another
+    kind of document (the type is part of the signed data, so it cannot be swapped)."""
     from pinneapple_security.signing import verify_json
+    if envelope.get("payloadType") != PAYLOAD_TYPE:
+        raise ValueError(f"not a validation report envelope (payloadType {envelope.get('payloadType')!r})")
     return verify_json(envelope, key)

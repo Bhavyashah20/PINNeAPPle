@@ -422,21 +422,23 @@ def _darcy_checks(f, data, reference, query, level, tol, rhs, seed) -> list[Vali
         C.append(ValidationCheck("reference.spectral", NA, "no reference solutions given"))
     # ---- metamorphic: the square's symmetries (f symmetric) map solutions to solutions
     from .metamorphic import Symmetry, check_relations
-    sym_ok = np.allclose(np.broadcast_to(np.asarray(rhs, float), (n, n)),
-                         np.flip(np.broadcast_to(np.asarray(rhs, float), (n, n)), 0))
-    if sym_ok:
+    F = np.broadcast_to(np.asarray(rhs, float), (n, n))
+    rels = []                                                   # only the symmetries the source itself has
+    if np.allclose(F, np.flip(F, 0)):
+        rels.append(Symmetry("reflect-x", tol["symmetry"], transform_in=lambda x: np.flip(x, 1),
+                             transform_out=lambda x, y: np.flip(y, 1)))
+    if np.allclose(F, F.T):
+        rels.append(Symmetry("transpose", tol["symmetry"], transform_in=lambda x: np.swapaxes(x, 1, 2),
+                             transform_out=lambda x, y: np.swapaxes(y, 1, 2)))
+    if rels:
         Qs = Q[: min(len(Q), 8)]
-        rels = [Symmetry("reflect-x", tol["symmetry"], transform_in=lambda x: np.flip(x, 1),
-                         transform_out=lambda x, y: np.flip(y, 1)),
-                Symmetry("transpose", tol["symmetry"], transform_in=lambda x: np.swapaxes(x, 1, 2),
-                         transform_out=lambda x, y: np.swapaxes(y, 1, 2))]
         rep = check_relations(f, rels, lambda rng, k: Qs, n=len(Qs), seed=seed)
         for r in rep.results:
             C.append(ValidationCheck(f"metamorphic.symmetry.{r.name}", _status(r.passed),
                                      f"worst relative violation {r.worst:.3g} over {r.n_tested} queries",
                                      value=r.worst, threshold=r.tol))
     else:
-        C.append(ValidationCheck("metamorphic", NA, "the source is not symmetric: no symmetry to test"))
+        C.append(ValidationCheck("metamorphic", NA, "the source has neither symmetry: no symmetry to test"))
     # ---- data audit
     if data:
         from pinneapple_data.audit import audit_dataset
