@@ -478,6 +478,11 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
   `aero.render_blender` the studio `jet`.
 
 ### Fixed
+- Quantile regression (`pinneapple_analysis.uncertainty.quantile`): `QuantileLoss` scored the first `Q` outputs
+  when the model produced more outputs than levels and raised a bare `IndexError` when it produced fewer; the pinball
+  loss broadcast a `(B, 1)` target against `(B, H)` predictions; a level outside (0, 1) such as 1.5 was accepted and
+  gave a loss that rewards over-prediction without bound. All of these now raise a clear `ValueError`, as do empty
+  or repeated levels in `QuantileConfig` and `QuantileLoss`.
 - Encounter feasibility (`pinneapple_analysis.uncertainty.reachability`): contact was looked for only at the
   `n` time samples, so a fast flyby whose regions overlapped between two samples was reported as impossible (a
   closest approach of 0.05 against a radius of 0.1 at 2000 units per second came out `possible=False`). The closest
