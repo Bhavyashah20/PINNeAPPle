@@ -116,7 +116,7 @@ class StudyResult:
                "", "## Protocol", "",
                f"- Splits: {sp['n_train']} train, {sp['n_val']} validation, {sp['n_test']} held-out test, "
                f"{sp['n_shift']} distribution shift ({sp['shift_description'] or 'none'}); split seed {sp['seed']}.",
-               f"- Budget per training run: {self.budget.to_dict()}; seeds {self.seeds}.",
+               f"- Budget per training run: {_budget_text(self.budget)}; seeds {self.seeds}.",
                f"- Metric: {self.metric} (lower is better), in physical units on data no method trained on.",
                *[f"- {n}" for n in self.notes],
                f"- Hardware: {self.hardware.get('cpu', '?')}, {self.hardware.get('logical_cpus', '?')} logical CPUs, "
@@ -161,6 +161,11 @@ class StudyResult:
                 "limitations": self.limitations, "trust": self.trust, "created": self.created,
                 "hardware": self.hardware, "pde": self.pde, "notes": self.notes,
                 "model_card": self.model.card if self.model else None}
+
+
+def _budget_text(b: ComputeBudget) -> str:
+    unit = {"wall_s": "s wall clock", "flops": "FLOPs", "steps": "optimiser steps"}
+    return ", ".join(f"{v:g} {unit[k]}" for k, v in b.to_dict().items() if v is not None)
 
 
 def _mean_std(v: list[float]) -> tuple[float | None, float | None]:
@@ -337,6 +342,6 @@ def _run(data, methods, budget, seeds, splits, split_options, pde, target, optio
                            grid_shape=data.grid_shape, coords=data.coords, coord_names=data.coord_names, card=card)
     if any(r["applicable"] and not r["iterative"] for r in rows):
         notes.append("One-shot fits (ridge, gp, gbt) are fitted once and report the time they used; the iterative "
-                     f"methods each used the full budget {budget.to_dict()}.")
+                     f"methods each used the full budget ({_budget_text(budget)}).")
     return StudyResult(data, sp, budget, seeds, rows, best["id"], model, lim, trust, metric, created,
                        hardware_record(), decl, notes)
