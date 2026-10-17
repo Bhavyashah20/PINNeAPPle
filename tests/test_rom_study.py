@@ -38,8 +38,9 @@ def test_split_holds_out_the_last_times_and_never_trains_on_them():
 
 
 def test_dmd_and_opinf_forecast_a_linear_wave_and_time_interpolation_cannot():
-    r = rom_study(_wave(), ranks=[2, 4, 8], methods=["pod_rbf", "dmd", "opinf"], timing_repeats=2)
+    r = rom_study(_wave(), ranks=[2, 4, 8], methods=["persistence", "pod_rbf", "dmd", "opinf"], timing_repeats=2)
     err = {(x["method"], x["rank"]): x["error_mean"] for x in r.rows}
+    assert err[("persistence", None)] > 0.5                          # the waves move: the last snapshot is wrong
     assert err[("opinf", 4)] < 1e-3          # rank 4 holds the two waves (OpInf works on centred coefficients)
     assert err[("dmd", 8)] < 1e-3            # uncentred DMD: the mean is one more mode
     assert err[("dmd", 4)] > 0.1 and err[("opinf", 2)] > 0.1

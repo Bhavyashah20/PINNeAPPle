@@ -15,6 +15,7 @@ Methods (all from ``pinneapple_neural.architectures.rom``):
 ``pod_rbf``   POD + radial-basis interpolation of the coefficients in the parameters (or in time)
 ``pod_gpr``   POD + one Gaussian process per coefficient (parametric data)
 ``nearest``   the nearest training snapshot (baseline every surrogate must beat; parametric data)
+``persistence`` the latest training snapshot at or before the time (the baseline of a forecast)
 ``dmd``       dynamic mode decomposition: a linear map between consecutive snapshots (uniform time step); exact
               (uncentred) DMD, so the mean field is one of its ``rank`` modes
 ``opinf``     operator inference: a quadratic map of the POD coefficients, ridge regularisation chosen on the end
@@ -45,11 +46,11 @@ import torch
 __all__ = ["ReducedModel", "ROMStudyResult", "rom_study", "fit_reduced_model", "split_snapshots", "default_ranks",
            "field_scales", "METHODS"]
 
-METHODS = {"time": ("pod_rbf", "dmd", "opinf", "neural"),
+METHODS = {"time": ("persistence", "pod_rbf", "dmd", "opinf", "neural"),
            "parametric": ("nearest", "pod_rbf", "pod_gpr", "neural")}
-LABELS = {"pod_rbf": "POD + RBF", "pod_gpr": "POD + GPR", "nearest": "Nearest snapshot", "dmd": "DMD",
+LABELS = {"persistence": "Persistence (latest snapshot)", "pod_rbf": "POD + RBF", "pod_gpr": "POD + GPR", "nearest": "Nearest snapshot", "dmd": "DMD",
           "opinf": "Operator Inference", "neural": "Neural surrogate"}
-RANKLESS = {"nearest", "neural"}
+RANKLESS = {"nearest", "neural", "persistence"}
 FORMAT = "pinneapple-rom/1"
 
 
@@ -174,6 +175,10 @@ class ReducedModel:
         t = np.atleast_1d(np.asarray(times, float))
         if self.method in ("pod_rbf", "pod_gpr", "nearest"):
             return self._predict_inputs(t[:, None])
+        if self.method == "persistence":
+            at = self.arrays["anchor_t"]
+            j = np.clip(np.searchsorted(at, t + 1e-9, side="right") - 1, 0, len(at) - 1)
+            return self.arrays["X"][j].copy()
         return self._rollout(t)
 
     def _ppod(self):
@@ -506,6 +511,10 @@ def fit_reduced_model(snaps, train: Sequence[int], method: str, rank: int | None
         rank = None if method == "nearest" else ppod.rank
         m = ReducedModel(method, mode, rank, arrays, cfg)
         m._cache["ppod"] = ppod
+    elif method == "persistence":
+        if mode != "time":
+            raise ValueError("persistence is a baseline of time series")
+        m = ReducedModel(method, mode, None, {"X": X, "anchor_t": snaps.times[train].astype(float)}, cfg)
     elif method == "dmd":
         dt = _uniform_dt(snaps.times[train]) if mode == "time" else None
         if dt is None:
@@ -735,6 +744,9 @@ def rom_study(snaps, *, methods: Sequence[str] | None = None, ranks: Sequence[in
             continue
         if meth in ("pod_gpr", "nearest") and mode == "time":
             skipped.append({"method": meth, "reason": "used for parametric data"})
+            continue
+        if meth == "persistence" and mode != "time":
+            skipped.append({"method": meth, "reason": "a baseline of time series"})
             continue
         rs = [None] if (meth in RANKLESS and not (meth == "neural" and mode == "time")) else \
             ([min(max(ranks), 16)] if meth == "neural" else ranks)
