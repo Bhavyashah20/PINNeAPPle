@@ -132,3 +132,60 @@ def test_gateway_rest_routes(tmp_path, model):
     assert c.get("/v1/metrics").json()["calls"] == 2
     assert c.get(f"/v1/models/demo/versions/{v}/export/onnx").status_code == 409     # ridge: no export
     assert count_rows([{"a": 1}, {"a": 2}]) == 2 and count_rows([1.0, 2.0]) == 1
+
+
+@pytest.fixture()
+def served(tmp_path, model):
+    """A second gateway serving ``model`` over real HTTP (uvicorn in a thread)."""
+    pytest.importorskip("uvicorn")
+    import socket
+    import threading
+    import time
+
+    import uvicorn
+    from fastapi import FastAPI
+
+    from pinneapple_registry.gateway_api import gateway_router
+    src = ModelGateway(str(tmp_path / "src"))
+    src.publish("demo", model[0])
+    app = FastAPI()
+    app.include_router(gateway_router(src))
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
+    th = threading.Thread(target=server.run, daemon=True)
+    th.start()
+    while not server.started:
+        time.sleep(0.05)
+    yield f"http://127.0.0.1:{port}", src
+    server.should_exit = True
+    th.join(5)
+
+
+def test_client_remote_kind_and_publish_ref(tmp_path, served):
+    from pinneapple_registry.gateway_client import GatewayClient, GatewayError
+    base, src = served
+    c = GatewayClient(base)
+    assert [m["name"] for m in c.models()] == ["demo"]
+    r = c.predict("demo", {"a": [0.0, 9.0], "b": 0.0})
+    assert r["ood"][1]["ood"] and r["outputs"]["f"][0] is not None
+    with pytest.raises(GatewayError) as e:
+        c.predict("nope", {"a": 0})
+    assert e.value.status == 404
+    gw = ModelGateway(str(tmp_path / "front"))
+    v = gw.publish("proxied", f"{base}/v1/models/demo", kind="remote", ood_policy="refuse")
+    out = gw.predict("proxied", {"a": [0.0, 9.0], "b": 0.0})
+    direct = src.predict("demo", {"a": 0.0, "b": 0.0})
+    assert out["outputs"]["f"][0] == pytest.approx(direct["outputs"]["f"][0]) and out["outputs"]["f"][1] is None
+    assert gw.metadata("proxied", v)["remote"]["model"] == "demo" and gw.metrics()["calls"] == 1
+    ref = {"name": "from-ref", "version": "1", "uri": f"{base}/v1/models/demo", "trust_decision": "REVIEW",
+           "inputs": [{"name": "a", "low": -0.5, "high": 0.5}, {"name": "b", "low": -1, "high": 1}]}
+    v2 = gw.publish_ref(ref)
+    m = gw.metadata("from-ref", v2)
+    assert m["validity_bounds"]["a"] == [-0.5, 0.5] and m["trust"] == "REVIEW" and m["stage"] == "production"
+    assert gw.predict("from-ref", {"a": 0.8, "b": 0.0})["ood"][0]["outside"] == ["a"]   # the ref's tighter range
+    z = gw.publish_ref({"name": "zoo-airfoil", "uri": "zoo:airfoil_cst_rans_mlp"})
+    assert gw.metadata("zoo-airfoil", z)["kind"] == "pinneapple.zoo"
+    with pytest.raises(ValueError, match="publish_ref takes"):
+        gw.publish_ref({"name": "x", "uri": "/tmp/model"})

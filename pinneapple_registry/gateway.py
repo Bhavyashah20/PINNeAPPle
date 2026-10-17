@@ -8,7 +8,14 @@ model are served through one ``predict``:
                           OOD gate (training range + nearest-neighbour distance);
 ``pinneapple.zoo``        a pre-trained zoo model (``pp.zoo``), with the validity box of its model card;
 ``onnx``                  an ONNX graph (``inputs (n, d) -> outputs (n, p)``) with declared input / output names and
-                          validity bounds, run with onnxruntime.
+                          validity bounds, run with onnxruntime;
+``remote``                a model served by another app with this API (``https://host/v1/models/<name>``, e.g. the
+                          Surrogate Studio): this gateway enforces its validity bounds and OOD policy, logs and meters
+                          the call, and forwards the rows it accepts (``GatewayClient``).
+
+``publish_ref`` publishes from a ``ModelRef`` (``pinneapple_data.contracts``): ``zoo:<name>`` or an http(s) gateway
+URI; its input ranges become the validity bounds. Publishing a remote model makes this server call that URL: let only
+trusted callers publish.
 
 Each version has an ``ood_policy``: ``"warn"`` (predict and flag), or ``"refuse"`` (no prediction for an
 out-of-distribution row). A caller may ask for ``"refuse"`` on a ``"warn"`` model, never the reverse.
@@ -38,7 +45,7 @@ from .model_store import ModelStore, _check_publishable
 __all__ = ["ModelGateway", "OOD_POLICIES", "KINDS"]
 
 OOD_POLICIES = ("warn", "refuse")
-KINDS = ("pinneapple.surrogate", "pinneapple.zoo", "onnx")
+KINDS = ("pinneapple.surrogate", "pinneapple.zoo", "onnx", "remote")
 _POLICY_ORDER = {"warn": 0, "refuse": 1}
 
 
@@ -66,6 +73,19 @@ def _box_assess(names: Sequence[str], bounds: Mapping[str, Sequence[float]]):
                 for n, v, a, b in zip(names, r, lo, hi, strict=True) if n in out]})
         return rows
     return assess
+
+
+def _split_uri(uri: str) -> tuple[str, str, str | None]:
+    """``https://host[/prefix]/v1/models/<name>[/versions/<v>]`` -> (base, name, version)."""
+    from urllib.parse import unquote
+    if "/v1/models/" not in uri:
+        raise ValueError(f"{uri!r} is not a gateway model URI (…/v1/models/<name>)")
+    base, rest = uri.split("/v1/models/", 1)
+    parts = [unquote(x) for x in rest.strip("/").split("/") if x]
+    if not parts:
+        raise ValueError(f"{uri!r} names no model")
+    version = parts[2] if len(parts) >= 3 and parts[1] == "versions" else None
+    return base, parts[0], version
 
 
 class ModelGateway(ModelStore):
@@ -160,7 +180,52 @@ class ModelGateway(ModelStore):
             return {"inputs": list(spec["inputs"]), "outputs": list(spec["outputs"]), "grid_shape": [],
                     "validity_bounds": {k: list(map(float, v)) for k, v in spec["validity_bounds"].items()},
                     "method": spec.get("method", "onnx"), "metrics": spec.get("metrics", {}), "trust": None}
+        if kind == "remote":
+            from .gateway_client import GatewayClient
+            spec = dict(spec or {})
+            base, rname, rversion = _split_uri(str(model))
+            d = GatewayClient(base, timeout=float(spec.get("timeout", 30))).describe(rname, rversion)
+            bounds = spec.get("validity_bounds") or d.get("validity_bounds") or {}
+            missing = [n for n in d["inputs"] if n not in bounds]
+            if missing:
+                raise ValueError(f"no validity bounds for inputs {missing}: give them in spec['validity_bounds']")
+            return {"remote": {"base": base, "model": rname, "version": rversion or d.get("version"),
+                               "api_key_env": spec.get("api_key_env")}, "inputs": list(d["inputs"]),
+                    "outputs": list(d["outputs"]), "grid_shape": d.get("grid_shape") or [],
+                    "validity_bounds": {k: list(map(float, v)) for k, v in bounds.items()},
+                    "method": d.get("method"), "metrics": d.get("metrics", {}), "trust": d.get("trust"),
+                    "title": d.get("title", ""), "remote_ood_policy": d.get("ood_policy")}
         raise ValueError(kind)
+
+    def publish_ref(self, ref: Any, *, name: str | None = None, ood_policy: str = "warn",
+                    stage: str = "production", override_reason: str | None = None) -> str:
+        """Publish from a ``ModelRef`` (object or dict): ``zoo:<name>`` -> a zoo model, an http(s) gateway URI ->
+        a remote model whose validity bounds are the ref's input ranges. File URIs are refused here (a pickled
+        surrogate must come from a directory you produced: use ``publish``)."""
+        r = ref.to_dict() if hasattr(ref, "to_dict") else dict(ref)
+        uri = str(r.get("uri", ""))
+        name = name or r["name"]
+        src = f"ModelRef {r.get('name')} {r.get('version', '')}".strip()
+        trust = r.get("trust_decision")
+        override = override_reason
+        if uri.startswith("zoo:"):
+            return self.publish(name, uri[4:], kind="pinneapple.zoo", ood_policy=ood_policy, stage=stage, source=src,
+                                override_reason=override)
+        if uri.startswith(("http://", "https://")):
+            bounds = {v["name"]: [v["low"], v["high"]] for v in r.get("inputs", [])
+                      if v.get("low") is not None and v.get("high") is not None}
+            v = self.publish(name, uri, kind="remote", ood_policy=ood_policy, stage="development", source=src,
+                             spec={"validity_bounds": bounds or None})
+            meta = self.metadata(name, v)
+            if trust in ("APPROVED", "REVIEW", "REJECT"):
+                meta["trust"] = trust
+                meta["trust_report"] = {"decisao": trust, "motivos": [f"trust decision of {src}"]}
+            meta["model_ref"] = {k: r.get(k) for k in ("name", "version", "uri", "sha256", "metrics", "metrics_split")}
+            self._write_metadata(name, v, meta)
+            if stage != "development":
+                self.promote(name, v, stage, override_reason=override)
+            return v
+        raise ValueError(f"ModelRef uri {uri!r}: publish_ref takes zoo:<name> or an http(s) gateway URI")
 
     # ------------------------------------------------------------------------------------------ resolve / load
     def resolve(self, name: str, version: str | None = None) -> str:
@@ -206,6 +271,18 @@ class ModelGateway(ModelStore):
                 out = zm.predict({n: X[:, j] for j, n in enumerate(names)}, warn=False)
                 return {k: np.asarray(v) for k, v in out.items()}
             p = _Predictor(names, list(zm.output_names), run, _box_assess(names, meta["validity_bounds"]))
+        elif kind == "remote":
+            from .gateway_client import GatewayClient
+            rm = meta["remote"]
+            key = os.environ.get(rm["api_key_env"]) if rm.get("api_key_env") else None
+            client = GatewayClient(rm["base"], api_key=key)
+
+            def run(X, client=client, rm=rm, ins=meta["inputs"]):
+                rows = [dict(zip(ins, map(float, r), strict=True)) for r in X]
+                out = client.predict(rm["model"], rows, version=rm.get("version"))["outputs"]
+                return {k: np.asarray([np.nan if v is None else v for v in vals], dtype=float)
+                        for k, vals in out.items()}
+            p = _Predictor(meta["inputs"], meta["outputs"], run, _box_assess(meta["inputs"], meta["validity_bounds"]))
         else:
             import onnxruntime as ort
             sess = ort.InferenceSession(os.path.join(vdir, "model.onnx"), providers=["CPUExecutionProvider"])

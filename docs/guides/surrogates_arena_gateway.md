@@ -86,3 +86,13 @@ gw.export("airfoil-cl-cd", None, "onnx", "airfoil.onnx")                    # Py
 Versions follow `ModelStore` (`vYYYYMMDD_HHMMSS`, stages, a REJECT trust report blocks staging and production
 unless an override reason is recorded). A caller may tighten a model's OOD policy (warn to refuse), never relax it.
 Surrogates are unpickled only after their sha256 matches their card: publish only directories you produced.
+
+Other servers with the same API (the Surrogate Studio, the Benchmark Arena, any app built on `gateway_router`) are
+reachable from Python with `pinneapple_registry.gateway_client.GatewayClient(base_url, api_key=...)`. A gateway can
+serve them too:
+
+- `gw.publish(name, "https://host/v1/models/<model>", kind="remote")` forwards to the remote model;
+- `gw.publish_ref(model_ref)` publishes from a `ModelRef`: `zoo:<name>`, or an http(s) URI whose input ranges become
+  the validity bounds.
+
+The front gateway enforces its own bounds and OOD policy, and logs and meters every call before forwarding.
