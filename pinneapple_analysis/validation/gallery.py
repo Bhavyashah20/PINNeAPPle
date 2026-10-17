@@ -50,7 +50,10 @@ def conclude(name: str, good, bad, *, expect: str, family, physics, out_dir: str
         lines = [f"  {c.id}: good {good_status.get(c.id)}, broken {c.status}" for c in bad.checks]
         raise AssertionError(f"{name}: the broken variant was not caught by {expect!r}\n" + "\n".join(lines))
     res = GalleryResult(name, family, physics, good, bad, caught, expect)
-    out = Path(out_dir) if out_dir is not None else Path("examples/_out/validation") / name
+    if out_dir is None:                     # the repository's examples/_out (a source checkout), else the cwd's
+        root = Path(__file__).resolve().parents[2]
+        out_dir = (root if (root / "examples").is_dir() else Path.cwd()) / "examples" / "_out" / "validation" / name
+    out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     good.to_json(out / "report.json")
     card = good.to_trust_report()
