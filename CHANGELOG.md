@@ -14,6 +14,22 @@ How this file is maintained is described in [CONTRIBUTING.md](CONTRIBUTING.md#ch
 ## [Unreleased]
 
 ### Added
+- Evidence ledger, Validation Lab and evidence package in `pinneapple_veriphysics`:
+  - `ledger`: `EvidenceEntry` / `EvidenceLedger`. Each entry records the check, the SHA-256 of its inputs, its
+    outputs, start and finish times and the verdict, sealed with the SHA-256 of its content. `status()` is
+    "passed" or "failed" only for a complete, intact entry; anything else reads "not run" (an edited entry, a
+    crash, a missing hash or time). `record_checks` records the checks of a trust card (N/A checks get no entry).
+  - `validation_lab`: runs `pinneapple check` on the inputs of a folder and groups the outcomes into numerical
+    verification, validation against data and physical consistency. Per target, it lists the groups in which
+    nothing ran. Every outcome gets a ledger entry; the report holds the input manifest with hashes and the
+    configuration that reproduces it. `config_from_spec` writes the configuration from a plain description;
+    `assert_no_code` refuses models that would run uploaded code (zoo models only). `render_html` writes the report.
+  - `evidence_package`: reads other tools' outputs (Validation Lab reports, ledgers, `pinneapple check` JSON,
+    Simulation Comparator results, StudyResult / ModelRef / DatasetSpec JSON, metrics tables, any file by hash).
+    It builds a report with methodology, conditions, baseline comparison, tests, limitations and artifact
+    references, renders it as HTML and as PDF (`pinneapple_tools.reporting.paperkit`) and packs a zip with a
+    SHA-256 manifest (`verify_package`). A test is printed as passed only when the source's own ledger records
+    its run; a bare claim reads "not run".
 - Data contracts shared by the apps (`pinneapple_data.contracts`): `ParameterSpace` (bounds, units, log scale,
   integer and categorical parameters, constants, safe constraint expressions, unit-hypercube mapping, feasibility),
   `DatasetSpec` (columns with roles and units, files with SHA-256, splits, provenance), `ModelRef` (held-out metrics
