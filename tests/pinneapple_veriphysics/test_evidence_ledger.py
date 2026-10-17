@@ -224,6 +224,9 @@ def test_baseline_comparison_and_package_round_trip(tmp_path):
     rep = build_report({"title": "Poisson", "baseline": "FEM", "candidate": "PINN", "references": ["doi:x"]}, srcs)
     comp = {r["metric"]: r for r in rep["comparison"]}
     assert comp["rel_l2"]["baseline"] == pytest.approx(0.0012) and comp["rel_l2"]["candidate"] == pytest.approx(0.035)
+    both = _src("study.json", {"type": "StudyResult", "name": "FEM vs PINN study", "metrics": {"rel_l2": 9.0}})
+    rep2 = build_report({"baseline": "FEM", "candidate": "PINN"}, [srcs[0], both])
+    assert {r["metric"]: r["candidate"] for r in rep2["comparison"]}["rel_l2"] == pytest.approx(0.035)
     assert {a["sha256"] for a in rep["artifacts"]} == {s.sha256 for s in srcs}
     pytest.importorskip("matplotlib")
     figs = make_figures(rep, tmp_path)

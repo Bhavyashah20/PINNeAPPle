@@ -210,10 +210,15 @@ def _metrics(sources: Sequence[Source]) -> list[dict[str, Any]]:
 
 
 def _comparison(metrics: list[dict[str, Any]], baseline: str, candidate: str) -> list[dict[str, Any]]:
-    def pick(label):
-        lab = label.lower()
-        return {m["metric"]: m for m in metrics if label and lab in m["run"].lower()}
-    b, c = pick(baseline), pick(candidate)
+    """Rows of metrics found for both runs. A run belongs to the baseline when its label equals the baseline label
+    or contains it, and does not also contain the candidate label (a study named "FEM vs PINN" is neither)."""
+    bl, cl = baseline.lower(), candidate.lower()
+
+    def pick(mine, other):
+        exact = {m["metric"]: m for m in metrics if m["run"].lower() == mine}
+        loose = {m["metric"]: m for m in metrics if mine in m["run"].lower() and other not in m["run"].lower()}
+        return {**loose, **exact}
+    b, c = pick(bl, cl), pick(cl, bl)
     rows = []
     for k in [k for k in c if k in b]:
         bv, cv = b[k]["value"], c[k]["value"]
