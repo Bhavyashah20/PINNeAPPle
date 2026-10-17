@@ -20,6 +20,10 @@ CST_RANGE = {"T0": [0.10, 0.24], "T1": [0.08, 0.22], "T2": [0.08, 0.22], "M0": [
 AIRFOIL_CITATION = ("PINNeAPPle contributors (2026). Airfoil RANS campaign (OpenFOAM v1912 simpleFoam, k-omega SST, "
                     "Re 4e6, 436 runs) and MLP-ensemble surrogate. PINNeAPPle model zoo, "
                     "https://github.com/PINNeAPPle-Labs/PINNeAPPle")
+AIRFOIL_FIELDS_CITATION = ("PINNeAPPle contributors (2026). Airfoil RANS campaign (OpenFOAM v1912 simpleFoam, k-omega "
+                           "SST, Re 4e6, 436 runs): flow fields and MeshGraphNet surrogate (Pfaff T., Fortunato M., "
+                           "Sanchez-Gonzalez A., Battaglia P., Learning Mesh-Based Simulation with Graph Networks, "
+                           "ICLR 2021). PINNeAPPle, Zenodo DOI 10.5281/zenodo.23343062.")
 
 MODELS = {
     "airfoil_cst_rans_mlp": {
@@ -476,6 +480,187 @@ OPERATOR_DATASETS = {
     },
 }
 DATASETS.update(OPERATOR_DATASETS)
+
+AIRFOIL_FIELDS = {
+    "airfoil_rans_cst_re4e6_fields": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "Airfoil RANS flow fields, CST shapes, Re 4e6 (436 OpenFOAM runs, 20064-cell O-grid)",
+        "description": (
+            "The cell fields of the 436-run airfoil campaign (dataset airfoil_rans_cst_re4e6): steady 2-D RANS, "
+            "OpenFOAM v1912 simpleFoam, k-omega SST, y+ < 1, the shared 228 x 88 O-grid (20064 cells, far field 200 "
+            "chords), 100 Latin-hypercube CST airfoils x 4 angles and NACA 0012/2412/4412/4415 x 9 angles. Per run: "
+            "the 6 CST weights, the angle of attack, the final-iteration Cl, Cd, Cm, the run status (converged / "
+            "steady-ish / unsteady), the cell centres x, y (the grid moves with the shape) and the kinematic pressure "
+            "p, velocity Ux, Uy and eddy viscosity nut at every cell (free stream U = 1, chord 1). Cell order: "
+            "wall-normal level j outer, around-the-airfoil index i inner (j * 228 + i)."),
+        "license": "cc-by-4.0",
+        "source": ("pinneapple_design.aero.dataset.plan(100, 4) (seed 7) run with dataset.run_job "
+                   "(apps/aero_optimizer/tools/generate_dataset.py), written by "
+                   "pinneapple_design.aero.field_dataset.write_field_dataset; same case set-up as the 436-run "
+                   "campaign of airfoil_rans_cst_re4e6"),
+        "verification": (
+            "Regenerated with the campaign's case set-up; the 436 runs reproduce the coefficients of "
+            "airfoil_rans_cst_re4e6 (median |dCl| 1.8e-7, median |dCd|/Cd 1.6e-6, same run status in all 436). The "
+            "only differences above 1e-4 in Cl are 6 runs flagged unsteady, whose final-iteration values move "
+            "within their recorded oscillation (largest |dCl| 0.037, NACA 0012 at 14 deg); filter on status for "
+            "steady data. Solver verification of the campaign: grid study on NACA 2412 at alpha 4 deg "
+            "(6840/20064/45144 cells: Cl 0.6614/0.6625/0.6624, Cd GCI 1.9 %, observed order 2.4), XFOIL 6.99 "
+            "tripped (Cl -2.3 %, Cd +4.5 %), lift slope 0.110/deg as thin-airfoil theory, NASA TMR NACA 0012 SST "
+            "(Cd 0.00812 vs 0.0081). Field checks: all values finite; far-field pressure 0 and total pressure 0.5 "
+            "(U = 1); stagnation pressure within 2 % of 0.5 in 433 runs (max 0.527 in one converged run, 0.587 in "
+            "an unsteady snapshot). Status: 330 converged, 74 steady-ish, 32 unsteady."),
+        "splits": {
+            "train": "LHS runs of the 85 training shapes (every run, final-iteration values; filter on status)",
+            "test": "60 runs of the 15 held-out shapes of the airfoil surrogates (s003 s007 s008 s015 s016 s021 s026 "
+                    "s031 s042 s047 s054 s060 s069 s072 s079)",
+            "naca_reference": "36 NACA 0012/2412/4412/4415 runs (alpha -2..14), never used in training"},
+        "split_rule": "pinneapple_design.aero.train.split (15 % of the LHS shapes held out, seed 3)",
+        "columns": {
+            "run_id": ("-", "run identifier"), "shape_id": ("-", "shape identifier"),
+            **{n: (u, d) for n, u, d in CST}, "alpha_deg": ("deg", "angle of attack"),
+            "Cl": ("-", "lift coefficient (final iteration)"), "Cd": ("-", "drag coefficient (final iteration)"),
+            "Cm": ("-", "moment coefficient about c/4 (final iteration)"),
+            "status": ("-", "converged | steady-ish | unsteady"),
+            "x": ("chord", "cell-centre x (20064 cells)"), "y": ("chord", "cell-centre y (20064 cells)"),
+            "p": ("U^2", "kinematic pressure p / rho (free stream U = 1)"),
+            "Ux": ("U", "velocity x"), "Uy": ("U", "velocity y"),
+            "nut": ("U c", "turbulent eddy viscosity (molecular nu = 2.5e-7)")},
+        "tags": ["aerodynamics", "RANS", "OpenFOAM", "airfoil", "flow fields", "graph networks"],
+        "citation": AIRFOIL_FIELDS_CITATION,
+    },
+}
+DATASETS.update(AIRFOIL_FIELDS)
+
+THERMAL_CHANNEL_DATASETS = {
+    "thermal_channel_cfd": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "Actuated heated-channel CFD, 2-D incompressible flow + heat (82 trajectories, 128 x 32, 101 snapshots)",
+        "description": (
+            "Non-dimensional channel [0, 10] x [0, 1], Re 100, Pr 0.71: parabolic inlet with time-varying mean "
+            "velocity U(t) in [0.6, 1.4] and inlet temperature 0, no-slip walls, adiabatic except a heater on the "
+            "bottom wall at x in [2, 4] with flux -dT/dy = Q(t) in [0, 2], zero-gradient outlet. After a 15-unit "
+            "warm-up each trajectory records u, v, p, T on the 128 x 32 cell centres every 0.4 time units over 40 "
+            "units (101 snapshots), with the actuators and the quantities of interest (bulk outlet temperature, "
+            "maximum temperature, pressure drop, heat in / out, stored energy). Training actuation is random holds, "
+            "steps and ramps; two test splits use families never seen in training (chirped sinusoids, steps "
+            "between the range edges), for digital-twin and forecasting models. Cell centres and all solver "
+            "settings are in meta.json; fields[:, k] is the state at t = 0.4 k."),
+        "license": "cc-by-4.0",
+        "source": (
+            "python scripts/zoo/thermal_channel_data.py generate --out DIR; recipe of PINNeAPPle-Benchmark "
+            "experiment 05 (Apache-2.0) on pinneapple_simulation.numerical_solvers.thermal_channel_2d (staggered "
+            "MAC grid, Chorin projection, dt 0.01), seeds per trajectory in "
+            "pinneapple_simulation.numerical_solvers.thermal_channel_datasets.PLAN"),
+        "verification": (
+            "Solver checks (python scripts/zoo/thermal_channel_data.py verify, "
+            "pinneapple_simulation.numerical_solvers.thermal_channel_datasets.verify): plane Poiseuille flow, max "
+            "error of the velocity profile 4.8e-3 / 1.3e-3 / 3.5e-4 on 64 x 16 / 128 x 32 (the dataset grid) / "
+            "256 x 64 (second order), dp/dx within 1.2 % of -12/Re, max divergence 1e-7; fully developed Nusselt "
+            "number for one wall at uniform flux and one adiabatic, 5.392 / 5.388 vs 5.385 exact (Shah & London "
+            "1978), global energy imbalance 2.7e-8. Three-grid study of an actuated run (64 x 16, 128 x 32, "
+            "256 x 64, dt halved with h): GCI of the dataset grid 3.7 % for the bulk outlet temperature "
+            "(oscillatory convergence, observed order 1.3), 1.1 % for the maximum temperature (order 2.3), 1.3 % "
+            "for the pressure drop (order 1.3). In every trajectory the change of stored energy matches the "
+            "trapezoidal integral of the recorded heat in - out to 0.3 % (median, smooth actuation) and at most "
+            "4 % (steps, limited by the 0.4 sampling of the actuators). All fields finite; float32 storage."),
+        "splits": {"train": "48 trajectories (random steps and ramps)", "val": "8 trajectories (same family)",
+                   "test_same_family": "12 trajectories (same family, held-out seeds)",
+                   "test_unseen_sinusoid": "8 trajectories (chirped sinusoids, unseen family)",
+                   "test_unseen_edge_steps": "6 trajectories (steps between range edges, unseen family)"},
+        "split_rule": ("fixed seeds per split (train 0-47, val 1000-1007, test_same_family 2000-2011, "
+                       "test_unseen_sinusoid 3000-3007, test_unseen_edge_steps 4000-4005)"),
+        "columns": {"family": ("-", "actuation family"), "seed": ("-", "actuation seed"),
+                    "fields": ("-", "u, v, p, T on the 128 x 32 cell centres at the 101 record times "
+                                    "(trajectory x time x 4 x 128 x 32)"),
+                    "U": ("-", "inlet mean velocity at the record times"),
+                    "Q": ("-", "heater flux at the record times"),
+                    "U_fine": ("-", "inlet mean velocity every 0.1 time units (401 values)"),
+                    "Q_fine": ("-", "heater flux every 0.1 time units (401 values)"),
+                    "qoi_T_out": ("-", "bulk (flow-weighted) outlet temperature"),
+                    "qoi_T_max": ("-", "maximum temperature, heater wall included"),
+                    "qoi_dp": ("-", "inlet-to-outlet pressure drop"),
+                    "qoi_heat_in": ("-", "heat input rate of the heater"),
+                    "qoi_heat_out": ("-", "advected heat outflow rate at the outlet"),
+                    "qoi_energy": ("-", "thermal energy stored in the channel")},
+        "tags": ["CFD", "heat transfer", "digital twin", "Navier-Stokes", "forecasting", "benchmark"],
+        "citation": ("PINNeAPPle-Benchmark experiment 05 (actuated heated channel). Data generated with PINNeAPPle "
+                     "(pinneapple_simulation.numerical_solvers.thermal_channel_2d); PINNeAPPle, Zenodo DOI "
+                     "10.5281/zenodo.23343062."),
+    },
+}
+DATASETS.update(THERMAL_CHANNEL_DATASETS)
+# Black-hole weather (issue #399): density frames of whole simulated trajectories, Hub-only (scripts/zoo/build_blackhole.py)
+BLACKHOLE_DATASETS = {
+    "blackhole_riaf_density_256": {
+        "version": "1.0.0",
+        "hub_only": True,
+        "title": "Accretion onto a Schwarzschild black hole: 2.5-D viscous hydro density frames (256 x 128)",
+        "description": (
+            "Radiatively inefficient accretion flow grown from an equilibrium torus (Paczynski-Wiita potential, "
+            "Shakura-Sunyaev alpha viscosity, gamma 5/3, r = 4-400 GM/c^2, log-spaced 256 x 128 grid): the set-up of "
+            "Duarte, Nemmen & Navarro (2022), regenerated with pinneapple_physics.blackhole. Density in the "
+            "forecaster's window (r < 126.5 GM/c^2, theta in [pi/8, 7 pi/8]) every 20 GM/c^3 for t = 2000-10000 "
+            "GM/c^3, whole trajectories per split. The training data of the black-hole weather forecaster (#399)."),
+        "license": "cc-by-4.0",
+        "source": ("examples/black_hole_weather/simulate.py --nr 256 --ntheta 128 --viscosity SS --perturbation-kind "
+                   "modes --t-end 10000 --every 10 (runs and seeds in pinneapple_physics.blackhole.dataset.SPLITS); "
+                   "scripts/zoo/build_blackhole.py"),
+        "verification": (
+            "Solver: mass and angular momentum conserved to 1e-16 with the boundary fluxes counted, exact Bondi "
+            "accretion steady within 0.5 %, inviscid torus in equilibrium (tests/test_blackhole_weather.py). "
+            "Resolution study (examples/black_hole_weather/convergence.py; results/convergence.json): grids 90x45, "
+            "128x64, 181x90, 256x128 (ratio sqrt 2), seeds 0-2 on every grid with the same seeded perturbation, time "
+            "averages over t = 2000-10000 GM/c^3 with 95 % intervals (batch means and seeds). Converged within the "
+            "statistical band (the two finest grids agree within their intervals): mean accretion rate 2.18 +- 0.58 "
+            "(181) vs 1.97 +- 0.63 (256), window mass 2.65e4 vs 2.58e4, inner density slope -0.41 vs -0.38, "
+            "persistence error at 100 GM/c^3 0.0034 +- 0.0011 vs 0.0047 +- 0.0011. Not converged: from 181 to 256 "
+            "the time-mean profiles change more than between the coarser grids (density 6.3 % vs 0.8-1.6 %, "
+            "specific angular momentum 4.2 % vs 0.5 %, angular-momentum flux 11 % vs 1.5-2.5 %; l / l_Kepler at "
+            "r = 10 rises 3.8 % beyond its interval), so the observed order is negative and no GCI applies; the "
+            "number of cells where the speed / temperature ceilings act grows with resolution and is the likely "
+            "cause. The 256 x 128 grid is the finest the study could afford (a 362 x 181 run did not finish); the "
+            "181 -> 256 changes are the uncertainty band of these data. The published PLUTO runs and the paper's "
+            "values could not be retrieved for a direct comparison."),
+        "splits": {"train": "seeds 0-3, alpha 0.1: 4 whole trajectories, 401 frames each",
+                   "val": "seed 4, alpha 0.1 (whole trajectory)",
+                   "test": "seed 5, alpha 0.1 (whole trajectory, held out)",
+                   "ood_alpha0.3": "alpha 0.3, seed 0: other physics, never used in training",
+                   "grid_r": "radial cells of the window", "grid_theta": "theta cells of the window",
+                   "convergence": "resolution study: one row per grid and seed (90x45 to 256x128, seeds 0-2)"},
+        "split_rule": "by trajectory (seed), never by time inside a trajectory: train seeds 0-3, val 4, test 5",
+        "columns": {
+            "run": ("-", "trajectory: the seed of the initial torus perturbation"),
+            "alpha": ("-", "Shakura-Sunyaev viscosity parameter"),
+            "t": ("GM/c^3", "time"),
+            "mdot": ("code units", "accretion rate through r_in = 4 GM/c^2 (density maximum of the initial torus = 1)"),
+            "log10_rho_q": ("-", "uint16 (frames, 192 r, 96 theta): log10 rho = -8 + q * 9 / 65535 in the window "
+                                 "(pinneapple_physics.blackhole.dataset.decode)"),
+            "r": ("GM/c^2", "radius of the cell centres (volume weighted)"),
+            "r_face_lo": ("GM/c^2", "inner radial face"), "r_face_hi": ("GM/c^2", "outer radial face"),
+            "theta": ("rad", "polar angle of the cell centres"),
+            "theta_face_lo": ("rad", "lower theta face"), "theta_face_hi": ("rad", "upper theta face"),
+            "nr": ("-", "radial cells of the grid"), "ntheta": ("-", "theta cells of the grid"),
+            "seed": ("-", "seed of the initial perturbation"),
+            "mdot_mean": ("code units", "time-mean accretion rate"),
+            "mdot_rms_over_mean": ("-", "rms / mean of the accretion rate (includes the secular drain of the torus)"),
+            "mdot_detrended_rms": ("-", "rms of mdot / (500 GM/c^3 running mean) - 1"),
+            "mdot_psd_slope": ("-", "log-log slope of the accretion-rate power spectrum, 1/2000 to 1/50 per GM/c^3"),
+            "window_mass_mean": ("code units", "time-mean mass in the window"),
+            "persistence_mae_20M": ("-", "MAE of persistence at 20 GM/c^3 (normalised log density, log10 rho in [-6, 0])"),
+            "persistence_mae_100M": ("-", "same, 100 GM/c^3"),
+            "persistence_mae_1000M": ("-", "same, 1000 GM/c^3"),
+            "rho_slope_r10_60": ("-", "d ln rho / d ln r of the time-mean shell density, r = 10-60 GM/c^2"),
+            "ell_over_kepler_r10": ("-", "time-mean specific angular momentum / Keplerian (Paczynski-Wiita), r = 10"),
+            "ell_over_kepler_r30": ("-", "same at r = 30 GM/c^2")},
+        "tags": ["astrophysics", "black hole", "accretion", "hydrodynamics", "forecasting"],
+        "citation": ("Duarte R., Nemmen R., Navarro J. P. (2022) MNRAS 512, 5848 (set-up and forecaster); Almeida I., "
+                     "Nemmen R. (2020) MNRAS 492, 2553 (simulations); data generated with PINNeAPPle, Zenodo DOI "
+                     "10.5281/zenodo.23343062."),
+    },
+}
+DATASETS.update(BLACKHOLE_DATASETS)
 
 
 def hf_repo(kind: str, name: str) -> str:
